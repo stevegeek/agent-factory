@@ -46,7 +46,7 @@ SSH_VERBS = {"start", "status", "collect", "remove", "list"}
 JOB_SCRIPT = r"""
 set -u
 cd /job
-git clone -q --no-checkout repo.bundle repo && cd repo \
+git -c init.defaultBranch=main clone -q --no-checkout repo.bundle repo && cd repo \
   && git checkout -q -B "$JOB_BRANCH" "origin/$JOB_START" || exit 1
 cp -a /job/untracked/. . 2>/dev/null || true
 pi --provider anthropic --model "$JOB_MODEL" -p --no-session --no-approve \
@@ -160,7 +160,6 @@ def run_job(job):
         env = dict(os.environ)
         with open(KEY_FILE) as f:
             env["ANTHROPIC_API_KEY"] = f.read().strip()
-        env.update(job_env)
         mounts = []
         for m in remote.get("mounts", []):
             mounts += ["-v", m.replace("{root}", ROOT)]
@@ -168,7 +167,7 @@ def run_job(job):
                "--memory", remote.get("memory", "800m"), "--cpus", "2", "--pids-limit", "512",
                "--cap-drop=all", "--security-opt=no-new-privileges",
                "--userns=keep-id:uid=1000,gid=1000", "--user", "1000:1000", "-e", "ANTHROPIC_API_KEY",
-               *[a for k in job_env for a in ("-e", k)],
+               *[a for k, v in job_env.items() for a in ("-e", f"{k}={v}")],
                "-v", f"{d}/work:/job", "-v", f"{d}/home:/home/scion", *mounts, "-w", "/job",
                "--entrypoint", "/bin/sh", remote.get("image", "localhost/factory-pi:dev"), "-c", JOB_SCRIPT]
         with open(os.path.join(d, "run.log"), "w") as out:
