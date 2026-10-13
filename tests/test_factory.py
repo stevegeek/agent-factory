@@ -343,6 +343,61 @@ class IntentTest(DoorsTest):
             factory.cmd_approve(self.cfg, self.args(ticket=t["id"], only=None))
 
 
+class PanelTest(DoorsTest):
+    PROPOSALS = [{"title": f"P{i}", "noticed": "n", "change": "c", "why": "w", "cost": "small"} for i in (1, 2, 3)]
+
+    def prospected(self):
+        self.cfg["schedules"] = [{"name": "scan", "every_days": 30, "kind": "prospect", "title": "Scan", "body": "b"}]
+        factory.clock(self.cfg)
+        t = factory.all_tickets()[0]
+        self.assertEqual((t["kind"], t["column"], factory.stage_for(t)), ("prospect", "ready", "prospect"))
+        t["agent"] = {"name": "t0001-p1", "stage": "prospect", "started": factory.now()}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, {"path": "/x", "base": "main"}, t,
+                                 {"proposals": self.PROPOSALS + [{"title": "no evidence"}]})
+        return t
+
+    def vote(self, t, scores):
+        t["agent"] = {"name": f"v{len(t['votes'])}", "stage": "vote", "started": factory.now(), "host": "pi"}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, {"path": "/x", "base": "main"}, t,
+                                 {"scores": [{"index": i, "score": s, "reason": "r"} for i, s in enumerate(scores, 1)]})
+
+    def test_voters_are_blind_and_the_panel_drops_one_voter_wonders(self):
+        t = self.prospected()
+        self.assertEqual((t["column"], len(t["proposals"]), factory.stage_for(t)), ("voting", 3, "vote"))
+        self.vote(t, [5, 5, 2])
+        prompt = factory.vote_prompt(t)
+        self.assertIn("Proposal 3: P3", prompt)
+        self.assertNotIn("5", prompt.split("Proposal 1")[0])   # no earlier scores leak in
+        self.assertEqual((t["column"], factory.stage_for(t)), ("voting", "vote"))
+        self.vote(t, [4, 2, 1])
+        self.vote(t, [5, 3, 2])
+        self.assertEqual(t["column"], "done")
+        kept = [x for x in factory.all_tickets() if x.get("kind") == "proposal"]
+        self.assertEqual([k["title"] for k in kept], ["P1"])          # P2: one keen voter, mean < 3; P3: none
+        self.assertEqual(kept[0]["panel"]["scores"], [5, 4, 5])
+        self.assertIsNone(factory.stage_for(kept[0]))
+        self.assertEqual(len(t["panel_result"]["dropped"]), 2)
+
+    def test_tally_ranks_agreement_above_a_split(self):
+        votes = [{"scores": {"1": {"score": s1}, "2": {"score": s2}}} for s1, s2 in ((4, 5), (4, 1), (4, 5))]
+        agree, split = factory.panel_tally(1, votes), factory.panel_tally(2, votes)
+        self.assertGreater(agree["priority"], split["priority"])
+        self.assertTrue(split["survives"])
+
+    def test_approving_a_proposal_files_a_change_ticket(self):
+        t = self.prospected()
+        for s in ([5, 1, 1], [5, 1, 1], [4, 1, 1]):
+            self.vote(t, s)
+        factory.save_ticket(t)
+        prop = next(x for x in factory.all_tickets() if x.get("kind") == "proposal")
+        import argparse
+        factory.cmd_approve(self.cfg, argparse.Namespace(ticket=prop["id"], only=None))
+        change = factory.load_ticket(factory.load_ticket(prop["id"])["children"][0])
+        self.assertEqual((change["column"], change.get("kind"), factory.stage_for(change)), ("ready", None, "work"))
+
+
 class UpkeepTest(DoorsTest):
     def test_newer_release_files_one_notice_and_tick_ignores_it(self):
         cfg = {"images": {"claude": "2.1.296", "pi": "1.2.0"}, "projects": {}}

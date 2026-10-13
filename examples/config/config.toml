@@ -36,6 +36,8 @@ review = "gem-reviewer"
 security = "gem-security"
 task = "gem-task"
 design = "gem-designer"
+prospect = "gem-prospector"
+vote = "gem-voter"
 
 [models]                     # per stage; empty = harness default
 triage = ""
@@ -50,6 +52,9 @@ allowed_paths = ["*.md", "docs/*", "CHANGELOG*", ".standard.yml", ".rubocop.yml"
 memory = "900m"
 mounts = ["{root}/cache/bundle:/home/scion/.bundle-cache:ro"]   # {root} = ~/factory
 env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
+
+[panel]                      # blind voting on prospecting proposals
+voters = 3
 
 [triage.auto_accept]         # accepted triage goes straight to "ready" for these doors
 github = false               # otherwise it waits in needs_human
@@ -92,3 +97,10 @@ name = "rails-release-check"
 every_days = 30
 title = "Check compatibility with the latest Rails release"
 body = """Check whether a Rails version newer than the ones covered by Appraisals and the CI matrix has been released. If so, add it to Appraisals and the CI matrix, run the suite against it, and fix any incompatibility. If nothing newer exists, reject this ticket."""
+
+[[schedules]]                # prospecting: proposals, scored by a blind panel ([panel] voters)
+name = "prospecting"
+every_days = 30
+kind = "prospect"
+title = "Look for improvements worth the maintainer's attention"
+body = """Look across the code, tests and docs for improvements with concrete evidence."""
