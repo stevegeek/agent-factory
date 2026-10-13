@@ -684,7 +684,7 @@ class GithubOutTest(RepoCase):
         super().setUp()
         self.key = os.path.join(self.repo, "..", "app.pem")
         sh(self.repo, "openssl", "genrsa", "-out", self.key, "2048")
-        self.cfg = {"github": {"app_client_id": "Iv23test", "installation_id": 42, "key": self.key},
+        self.cfg = {"github": {"app_client_id": "Iv23test", "installation_id": 42, "key": self.key, "reviewers": ["stevegeek"]},
                     "identity": {"pr_footer": "Opened by a bot."}}
         self.project = {**self.project, "github": "o/gem"}
         factory._installation_token.clear()
@@ -726,7 +726,7 @@ class GithubOutTest(RepoCase):
              mock.patch.object(factory, "branch_head", return_value=t["gate"]["head"]), \
              mock.patch.object(factory, "run", side_effect=lambda cmd, **kw: calls.append((cmd, kw)) or
                                mock.Mock(returncode=0, stdout="", stderr="")), \
-             mock.patch.object(factory, "github_api", side_effect=lambda cfg, m, p, body=None: requests.append(body)
+             mock.patch.object(factory, "github_api", side_effect=lambda cfg, m, p, body=None: requests.append((p, body))
                                or {"number": 5, "html_url": "https://github.com/o/gem/pull/5", "draft": True}), \
              mock.patch.object(factory, "log"):
             factory.open_pr(self.cfg, self.project, t)
@@ -734,7 +734,8 @@ class GithubOutTest(RepoCase):
         self.assertNotIn("ghs_secret", " ".join(push))
         self.assertEqual(kw["env"]["FACTORY_GH_TOKEN"], "ghs_secret")
         self.assertIn("refs/heads/bot/x:refs/heads/bot/x", push)
-        body = requests[0]
+        body = requests[0][1]
+        self.assertEqual(requests[1], ("/repos/o/gem/pulls/5/requested_reviewers", {"reviewers": ["stevegeek"]}))
         self.assertTrue(body["draft"])
         self.assertIn("Fixes #7", body["body"])
         self.assertIn("12 changed lines", body["body"])

@@ -23,6 +23,7 @@ rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name t
 # app_client_id = "Iv23..."
 # installation_id = 12345678
 # open_prs = "manual"        # or "auto": open PRs for ready_for_pr tickets on each tick
+# reviewers = ["you"]        # review requested on every PR the factory opens
 
 # Commit identity and PR attribution for every agent.
 [identity]

@@ -1076,7 +1076,21 @@ def open_pr(cfg, project, t):
         pr = existing[0]
     t["pr"] = {"number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft", draft)}
     move(t, "pr_open", f"{'draft ' if t['pr']['draft'] else ''}PR {pr['html_url']}")
+    request_review(cfg, project, t)
     return t["pr"]
+
+
+def request_review(cfg, project, t):
+    reviewers = cfg["github"].get("reviewers", [])
+    if not reviewers:
+        return
+    try:
+        github_api(cfg, "POST", f"/repos/{project['github']}/pulls/{t['pr']['number']}/requested_reviewers",
+                   {"reviewers": reviewers})
+        event(t, "review requested", ", ".join(reviewers))
+    except urllib.error.HTTPError as e:
+        # the PR is open either way; a failed request should not leave the ticket behind
+        event(t, "error", f"github: review request for {', '.join(reviewers)} failed ({e.code})")
 
 
 def check_pr(cfg, project, t):
