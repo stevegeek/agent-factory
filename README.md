@@ -2,10 +2,6 @@
 
 Orchestration for unattended coding agents on small, resource-constrained machines. A file-based board drives each ticket through fresh, sandboxed agents (triage → work → review → security) and a deterministic gate. Agents work on branches and never push; anything irreversible stays with a person.
 
-<!-- rigor:line -->
-> "I have not examined this code. It ran; that is all I claim. I make no recommendation either way about depending on it." — Stephen Ierodiaconou, [RIGOR.md](RIGOR.md)
-<!-- /rigor:line -->
-
 Agents: Claude Code via [Scion](https://github.com/GoogleCloudPlatform/scion) (local mode, rootless Podman), or [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) for hosts whose CPU can't run Claude Code's native binary.
 
 ## Layout
