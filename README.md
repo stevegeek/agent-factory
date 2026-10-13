@@ -14,6 +14,7 @@ Agents: Claude Code via [Scion](https://github.com/GoogleCloudPlatform/scion) (l
 | `bin/factory-remote` | on a helper host: runs dispatcher stages as Pi jobs (the dispatcher's SSH key is forced to it) |
 | `deploy.sh` | render + copy to a host over SSH |
 | `host/setup.sh` | host base setup: zram, systemd-oomd, locked `factory` user, memory budget, rootless Podman |
+| `host/slim.sh` | optional: strip the Ubuntu server install to what the factory uses (dry run by default) |
 | `host/allow-dispatcher.sh` | on a helper host: authorise the dispatcher's key, forced to `factory-remote` |
 | `images/claude/` | Scion/Claude Code agent image + rules every agent gets |
 | `images/pi/` | Pi agent image |
@@ -29,6 +30,8 @@ Host (Ubuntu 26.04), once, as admin:
 ```sh
 sudo ADMIN_USER=you bash host/setup.sh
 # 2 GiB host: add BUDGET_MEMORY_HIGH=1000M BUDGET_MEMORY_MAX=1200M BUDGET_SWAP_MAX=768M
+bash host/slim.sh                  # optional: see what slimming would remove (snapd, cloud-init, kdump, ...)
+sudo bash host/slim.sh --apply     # then reboot; --undo reinstalls
 ```
 
 Config repo (yours, private): `config.toml` (copy `examples/config/config.toml`), optional `rules.md` appended to the agent rules, this repo as a submodule:
