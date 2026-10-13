@@ -223,8 +223,9 @@ echo "-- check"
 ok=1
 systemctl is-active ssh systemd-networkd systemd-resolved || ok=0
 initrd=/boot/initrd.img-$running
-if command -v lsinitrd >/dev/null && lsinitrd "$initrd" >/dev/null 2>&1 \
-   && lsinitrd "$initrd" | grep -q "lib/modules/$running/"; then
+# capture first: under pipefail, grep -q exiting early would fail lsinitrd with SIGPIPE
+listing=$(lsinitrd "$initrd" 2>/dev/null || true)
+if grep -q "lib/modules/$running/" <<<"$listing"; then
   echo "initrd for $running: readable, has its modules"
 else
   ok=0
