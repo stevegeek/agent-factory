@@ -272,16 +272,23 @@ HOSTS = {"pi": {"ssh": "factory@pi", "slots": 1, "stages": ["triage", "review"]}
 
 
 class PickHostTest(unittest.TestCase):
-    def test_helper_host_first_then_local_then_none(self):
-        cfg = {"max_agents": 1, "hosts": HOSTS}
-        self.assertEqual(factory.pick_host(cfg, "review", {factory.LOCAL: 0}), "pi")
-        self.assertEqual(factory.pick_host(cfg, "review", {factory.LOCAL: 0, "pi": 1}), factory.LOCAL)
-        self.assertIsNone(factory.pick_host(cfg, "review", {factory.LOCAL: 1, "pi": 1}))
+    cfg = {"max_agents": 1, "hosts": HOSTS}
 
-    def test_stage_not_listed_and_down_hosts_stay_local(self):
-        cfg = {"max_agents": 1, "hosts": HOSTS}
-        self.assertEqual(factory.pick_host(cfg, "work", {factory.LOCAL: 0}), factory.LOCAL)
-        self.assertEqual(factory.pick_host(cfg, "triage", {factory.LOCAL: 0}, down={"pi"}), factory.LOCAL)
+    def test_local_first_then_helper_as_overflow_then_none(self):
+        self.assertEqual(factory.pick_host(self.cfg, "review", {factory.LOCAL: 0}), factory.LOCAL)
+        self.assertEqual(factory.pick_host(self.cfg, "review", {factory.LOCAL: 1}), "pi")
+        self.assertIsNone(factory.pick_host(self.cfg, "review", {factory.LOCAL: 1, "pi": 1}))
+
+    def test_helper_takes_only_listed_stages_and_not_when_down(self):
+        self.assertIsNone(factory.pick_host(self.cfg, "work", {factory.LOCAL: 1}))
+        self.assertIsNone(factory.pick_host(self.cfg, "triage", {factory.LOCAL: 1}, down={"pi"}))
+
+    def test_pinned_ticket_runs_only_on_its_host_whatever_the_stage(self):
+        self.assertEqual(factory.pick_host(self.cfg, "work", {factory.LOCAL: 0}, pinned="pi"), "pi")
+        self.assertIsNone(factory.pick_host(self.cfg, "work", {factory.LOCAL: 0, "pi": 1}, pinned="pi"))
+        self.assertIsNone(factory.pick_host(self.cfg, "work", {factory.LOCAL: 0}, down={"pi"}, pinned="pi"))
+        self.assertIsNone(factory.pick_host(self.cfg, "review", {factory.LOCAL: 1}, pinned=factory.LOCAL))
+        self.assertIsNone(factory.pick_host(self.cfg, "review", {factory.LOCAL: 0}, pinned="gone"))
 
 
 class RemoteStageTest(RepoCase):
@@ -403,19 +410,35 @@ class RemoteStageTest(RepoCase):
         t = self.collected(self.ticket("triage"), "triage", {"agent.log": b"crashed"})
         self.assertEqual((t["column"], t["agent"]), ("needs_human", None))
 
-    def test_unreachable_helper_host_falls_back_to_local(self):
-        t = self.ticket("triage")
+    def tick(self, tickets, local_running, remote_effect):
         cfg = {**self.cfg, "max_agents": 1}
-        with mock.patch.object(factory, "remote", side_effect=factory.RemoteError("down")), \
+        with mock.patch.object(factory, "remote", side_effect=remote_effect) as remote, \
              mock.patch.object(factory, "scion") as scion, \
-             mock.patch.object(factory, "running_agents", return_value=set()), \
-             mock.patch.object(factory, "all_tickets", return_value=[t]), \
+             mock.patch.object(factory, "running_agents", return_value=set(local_running)), \
+             mock.patch.object(factory, "all_tickets", return_value=tickets), \
              mock.patch.object(factory, "save_ticket"), \
              mock.patch.object(factory, "ROOT", self.logs.name), \
              mock.patch.object(factory, "BOARD", os.path.join(self.logs.name, "board")):
             factory.tick(cfg)
-        self.assertEqual(t["agent"]["host"], factory.LOCAL)
-        self.assertEqual(scion.call_args.args[0], self.project)
+        return remote, scion
+
+    def test_helper_takes_work_only_when_this_host_is_full(self):
+        first, second = self.ticket("triage"), {**self.ticket("triage"), "id": "T0004"}
+        remote, scion = self.tick([first, second], [], lambda *a, **k: b"{}")
+        self.assertEqual((first["agent"]["host"], second["agent"]["host"]), (factory.LOCAL, "pi"))
+        self.assertEqual(scion.call_count, 1)
+
+    def test_unreachable_helper_leaves_overflow_waiting(self):
+        t = self.ticket("triage")
+        _, scion = self.tick([t], ["someone-else"], factory.RemoteError("down"))
+        self.assertEqual((t["agent"], t["column"]), (None, "triage"))
+        scion.assert_not_called()
+
+    def test_pinned_ticket_waits_for_its_host(self):
+        t = {**self.ticket("triage"), "host": "pi"}
+        _, scion = self.tick([t], [], factory.RemoteError("down"))
+        self.assertEqual((t["agent"], t["column"]), (None, "triage"))
+        scion.assert_not_called()
 
 
 class FactoryRemoteTest(unittest.TestCase):

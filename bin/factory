@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Agent factory dispatcher: a file-based board that drives Scion agents
 through work -> review -> security -> gate. Runs as the 'factory' user.
-Stages listed under [hosts.<name>] run as Pi jobs on that host (bin/factory-remote).
+Stages run here first; a [hosts.<name>] helper takes the stages it lists only when this
+host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs only there.
 
   factory add <project> "<title>" [--body TEXT | --body-file F] [--door human|clock|github|peer] [--triage]
+                                  [--host auto|local|<name>]
+  factory host <ticket> auto|local|<name>
   factory ls [--all]
   factory show <ticket>
   factory move <ticket> <column> [--note TEXT]
@@ -265,12 +268,20 @@ def remote(host, *args, stdin=b"", timeout=120):
     return r.stdout
 
 
-def pick_host(cfg, stage, busy, down=()):
-    """First helper host that runs this stage and has a free slot, else this host."""
-    for name, h in cfg.get("hosts", {}).items():
-        if name not in down and stage in h.get("stages", []) and busy.get(name, 0) < h.get("slots", 1):
+def pick_host(cfg, stage, busy, down=(), pinned=None):
+    """This host first; a helper host only takes stages it lists, as overflow when this
+    host is full. A ticket pinned to a host runs only there, whatever the stage."""
+    hosts = cfg.get("hosts", {})
+    free = lambda name: busy.get(name, 0) < (cfg.get("max_agents", 2) if name == LOCAL else hosts[name].get("slots", 1))
+    if pinned:
+        known = pinned == LOCAL or pinned in hosts
+        return pinned if known and pinned not in down and free(pinned) else None
+    if free(LOCAL):
+        return LOCAL
+    for name, h in hosts.items():
+        if name not in down and stage in h.get("stages", []) and free(name):
             return name
-    return LOCAL if busy.get(LOCAL, 0) < cfg.get("max_agents", 2) else None
+    return None
 
 
 def tar_bytes(files):
@@ -648,7 +659,7 @@ def tick(cfg):
                     move(t, "ready_for_pr", "auto-merge eligible" if t["gate"]["auto_eligible"] else "needs human review")
             elif t["column"] in STAGE_FOR_COLUMN:
                 stage = STAGE_FOR_COLUMN[t["column"]]
-                host = pick_host(cfg, stage, busy, down)
+                host = pick_host(cfg, stage, busy, down, t.get("host"))
                 if host is None:
                     continue
                 while host is not None:
@@ -659,7 +670,7 @@ def tick(cfg):
                     except RemoteError as e:
                         down.add(host)
                         event(t, "error", f"{host}: {str(e)[:250]}")
-                        host = pick_host(cfg, stage, busy, down)
+                        host = pick_host(cfg, stage, busy, down, t.get("host"))
         except Exception as e:
             event(t, "error", str(e)[:300])
             move(t, "needs_human", "dispatcher error")
@@ -742,14 +753,34 @@ def cmd_add(cfg, a):
         with open(a.body_file) as f:
             body = f.read()
     column = "triage" if (a.triage or a.door in ("github", "clock")) else "ready"
-    print(new_ticket(a.project, a.title, body, a.door, column)["id"])
+    t = new_ticket(a.project, a.title, body, a.door, column)
+    if a.host:
+        pin_host(cfg, t, a.host)
+        save_ticket(t)
+    print(t["id"])
+
+
+def pin_host(cfg, t, host):
+    if host == "auto":
+        t.pop("host", None)
+    elif host == LOCAL or host in cfg.get("hosts", {}):
+        t["host"] = host
+    else:
+        sys.exit(f"unknown host {host}; known: auto, {LOCAL}, {', '.join(cfg.get('hosts', {}))}")
+    event(t, "host", host)
+
+
+def cmd_host(cfg, a):
+    t = load_ticket(a.ticket)
+    pin_host(cfg, t, a.host)
+    save_ticket(t)
 
 
 def cmd_ls(cfg, a):
     for t in all_tickets():
         if not a.all and t["column"] in ("done", "rejected"):
             continue
-        agent = ""
+        agent = f"(@{t['host']})" if t.get("host") else ""
         if t.get("agent"):
             host = t["agent"].get("host", LOCAL)
             agent = t["agent"]["name"] + (f"@{host}" if host != LOCAL else "")
@@ -780,6 +811,10 @@ def main():
     p.add_argument("--body-file")
     p.add_argument("--door", default="human", choices=["human", "clock", "github", "peer"])
     p.add_argument("--triage", action="store_true")
+    p.add_argument("--host", help="run every stage on this host (local or a [hosts] name); default auto")
+    p = sub.add_parser("host")
+    p.add_argument("ticket")
+    p.add_argument("host", help="auto, local, or a [hosts] name")
     sub.add_parser("ls").add_argument("--all", action="store_true")
     sub.add_parser("show").add_argument("ticket")
     p = sub.add_parser("move")
@@ -791,7 +826,7 @@ def main():
     sub.add_parser("clock")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "ls": cmd_ls, "show": cmd_show, "move": cmd_move,
+    {"add": cmd_add, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "move": cmd_move,
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c)}[a.cmd](cfg, a)
 

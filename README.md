@@ -53,7 +53,7 @@ Timers, as admin: `sudo bash ~factory/factory/systemd/install-units.sh --enable`
 
 ### Helper hosts
 
-A second host can take stages (e.g. triage and review) as Pi jobs. On the dispatcher, as `factory`:
+A smaller second host can run stages as Pi jobs: as overflow for the stages it lists when the dispatcher's own slots are full, or for any ticket pinned to it (`--host`). On the dispatcher, as `factory`:
 
 ```sh
 ssh-keygen -t ed25519 -N '' -C dispatcher -f ~/.ssh/factory-remote
@@ -75,6 +75,7 @@ factory add <project> "Title" --body "what and why"   # human door
 factory sweep                                          # github door: open issues → triage (untrusted)
 factory clock                                          # clock door: [[schedules]] that are due
 factory ls [--all] | show T0001 | move T0001 ready --note "approved"
+factory host T0001 helper                              # pin to a host (local, a [hosts] name, or auto)
 factory tick                                           # one pass; the timer runs it every 5 min
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
 ```

@@ -43,9 +43,11 @@ env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
 github = false               # otherwise it waits in needs_human
 clock = true
 
-# Helper hosts (optional): these stages run as Pi jobs there, over an SSH key forced to
-# bin/factory-remote (host/allow-dispatcher.sh). A stage goes to the first listed host
-# with a free slot, else runs here; an unreachable host is skipped for that tick.
+# Helper hosts (optional), reached over an SSH key forced to bin/factory-remote
+# (host/allow-dispatcher.sh); they run Pi jobs. Stages run here first; a helper takes
+# the stages it lists only when max_agents is reached here. A ticket pinned with
+# `factory add --host NAME` / `factory host T0001 NAME` runs every stage there and
+# waits while it is busy or unreachable.
 # [hosts.helper]
 # ssh = "factory@192.168.0.77"
 # slots = 1
