@@ -263,6 +263,54 @@ class DoorsTest(unittest.TestCase):
         self.assertEqual(len(factory.all_tickets()), 2)
 
 
+class UpkeepTest(DoorsTest):
+    def test_newer_release_files_one_notice_and_tick_ignores_it(self):
+        cfg = {"images": {"claude": "2.1.296", "pi": "1.2.0"}, "projects": {}}
+        latest = {"@anthropic-ai/claude-code": "2.1.300", "@earendil-works/pi-coding-agent": "1.2.0"}
+        with mock.patch.object(factory, "latest_npm_version", side_effect=latest.get):
+            factory.check_versions(cfg)
+            factory.check_versions(cfg)
+        tickets = factory.all_tickets()
+        self.assertEqual([(t["title"], t["column"], t["project"]) for t in tickets],
+                         [("Update Claude Code 2.1.296 -> 2.1.300", "needs_human", "factory")])
+        with mock.patch.object(factory, "running_agents", return_value=set()), \
+             mock.patch.object(factory, "ROOT", self.tmp.name), \
+             mock.patch.object(factory, "start_stage") as start:
+            factory.tick(cfg)
+        start.assert_not_called()
+        self.assertEqual(factory.all_tickets()[0]["history"][-1]["event"], "created")
+
+    def rebuild(self, results):
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            if cmd[:2] == ["podman", "build"]:
+                return mock.Mock(returncode=results.get("build", 0), stdout="", stderr="")
+            if cmd[:2] == ["podman", "run"]:
+                return mock.Mock(returncode=0, stdout=results.get("smoke", "ruby 3.3\n2.1.296 (Claude Code)\n"), stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        cfg = {"image": "localhost/factory-agent:scion", "images": {"claude": "2.1.296"}, "projects": {},
+               "remote": {"image": "localhost/factory-pi:dev"}}
+        with mock.patch.object(factory, "run", side_effect=fake_run), \
+             mock.patch.object(factory, "ROOT", self.tmp.name), \
+             mock.patch.object(factory, "LOGS", self.tmp.name):
+            factory.rebuild(cfg)
+        return calls
+
+    def test_rebuild_swaps_the_tag_only_after_checks_pass(self):
+        calls = self.rebuild({})
+        build = next(c for c in calls if c[:2] == ["podman", "build"])
+        self.assertIn("CLAUDE_VERSION=2.1.296", build)
+        self.assertIn(["podman", "tag", "localhost/factory-agent:candidate", "localhost/factory-agent:scion"], calls)
+
+    def test_rebuild_keeps_the_old_image_when_the_version_is_wrong(self):
+        calls = self.rebuild({"smoke": "2.1.999 (Claude Code)\n"})
+        self.assertNotIn(["podman", "tag", "localhost/factory-agent:candidate", "localhost/factory-agent:scion"], calls)
+        self.assertIn(["podman", "rmi", "localhost/factory-agent:candidate"], calls)
+
+
 remote_loader = importlib.machinery.SourceFileLoader("factory_remote", os.path.join(HERE, "..", "bin", "factory-remote"))
 remote_spec = importlib.util.spec_from_loader("factory_remote", remote_loader)
 factory_remote = importlib.util.module_from_spec(remote_spec)
@@ -439,6 +487,61 @@ class RemoteStageTest(RepoCase):
         _, scion = self.tick([t], [], factory.RemoteError("down"))
         self.assertEqual((t["agent"], t["column"]), (None, "triage"))
         scion.assert_not_called()
+
+
+class TaskTicketTest(RemoteStageTest):
+    def setUp(self):
+        super().setUp()
+        os.makedirs(os.path.join(self.templates.name, "task"))
+        with open(os.path.join(self.templates.name, "task", "agents.md"), "w") as f:
+            f.write("# task role\n")
+        self.cfg["hosts"] = {"pi": {**HOSTS["pi"], "prefer": ["task"]}}
+
+    def test_helper_preferred_for_tasks_then_local_and_never_local_without_a_project(self):
+        cfg = {"max_agents": 1, "hosts": self.cfg["hosts"]}
+        self.assertEqual(factory.pick_host(cfg, "task", {factory.LOCAL: 0}), "pi")
+        self.assertEqual(factory.pick_host(cfg, "task", {factory.LOCAL: 0, "pi": 1}), factory.LOCAL)
+        self.assertEqual(factory.pick_host(cfg, "review", {factory.LOCAL: 0}), factory.LOCAL)
+        self.assertIsNone(factory.pick_host(cfg, "task", {factory.LOCAL: 0, "pi": 1}, local_ok=False))
+        self.assertIsNone(factory.pick_host(cfg, "task", {factory.LOCAL: 0}, pinned=factory.LOCAL, local_ok=False))
+
+    def test_task_without_project_ships_no_repository(self):
+        t = {**self.ticket("ready"), "project": "factory", "kind": "task", "timeout_minutes": 60,
+             "title": "Summarise https://example.com/doc"}
+        self.assertEqual(factory.stage_for(t), "task")
+        files = self.start_with(t, None)
+        meta = json.loads(files["meta.json"])
+        self.assertNotIn("repo.bundle", files)
+        self.assertEqual((meta["branch"], meta["start"], meta["bundle"], meta["timeout_minutes"]),
+                         ("task", "none", False, 60))
+        self.assertEqual(files["role.md"], b"# task role\n")
+        self.assertIn(b"no repository", files["prompt.md"])
+        self.assertEqual(t["column"], "working")
+
+    def test_task_with_project_ships_base_only(self):
+        t = {**self.ticket("ready"), "kind": "task"}
+        files = self.start_with(t, self.project)
+        self.assertEqual(self.bundle_heads(files["repo.bundle"]), {"refs/heads/main"})
+
+    def start_with(self, t, project):
+        sent = {}
+
+        def fake_remote(host, *args, stdin=b"", timeout=120):
+            if stdin:
+                with tarfile.open(fileobj=io.BytesIO(stdin)) as tar:
+                    sent[args[0]] = {m.name: tar.extractfile(m).read() for m in tar.getmembers()}
+            return b"{}"
+
+        with mock.patch.object(factory, "remote", side_effect=fake_remote):
+            factory.start_stage(self.cfg, project, t, "task", "pi")
+        return sent["start"]
+
+    def test_finished_task_brings_its_result_to_a_person(self):
+        t = {**self.ticket("working"), "project": "factory", "kind": "task"}
+        t = self.collected(t, "task", {"report.json": b'{"status": "done", "summary": "up 100%", "result": "# Uptime\\nall good"}',
+                                       "head": b"abc\n"})
+        self.assertEqual((t["column"], t["result"]), ("needs_human", "# Uptime\nall good"))
+        self.assertIn("task done: up 100%", t["history"][-1]["detail"])
 
 
 class FactoryRemoteTest(unittest.TestCase):

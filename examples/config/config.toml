@@ -5,6 +5,16 @@ image = "localhost/factory-agent:scion"
 max_agents = 2               # agents running at once; ~500 MB each for Claude Code
 agent_timeout_minutes = 45
 
+# Pinned agent versions for the image builds. `factory rebuild` (weekly timer) rebuilds
+# with fresh OS packages at these versions; `factory versions` (via clock, weekly) files
+# a needs_human notice when a newer release exists.
+[images]
+claude = "2.1.296"
+pi = "1.2.0"
+
+[upkeep]
+rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name to pin it
+
 # Commit identity and PR attribution for every agent.
 [identity]
 git_name = "Your Name"
@@ -24,6 +34,7 @@ triage = "gem-triage"
 work = "gem-worker"
 review = "gem-reviewer"
 security = "gem-security"
+task = "gem-task"
 
 [models]                     # per stage; empty = harness default
 triage = ""
@@ -51,7 +62,9 @@ clock = true
 # [hosts.helper]
 # ssh = "factory@192.168.0.77"
 # slots = 1
-# stages = ["triage", "review"]
+# stages = ["triage", "review"]    # overflow when this host is full
+# prefer = ["task"]                # taken here first: light single-run tasks
+# notes = "what this host is good for"
 # model = "claude-sonnet-5-5"
 # key = "~/.ssh/factory-remote"
 

@@ -79,6 +79,8 @@ factory sweep                                          # github door: open issue
 factory clock                                          # clock door: [[schedules]] that are due
 factory ls [--all] | show T0001 | move T0001 ready --note "approved"
 factory host T0001 helper                              # pin to a host (local, a [hosts] name, or auto)
+factory add factory "Summarise <url>" --task           # one agent run, answer comes back to you
+factory result T0009                                   # (project `factory` = no repository; --timeout MIN)
 factory tick                                           # one pass; the timer runs it every 5 min
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
 ```
@@ -97,9 +99,18 @@ door → triage → ready → working → review → security → gate → ready
 - GitHub-door tickets wait in `needs_human` after triage unless `[triage.auto_accept] github = true`.
 - At most `max_agents` at once; each container is capped; one flock per tick.
 
+- Tasks (`--task`): one agent, no branch, review or gate; the role writes `result` and the ticket lands in `needs_human`. A helper with `prefer = ["task"]` takes them first.
+
+## Upkeep
+
+- OS: `sudo bash host/updates.sh` (optionally `REBOOT_AT=...`) lets unattended-upgrades take `-updates` as well as security. It adds a weekly reboot window that reboots only when an update asked for one. Before rebooting it drains new work and waits for agents, image rebuilds and apt.
+- Images: `factory rebuild` (timer `factory-rebuild.timer`, `[upkeep] rebuild_at`) rebuilds each agent image this host has, at the versions pinned in `[images]`, with fresh OS packages. A new image replaces the old only after a smoke test and, for the gate image, the projects' tests on their base branch. The old image stays as `:previous`.
+- Versions: `factory clock` runs `factory versions` weekly and files a `needs_human` notice (project `factory`) when a newer Claude Code or Pi release exists.
+- Timers: `sudo bash systemd/install-units.sh --enable` on the dispatcher; `--helper --enable` on a helper (rebuild only).
+
 ## Config
 
-`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[hosts.<name>]` (`ssh`, `slots`, `stages`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`. `FACTORY_ROOT` overrides `~/factory`.
+`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`. `FACTORY_ROOT` overrides `~/factory`.
 
 ## Tests
 

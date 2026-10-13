@@ -12,7 +12,7 @@ import sys
 import tomllib
 
 CORE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROLES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security"}
+ROLES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security", "task": "task"}
 PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
 
 
@@ -25,6 +25,7 @@ def values(cfg):
         "factory_user": host.get("factory_user", "factory"),
         "factory_uid": str(host.get("factory_uid", "")),
         "factory_home": host.get("factory_home", "/home/factory"),
+        "rebuild_at": cfg.get("upkeep", {}).get("rebuild_at", "Sun *-*-* 02:30:00"),
     }
     v["factory_root"] = v["factory_home"].rstrip("/") + "/factory"
     missing = [k for k, x in v.items() if not x]

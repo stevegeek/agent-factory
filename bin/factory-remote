@@ -2,7 +2,7 @@
 """Runs dispatcher stages as Pi jobs on a helper host. The dispatcher's SSH key is
 forced to this script, so these verbs are all it can do here:
 
-  start <job>     read a tar from stdin (repo.bundle, prompt.md, role.md, meta.json,
+  start <job>     read a tar from stdin ([repo.bundle], prompt.md, role.md, meta.json,
                   untracked/...), start the job in the background
   status <job>    {"state": "running" | "done" | "missing"}
   collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle
@@ -31,6 +31,7 @@ ROOT = os.environ.get("FACTORY_ROOT") or os.path.join(HOME, "factory")
 JOBS = os.path.join(ROOT, "jobs")
 CONFIG = os.path.join(ROOT, "config.toml")
 KEY_FILE = os.path.join(HOME, ".config", "factory", "anthropic-api-key")
+DRAINING = "/run/agent-factory-draining"     # set by the host's weekly reboot window (host/updates.sh)
 JOB_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
 BRANCH_NAME = re.compile(r"^[A-Za-z0-9._/-]{1,100}$")
 MODEL_NAME = re.compile(r"^[A-Za-z0-9._:/-]{1,80}$")
@@ -46,8 +47,14 @@ SSH_VERBS = {"start", "status", "collect", "remove", "list"}
 JOB_SCRIPT = r"""
 set -u
 cd /job
-git -c init.defaultBranch=main clone -q --no-checkout repo.bundle repo && cd repo \
-  && git checkout -q -B "$JOB_BRANCH" "origin/$JOB_START" || exit 1
+if [ -f repo.bundle ]; then
+  git -c init.defaultBranch=main clone -q --no-checkout repo.bundle repo && cd repo \
+    && git checkout -q -B "$JOB_BRANCH" "origin/$JOB_START" || exit 1
+else
+  # a task with no project: scratch space, a repository only so the head check works
+  mkdir repo && cd repo && git init -q -b "$JOB_BRANCH" \
+    && git -c user.name=job -c user.email=job@localhost commit -q --allow-empty -m scratch || exit 1
+fi
 cp -a /job/untracked/. . 2>/dev/null || true
 pi --provider anthropic --model "$JOB_MODEL" -p --no-session --no-approve \
    --append-system-prompt /etc/agent-rules.md --append-system-prompt /job/role.md \
@@ -118,6 +125,8 @@ def start(job):
     d = job_dir(job)
     if os.path.exists(d):
         die(f"{job} already exists")
+    if os.path.exists(DRAINING):
+        die("host is draining for a reboot")
     remote, _ = load_remote_config()
     if len(os.listdir(JOBS)) >= int(remote.get("max_jobs", 4)):
         die("too many jobs on this host")

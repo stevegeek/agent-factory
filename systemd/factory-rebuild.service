@@ -1,0 +1,16 @@
+[Unit]
+Description=Agent factory: rebuild agent images (pinned versions, fresh OS packages)
+After=network-online.target user@{{factory_uid}}.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{factory_user}}
+Group={{factory_user}}
+Environment=XDG_RUNTIME_DIR=/run/user/{{factory_uid}}
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{{factory_uid}}/bus
+WorkingDirectory={{factory_home}}
+ExecStart={{factory_root}}/bin/factory rebuild
+# no-cache build (<=100 min) + keep-id smoke test (<=40 min) + project tests (<=30 min each)
+TimeoutStartSec=4h
+Nice=10
