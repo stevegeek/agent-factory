@@ -13,6 +13,8 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory show <ticket>
   factory audit <ticket>   what happened and which gate decided (also logs/<ticket>/audit.md)
   factory proposals        open proposals from prospecting, in the blind panel's priority order
+  factory pr <ticket>      push a ready_for_pr branch and open its PR (draft unless auto-merge eligible)
+  factory github           check the GitHub App installation (repos, permissions)
   factory move <ticket> <column> [--note TEXT]
   factory tick        one scheduling pass (safe to run from a timer)
   factory sweep       file triage tickets for new open GitHub issues
@@ -21,6 +23,7 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory versions    file a notice ticket when a pinned agent version has a newer release
 """
 import argparse
+import base64
 import datetime as dt
 import fcntl
 import fnmatch
@@ -34,7 +37,9 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
+import urllib.error
 import urllib.request
 
 HOME = os.path.expanduser("~")
@@ -53,7 +58,7 @@ LOCAL = "local"
 MAX_ARCHIVED_BYTES = 2_000_000
 
 COLUMNS = ["triage", "ready", "working", "voting", "review", "security", "gate",
-           "ready_for_pr", "needs_human", "done", "rejected"]
+           "ready_for_pr", "pr_open", "needs_human", "done", "rejected"]
 # column a ticket waits in -> stage that runs next
 STAGE_FOR_COLUMN = {"triage": "triage", "ready": "work", "review": "review", "security": "security"}
 # stage -> column the ticket sits in while its agent runs
@@ -879,6 +884,22 @@ def tick(cfg):
             event(t, "error", str(e)[:300])
         save_ticket(t)
 
+    if cfg.get("github", {}).get("installation_id"):
+        for t in tickets:
+            project = cfg["projects"].get(t["project"])
+            if not project or not project.get("github"):
+                continue
+            try:
+                if t["column"] == "pr_open":
+                    check_pr(cfg, project, t)
+                elif t["column"] == "ready_for_pr" and cfg["github"].get("open_prs") == "auto":
+                    open_pr(cfg, project, t)
+                else:
+                    continue
+            except Exception as e:
+                event(t, "error", f"github: {str(e)[:250]}")
+            save_ticket(t)
+
     busy = {LOCAL: len(running_agents(cfg))}
     for t in tickets:
         host = (t.get("agent") or {}).get("host", LOCAL)
@@ -951,6 +972,119 @@ def fetch_open_issues(repo):
                                  headers={"Accept": "application/vnd.github+json", "User-Agent": "agent-factory"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return [i for i in json.load(r) if "pull_request" not in i]
+
+
+# ---------------------------------------------------------------- github out (a GitHub App; nothing here merges)
+
+GITHUB_KEY = os.path.join(HOME, ".config", "factory", "github-app.pem")
+_installation_token = {}
+
+
+def b64url(data):
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def github_app_jwt(cfg):
+    """A 9-minute JWT for the App, signed with its private key by openssl (no extra libraries)."""
+    gh = cfg["github"]
+    issued = int(time.time())
+    header = b64url(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
+    claims = b64url(json.dumps({"iat": issued - 60, "exp": issued + 540, "iss": str(gh["app_client_id"])}).encode())
+    signing_input = f"{header}.{claims}".encode()
+    r = subprocess.run(["openssl", "dgst", "-sha256", "-sign", os.path.expanduser(gh.get("key", GITHUB_KEY))],
+                       input=signing_input, capture_output=True, timeout=30)
+    if r.returncode != 0:
+        raise RuntimeError(f"signing the GitHub App JWT failed: {r.stderr.decode(errors='replace')[-200:]}")
+    return f"{header}.{claims}.{b64url(r.stdout)}"
+
+
+def github_request(method, path, token, body=None, scheme="Bearer"):
+    req = urllib.request.Request(
+        "https://api.github.com" + path, method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "agent-factory",
+                 "X-GitHub-Api-Version": "2022-11-28", "Authorization": f"{scheme} {token}"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        raw = r.read()
+    return json.loads(raw) if raw else {}
+
+
+def installation_token(cfg):
+    """An installation token (valid one hour); reused until five minutes before it expires."""
+    if _installation_token.get("expires", 0) - 300 > time.time():
+        return _installation_token["token"]
+    r = github_request("POST", f"/app/installations/{cfg['github']['installation_id']}/access_tokens",
+                       github_app_jwt(cfg))
+    expires = dt.datetime.fromisoformat(r["expires_at"].replace("Z", "+00:00")).timestamp()
+    _installation_token.update(token=r["token"], expires=expires)
+    return r["token"]
+
+
+def github_api(cfg, method, path, body=None):
+    return github_request(method, path, installation_token(cfg), body)
+
+
+def push_branch(cfg, project, branch):
+    if not branch.startswith("bot/"):
+        raise RuntimeError(f"refusing to push {branch}: the factory only pushes bot/* branches")
+    env = dict(os.environ, FACTORY_GH_TOKEN=installation_token(cfg), GIT_TERMINAL_PROMPT="0")
+    # the token reaches git through the environment, never argv or the remote URL
+    helper = '!f() { echo username=x-access-token; echo "password=$FACTORY_GH_TOKEN"; }; f'
+    run(["git", "-C", project["path"], "-c", "credential.helper=", "-c", f"credential.helper={helper}",
+         "push", "--force", "--quiet", f"https://github.com/{project['github']}.git",
+         f"refs/heads/{branch}:refs/heads/{branch}"], env=env, check=True, timeout=300)
+
+
+def pr_body(cfg, t):
+    """Public text: what the worker wrote plus how it was checked; no internal ids or board references."""
+    work, review = t["reports"].get("work", {}), t["reports"].get("review", {})
+    sec, g = t["reports"].get("security", {}), t["gate"]
+    answers = sec.get("answers") if isinstance(sec.get("answers"), list) else []
+    lines = [str(work.get("summary", "")).strip(), ""]
+    if t.get("source", {}).get("issue"):
+        lines += [f"Fixes #{t['source']['issue']}", ""]
+    lines += ["**How this was checked**", "",
+              "- Tests and lint pass on a fresh checkout with no network access.",
+              f"- Independent review: {review.get('verdict', '?')}; changes runtime behaviour for users: "
+              f"{review.get('runtime_behaviour', '?')}.",
+              f"- Security review (tier {t.get('security_tier', '?')}): {len(answers)} questions answered, "
+              "none above low concern.",
+              "- Small, docs/tests/config-only change: eligible for automatic approval." if g["auto_eligible"] else
+              "- Needs a maintainer's review: " + "; ".join(g.get("blockers", [])) + ".",
+              "", cfg.get("identity", {}).get("pr_footer", "")]
+    return "\n".join(lines).strip() + "\n"
+
+
+def open_pr(cfg, project, t):
+    if t["column"] != "ready_for_pr" or not t.get("gate"):
+        raise RuntimeError(f"{t['id']} is not ready for a PR")
+    if branch_head(project, t["branch"]) != t["gate"]["head"]:
+        raise RuntimeError("the branch moved after Gate 1 checked it; send it through the gate again")
+    push_branch(cfg, project, t["branch"])
+    repo, owner = project["github"], project["github"].split("/")[0]
+    draft = not t["gate"]["auto_eligible"]
+    try:
+        pr = github_api(cfg, "POST", f"/repos/{repo}/pulls",
+                        {"title": t["title"], "head": t["branch"], "base": project["base"],
+                         "body": pr_body(cfg, t), "draft": draft})
+    except urllib.error.HTTPError as e:
+        if e.code != 422:
+            raise
+        existing = github_api(cfg, "GET", f"/repos/{repo}/pulls?state=open&head={owner}:{t['branch']}")
+        if not existing:
+            raise
+        pr = existing[0]
+    t["pr"] = {"number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft", draft)}
+    move(t, "pr_open", f"{'draft ' if t['pr']['draft'] else ''}PR {pr['html_url']}")
+    return t["pr"]
+
+
+def check_pr(cfg, project, t):
+    pr = github_api(cfg, "GET", f"/repos/{project['github']}/pulls/{t['pr']['number']}")
+    if pr.get("merged"):
+        move(t, "done", f"PR merged by {(pr.get('merged_by') or {}).get('login', '?')}")
+    elif pr.get("state") == "closed":
+        move(t, "rejected", "PR closed without merging")
 
 
 def sweep(cfg):
@@ -1237,6 +1371,23 @@ def cmd_show(cfg, a):
     print(json.dumps(load_ticket(a.ticket), indent=2))
 
 
+def cmd_pr(cfg, a):
+    t = load_ticket(a.ticket)
+    pr = open_pr(cfg, cfg["projects"][t["project"]], t)
+    save_ticket(t)
+    print(pr["url"])
+
+
+def cmd_github(cfg, a):
+    """Check the App: which repositories the installation reaches, with what permissions."""
+    r = github_api(cfg, "GET", "/installation/repositories")
+    for repo in r.get("repositories", []):
+        print(repo["full_name"], "(private)" if repo["private"] else "")
+    perms = github_request("POST", f"/app/installations/{cfg['github']['installation_id']}/access_tokens",
+                           github_app_jwt(cfg)).get("permissions", {})
+    print("permissions:", ", ".join(f"{k}={v}" for k, v in sorted(perms.items())))
+
+
 def cmd_proposals(cfg, a):
     """Open proposals in the panel's priority order: agreement on worth floats, splits sink."""
     open_ = [t for t in all_tickets() if t.get("kind") == "proposal" and t["column"] == "needs_human"]
@@ -1292,6 +1443,8 @@ def main():
     sub.add_parser("show").add_argument("ticket")
     sub.add_parser("audit").add_argument("ticket")
     sub.add_parser("proposals")
+    sub.add_parser("pr").add_argument("ticket")
+    sub.add_parser("github")
     p = sub.add_parser("move")
     p.add_argument("ticket")
     p.add_argument("column")
@@ -1303,7 +1456,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "move": cmd_move,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "move": cmd_move,
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),
      "versions": lambda c, _: check_versions(c)}[a.cmd](cfg, a)

@@ -85,6 +85,8 @@ factory add <project> "Idea" --intent --body "..."     # design first: a designe
 factory result T0010                                   # read the design + proposed tickets
 factory approve T0010 [--only 1,3] | factory redirect T0010 --note "..."
 factory tick                                           # one pass; the timer runs it every 5 min
+factory github                                         # check the GitHub App installation
+factory pr T0001                                       # push bot/* + open the PR (draft unless auto-eligible)
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
 ```
 

@@ -679,6 +679,86 @@ class TaskTicketTest(RemoteStageTest):
         self.assertIn("task done: up 100%", t["history"][-1]["detail"])
 
 
+class GithubOutTest(RepoCase):
+    def setUp(self):
+        super().setUp()
+        self.key = os.path.join(self.repo, "..", "app.pem")
+        sh(self.repo, "openssl", "genrsa", "-out", self.key, "2048")
+        self.cfg = {"github": {"app_client_id": "Iv23test", "installation_id": 42, "key": self.key},
+                    "identity": {"pr_footer": "Opened by a bot."}}
+        self.project = {**self.project, "github": "o/gem"}
+        factory._installation_token.clear()
+
+    def tearDown(self):
+        os.remove(self.key)
+        super().tearDown()
+
+    def test_app_jwt_is_rs256_signed_by_the_key(self):
+        import base64
+        jwt = factory.github_app_jwt(self.cfg)
+        header, claims, sig = jwt.split(".")
+        pad = lambda s: s + "=" * (-len(s) % 4)
+        self.assertEqual(json.loads(base64.urlsafe_b64decode(pad(claims)))["iss"], "Iv23test")
+        pub = self.key + ".pub"
+        sh(self.repo, "openssl", "rsa", "-in", self.key, "-pubout", "-out", pub)
+        with open(pub + ".sig", "wb") as f:
+            f.write(base64.urlsafe_b64decode(pad(sig)))
+        r = subprocess.run(["openssl", "dgst", "-sha256", "-verify", pub, "-signature", pub + ".sig"],
+                           input=f"{header}.{claims}".encode(), capture_output=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        os.remove(pub), os.remove(pub + ".sig")
+
+    def ready_ticket(self, auto=True):
+        self.branch_with("bot/x", {"README.md": "x\n"})
+        return {"id": "T0042", "title": "Tidy README", "body": "", "door": "github", "column": "ready_for_pr",
+                "branch": "bot/x", "history": [], "source": {"issue": 7},
+                "reports": {"work": {"summary": "Clarify the install steps."},
+                            "review": {"verdict": "pass", "runtime_behaviour": "no"},
+                            "security": {"answers": [{"concern": "none"}]}},
+                "security_tier": 0,
+                "gate": {"auto_eligible": auto, "blockers": [] if auto else ["12 changed lines (limit 10)"],
+                         "head": factory.branch_head(self.project, "bot/x")}}
+
+    def test_open_pr_pushes_with_the_token_out_of_argv_and_writes_public_text(self):
+        t = self.ready_ticket(auto=False)
+        calls, requests = [], []
+        with mock.patch.object(factory, "installation_token", return_value="ghs_secret"), \
+             mock.patch.object(factory, "branch_head", return_value=t["gate"]["head"]), \
+             mock.patch.object(factory, "run", side_effect=lambda cmd, **kw: calls.append((cmd, kw)) or
+                               mock.Mock(returncode=0, stdout="", stderr="")), \
+             mock.patch.object(factory, "github_api", side_effect=lambda cfg, m, p, body=None: requests.append(body)
+                               or {"number": 5, "html_url": "https://github.com/o/gem/pull/5", "draft": True}), \
+             mock.patch.object(factory, "log"):
+            factory.open_pr(self.cfg, self.project, t)
+        push, kw = next((c, k) for c, k in calls if "push" in c)
+        self.assertNotIn("ghs_secret", " ".join(push))
+        self.assertEqual(kw["env"]["FACTORY_GH_TOKEN"], "ghs_secret")
+        self.assertIn("refs/heads/bot/x:refs/heads/bot/x", push)
+        body = requests[0]
+        self.assertTrue(body["draft"])
+        self.assertIn("Fixes #7", body["body"])
+        self.assertIn("12 changed lines", body["body"])
+        self.assertNotRegex(body["body"], r"T\d{4}")
+        self.assertEqual((t["column"], t["pr"]["number"]), ("pr_open", 5))
+
+    def test_never_pushes_a_moved_branch_or_a_non_bot_branch(self):
+        t = self.ready_ticket()
+        t["gate"]["head"] = "0" * 40
+        with self.assertRaises(RuntimeError):
+            factory.open_pr(self.cfg, self.project, t)
+        with self.assertRaises(RuntimeError):
+            factory.push_branch(self.cfg, self.project, "main")
+
+    def test_merged_and_closed_prs_settle_the_ticket(self):
+        base = self.ready_ticket()
+        for pr, column in (({"merged": True, "merged_by": {"login": "stevegeek"}}, "done"),
+                           ({"merged": False, "state": "closed"}, "rejected")):
+            t = {**base, "history": [], "column": "pr_open", "pr": {"number": 5}}
+            with mock.patch.object(factory, "github_api", return_value=pr), mock.patch.object(factory, "log"):
+                factory.check_pr(self.cfg, self.project, t)
+            self.assertEqual(t["column"], column)
+
+
 class FactoryRemoteTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

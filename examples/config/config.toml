@@ -15,6 +15,15 @@ pi = "1.2.0"
 [upkeep]
 rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name to pin it
 
+# GitHub out, through a GitHub App (Contents + Pull requests: write, Issues: read, no
+# Workflows; installed on the project repos only). The private key lives on the host at
+# ~/.config/factory/github-app.pem (mode 600). The factory pushes bot/* branches and opens
+# PRs; it never merges, and main needs a ruleset (PR + review + CI, no bypass).
+# [github]
+# app_client_id = "Iv23..."
+# installation_id = 12345678
+# open_prs = "manual"        # or "auto": open PRs for ready_for_pr tickets on each tick
+
 # Commit identity and PR attribution for every agent.
 [identity]
 git_name = "Your Name"
