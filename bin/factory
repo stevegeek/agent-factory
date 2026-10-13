@@ -1047,7 +1047,7 @@ def pr_body(cfg, t):
               "- Tests and lint pass on a fresh checkout with no network access.",
               f"- Independent review: {review.get('verdict', '?')}; changes runtime behaviour for users: "
               f"{review.get('runtime_behaviour', '?')}.",
-              f"- Security review (tier {t.get('security_tier', '?')}): {len(answers)} questions answered, "
+              f"- Security review (tier {t.get('security_tier', '?')}): {len(answers)} question{'' if len(answers) == 1 else 's'} answered, "
               "none above low concern.",
               "- Small, docs/tests/config-only change: eligible for automatic approval." if g["auto_eligible"] else
               "- Needs a maintainer's review: " + "; ".join(g.get("blockers", [])) + ".",
