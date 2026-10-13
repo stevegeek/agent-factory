@@ -87,6 +87,7 @@ factory approve T0010 [--only 1,3] | factory redirect T0010 --note "..."
 factory tick                                           # one pass; the timer runs it every 5 min
 factory github                                         # check the GitHub App installation
 factory pr T0001                                       # push bot/* + open the PR (draft unless auto-eligible)
+factory fizzy                                          # sync the Fizzy boards now and list them
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
 ```
 
@@ -110,6 +111,24 @@ door → triage → ready → working → review → security → gate → ready
 - Prospecting (`[[schedules]]` with `kind = "prospect"`): a prospector proposes at most 5 evidence-backed improvements, never code. In `voting`, `[panel] voters` separate voter agents score every proposal 1–5 for worth, each blind to the others. The dispatcher drops a proposal unless ≥2 voters scored it 4+ or the mean is ≥3.5. Survivors wait as `proposal` tickets; `factory proposals` lists them by mean minus half the spread, and `factory approve` files one as a change.
 - Tasks (`--task`): one agent, no branch, review or gate; the role writes `result` and the ticket lands in `needs_human`. A helper with `prefer = ["task"]` takes them first.
 
+## Fizzy
+
+With `[fizzy]` in the config and a token in `~/.config/factory/fizzy-token`, each tick mirrors the board to [Fizzy](https://fizzy.do): one private board per project (`factory: <project>`), one card per ticket, new history as comments. The file board stays the source of truth; `fizzy.json` maps tickets to cards.
+
+| Ticket column | Card |
+| --- | --- |
+| triage | Maybe? |
+| ready, working, needs_human, ready_for_pr, pr_open | Ready, Working, Needs you, Ready for PR, PR open |
+| voting, review, security, gate | Checks |
+| done / rejected | Done / Not Now |
+
+The token owner can drive tickets from the cards:
+- Moving a card to Maybe?, Ready, Needs you, Done or Not Now moves the ticket.
+- Moving an intent or proposal from Needs you to Ready approves it.
+- A move into a pipeline column, or while an agent runs, is moved back with a comment.
+- A comment of `/approve [1,3]`, `/redirect <note>` or `/pr` runs that command; any other comment becomes a note in the ticket's next agent prompt.
+- Other people's comments are ignored.
+
 ## Upkeep
 
 - OS: `sudo bash host/updates.sh` (optionally `REBOOT_AT=...`) lets unattended-upgrades take `-updates` as well as security. It adds a weekly reboot window that reboots only when an update asked for one. Before rebooting it drains new work and waits for agents, image rebuilds and apt.
@@ -119,7 +138,7 @@ door → triage → ready → working → review → security → gate → ready
 
 ## Config
 
-`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`. `FACTORY_ROOT` overrides `~/factory`.
+`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`, `[fizzy]` (`account`, `board_prefix`, `token`, `api`). `FACTORY_ROOT` overrides `~/factory`.
 
 ## Tests
 
