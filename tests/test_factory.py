@@ -130,6 +130,20 @@ class BranchTest(RepoCase):
         self.branch_with("b", {"README.md": "one\ntwo\n"})
         self.assertEqual(factory.diff_size(self.project, "b"), 3)
 
+    def test_base_follows_origin_whether_or_not_it_is_checked_out(self):
+        clone = os.path.join(self.tmp.name, "clone")
+        sh(self.tmp.name, "git", "clone", "-q", self.repo, clone)
+        project = {"path": clone, "base": "main"}
+        self.write("README.md", "merged upstream\n")
+        self.commit("merged PR")
+        factory.refresh_base(project)
+        self.assertEqual(factory.branch_head(project, "main"), factory.branch_head(self.project, "main"))
+        sh(clone, "git", "checkout", "-q", "-b", "other")
+        self.write("README.md", "merged again\n")
+        self.commit("another PR")
+        factory.refresh_base(project)
+        self.assertEqual(factory.branch_head(project, "main"), factory.branch_head(self.project, "main"))
+
 
 class TransitionTest(RepoCase):
     def ticket(self, stage, column):

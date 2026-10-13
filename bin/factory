@@ -190,6 +190,16 @@ def git(project, *args):
     return run(["git", "-C", project["path"], *args], check=True).stdout.strip()
 
 
+def refresh_base(project):
+    """Fast-forward the clone's base branch to origin's, so new agents start from what has been merged."""
+    base = project["base"]
+    run(["git", "-C", project["path"], "fetch", "-q", "origin", base], check=True, timeout=120)
+    if git(project, "branch", "--show-current") == base:
+        git(project, "merge", "-q", "--ff-only", f"origin/{base}")
+    else:
+        git(project, "fetch", "-q", "origin", f"{base}:{base}")
+
+
 def branch_exists(project, branch):
     return run(["git", "-C", project["path"], "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]).returncode == 0
 
@@ -918,9 +928,15 @@ def tick(cfg):
         if t.get("agent") and host != LOCAL:
             busy[host] = busy.get(host, 0) + 1
     down = set()
-    for t in tickets:
-        if t.get("agent") or (t["column"] != "gate" and not stage_for(t)):
-            continue
+    waiting = [t for t in tickets if not t.get("agent") and (t["column"] == "gate" or stage_for(t))]
+    for key in {t["project"] for t in waiting}:
+        project = cfg["projects"].get(key)
+        if project and project.get("github"):
+            try:
+                refresh_base(project)
+            except Exception as e:
+                log(f"refresh {key}: {str(e)[:300]}")
+    for t in waiting:
         project = cfg["projects"].get(t["project"])
         try:
             if project is None and t.get("kind") != "task":
