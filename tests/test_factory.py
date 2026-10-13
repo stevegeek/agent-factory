@@ -263,6 +263,52 @@ class DoorsTest(unittest.TestCase):
         self.assertEqual(len(factory.all_tickets()), 2)
 
 
+class IntentTest(DoorsTest):
+    def designed(self, report):
+        t = factory.new_ticket("g", "Add a Base62 encoder", "idea", "human", "ready")
+        t["kind"] = "intent"
+        self.assertEqual(factory.stage_for(t), "design")
+        t["agent"] = {"name": "t0001-d1", "stage": "design", "started": factory.now()}
+        with mock.patch.object(factory, "remove_agent") as remove:
+            factory.finish_stage(self.cfg, {"path": "/x", "base": "main"}, t, report)
+        self.assertFalse(remove.call_args.kwargs["keep_branch"])
+        factory.save_ticket(t)
+        return t
+
+    def args(self, **kw):
+        import argparse
+        return argparse.Namespace(**kw)
+
+    def test_design_waits_for_review_then_approve_files_the_chosen_tickets(self):
+        t = self.designed({"status": "done", "summary": "new encoder class", "design": "## Approach\nx",
+                           "tickets": [{"title": "Add encoder", "body": "do a"}, {"title": "Docs", "body": "do b"},
+                                       {"title": "", "body": "dropped"}]})
+        self.assertEqual((t["column"], len(t["proposed"])), ("needs_human", 2))
+        factory.cmd_approve(self.cfg, self.args(ticket=t["id"], only="2"))
+        t = factory.load_ticket(t["id"])
+        child = factory.load_ticket(t["children"][0])
+        self.assertEqual((t["column"], len(t["children"])), ("done", 1))
+        self.assertEqual((child["title"], child["column"], child["parent"], child.get("kind")),
+                         ("Docs", "ready", t["id"], None))
+        self.assertEqual(factory.stage_for(child), "work")
+
+    def test_redirect_reruns_the_designer_with_the_feedback(self):
+        t = self.designed({"status": "done", "summary": "s", "design": "first design",
+                           "tickets": [{"title": "A", "body": "a"}]})
+        factory.cmd_redirect(self.cfg, self.args(ticket=t["id"], note="keep the old API"))
+        t = factory.load_ticket(t["id"])
+        self.assertEqual((t["column"], t["proposed"]), ("ready", []))
+        prompt = factory.design_prompt(t)
+        self.assertIn("first design", prompt)
+        self.assertIn("keep the old API", prompt)
+
+    def test_design_without_tickets_is_blocked_and_cannot_be_approved(self):
+        t = self.designed({"status": "done", "summary": "too vague", "design": "d", "tickets": []})
+        self.assertIn("designer blocked", t["history"][-1]["detail"])
+        with self.assertRaises(SystemExit):
+            factory.cmd_approve(self.cfg, self.args(ticket=t["id"], only=None))
+
+
 class UpkeepTest(DoorsTest):
     def test_newer_release_files_one_notice_and_tick_ignores_it(self):
         cfg = {"images": {"claude": "2.1.296", "pi": "1.2.0"}, "projects": {}}

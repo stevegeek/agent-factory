@@ -81,6 +81,9 @@ factory ls [--all] | show T0001 | move T0001 ready --note "approved"
 factory host T0001 helper                              # pin to a host (local, a [hosts] name, or auto)
 factory add factory "Summarise <url>" --task           # one agent run, answer comes back to you
 factory result T0009                                   # (project `factory` = no repository; --timeout MIN)
+factory add <project> "Idea" --intent --body "..."     # design first: a designer proposes
+factory result T0010                                   # read the design + proposed tickets
+factory approve T0010 [--only 1,3] | factory redirect T0010 --note "..."
 factory tick                                           # one pass; the timer runs it every 5 min
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
 ```
@@ -99,6 +102,7 @@ door → triage → ready → working → review → security → gate → ready
 - GitHub-door tickets wait in `needs_human` after triage unless `[triage.auto_accept] github = true`.
 - At most `max_agents` at once; each container is capped; one flock per tick.
 
+- Intents (`--intent`): a designer (role `designer`) writes a short design and proposes up to 6 tickets, each standing alone on the base branch. It waits in `needs_human`; `approve` files the tickets into `ready` (skipping triage), `redirect` re-runs the designer with your note and its previous design.
 - Tasks (`--task`): one agent, no branch, review or gate; the role writes `result` and the ticket lands in `needs_human`. A helper with `prefer = ["task"]` takes them first.
 
 ## Upkeep

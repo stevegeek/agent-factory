@@ -5,8 +5,9 @@ Stages run here first; a [hosts.<name>] helper takes the stages it lists only wh
 host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs only there.
 
   factory add <project> "<title>" [--body TEXT | --body-file F] [--door human|clock|github|peer] [--triage]
-                                  [--host auto|local|<name>] [--task] [--timeout MIN]
-  factory result <ticket>             a task ticket's answer
+                                  [--host auto|local|<name>] [--task | --intent] [--timeout MIN]
+  factory result <ticket>             a task's answer, or an intent's design and proposed tickets
+  factory approve <ticket> [--only 1,3]   file the design's tickets (ready); redirect <ticket> --note TEXT
   factory host <ticket> auto|local|<name>
   factory ls [--all]
   factory show <ticket>
@@ -54,19 +55,22 @@ COLUMNS = ["triage", "ready", "working", "review", "security", "gate",
 # column a ticket waits in -> stage that runs next
 STAGE_FOR_COLUMN = {"triage": "triage", "ready": "work", "review": "review", "security": "security"}
 # stage -> column the ticket sits in while its agent runs
-RUNNING_COLUMN = {"triage": "triage", "work": "working", "review": "review", "security": "security", "task": "working"}
+RUNNING_COLUMN = {"triage": "triage", "work": "working", "review": "review", "security": "security", "task": "working", "design": "working"}
 # stage -> Scion template name; override per install with [templates] in config.toml
-TEMPLATES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security", "task": "task"}
-AGENT_SUFFIX = {"triage": "t", "work": "w", "review": "r", "security": "s", "task": "k"}
+TEMPLATES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security", "task": "task", "design": "designer"}
+AGENT_SUFFIX = {"triage": "t", "work": "w", "review": "r", "security": "s", "task": "k", "design": "d"}
 MAX_WORK_ATTEMPTS = 2
-# Tickets are changes (the pipeline above) or tasks: one agent run, no branch, review or
-# gate, and the result comes back to a person (summaries, checks, lookups).
-NO_BRANCH_STAGES = ("triage", "task")
+# Ticket kinds: changes (the pipeline above); tasks (one agent run, no branch, review or
+# gate; the result comes back to a person); intents (a person's idea: a designer writes a
+# short design, a person approves it with `factory approve`, which files the change tickets).
+NO_BRANCH_STAGES = ("triage", "task", "design")
+SINGLE_STAGE_KINDS = {"task": "task", "intent": "design"}
+MAX_PROPOSED_TICKETS = 6
 
 
 def stage_for(t):
-    if t.get("kind") == "task":
-        return "task" if t["column"] == "ready" else None
+    if t.get("kind") in SINGLE_STAGE_KINDS:
+        return SINGLE_STAGE_KINDS[t["kind"]] if t["column"] == "ready" else None
     return STAGE_FOR_COLUMN.get(t["column"])
 
 
@@ -433,6 +437,15 @@ def triage_prompt(t):
             f"Title: {t['title']}\n\n{t['body']}".rstrip() + untrusted_note(t))
 
 
+def design_prompt(t):
+    p = (f"Design this change for the project in this repository. Do not implement it.\n\n"
+         f"Idea: {t['title']}\n\n{t['body']}".rstrip() + untrusted_note(t))
+    for round_ in t.get("feedback", []):
+        p += (f"\n\nAn earlier design was sent back. The earlier design:\n\n{round_['design']}\n\n"
+              f"The maintainer's feedback on it (follow this):\n{round_['note']}")
+    return p
+
+
 def task_prompt(t, project):
     where = ("The project's repository is checked out in the current directory, for reference only."
              if project else "There is no repository for this task; the current directory is scratch space.")
@@ -550,6 +563,8 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
         prompt = triage_prompt(t)
     elif stage == "task":
         prompt = task_prompt(t, project)
+    elif stage == "design":
+        prompt = design_prompt(t)
     elif stage == "work":
         t["branch"] = t["branch"] or pick_branch(project, t)
         prompt = work_prompt(t)
@@ -591,6 +606,8 @@ def finish_stage(cfg, project, t, report, head=None):
         t["result"] = str(report.get("result") or "")
         state = "done" if report.get("status") == "done" else "blocked"
         return move(t, "needs_human", f"task {state}: {str(report.get('summary', ''))[:200]}")
+    if stage == "design":
+        return finish_design(t, report)
     branch = t["branch"]
     if stage == "work":
         if report.get("status") != "done":
@@ -609,6 +626,19 @@ def finish_stage(cfg, project, t, report, head=None):
     if report.get("verdict") == "pass":
         return move(t, "gate")
     return move(t, "needs_human", "security review found problems")
+
+
+def finish_design(t, report):
+    proposed = []
+    for p in report.get("tickets") or []:
+        if isinstance(p, dict) and str(p.get("title", "")).strip() and str(p.get("body", "")).strip():
+            proposed.append({"title": str(p["title"])[:120], "body": str(p["body"])})
+    t["design"] = str(report.get("design") or "")
+    t["proposed"] = proposed[:MAX_PROPOSED_TICKETS]
+    if report.get("status") != "done" or not t["design"] or not t["proposed"]:
+        return move(t, "needs_human", f"designer blocked: {str(report.get('summary', ''))[:200]}")
+    return move(t, "needs_human", f"design ready ({len(t['proposed'])} tickets proposed): "
+                                  f"{str(report.get('summary', ''))[:160]}; factory approve or redirect")
 
 
 def finish_triage(cfg, t, report):
@@ -908,10 +938,15 @@ def cmd_add(cfg, a):
     if a.body_file:
         with open(a.body_file) as f:
             body = f.read()
-    column = "ready" if a.task else "triage" if (a.triage or a.door in ("github", "clock")) else "ready"
+    if a.task and a.intent:
+        sys.exit("--task and --intent are different kinds; pick one")
+    if a.intent and a.project not in cfg["projects"]:
+        sys.exit("an intent needs a real project")
+    single = a.task or a.intent
+    column = "ready" if single else "triage" if (a.triage or a.door in ("github", "clock")) else "ready"
     t = new_ticket(a.project, a.title, body, a.door, column)
-    if a.task:
-        t["kind"] = "task"
+    if single:
+        t["kind"] = "task" if a.task else "intent"
     if a.timeout:
         t["timeout_minutes"] = a.timeout
     if a.host:
@@ -922,8 +957,56 @@ def cmd_add(cfg, a):
 
 def cmd_result(cfg, a):
     t = load_ticket(a.ticket)
+    if t.get("kind") == "intent":
+        if not t.get("design"):
+            sys.exit(f"{t['id']} has no design yet")
+        print(t["design"].rstrip() + "\n\n## Proposed tickets\n")
+        for i, p in enumerate(t.get("proposed", []), 1):
+            print(f"{i}. {p['title']}\n\n   " + p["body"].replace("\n", "\n   ") + "\n")
+        print(f"factory approve {t['id']} [--only 1,2]  |  factory redirect {t['id']} --note \"...\"")
+        return
     report = t["reports"].get("task") or {}
     print(t.get("result") or report.get("summary") or f"{t['id']} has no task result")
+
+
+def intent_waiting(t):
+    if t.get("kind") != "intent" or t["column"] != "needs_human" or t.get("agent"):
+        sys.exit(f"{t['id']} is not an intent waiting for review")
+
+
+def cmd_approve(cfg, a):
+    t = load_ticket(a.ticket)
+    intent_waiting(t)
+    proposed = t.get("proposed") or []
+    if not proposed:
+        sys.exit(f"{t['id']} has no proposed tickets; redirect it instead")
+    picks = range(1, len(proposed) + 1)
+    if a.only:
+        picks = [int(x) for x in a.only.split(",")]
+        if any(i < 1 or i > len(proposed) for i in picks):
+            sys.exit(f"--only takes numbers 1..{len(proposed)}")
+    children = []
+    for i in picks:
+        p = proposed[i - 1]
+        c = new_ticket(t["project"], p["title"], p["body"] + f"\n\nPart of: {t['title']}", "human", "ready")
+        c["parent"] = t["id"]
+        if t.get("host"):
+            c["host"] = t["host"]
+        save_ticket(c)
+        children.append(c["id"])
+    t["children"] = children
+    move(t, "done", f"design approved; filed {', '.join(children)}")
+    save_ticket(t)
+    print(" ".join(children))
+
+
+def cmd_redirect(cfg, a):
+    t = load_ticket(a.ticket)
+    intent_waiting(t)
+    t.setdefault("feedback", []).append({"at": now(), "design": t.get("design", ""), "note": a.note})
+    t["design"], t["proposed"] = "", []
+    move(t, "ready", f"redirected: {a.note[:150]}")
+    save_ticket(t)
 
 
 def pin_host(cfg, t, host):
@@ -950,7 +1033,7 @@ def cmd_ls(cfg, a):
         if t.get("agent"):
             host = t["agent"].get("host", LOCAL)
             agent = t["agent"]["name"] + (f"@{host}" if host != LOCAL else "")
-        kind = "task" if t.get("kind") == "task" else ""
+        kind = {"task": "task", "intent": "idea"}.get(t.get("kind"), "")
         print(f"{t['id']}  {t['column']:<13} {t['project']:<12} {kind:<4} {agent:<9} {t['title'][:60]}")
 
 
@@ -983,7 +1066,15 @@ def main():
                    help=f"one agent run, no branch/review/gate; the result comes back to you. "
                         f"Project {NOTICE_PROJECT} = no repository")
     p.add_argument("--timeout", type=int, help="minutes this ticket's agents may run (default agent_timeout_minutes)")
+    p.add_argument("--intent", action="store_true",
+                   help="an idea to design first: a designer proposes, you `factory approve` or `redirect`")
     sub.add_parser("result").add_argument("ticket")
+    p = sub.add_parser("approve")
+    p.add_argument("ticket")
+    p.add_argument("--only", help="comma-separated numbers of the proposed tickets to file")
+    p = sub.add_parser("redirect")
+    p.add_argument("ticket")
+    p.add_argument("--note", required=True, help="what to change in the design")
     p = sub.add_parser("host")
     p.add_argument("ticket")
     p.add_argument("host", help="auto, local, or a [hosts] name")
@@ -1000,7 +1091,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "move": cmd_move,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "move": cmd_move,
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),
      "versions": lambda c, _: check_versions(c)}[a.cmd](cfg, a)

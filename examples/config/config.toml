@@ -35,6 +35,7 @@ work = "gem-worker"
 review = "gem-reviewer"
 security = "gem-security"
 task = "gem-task"
+design = "gem-designer"
 
 [models]                     # per stage; empty = harness default
 triage = ""
