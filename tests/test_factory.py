@@ -179,6 +179,40 @@ class TransitionTest(RepoCase):
         t["head_before_security"] = factory.branch_head(self.project, "b")
         self.assertEqual(self.finish(t, {"verdict": "fail"}), "needs_human")
 
+    def security(self, report):
+        if not factory.branch_exists(self.project, "b"):
+            self.branch_with("b", {"README.md": "x\n"})
+        t = self.ticket("security", "security")
+        t["head_before_security"] = factory.branch_head(self.project, "b")
+        t["security_questions"] = ["q1", "q2"]
+        self.finish(t, report)
+        return t
+
+    def test_security_is_decided_from_every_answer_not_the_verdict(self):
+        answer = lambda c: {"question": "q", "answer": "evidence", "concern": c}
+        self.assertEqual(self.security({"verdict": "pass", "answers": [answer("none"), answer("low")]})["column"], "gate")
+        t = self.security({"verdict": "pass", "answers": [answer("none"), answer("medium")]})
+        self.assertEqual(t["column"], "needs_human")
+        self.assertIn("q2 medium", t["history"][-1]["detail"])
+        t = self.security({"verdict": "pass", "answers": [answer("none")]})
+        self.assertIn("1 answers for 2 questions", t["history"][-1]["detail"])
+        t = self.security({"verdict": "pass", "answers": [answer("none"), answer("fine")]})
+        self.assertIn("question 2 has no usable answer", t["history"][-1]["detail"])
+
+    def test_gate_blocks_auto_merge_without_stated_reasoning_and_audit_says_why(self):
+        self.branch_with("b", {"README.md": "x\n"})
+        t = self.ticket("gate", "gate")
+        t["reports"] = {"work": {"status": "done", "summary": "", "category": "docs"},
+                        "review": {"verdict": "pass", "runtime_behaviour": "no", "summary": "fine"}}
+        with mock.patch.object(factory, "checks_on_fresh_checkout", return_value=(True, "ok")), \
+             mock.patch.object(factory, "LOGS", self.repo):
+            t["gate"] = factory.gate({"gate": {"allowed_paths": ["*.md"]}}, self.project, t)
+        self.assertFalse(t["gate"]["auto_eligible"])
+        self.assertEqual(t["gate"]["blockers"], ["worker did not state its category and reasoning"])
+        audit = factory.audit_text(t)
+        self.assertIn("needs human review: worker did not state its category and reasoning", audit)
+        self.assertIn("Review: pass; runtime behaviour changes: no", audit)
+
     def test_rework_prompt_carries_review_findings(self):
         t = self.ticket("work", "ready")
         t["reports"]["review"] = {"verdict": "changes", "findings": ["add a regression test"]}

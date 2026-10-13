@@ -11,6 +11,7 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory host <ticket> auto|local|<name>
   factory ls [--all]
   factory show <ticket>
+  factory audit <ticket>   what happened and which gate decided (also logs/<ticket>/audit.md)
   factory move <ticket> <column> [--note TEXT]
   factory tick        one scheduling pass (safe to run from a timer)
   factory sweep       file triage tickets for new open GitHub issues
@@ -544,15 +545,66 @@ def gate(cfg, project, t):
     outside = [f for f in files if not any(fnmatch.fnmatch(f, p) for p in g.get("allowed_paths", []))]
     ok, output = checks_on_fresh_checkout(cfg, project, t)
     behaviour = t["reports"].get("review", {}).get("runtime_behaviour", "unknown")
+    work = t["reports"].get("work", {})
+    # the worker must have stated its category and reasoning before anything may auto-merge
+    reasoning = bool(str(work.get("category", "")).strip() and str(work.get("summary", "")).strip())
     result = {"checks_pass": ok, "files": files, "changed_lines": size,
               "within_size": size <= g.get("max_changed_lines", 10),
               "outside_allowed_paths": outside, "runtime_behaviour": behaviour,
-              "head": branch_head(project, t["branch"])}
-    result["auto_eligible"] = ok and not outside and result["within_size"] and behaviour == "no"
+              "reasoning_stated": reasoning, "head": branch_head(project, t["branch"])}
+    blockers = [why for why, failed in (
+        ("tests or lint failed", not ok),
+        (f"files outside the allowed paths: {', '.join(outside)}", bool(outside)),
+        (f"{size} changed lines (limit {g.get('max_changed_lines', 10)})", not result["within_size"]),
+        (f"reviewer says runtime behaviour changes: {behaviour}", behaviour != "no"),
+        ("worker did not state its category and reasoning", not reasoning)) if failed]
+    result["auto_eligible"] = not blockers
+    result["blockers"] = blockers
     os.makedirs(os.path.join(LOGS, t["id"]), exist_ok=True)
     with open(os.path.join(LOGS, t["id"], "gate-output.txt"), "w") as f:
         f.write(output)
     return result
+
+
+# ---------------------------------------------------------------- audit trail
+
+def audit_text(t):
+    """What happened to a ticket and which gate let it through: for the PR and for a person."""
+    r = t["reports"]
+    lines = [f"# {t['id']}: {t['title']}", "", f"- Door: {t['door']}; project: {t.get('project', '?')}"
+             + (f"; branch: `{t['branch']}`" if t.get("branch") else "")]
+    if t.get("original"):
+        lines.append(f"- Triage: accepted. {r.get('triage', {}).get('reason', '')}".rstrip())
+    if t.get("parent"):
+        lines.append(f"- From the approved design in {t['parent']}")
+    if "work" in r:
+        w = r["work"]
+        lines.append(f"- Worker: {w.get('status', '?')}; category {w.get('category', '?')}; tests {w.get('tests', '?')}, "
+                     f"lint {w.get('lint', '?')}. {w.get('summary', '')}".rstrip())
+    if "review" in r:
+        v = r["review"]
+        lines.append(f"- Review: {v.get('verdict', '?')}; runtime behaviour changes: {v.get('runtime_behaviour', '?')}. "
+                     f"{v.get('summary', '')}".rstrip())
+        lines += [f"  - finding: {f}" for f in v.get("findings", [])]
+    if "security" in r:
+        s = r["security"]
+        lines.append(f"- Security (tier {t.get('security_tier', '?')}): {s.get('verdict', '?')}. {s.get('summary', '')}".rstrip())
+        for a in s.get("answers", []) if isinstance(s.get("answers"), list) else []:
+            if isinstance(a, dict):
+                lines.append(f"  - [{a.get('concern', '?')}] {a.get('question', '')}: {a.get('answer', '')}")
+    g = t.get("gate")
+    if g:
+        lines.append(f"- Gate 1: checks {'pass' if g['checks_pass'] else 'FAIL'}; {g['changed_lines']} lines in "
+                     f"{len(g['files'])} files; " + ("auto-merge eligible" if g["auto_eligible"] else
+                                                      "needs human review: " + "; ".join(g.get("blockers", []))))
+    lines += ["", "## History", ""] + [f"- {h['at']} {h['event']} {h['detail']}".rstrip() for h in t["history"]]
+    return "\n".join(lines) + "\n"
+
+
+def write_audit(t):
+    os.makedirs(os.path.join(LOGS, t["id"]), exist_ok=True)
+    with open(os.path.join(LOGS, t["id"], "audit.md"), "w") as f:
+        f.write(audit_text(t))
 
 
 # ---------------------------------------------------------------- tick
@@ -574,6 +626,7 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
             prompt = review_prompt(t, project)
         else:
             t["security_tier"] = classify(project, t["branch"])
+            t["security_questions"] = security_angles(t["security_tier"])
             prompt = security_prompt(t, project, t["security_tier"])
     if host == LOCAL:
         template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
@@ -623,9 +676,34 @@ def finish_stage(cfg, project, t, report, head=None):
         if starts(t, "work") >= MAX_WORK_ATTEMPTS:
             return move(t, "needs_human", "review still asks for changes after the last attempt")
         return move(t, "ready", "review asked for changes")
-    if report.get("verdict") == "pass":
+    ok, why = security_outcome(t, report)
+    if ok:
         return move(t, "gate")
-    return move(t, "needs_human", "security review found problems")
+    return move(t, "needs_human", f"security: {why}")
+
+
+CONCERNS = ("none", "low", "medium", "high")
+
+
+def security_outcome(t, report):
+    """Decided from the answers, not the agent's own verdict: every question asked must have
+    an answer with a known concern level, and none may be medium or high."""
+    asked = t.get("security_questions") or security_angles(t.get("security_tier", 4))
+    answers = report.get("answers") if isinstance(report.get("answers"), list) else []
+    if len(answers) < len(asked):
+        return False, f"{len(answers)} answers for {len(asked)} questions"
+    worst = []
+    for i, a in enumerate(answers[:len(asked)], 1):
+        concern = str(a.get("concern", "")).lower() if isinstance(a, dict) else ""
+        if concern not in CONCERNS or not str(a.get("answer", "")).strip():
+            return False, f"question {i} has no usable answer"
+        if concern in ("medium", "high"):
+            worst.append(f"q{i} {concern}")
+    if worst:
+        return False, "problems found (" + ", ".join(worst) + ")"
+    if report.get("verdict") != "pass":
+        return False, "reviewer did not pass it"
+    return True, "pass"
 
 
 def finish_design(t, report):
@@ -721,7 +799,9 @@ def tick(cfg):
                 if not t["gate"]["checks_pass"]:
                     move(t, "needs_human", "gate: tests or lint failed on a fresh checkout")
                 else:
-                    move(t, "ready_for_pr", "auto-merge eligible" if t["gate"]["auto_eligible"] else "needs human review")
+                    move(t, "ready_for_pr", "auto-merge eligible" if t["gate"]["auto_eligible"] else
+                         "needs human review: " + "; ".join(t["gate"]["blockers"])[:200])
+                write_audit(t)
             else:
                 stage = stage_for(t)
                 local_ok = project is not None
@@ -1041,6 +1121,10 @@ def cmd_show(cfg, a):
     print(json.dumps(load_ticket(a.ticket), indent=2))
 
 
+def cmd_audit(cfg, a):
+    print(audit_text(load_ticket(a.ticket)), end="")
+
+
 def cmd_move(cfg, a):
     if a.column not in COLUMNS:
         sys.exit(f"column must be one of: {', '.join(COLUMNS)}")
@@ -1080,6 +1164,7 @@ def main():
     p.add_argument("host", help="auto, local, or a [hosts] name")
     sub.add_parser("ls").add_argument("--all", action="store_true")
     sub.add_parser("show").add_argument("ticket")
+    sub.add_parser("audit").add_argument("ticket")
     p = sub.add_parser("move")
     p.add_argument("ticket")
     p.add_argument("column")
@@ -1091,7 +1176,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "move": cmd_move,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "move": cmd_move,
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),
      "versions": lambda c, _: check_versions(c)}[a.cmd](cfg, a)

@@ -98,7 +98,9 @@ door → triage → ready → working → review → security → gate → ready
 - Each stage is one fresh agent; it writes `~/report.json`, which the dispatcher reads.
 - A reviewer or security agent that changes the branch is discarded.
 - Security tier from the diff, mechanically: 0 text · 1 inert code · 2 I/O boundary · 3 build/deps · 4 several. Patterns per project: `tier3_paths`, `text_paths`.
-- Gate 1, no model: tests + lint on a fresh clone with no network, allowed paths, size, reviewer's runtime-behaviour answer → `auto_eligible`.
+- Security: the lead gives each angle question to its own sub-agent; the dispatcher (not the agent's verdict) fails the stage if any question is unanswered or rated medium/high.
+- Gate 1, no model: tests + lint on a fresh clone with no network, allowed paths, size, reviewer's runtime-behaviour answer, worker's stated category and reasoning → `auto_eligible`, else the blockers are listed.
+- Audit: `logs/<ticket>/audit.md` (and `factory audit T…`): door, triage, worker category and reasoning, review, each security answer, which gate check decided.
 - GitHub-door tickets wait in `needs_human` after triage unless `[triage.auto_accept] github = true`.
 - At most `max_agents` at once; each container is capped; one flock per tick.
 
