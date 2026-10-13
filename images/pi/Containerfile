@@ -1,18 +1,29 @@
 # Pi coding agent image, for hosts whose CPU cannot run the native Claude Code binary (e.g. pre-SSE4.2).
 # Build on the host as factory:  podman build -t localhost/factory-pi:dev ~/factory/images/pi
+# Same user, home and Ruby toolchain as the Claude image, so role instructions and
+# report paths (/home/scion/report.json) are identical; bin/factory-remote runs jobs in it.
 FROM docker.io/library/ubuntu:26.04
 
 ARG PI_VERSION=1.2.0
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       nodejs npm git ripgrep curl ca-certificates less procps \
+      ruby ruby-dev ruby-bundler build-essential pkg-config \
+      libyaml-dev libsqlite3-dev libffi-dev zlib1g-dev \
  && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g --no-audit --no-fund @earendil-works/pi-coding-agent@${PI_VERSION} \
  && npm cache clean --force
 
-RUN userdel -r ubuntu 2>/dev/null; useradd -m -u 1000 -s /bin/bash agent
-USER agent
-WORKDIR /home/agent
+# Rules for every agent role; root-owned, passed with --append-system-prompt.
+COPY agent-rules.md /etc/agent-rules.md
+RUN chmod 644 /etc/agent-rules.md \
+ && (userdel -r ubuntu 2>/dev/null || true) \
+ && useradd -m -u 1000 -s /bin/bash scion
+
+ENV BUNDLE_JOBS=2 MAKEFLAGS=-j2
+USER scion
+WORKDIR /home/scion
 ENTRYPOINT ["pi"]

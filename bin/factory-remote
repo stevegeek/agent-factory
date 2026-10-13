@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""Runs dispatcher stages as Pi jobs on a helper host. The dispatcher's SSH key is
+forced to this script, so these verbs are all it can do here:
+
+  start <job>     read a tar from stdin (repo.bundle, prompt.md, role.md, meta.json,
+                  untracked/...), start the job in the background
+  status <job>    {"state": "running" | "done" | "missing"}
+  collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle
+  remove <job>    stop the job and delete its files
+  list            job names, one per line
+
+Each job runs in the Pi image with only its work/ and home/ directories mounted, plus
+what this host's config.toml sets under [remote] (image, memory, mounts, env, max_jobs);
+the caller only picks the branch, model and timeout. The Anthropic key is read from a
+600 file into the environment, never argv. Whoever holds the dispatcher key can still
+spend that key through a job's prompt, so give this host its own key with a spend limit.
+"""
+import io
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tarfile
+import tomllib
+
+HOME = os.path.expanduser("~")
+ROOT = os.environ.get("FACTORY_ROOT") or os.path.join(HOME, "factory")
+JOBS = os.path.join(ROOT, "jobs")
+CONFIG = os.path.join(ROOT, "config.toml")
+KEY_FILE = os.path.join(HOME, ".config", "factory", "anthropic-api-key")
+JOB_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
+BRANCH_NAME = re.compile(r"^[A-Za-z0-9._/-]{1,100}$")
+MODEL_NAME = re.compile(r"^[A-Za-z0-9._:/-]{1,80}$")
+MAX_TIMEOUT_MINUTES = 120
+MAX_INPUT_BYTES = 200 * 1024 * 1024
+MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024
+MAX_COLLECTED_BYTES = {"report.json": 1_000_000, "prompt.md": 1_000_000, "head": 1_000,
+                       "agent.log": 2_000_000, "out.bundle": 100 * 1024 * 1024}
+SSH_VERBS = {"start", "status", "collect", "remove", "list"}
+
+# Runs inside the container as uid 1000. /job is the job's work/ directory (the agent can
+# write there); exit, run.log and meta.json stay outside it, so the agent cannot fake them.
+JOB_SCRIPT = r"""
+set -u
+cd /job
+git clone -q --no-checkout repo.bundle repo && cd repo \
+  && git checkout -q -B "$JOB_BRANCH" "origin/$JOB_START" || exit 1
+cp -a /job/untracked/. . 2>/dev/null || true
+pi --provider anthropic --model "$JOB_MODEL" -p --no-session --no-approve \
+   --append-system-prompt /etc/agent-rules.md --append-system-prompt /job/role.md \
+   "$(cat /job/prompt.md)" > /job/agent.log 2>&1
+echo "pi exited $?" >> /job/agent.log
+git rev-parse "refs/heads/$JOB_BRANCH" > /job/head
+if [ "$JOB_BUNDLE" = 1 ]; then git bundle create -q /job/out.bundle "refs/heads/$JOB_BRANCH"; fi
+"""
+
+
+def die(msg):
+    sys.stderr.write(msg + "\n")
+    sys.exit(2)
+
+
+def job_dir(job):
+    if not JOB_NAME.match(job or ""):
+        die(f"bad job name: {job!r}")
+    return os.path.join(JOBS, job)
+
+
+def unit(job):
+    return f"factory-job-{job}"
+
+
+def unit_active(job):
+    return subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit(job)]).returncode == 0
+
+
+def check_meta(meta):
+    if not isinstance(meta, dict):
+        raise ValueError("meta.json is not an object")
+    for k in ("branch", "start"):
+        v = str(meta.get(k, ""))
+        if not BRANCH_NAME.match(v) or ".." in v or v.startswith(("-", "/")):
+            raise ValueError(f"bad {k} in meta.json")
+    model = str(meta.get("model") or "claude-sonnet-5-5")
+    if not MODEL_NAME.match(model) or model.startswith("-"):
+        raise ValueError("bad model in meta.json")
+    try:
+        minutes = min(max(int(meta.get("timeout_minutes", 45)), 1), MAX_TIMEOUT_MINUTES)
+    except (TypeError, ValueError):
+        minutes = 45
+    return {"branch": meta["branch"], "start": meta["start"], "model": model,
+            "bundle": bool(meta.get("bundle")), "timeout_minutes": minutes}
+
+
+def load_meta(d):
+    with open(os.path.join(d, "meta.json")) as f:
+        return check_meta(json.load(f))
+
+
+def load_remote_config():
+    try:
+        with open(CONFIG, "rb") as f:
+            cfg = tomllib.load(f)
+    except FileNotFoundError:
+        cfg = {}
+    ident, env = cfg.get("identity", {}), {}
+    if ident.get("git_name"):
+        env.update(GIT_AUTHOR_NAME=ident["git_name"], GIT_COMMITTER_NAME=ident["git_name"])
+    if ident.get("git_email"):
+        env.update(GIT_AUTHOR_EMAIL=ident["git_email"], GIT_COMMITTER_EMAIL=ident["git_email"])
+    return cfg.get("remote", {}), env
+
+
+def start(job):
+    d = job_dir(job)
+    if os.path.exists(d):
+        die(f"{job} already exists")
+    remote, _ = load_remote_config()
+    if len(os.listdir(JOBS)) >= int(remote.get("max_jobs", 4)):
+        die("too many jobs on this host")
+    if shutil.disk_usage(JOBS).free < MIN_FREE_BYTES:
+        die("not enough free disk on this host")
+    data = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
+    if len(data) > MAX_INPUT_BYTES:
+        die("job input too large")
+    work = os.path.join(d, "work")
+    os.makedirs(work)
+    os.makedirs(os.path.join(d, "home"))
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as tar:
+            tar.extractall(work, filter="data")
+        os.replace(os.path.join(work, "meta.json"), os.path.join(d, "meta.json"))
+        meta = load_meta(d)
+    except Exception as e:
+        shutil.rmtree(d, ignore_errors=True)
+        die(f"bad job input: {e}")
+    # margin over the container's own timeout, so run_job always gets to write exit
+    seconds = meta["timeout_minutes"] * 60 + 300
+    r = subprocess.run(["systemd-run", "--user", "--quiet", "--collect", f"--unit={unit(job)}",
+                        f"--property=RuntimeMaxSec={seconds}",
+                        sys.executable, os.path.abspath(__file__), "run", job], capture_output=True, text=True)
+    if r.returncode != 0:
+        shutil.rmtree(d, ignore_errors=True)
+        die(f"systemd-run failed: {r.stderr.strip()}")
+    print(json.dumps({"started": job}))
+
+
+def run_job(job):
+    d = job_dir(job)
+    rc = 255
+    try:
+        meta = load_meta(d)
+        remote, job_env = load_remote_config()
+        job_env.update({str(k): str(v) for k, v in remote.get("env", {}).items()})
+        job_env.update({"JOB_BRANCH": meta["branch"], "JOB_START": meta["start"], "JOB_MODEL": meta["model"],
+                        "JOB_BUNDLE": "1" if meta["bundle"] else "0", "HOME": "/home/scion"})
+        env = dict(os.environ)
+        with open(KEY_FILE) as f:
+            env["ANTHROPIC_API_KEY"] = f.read().strip()
+        env.update(job_env)
+        mounts = []
+        for m in remote.get("mounts", []):
+            mounts += ["-v", m.replace("{root}", ROOT)]
+        cmd = ["podman", "run", "--rm", "--name", unit(job), "--timeout", str(meta["timeout_minutes"] * 60),
+               "--memory", remote.get("memory", "800m"), "--cpus", "2", "--pids-limit", "512",
+               "--cap-drop=all", "--security-opt=no-new-privileges",
+               "--userns=keep-id:uid=1000,gid=1000", "--user", "1000:1000", "-e", "ANTHROPIC_API_KEY",
+               *[a for k in job_env for a in ("-e", k)],
+               "-v", f"{d}/work:/job", "-v", f"{d}/home:/home/scion", *mounts, "-w", "/job",
+               "--entrypoint", "/bin/sh", remote.get("image", "localhost/factory-pi:dev"), "-c", JOB_SCRIPT]
+        with open(os.path.join(d, "run.log"), "w") as out:
+            rc = subprocess.run(cmd, env=env, stdout=out, stderr=subprocess.STDOUT, cwd="/").returncode
+    finally:
+        with open(os.path.join(d, "exit"), "w") as f:
+            f.write(str(rc))
+
+
+def status(job):
+    d = job_dir(job)
+    if os.path.exists(os.path.join(d, "exit")):
+        state = "done"
+    elif os.path.isdir(d) and unit_active(job):
+        state = "running"
+    else:
+        state = "missing"
+    print(json.dumps({"state": state}))
+
+
+def collect(job):
+    d = job_dir(job)
+    if not os.path.isdir(d):
+        die(f"{job} not found")
+    real_d = os.path.realpath(d)
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:") as tar:
+        for name, limit in MAX_COLLECTED_BYTES.items():
+            rel = os.path.join("home" if name == "report.json" else "work", name)
+            src = os.path.join(d, rel)
+            # the job wrote these; a symlink anywhere on the path could point at this host's files
+            if not os.path.isfile(src) or os.path.realpath(src) != os.path.join(real_d, rel):
+                continue
+            size = os.path.getsize(src)
+            if size > limit and name != "agent.log":
+                continue
+            with open(src, "rb") as f:
+                f.seek(max(0, size - limit))
+                data = f.read(limit)
+            info = tarfile.TarInfo(name)
+            info.size, info.mode = len(data), 0o644
+            tar.addfile(info, io.BytesIO(data))
+    sys.stdout.buffer.write(buf.getvalue())
+
+
+def remove(job):
+    d = job_dir(job)
+    subprocess.run(["systemctl", "--user", "stop", unit(job)], capture_output=True)
+    subprocess.run(["podman", "rm", "-f", unit(job)], capture_output=True)
+    shutil.rmtree(d, ignore_errors=True)
+    print(json.dumps({"removed": job}))
+
+
+def list_jobs():
+    for name in sorted(os.listdir(JOBS)):
+        print(name)
+
+
+def main():
+    os.makedirs(JOBS, exist_ok=True)
+    if len(sys.argv) > 1:
+        args = sys.argv[1:]
+        if args[0] == "run" and len(args) == 2:
+            return run_job(args[1])
+    else:
+        args = shlex.split(os.environ.get("SSH_ORIGINAL_COMMAND", ""))
+    if not args or args[0] not in SSH_VERBS:
+        die(__doc__.strip())
+    verb, rest = args[0], args[1:]
+    if verb == "list":
+        return list_jobs()
+    if len(rest) != 1:
+        die(f"usage: {verb} <job>")
+    {"start": start, "status": status, "collect": collect, "remove": remove}[verb](rest[0])
+
+
+if __name__ == "__main__":
+    main()

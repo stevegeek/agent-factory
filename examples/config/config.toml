@@ -43,6 +43,24 @@ env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
 github = false               # otherwise it waits in needs_human
 clock = true
 
+# Helper hosts (optional): these stages run as Pi jobs there, over an SSH key forced to
+# bin/factory-remote (host/allow-dispatcher.sh). A stage goes to the first listed host
+# with a free slot, else runs here; an unreachable host is skipped for that tick.
+# [hosts.helper]
+# ssh = "factory@192.168.0.77"
+# slots = 1
+# stages = ["triage", "review"]
+# model = "claude-sonnet-5-5"
+# key = "~/.ssh/factory-remote"
+
+# On a helper host: what each Pi job gets beyond its own directory. The dispatcher
+# cannot change these; it only sends the branch, model and timeout.
+[remote]
+image = "localhost/factory-pi:dev"
+memory = "800m"
+mounts = ["{root}/cache/bundle:/home/scion/.bundle-cache:ro"]   # {root} = ~/factory
+env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
+
 [projects.my_gem]
 path = "/home/factory/projects/my_gem"
 github = "owner/my_gem"      # enables the github door (factory sweep)

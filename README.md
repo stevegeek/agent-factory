@@ -11,8 +11,10 @@ Agents: Claude Code via [Scion](https://github.com/GoogleCloudPlatform/scion) (l
 | `bin/factory` | dispatcher (Python 3 stdlib): board, pipeline, gate, doors |
 | `bin/render` | renders host files from a config dir |
 | `bin/pi-run` | runs Pi in a capped container |
+| `bin/factory-remote` | on a helper host: runs dispatcher stages as Pi jobs (the dispatcher's SSH key is forced to it) |
 | `deploy.sh` | render + copy to a host over SSH |
 | `host/setup.sh` | host base setup: zram, systemd-oomd, locked `factory` user, memory budget, rootless Podman |
+| `host/allow-dispatcher.sh` | on a helper host: authorise the dispatcher's key, forced to `factory-remote` |
 | `images/claude/` | Scion/Claude Code agent image + rules every agent gets |
 | `images/pi/` | Pi agent image |
 | `templates/<flavour>/` | Scion role templates (`ruby-gem` ships) |
@@ -49,6 +51,23 @@ umask 077; cat > ~/.config/factory/anthropic-api-key
 
 Timers, as admin: `sudo bash ~factory/factory/systemd/install-units.sh --enable`
 
+### Helper hosts
+
+A second host can take stages (e.g. triage and review) as Pi jobs. On the dispatcher, as `factory`:
+
+```sh
+ssh-keygen -t ed25519 -N '' -C dispatcher -f ~/.ssh/factory-remote
+ssh-keyscan HELPER_IP >> ~/.ssh/known_hosts      # compare with the helper's host key
+```
+
+On the helper, after `setup.sh`, a deploy, the Pi image build and its API key, as admin:
+
+```sh
+sudo bash host/allow-dispatcher.sh --from DISPATCHER_IP --key "$(cat factory-remote.pub)"
+```
+
+Then `[hosts.<name>]` in the config (see `examples/config/config.toml`). Jobs get the same `report.json` contract; a worker's commits come back as a git bundle, and a reviewer's job reports the head it left so a moved branch is caught. The helper's `[remote]` table, not the dispatcher, decides image, memory, mounts and env.
+
 ## Use
 
 ```sh
@@ -76,7 +95,7 @@ door → triage → ready → working → review → security → gate → ready
 
 ## Config
 
-`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`. `FACTORY_ROOT` overrides `~/factory`.
+`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[hosts.<name>]` (`ssh`, `slots`, `stages`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`. `FACTORY_ROOT` overrides `~/factory`.
 
 ## Tests
 

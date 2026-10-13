@@ -1,7 +1,10 @@
 import importlib.machinery
 import importlib.util
+import io
+import json
 import os
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from unittest import mock
@@ -258,6 +261,208 @@ class DoorsTest(unittest.TestCase):
         factory.save_state(state)
         factory.clock(self.cfg)
         self.assertEqual(len(factory.all_tickets()), 2)
+
+
+remote_loader = importlib.machinery.SourceFileLoader("factory_remote", os.path.join(HERE, "..", "bin", "factory-remote"))
+remote_spec = importlib.util.spec_from_loader("factory_remote", remote_loader)
+factory_remote = importlib.util.module_from_spec(remote_spec)
+remote_loader.exec_module(factory_remote)
+
+HOSTS = {"pi": {"ssh": "factory@pi", "slots": 1, "stages": ["triage", "review"]}}
+
+
+class PickHostTest(unittest.TestCase):
+    def test_helper_host_first_then_local_then_none(self):
+        cfg = {"max_agents": 1, "hosts": HOSTS}
+        self.assertEqual(factory.pick_host(cfg, "review", {factory.LOCAL: 0}), "pi")
+        self.assertEqual(factory.pick_host(cfg, "review", {factory.LOCAL: 0, "pi": 1}), factory.LOCAL)
+        self.assertIsNone(factory.pick_host(cfg, "review", {factory.LOCAL: 1, "pi": 1}))
+
+    def test_stage_not_listed_and_down_hosts_stay_local(self):
+        cfg = {"max_agents": 1, "hosts": HOSTS}
+        self.assertEqual(factory.pick_host(cfg, "work", {factory.LOCAL: 0}), factory.LOCAL)
+        self.assertEqual(factory.pick_host(cfg, "triage", {factory.LOCAL: 0}, down={"pi"}), factory.LOCAL)
+
+
+class RemoteStageTest(RepoCase):
+    def setUp(self):
+        super().setUp()
+        self.templates = tempfile.TemporaryDirectory()
+        for name in ("triage", "reviewer", "worker"):
+            os.makedirs(os.path.join(self.templates.name, name))
+            with open(os.path.join(self.templates.name, name, "agents.md"), "w") as f:
+                f.write(f"# {name} role\n")
+        self.logs = tempfile.TemporaryDirectory()
+        self.patches = [mock.patch.object(factory, "SCION_TEMPLATES", self.templates.name),
+                        mock.patch.object(factory, "LOGS", self.logs.name),
+                        mock.patch.object(factory, "log")]
+        for p in self.patches:
+            p.start()
+        self.write("Gemfile.lock", "GEM\n")
+        self.project = {**self.project, "pinned_untracked": ["Gemfile.lock"]}
+        self.cfg = {"hosts": HOSTS, "agent_timeout_minutes": 30, "projects": {"p": self.project}}
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+        self.templates.cleanup()
+        self.logs.cleanup()
+        super().tearDown()
+
+    def ticket(self, column, branch=None):
+        return {"id": "T0003", "project": "p", "title": "t", "body": "b", "door": "human", "column": column,
+                "branch": branch, "reports": {}, "history": [], "agent": None}
+
+    def start(self, t, stage):
+        sent = {}
+
+        def fake_remote(host, *args, stdin=b"", timeout=120):
+            if stdin:
+                with tarfile.open(fileobj=io.BytesIO(stdin)) as tar:
+                    sent[args[0]] = {m.name: tar.extractfile(m).read() for m in tar.getmembers()}
+            return b"{}"
+
+        with mock.patch.object(factory, "remote", side_effect=fake_remote), mock.patch.object(factory, "scion") as scion:
+            factory.start_stage(self.cfg, self.project, t, stage, "pi")
+        scion.assert_not_called()
+        return sent["start"]
+
+    def bundle_heads(self, data):
+        path = os.path.join(self.logs.name, "x.bundle")
+        with open(path, "wb") as f:
+            f.write(data)
+        out = subprocess.run(["git", "bundle", "list-heads", path], capture_output=True, text=True, check=True).stdout
+        return {line.split()[1] for line in out.splitlines()}
+
+    def test_remote_triage_ships_base_role_prompt_and_pinned_files(self):
+        t = self.ticket("triage")
+        files = self.start(t, "triage")
+        meta = json.loads(files["meta.json"])
+        self.assertEqual((meta["branch"], meta["start"], meta["bundle"], meta["timeout_minutes"]),
+                         ("triage", "main", False, 30))
+        self.assertEqual(self.bundle_heads(files["repo.bundle"]), {"refs/heads/main"})
+        self.assertEqual(files["role.md"], b"# triage role\n")
+        self.assertIn(b"Triage this incoming report", files["prompt.md"])
+        self.assertEqual(files["untracked/Gemfile.lock"], b"GEM\n")
+        self.assertEqual((t["agent"]["host"], t["column"]), ("pi", "triage"))
+
+    def test_remote_review_starts_from_the_branch(self):
+        self.branch_with("bot/x", {"README.md": "x\n"})
+        t = self.ticket("review", "bot/x")
+        files = self.start(t, "review")
+        meta = json.loads(files["meta.json"])
+        self.assertEqual((meta["branch"], meta["start"]), ("bot/x", "bot/x"))
+        self.assertEqual(self.bundle_heads(files["repo.bundle"]), {"refs/heads/main", "refs/heads/bot/x"})
+        self.assertEqual(t["head_before_review"], factory.branch_head(self.project, "bot/x"))
+
+    def collected(self, t, stage, files):
+        t["agent"] = {"name": "t0003-x1", "stage": stage, "started": factory.now(), "host": "pi"}
+        calls = []
+
+        def fake_remote(host, *args, stdin=b"", timeout=120):
+            calls.append(args[0])
+            if args[0] == "status":
+                return b'{"state": "done"}'
+            if args[0] == "collect":
+                return factory.tar_bytes(files)
+            return b"{}"
+
+        with mock.patch.object(factory, "remote", side_effect=fake_remote):
+            factory.poll_remote(self.cfg, self.project, t, factory.dt.timedelta(minutes=30))
+        self.assertIn("remove", calls)
+        return t
+
+    def test_remote_worker_commits_come_back_through_the_bundle(self):
+        other = os.path.join(self.logs.name, "clone")
+        sh(self.logs.name, "git", "clone", "-q", self.repo, other)
+        sh(other, "git", "checkout", "-q", "-b", "bot/x")
+        with open(os.path.join(other, "README.md"), "w") as f:
+            f.write("fixed\n")
+        sh(other, "git", "-c", "user.name=t", "-c", "user.email=t@e", "commit", "-qam", "fix")
+        sh(other, "git", "bundle", "create", "-q", "out.bundle", "refs/heads/bot/x")
+        with open(os.path.join(other, "out.bundle"), "rb") as f:
+            bundle = f.read()
+        t = self.collected(self.ticket("working", "bot/x"), "work",
+                           {"report.json": b'{"status": "done"}', "out.bundle": bundle, "agent.log": b"log"})
+        self.assertEqual(t["column"], "review")
+        self.assertEqual(factory.commits_ahead(self.project, "bot/x"), 1)
+        self.assertTrue(os.path.exists(os.path.join(self.logs.name, "T0003", "t0003-x1", "agent.log")))
+
+    def test_remote_reviewer_must_leave_the_head_where_it_was(self):
+        self.branch_with("bot/x", {"README.md": "x\n"})
+        head = factory.branch_head(self.project, "bot/x")
+        for reported, column in ((head, "security"), ("0" * 40, "needs_human"), (None, "needs_human")):
+            t = self.ticket("review", "bot/x")
+            t["head_before_review"] = head
+            files = {"report.json": b'{"verdict": "pass"}'}
+            if reported:
+                files["head"] = reported.encode() + b"\n"
+            self.assertEqual(self.collected(t, "review", files)["column"], column, reported)
+
+    def test_remote_job_without_report_needs_human(self):
+        t = self.collected(self.ticket("triage"), "triage", {"agent.log": b"crashed"})
+        self.assertEqual((t["column"], t["agent"]), ("needs_human", None))
+
+    def test_unreachable_helper_host_falls_back_to_local(self):
+        t = self.ticket("triage")
+        cfg = {**self.cfg, "max_agents": 1}
+        with mock.patch.object(factory, "remote", side_effect=factory.RemoteError("down")), \
+             mock.patch.object(factory, "scion") as scion, \
+             mock.patch.object(factory, "running_agents", return_value=set()), \
+             mock.patch.object(factory, "all_tickets", return_value=[t]), \
+             mock.patch.object(factory, "save_ticket"), \
+             mock.patch.object(factory, "ROOT", self.logs.name), \
+             mock.patch.object(factory, "BOARD", os.path.join(self.logs.name, "board")):
+            factory.tick(cfg)
+        self.assertEqual(t["agent"]["host"], factory.LOCAL)
+        self.assertEqual(scion.call_args.args[0], self.project)
+
+
+class FactoryRemoteTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.patch = mock.patch.object(factory_remote, "JOBS", self.tmp.name)
+        self.patch.start()
+
+    def tearDown(self):
+        self.patch.stop()
+        self.tmp.cleanup()
+
+    def test_meta_is_validated_and_clamped(self):
+        ok = factory_remote.check_meta({"branch": "bot/x", "start": "main", "timeout_minutes": 9999})
+        self.assertEqual((ok["model"], ok["timeout_minutes"], ok["bundle"]), ("claude-sonnet-5-5", 120, False))
+        for bad in ({"branch": "../x", "start": "main"}, {"branch": "-x", "start": "main"},
+                    {"branch": "a b", "start": "main"}, {"branch": "x", "start": "main", "model": "--help"},
+                    {"branch": "x", "start": "main", "model": "a;b"}, ["not", "a", "dict"]):
+            with self.assertRaises(ValueError):
+                factory_remote.check_meta(bad)
+
+    def test_ssh_cannot_call_run_or_unknown_verbs(self):
+        for command in ("run t0001-t1", "rm -rf /", "status ../../etc"):
+            with mock.patch.dict(os.environ, {"SSH_ORIGINAL_COMMAND": command}), \
+                 mock.patch.object(factory_remote.sys, "argv", ["factory-remote"]), \
+                 mock.patch.object(factory_remote, "run_job") as run_job, \
+                 mock.patch.object(factory_remote.sys, "stderr"):
+                with self.assertRaises(SystemExit):
+                    factory_remote.main()
+                run_job.assert_not_called()
+
+    def test_collect_skips_files_reached_through_symlinks(self):
+        secret = os.path.join(self.tmp.name, "secret")
+        with open(secret, "w") as f:
+            f.write("key")
+        job = os.path.join(self.tmp.name, "t0001-r1")
+        os.makedirs(os.path.join(job, "work"))
+        os.symlink(self.tmp.name, os.path.join(job, "home"))
+        with open(os.path.join(self.tmp.name, "report.json"), "w") as f:
+            f.write("{}")
+        os.symlink(secret, os.path.join(job, "work", "head"))
+        with open(os.path.join(job, "work", "agent.log"), "w") as f:
+            f.write("ok")
+        out = mock.Mock()
+        with mock.patch.object(factory_remote.sys, "stdout", mock.Mock(buffer=out)):
+            factory_remote.collect("t0001-r1")
+        self.assertEqual(set(factory.untar_bytes(out.write.call_args.args[0])), {"agent.log"})
 
 
 if __name__ == "__main__":

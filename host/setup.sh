@@ -12,6 +12,8 @@
 #   3. 'factory' user: no sudo, locked password, rootless Podman, lingering
 #      user manager. Its SSH key lives in a root-owned file under /etc/ssh
 #      (the user cannot add keys) and agent/TCP forwarding is off for it.
+#      A second root-owned file, <user>.dispatchers, holds keys added by
+#      allow-dispatcher.sh; this script never writes it.
 #   4. one memory/CPU/task budget for everything the factory user runs,
 #      so sshd and the host always keep headroom
 #
@@ -79,7 +81,7 @@ undo() {
   fi
   rm -f "/etc/systemd/system/user-$admin_uid.slice.d/$SLICE_DROPIN_NAME"
   rmdir "/etc/systemd/system/user-$admin_uid.slice.d" 2>/dev/null || true
-  rm -f "$SSHD_DROPIN" "$FACTORY_KEYS_DIR/$FACTORY_USER"
+  rm -f "$SSHD_DROPIN" "$FACTORY_KEYS_DIR/$FACTORY_USER" "$FACTORY_KEYS_DIR/$FACTORY_USER.dispatchers"
   rmdir "$FACTORY_KEYS_DIR" 2>/dev/null || true
   { sshd -t && systemctl try-reload-or-restart ssh; } || true
   rm -f "$SYSCTL_CONF" "$OOMD_DROPIN" "$SSH_SERVICE_DROPIN"
@@ -177,7 +179,7 @@ install -d -m 755 -o root -g root "$FACTORY_KEYS_DIR"
 install -m 644 -o root -g root "$src_keys" "$FACTORY_KEYS_DIR/$FACTORY_USER"
 sshd_content="# $NAME
 Match User $FACTORY_USER
-    AuthorizedKeysFile $FACTORY_KEYS_DIR/%u
+    AuthorizedKeysFile $FACTORY_KEYS_DIR/%u $FACTORY_KEYS_DIR/%u.dispatchers
     AllowAgentForwarding no
     AllowTcpForwarding no
     AllowStreamLocalForwarding no

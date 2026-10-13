@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Agent factory dispatcher: a file-based board that drives Scion agents
 through work -> review -> security -> gate. Runs as the 'factory' user.
+Stages listed under [hosts.<name>] run as Pi jobs on that host (bin/factory-remote).
 
   factory add <project> "<title>" [--body TEXT | --body-file F] [--door human|clock|github|peer] [--triage]
   factory ls [--all]
@@ -15,12 +16,15 @@ import datetime as dt
 import fcntl
 import fnmatch
 import glob
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import tomllib
 import urllib.request
 
@@ -34,6 +38,10 @@ STATE = os.path.join(ROOT, "state.json")
 TOKEN_FILE = os.path.join(HOME, ".config", "factory", "claude-oauth-token")
 SCION = os.path.join(HOME, ".local", "bin", "scion")
 AGENT_HOMES = os.path.join(HOME, ".scion", "project-configs", "*", ".scion", "agents", "{name}", "home")
+SCION_TEMPLATES = os.path.join(HOME, ".scion", "templates")
+REMOTE_KEY = os.path.join(HOME, ".ssh", "factory-remote")
+LOCAL = "local"
+MAX_ARCHIVED_BYTES = 2_000_000
 
 COLUMNS = ["triage", "ready", "working", "review", "security", "gate",
            "ready_for_pr", "needs_human", "done", "rejected"]
@@ -201,18 +209,22 @@ def agent_home(name):
     return homes[0] if homes else None
 
 
+def parse_report(text):
+    try:
+        report = json.loads(text)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {"status": "blocked", "verdict": "fail", "summary": "report.json is not valid JSON"}
+    return report if isinstance(report, dict) else {"status": "blocked", "verdict": "fail",
+                                                     "summary": "report.json is not a JSON object"}
+
+
 def read_report(name):
     home = agent_home(name)
     path = home and os.path.join(home, "report.json")
     if not path or not os.path.exists(path):
         return None
-    try:
-        with open(path) as f:
-            report = json.load(f)
-        return report if isinstance(report, dict) else {"status": "blocked", "verdict": "fail",
-                                                         "summary": "report.json is not a JSON object"}
-    except json.JSONDecodeError:
-        return {"status": "blocked", "verdict": "fail", "summary": "report.json is not valid JSON"}
+    with open(path, "rb") as f:
+        return parse_report(f.read())
 
 
 def archive_agent(t, name):
@@ -230,6 +242,139 @@ def remove_agent(project, t, name, keep_branch=True):
     archive_agent(t, name)
     scion(project, "stop", name, check=False)
     scion(project, "delete", name, *(["-b"] if keep_branch else []), "-y", check=False)
+
+
+# ---------------------------------------------------------------- helper hosts (Pi jobs via factory-remote)
+
+class RemoteError(RuntimeError):
+    pass
+
+
+def remote(host, *args, stdin=b"", timeout=120):
+    """One factory-remote verb on a helper host; its SSH key is forced to that script."""
+    key = os.path.expanduser(host.get("key", REMOTE_KEY))
+    cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "IdentitiesOnly=yes",
+           "-i", key, host["ssh"], *args]
+    try:
+        r = subprocess.run(cmd, input=stdin, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise RemoteError(f"{host['ssh']} {args[0]} timed out")
+    if r.returncode != 0:
+        raise RemoteError(f"{host['ssh']} {args[0]} failed ({r.returncode}): "
+                          f"{r.stderr.decode(errors='replace').strip()[-300:]}")
+    return r.stdout
+
+
+def pick_host(cfg, stage, busy, down=()):
+    """First helper host that runs this stage and has a free slot, else this host."""
+    for name, h in cfg.get("hosts", {}).items():
+        if name not in down and stage in h.get("stages", []) and busy.get(name, 0) < h.get("slots", 1):
+            return name
+    return LOCAL if busy.get(LOCAL, 0) < cfg.get("max_agents", 2) else None
+
+
+def tar_bytes(files):
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:") as tar:
+        for name, data in files.items():
+            info = tarfile.TarInfo(name)
+            info.size, info.mode, info.mtime = len(data), 0o644, int(dt.datetime.now().timestamp())
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def untar_bytes(data):
+    out = {}
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as tar:
+        for m in tar.getmembers():
+            if m.isfile() and "/" not in m.name:
+                out[m.name] = tar.extractfile(m).read()
+    return out
+
+
+def repo_bundle(project, refs):
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "repo.bundle")
+        git(project, "bundle", "create", "-q", path, *[f"refs/heads/{r}" for r in refs])
+        with open(path, "rb") as f:
+            return f.read()
+
+
+def role_instructions(cfg, stage):
+    template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
+    with open(os.path.join(SCION_TEMPLATES, template, "agents.md"), "rb") as f:
+        return f.read()
+
+
+def start_remote(cfg, project, t, stage, name, prompt, host_name):
+    h = cfg["hosts"][host_name]
+    if stage == "triage":
+        branch, start = "triage", project["base"]
+    else:
+        branch = t["branch"]
+        start = branch if branch_exists(project, branch) else project["base"]
+    refs = sorted({project["base"], start})
+    meta = {"branch": branch, "start": start, "model": h.get("model", ""), "bundle": stage == "work",
+            "timeout_minutes": cfg.get("agent_timeout_minutes", 45)}
+    files = {"repo.bundle": repo_bundle(project, refs), "prompt.md": prompt.encode(),
+             "role.md": role_instructions(cfg, stage), "meta.json": json.dumps(meta).encode()}
+    for f in project.get("pinned_untracked", []):
+        src = os.path.join(project["path"], f)
+        if os.path.isfile(src):
+            with open(src, "rb") as fh:
+                files[f"untracked/{f}"] = fh.read()
+    try:
+        remote(h, "start", name, stdin=tar_bytes(files))
+    except RemoteError:
+        # the start may have landed before the error; never leave an orphan holding the slot
+        try:
+            remote(h, "remove", name)
+        except RemoteError:
+            pass
+        raise
+
+
+def archive_remote(t, name, files):
+    dest = os.path.join(LOGS, t["id"], name)
+    os.makedirs(dest, exist_ok=True)
+    for f in ("report.json", "agent.log", "prompt.md"):
+        if f in files:
+            with open(os.path.join(dest, f), "wb") as out:
+                out.write(files[f][-MAX_ARCHIVED_BYTES:])
+
+
+def fetch_branch(project, branch, bundle):
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "out.bundle")
+        with open(path, "wb") as f:
+            f.write(bundle)
+        git(project, "-c", "transfer.fsckObjects=true", "fetch", "-q", path, f"+refs/heads/{branch}:refs/heads/{branch}")
+
+
+def poll_remote(cfg, project, t, timeout):
+    stage, name, host_name = t["agent"]["stage"], t["agent"]["name"], t["agent"]["host"]
+    h = cfg["hosts"][host_name]
+    state = json.loads(remote(h, "status", name))["state"]
+    if state == "running":
+        if dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(t["agent"]["started"]) > timeout:
+            remote(h, "remove", name)
+            t["agent"] = None
+            move(t, "needs_human", f"agent {name} on {host_name} timed out")
+        return
+    if state != "done":
+        remote(h, "remove", name)
+        t["agent"] = None
+        return move(t, "needs_human", f"agent {name} on {host_name} disappeared without a report")
+    files = untar_bytes(remote(h, "collect", name, timeout=300))
+    archive_remote(t, name, files)
+    if stage == "work" and "out.bundle" in files:
+        fetch_branch(project, t["branch"], files["out.bundle"])
+    remote(h, "remove", name)
+    if "report.json" not in files:
+        t["agent"] = None
+        return move(t, "needs_human", f"agent {name} on {host_name} finished without a report")
+    finish_stage(cfg, project, t, parse_report(files["report.json"]),
+                 head=files.get("head", b"").decode(errors="replace").strip() or "unknown")
 
 
 # ---------------------------------------------------------------- prompts
@@ -361,7 +506,7 @@ def gate(cfg, project, t):
 
 # ---------------------------------------------------------------- tick
 
-def start_stage(cfg, project, t, stage):
+def start_stage(cfg, project, t, stage, host=LOCAL):
     name = f"{t['id'].lower()}-{AGENT_SUFFIX[stage]}{starts(t, stage) + 1}"
     if stage == "triage":
         prompt = triage_prompt(t)
@@ -375,23 +520,29 @@ def start_stage(cfg, project, t, stage):
         else:
             t["security_tier"] = classify(project, t["branch"])
             prompt = security_prompt(t, project, t["security_tier"])
-    template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
-    args = ["start", name, "-t", template, "--message-mode", "none"]
-    if stage != "triage":
-        args += ["-b", t["branch"]]
-    if cfg.get("models", {}).get(stage):
-        args += ["--model", cfg["models"][stage]]
-    scion(project, *args, prompt)
-    t["agent"] = {"name": name, "stage": stage, "started": now()}
+    if host == LOCAL:
+        template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
+        args = ["start", name, "-t", template, "--message-mode", "none"]
+        if stage != "triage":
+            args += ["-b", t["branch"]]
+        if cfg.get("models", {}).get(stage):
+            args += ["--model", cfg["models"][stage]]
+        scion(project, *args, prompt)
+    else:
+        start_remote(cfg, project, t, stage, name, prompt, host)
+    t["agent"] = {"name": name, "stage": stage, "started": now(), "host": host}
     if t["column"] != RUNNING_COLUMN[stage]:
         move(t, RUNNING_COLUMN[stage])
-    event(t, "start", f"{stage} {name}" + (f" on {t['branch']}" if stage != "triage" else ""))
+    event(t, "start", f"{stage} {name}" + (f" on {t['branch']}" if stage != "triage" else "")
+          + (f" @{host}" if host != LOCAL else ""))
 
 
-def finish_stage(cfg, project, t, report):
+def finish_stage(cfg, project, t, report, head=None):
+    """head: where a helper-host agent left the branch; local agents work on the branch itself."""
     stage, name = t["agent"]["stage"], t["agent"]["name"]
     t["reports"][stage] = report
-    remove_agent(project, t, name, keep_branch=stage != "triage")
+    if t["agent"].get("host", LOCAL) == LOCAL:
+        remove_agent(project, t, name, keep_branch=stage != "triage")
     t["agent"] = None
     event(t, "finished", f"{stage} {name}")
     if stage == "triage":
@@ -403,7 +554,7 @@ def finish_stage(cfg, project, t, report):
         if not branch_exists(project, branch) or commits_ahead(project, branch) == 0:
             return move(t, "needs_human", "worker reported done but the branch has no commits")
         return move(t, "review")
-    if branch_head(project, branch) != t.get("head_before_" + stage):
+    if (head or branch_head(project, branch)) != t.get("head_before_" + stage):
         return move(t, "needs_human", f"{stage} agent changed the branch; reviewers must not commit")
     if stage == "review":
         if report.get("verdict") == "pass":
@@ -447,6 +598,20 @@ def tick(cfg):
         if not t.get("agent"):
             continue
         project, name = cfg["projects"][t["project"]], t["agent"]["name"]
+        if t["agent"].get("host", LOCAL) != LOCAL:
+            try:
+                poll_remote(cfg, project, t, timeout)
+            except Exception as e:
+                event(t, "error", str(e)[:300])
+                if dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(t["agent"]["started"]) > timeout:
+                    try:
+                        remote(cfg["hosts"][t["agent"]["host"]], "remove", name)
+                    except Exception:
+                        pass
+                    move(t, "needs_human", f"agent {name} on {t['agent']['host']}: {str(e)[:150]}")
+                    t["agent"] = None
+            save_ticket(t)
+            continue
         try:
             report = read_report(name)
             if report is not None:
@@ -462,21 +627,39 @@ def tick(cfg):
             event(t, "error", str(e)[:300])
         save_ticket(t)
 
-    busy = len(running_agents(cfg))
+    busy = {LOCAL: len(running_agents(cfg))}
     for t in tickets:
-        if t.get("agent") or busy >= max_agents:
+        host = (t.get("agent") or {}).get("host", LOCAL)
+        if t.get("agent") and host != LOCAL:
+            busy[host] = busy.get(host, 0) + 1
+    down = set()
+    for t in tickets:
+        if t.get("agent"):
             continue
         project = cfg["projects"][t["project"]]
         try:
             if t["column"] == "gate":
+                if busy[LOCAL] >= max_agents:
+                    continue
                 t["gate"] = gate(cfg, project, t)
                 if not t["gate"]["checks_pass"]:
                     move(t, "needs_human", "gate: tests or lint failed on a fresh checkout")
                 else:
                     move(t, "ready_for_pr", "auto-merge eligible" if t["gate"]["auto_eligible"] else "needs human review")
             elif t["column"] in STAGE_FOR_COLUMN:
-                start_stage(cfg, project, t, STAGE_FOR_COLUMN[t["column"]])
-                busy += 1
+                stage = STAGE_FOR_COLUMN[t["column"]]
+                host = pick_host(cfg, stage, busy, down)
+                if host is None:
+                    continue
+                while host is not None:
+                    try:
+                        start_stage(cfg, project, t, stage, host)
+                        busy[host] = busy.get(host, 0) + 1
+                        break
+                    except RemoteError as e:
+                        down.add(host)
+                        event(t, "error", f"{host}: {str(e)[:250]}")
+                        host = pick_host(cfg, stage, busy, down)
         except Exception as e:
             event(t, "error", str(e)[:300])
             move(t, "needs_human", "dispatcher error")
@@ -566,7 +749,10 @@ def cmd_ls(cfg, a):
     for t in all_tickets():
         if not a.all and t["column"] in ("done", "rejected"):
             continue
-        agent = t["agent"]["name"] if t.get("agent") else ""
+        agent = ""
+        if t.get("agent"):
+            host = t["agent"].get("host", LOCAL)
+            agent = t["agent"]["name"] + (f"@{host}" if host != LOCAL else "")
         print(f"{t['id']}  {t['column']:<13} {t['project']:<12} {agent:<9} {t['title'][:60]}")
 
 

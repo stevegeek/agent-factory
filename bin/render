@@ -65,7 +65,7 @@ def main(config_dir, out):
     copytree(os.path.join("images", "claude"), os.path.join(out, "images", "scion-agent"))
     copytree(os.path.join("images", "pi"), os.path.join(out, "images", "pi"))
     os.makedirs(os.path.join(out, "bin"))
-    for b in ("factory", "pi-run"):
+    for b in ("factory", "factory-remote", "pi-run"):
         shutil.copy2(os.path.join(CORE, "bin", b), os.path.join(out, "bin", b))
     shutil.copy2(os.path.join(CORE, "scion", "patch_provision.py"), os.path.join(out, "patch_provision.py"))
     shutil.copy2(os.path.join(config_dir, "config.toml"), os.path.join(out, "config.toml"))
@@ -82,6 +82,7 @@ def main(config_dir, out):
                 render_file(os.path.join(root, f), v)
     for f in ("agent-rules.md", "managed-settings.json"):
         render_file(os.path.join(out, "images", "scion-agent", f), v)
+    shutil.copy2(rules, os.path.join(out, "images", "pi", "agent-rules.md"))
     print(out)
 
 
