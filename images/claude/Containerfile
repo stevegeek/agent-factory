@@ -1,0 +1,39 @@
+# Scion-compatible slim Claude Code agent image (Ubuntu 26.04, Ruby toolchain).
+# Contract (Scion local mode, Claude harness): user 'scion' uid 1000 home /home/scion,
+# entrypoint 'sciontool init --', container starts as root (sciontool drops privileges),
+# tmux + python3 + claude on PATH, git >= 2.48 (worktrees use extensions.relativeworktrees).
+# Ubuntu 26.04 = same git (2.53) as the host that creates the worktrees. No sudo for 'scion'.
+FROM docker.io/library/ubuntu:26.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ruby ruby-dev ruby-bundler build-essential pkg-config git curl ca-certificates \
+      libyaml-dev libsqlite3-dev libffi-dev zlib1g-dev \
+      procps tmux python3 less \
+ && rm -rf /var/lib/apt/lists/*
+
+# Claude Code native binary, copied out of root's home so the per-agent
+# /home/scion mount cannot hide it.
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+ && cp -L /root/.local/bin/claude /usr/local/bin/claude \
+ && rm -rf /root/.local/share/claude /root/.local/bin/claude /root/.claude*
+ENV DISABLE_AUTOUPDATER=1
+
+# ubuntu images ship user 'ubuntu' with uid 1000; Scion needs 'scion' at 1000.
+COPY sciontool /usr/local/bin/sciontool
+RUN chmod 755 /usr/local/bin/sciontool \
+ && (userdel -r ubuntu 2>/dev/null || true) \
+ && useradd --create-home --uid 1000 --shell /bin/bash scion \
+ && mkdir -p /home/scion/.scion /home/scion/.claude \
+ && chown -R scion:scion /home/scion
+
+# Rules for every agent role, loaded by Claude Code as managed instructions.
+# Root-owned, so agents cannot change them.
+COPY agent-rules.md /etc/claude-code/CLAUDE.md
+COPY managed-settings.json /etc/claude-code/managed-settings.json
+RUN chmod 644 /etc/claude-code/CLAUDE.md /etc/claude-code/managed-settings.json
+
+ENV BUNDLE_JOBS=2 MAKEFLAGS=-j2
+ENTRYPOINT ["sciontool", "init", "--"]
+CMD ["bash"]

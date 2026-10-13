@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Render the files for one host from the core plus a config directory.
+
+  render <config-dir> <out-dir>
+
+config-dir holds config.toml and optionally rules.md (appended to the agent rules).
+"""
+import os
+import re
+import shutil
+import sys
+import tomllib
+
+CORE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROLES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security"}
+PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
+
+
+def values(cfg):
+    ident, host = cfg.get("identity", {}), cfg.get("host", {})
+    v = {
+        "git_name": ident.get("git_name"),
+        "git_email": ident.get("git_email"),
+        "pr_footer": ident.get("pr_footer"),
+        "factory_user": host.get("factory_user", "factory"),
+        "factory_uid": str(host.get("factory_uid", "")),
+        "factory_home": host.get("factory_home", "/home/factory"),
+    }
+    v["factory_root"] = v["factory_home"].rstrip("/") + "/factory"
+    missing = [k for k, x in v.items() if not x]
+    if missing:
+        sys.exit(f"config.toml is missing: {', '.join(missing)} (see [identity] and [host])")
+    return v
+
+
+def render_file(path, v):
+    with open(path) as f:
+        text = f.read()
+    unknown = set(PLACEHOLDER.findall(text)) - set(v)
+    if unknown:
+        sys.exit(f"{path}: unknown placeholders {sorted(unknown)}")
+    text = PLACEHOLDER.sub(lambda m: v[m.group(1)], text)
+    with open(path, "w") as f:
+        f.write(text)
+
+
+def copytree(src, dst):
+    shutil.copytree(os.path.join(CORE, src), dst, dirs_exist_ok=True)
+
+
+def main(config_dir, out):
+    with open(os.path.join(config_dir, "config.toml"), "rb") as f:
+        cfg = tomllib.load(f)
+    v = values(cfg)
+    flavour = cfg.get("template_flavour", "ruby-gem")
+    names = {**ROLES, **cfg.get("templates", {})}
+    shutil.rmtree(out, ignore_errors=True)
+    os.makedirs(out)
+
+    for stage, role in ROLES.items():
+        dst = os.path.join(out, "scion-templates", names[stage])
+        copytree(os.path.join("templates", flavour, role), dst)
+    copytree(os.path.join("templates", "default"), os.path.join(out, "scion-templates", "default"))
+    copytree("systemd", os.path.join(out, "systemd"))
+    copytree(os.path.join("images", "claude"), os.path.join(out, "images", "scion-agent"))
+    copytree(os.path.join("images", "pi"), os.path.join(out, "images", "pi"))
+    os.makedirs(os.path.join(out, "bin"))
+    for b in ("factory", "pi-run"):
+        shutil.copy2(os.path.join(CORE, "bin", b), os.path.join(out, "bin", b))
+    shutil.copy2(os.path.join(CORE, "scion", "patch_provision.py"), os.path.join(out, "patch_provision.py"))
+    shutil.copy2(os.path.join(config_dir, "config.toml"), os.path.join(out, "config.toml"))
+
+    rules = os.path.join(out, "images", "scion-agent", "agent-rules.md")
+    extra = os.path.join(config_dir, "rules.md")
+    if os.path.exists(extra):
+        with open(rules, "a") as r, open(extra) as e:
+            r.write("\n" + e.read())
+
+    for d in ("scion-templates", "systemd"):
+        for root, _, files in os.walk(os.path.join(out, d)):
+            for f in files:
+                render_file(os.path.join(root, f), v)
+    for f in ("agent-rules.md", "managed-settings.json"):
+        render_file(os.path.join(out, "images", "scion-agent", f), v)
+    print(out)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        sys.exit(__doc__.strip())
+    main(sys.argv[1], sys.argv[2])

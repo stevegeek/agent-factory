@@ -1,0 +1,17 @@
+schema_version: "1"
+description: "Security review of one change at a given tier; never edits or commits"
+agent_instructions: agents.md
+default_harness_config: claude
+max_duration: "30m"
+resources:
+  limits:
+    memory: 900Mi
+    cpu: "2"
+  requests:
+    memory: 300Mi
+env:
+  BUNDLE_PATH: /home/scion/.bundle-cache
+volumes:
+  - type: local
+    source: {{factory_root}}/cache/bundle
+    target: /home/scion/.bundle-cache

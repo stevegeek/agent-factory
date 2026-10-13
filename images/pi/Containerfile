@@ -1,0 +1,18 @@
+# Pi coding agent image, for hosts whose CPU cannot run the native Claude Code binary (e.g. pre-SSE4.2).
+# Build on the host as factory:  podman build -t localhost/factory-pi:dev ~/factory/images/pi
+FROM docker.io/library/ubuntu:26.04
+
+ARG PI_VERSION=1.2.0
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      nodejs npm git ripgrep curl ca-certificates less procps \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g --no-audit --no-fund @earendil-works/pi-coding-agent@${PI_VERSION} \
+ && npm cache clean --force
+
+RUN userdel -r ubuntu 2>/dev/null; useradd -m -u 1000 -s /bin/bash agent
+USER agent
+WORKDIR /home/agent
+ENTRYPOINT ["pi"]

@@ -1,0 +1,60 @@
+# Copy to your own config repo; deploy.sh renders templates from it and installs it
+# on the host as ~/factory/config.toml.
+
+image = "localhost/factory-agent:scion"
+max_agents = 2               # agents running at once; ~500 MB each for Claude Code
+agent_timeout_minutes = 45
+
+# Commit identity and PR attribution for every agent.
+[identity]
+git_name = "Your Name"
+git_email = "you@example.com"
+pr_footer = "Opened by a maintenance bot (Claude Code)."
+
+# The unprivileged account the agents run as (created by host/setup.sh).
+[host]
+factory_user = "factory"
+factory_uid = 1001
+factory_home = "/home/factory"
+
+# Stage -> Scion template name on the host. deploy.sh installs the ruby-gem flavour
+# under these names.
+[templates]
+triage = "gem-triage"
+work = "gem-worker"
+review = "gem-reviewer"
+security = "gem-security"
+
+[models]                     # per stage; empty = harness default
+triage = ""
+work = ""
+review = ""
+security = ""
+
+# Gate 1: deterministic, no model. All must hold for auto-merge eligibility.
+[gate]
+max_changed_lines = 10
+allowed_paths = ["*.md", "docs/*", "CHANGELOG*", ".standard.yml", ".rubocop.yml", "test/*", "spec/*"]
+memory = "900m"
+mounts = ["{root}/cache/bundle:/home/scion/.bundle-cache:ro"]   # {root} = ~/factory
+env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
+
+[triage.auto_accept]         # accepted triage goes straight to "ready" for these doors
+github = false               # otherwise it waits in needs_human
+clock = true
+
+[projects.my_gem]
+path = "/home/factory/projects/my_gem"
+github = "owner/my_gem"      # enables the github door (factory sweep)
+base = "main"
+install = "bundle check"
+test = "bundle exec rake test"
+lint = "bundle exec standardrb"
+pinned_untracked = ["Gemfile.lock"]   # copied into the gate checkout
+# tier3_paths / text_paths override the security-tier file patterns
+
+[[schedules]]                # the clock door
+name = "rails-release-check"
+every_days = 30
+title = "Check compatibility with the latest Rails release"
+body = """Check whether a Rails version newer than the ones covered by Appraisals and the CI matrix has been released. If so, add it to Appraisals and the CI matrix, run the suite against it, and fix any incompatibility. If nothing newer exists, reject this ticket."""

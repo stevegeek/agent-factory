@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent factory: weekly sweep of open GitHub issues
+
+[Timer]
+OnCalendar=Mon 06:00
+Persistent=true
+RandomizedDelaySec=30min
+Unit=factory@sweep.service
+
+[Install]
+WantedBy=timers.target
