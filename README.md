@@ -1,6 +1,6 @@
 # agent-factory
 
-Orchestration for unattended coding agents on small, resource-constrained machines. A file-based board drives each ticket through fresh, sandboxed agents (triage → work → review → security) and a deterministic gate. Agents work on branches and never push; anything irreversible stays with a person.
+Orchestration for unattended coding agents on small, resource-constrained machines. A file-based board drives each ticket through fresh, sandboxed agents (triage → work → review → security) and a deterministic gate, then opens a pull request through a GitHub App. Agents never push; the dispatcher pushes only `bot/*` branches, and merging stays with a person.
 
 Agents: Claude Code via [Scion](https://github.com/GoogleCloudPlatform/scion) (local mode, rootless Podman), or [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) for hosts whose CPU can't run Claude Code's native binary.
 
@@ -93,7 +93,7 @@ pi-run --workdir DIR -p "task"                         # one Pi agent; --model /
 ## Pipeline
 
 ```
-door → triage → ready → working → review → security → gate → ready_for_pr
+door → triage → ready → working → review → security → gate → ready_for_pr → pr_open → done (merged)
                   ↑         review: changes (once) ←┘     └→ needs_human on any failure
 ```
 
