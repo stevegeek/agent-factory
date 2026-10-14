@@ -1,0 +1,63 @@
+{
+  "id": "T0004",
+  "project": "widgets",
+  "title": "Make widgets thread safe",
+  "body": "Make the widgets better.",
+  "door": "human",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {
+    "design": {
+      "status": "done",
+      "summary": "Freeze state after construction.",
+      "design": "x",
+      "tickets": []
+    }
+  },
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-07T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready"
+    },
+    {
+      "at": "2026-10-07T08:01:00+00:00",
+      "event": "move",
+      "detail": "ready -> working"
+    },
+    {
+      "at": "2026-10-07T08:01:00+00:00",
+      "event": "start",
+      "detail": "design t0004-d1"
+    },
+    {
+      "at": "2026-10-07T08:06:00+00:00",
+      "event": "finished",
+      "detail": "design t0004-d1"
+    },
+    {
+      "at": "2026-10-07T08:06:00+00:00",
+      "event": "move",
+      "detail": "working -> needs_human: design ready (3 tickets proposed): Freeze state; factory approve or redirect"
+    }
+  ],
+  "kind": "intent",
+  "design": "# Design\n\nFreeze state.",
+  "proposed": [
+    {
+      "title": "Freeze widget state",
+      "body": "b1"
+    },
+    {
+      "title": "Add thread tests",
+      "body": "b2"
+    },
+    {
+      "title": "Document it",
+      "body": "b3"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "T0006",
+  "project": "widgets",
+  "title": "Proposal 1",
+  "body": "- Noticed: n",
+  "door": "clock",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-07T20:24:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-07T20:24:00+00:00",
+      "event": "created",
+      "detail": "door=clock column=needs_human"
+    },
+    {
+      "at": "2026-10-07T20:24:00+00:00",
+      "event": "panel",
+      "detail": "mean 4.33, spread 0.47, scores [4, 5, 4]"
+    }
+  ],
+  "kind": "proposal",
+  "parent": "T0005",
+  "proposal": {
+    "title": "Proposal 1",
+    "noticed": "n",
+    "change": "c",
+    "why": "why 1",
+    "cost": "small"
+  },
+  "panel": {
+    "scores": [
+      4,
+      5,
+      4
+    ],
+    "mean": 4.33,
+    "spread": 0.47,
+    "keen": 3,
+    "priority": 4.1,
+    "survives": true
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "T0011",
+  "project": "widgets",
+  "title": "Speed up widgets",
+  "body": "Make the widgets better.",
+  "door": "human",
+  "column": "working",
+  "branch": "bot/widget-speed",
+  "agent": {
+    "name": "t0011-w1",
+    "stage": "work",
+    "started": "2026-10-09T09:00:00+00:00",
+    "host": "local"
+  },
+  "reports": {},
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-09T08:59:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready"
+    },
+    {
+      "at": "2026-10-09T09:00:00+00:00",
+      "event": "move",
+      "detail": "ready -> working"
+    },
+    {
+      "at": "2026-10-09T09:00:00+00:00",
+      "event": "start",
+      "detail": "work t0011-w1 on bot/widget-speed"
+    }
+  ]
+}

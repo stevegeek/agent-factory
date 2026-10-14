@@ -1,0 +1,61 @@
+{
+  "id": "T0007",
+  "project": "widgets",
+  "title": "Document widgets",
+  "body": "Make the widgets better.",
+  "door": "human",
+  "column": "needs_human",
+  "branch": "bot/widget-docs",
+  "agent": null,
+  "reports": {
+    "work": {
+      "status": "done",
+      "summary": "Wrote docs.",
+      "category": "fix",
+      "runtime_behaviour": "yes",
+      "tests": "pass",
+      "lint": "pass"
+    },
+    "review": {
+      "verdict": "pass",
+      "runtime_behaviour": "yes",
+      "findings": [],
+      "summary": "Looks right."
+    },
+    "security": {
+      "verdict": "pass",
+      "summary": "Nothing found.",
+      "answers": [
+        {
+          "question": "q1",
+          "answer": "No.",
+          "concern": "none"
+        },
+        {
+          "question": "q2",
+          "answer": "No.",
+          "concern": "low"
+        }
+      ]
+    }
+  },
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-08T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready"
+    },
+    {
+      "at": "2026-10-08T09:30:00+00:00",
+      "event": "move",
+      "detail": "security -> gate"
+    },
+    {
+      "at": "2026-10-08T09:35:00+00:00",
+      "event": "move",
+      "detail": "gate -> needs_human: gate: tests or lint failed on a fresh checkout"
+    }
+  ]
+}

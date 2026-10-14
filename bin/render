@@ -26,6 +26,7 @@ def values(cfg):
         "factory_uid": str(host.get("factory_uid", "")),
         "factory_home": host.get("factory_home", "/home/factory"),
         "rebuild_at": cfg.get("upkeep", {}).get("rebuild_at", "Sun *-*-* 02:30:00"),
+        "foreman_listen": cfg.get("foreman", {}).get("listen", "127.0.0.1:8790"),
     }
     v["factory_root"] = v["factory_home"].rstrip("/") + "/factory"
     missing = [k for k, x in v.items() if not x]

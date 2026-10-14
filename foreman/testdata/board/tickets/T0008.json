@@ -1,0 +1,49 @@
+{
+  "id": "T0008",
+  "project": "factory",
+  "title": "What is the latest widget release?",
+  "body": "Make the widgets better.",
+  "door": "human",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {
+    "task": {
+      "status": "done",
+      "summary": "1.2.3",
+      "result": "1.2.3, released last week."
+    }
+  },
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-08T12:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready"
+    },
+    {
+      "at": "2026-10-08T12:00:10+00:00",
+      "event": "move",
+      "detail": "ready -> working"
+    },
+    {
+      "at": "2026-10-08T12:00:10+00:00",
+      "event": "start",
+      "detail": "task t0008-k1 @helper"
+    },
+    {
+      "at": "2026-10-08T12:02:00+00:00",
+      "event": "finished",
+      "detail": "task t0008-k1"
+    },
+    {
+      "at": "2026-10-08T12:02:00+00:00",
+      "event": "move",
+      "detail": "working -> needs_human: task done: 1.2.3"
+    }
+  ],
+  "kind": "task",
+  "result": "1.2.3, released last week.",
+  "agent_last_host": "helper"
+}

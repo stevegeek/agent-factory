@@ -12,7 +12,8 @@ Agents: Claude Code via [Scion](https://github.com/GoogleCloudPlatform/scion) (l
 | `bin/render` | renders host files from a config dir |
 | `bin/pi-run` | runs Pi in a capped container |
 | `bin/factory-remote` | on a helper host: runs dispatcher stages as Pi jobs (the dispatcher's SSH key is forced to it) |
-| `deploy.sh` | render + copy to a host over SSH |
+| `foreman/` | the maintainer's web app (Go, stdlib only): desk of asks, weekly floor, boards |
+| `deploy.sh` | render + copy to a host over SSH (builds foreman when `go` is present) |
 | `host/setup.sh` | host base setup: zram, systemd-oomd, locked `factory` user, memory budget, rootless Podman |
 | `host/slim.sh` | optional: strip the Ubuntu server install to what the factory uses (dry run by default) |
 | `host/allow-dispatcher.sh` | on a helper host: authorise the dispatcher's key, forced to `factory-remote` |
@@ -129,6 +130,10 @@ The token owner can drive tickets from the cards:
 - A comment of `/approve [1,3]`, `/redirect <note>` or `/pr` runs that command; any other comment becomes a note in the ticket's next agent prompt.
 - Other people's comments are ignored.
 
+## Foreman
+
+A web app for the maintainer (`foreman/`, one static Go binary). The desk lists every ticket that needs you as a question with its evidence, answer buttons and "How it got here"; the floor is the week's log by day; boards list tickets by column. Answers run the `factory` CLI (`move`, `approve`, `redirect`, `note`, `pr`). It listens on loopback (`[foreman] listen`) behind a shared secret; reach it from elsewhere through `tailscale serve`. Deploy installs a user unit; enable it once on the host, as `factory`: `systemctl --user enable --now foreman`. See `foreman/README.md`.
+
 ## Upkeep
 
 - OS: `sudo bash host/updates.sh` (optionally `REBOOT_AT=...`) lets unattended-upgrades take `-updates` as well as security. It adds a weekly reboot window that reboots only when an update asked for one. Before rebooting it drains new work and waits for agents, image rebuilds and apt.
@@ -138,12 +143,13 @@ The token owner can drive tickets from the cards:
 
 ## Config
 
-`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`, `[fizzy]` (`account`, `board_prefix`, `token`, `api`). `FACTORY_ROOT` overrides `~/factory`.
+`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`), `[foreman]` (`listen`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`, `[fizzy]` (`account`, `board_prefix`, `token`, `api`). `FACTORY_ROOT` overrides `~/factory`.
 
 ## Tests
 
 ```sh
 python3 -m unittest discover -s tests
+cd foreman && go test ./...
 ```
 
 ## License

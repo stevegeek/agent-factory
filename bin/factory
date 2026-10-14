@@ -17,6 +17,9 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory github           check the GitHub App installation (repos, permissions)
   factory fizzy            sync the Fizzy boards now (also every tick) and list them
   factory move <ticket> <column> [--note TEXT]
+  factory note <ticket> <text>   a note every later agent on the ticket follows
+  factory migrate     one-off backfill for older boards: asks on waiting tickets, votes on proposals,
+                      dropped proposals filed as rejected tickets; safe to run again
   factory tick        one scheduling pass (safe to run from a timer)
   factory sweep       file triage tickets for new open GitHub issues
   factory clock       file tickets for recurring checks that are due
@@ -25,6 +28,7 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
 """
 import argparse
 import base64
+import contextlib
 import datetime as dt
 import fcntl
 import fnmatch
@@ -149,6 +153,59 @@ def save_ticket(t):
     os.replace(tmp, ticket_path(t["id"]))
 
 
+CLI_WAIT = 60    # seconds a CLI change waits for the tick to let go of a ticket (a gate can hold it far longer)
+
+
+@contextlib.contextmanager
+def ticket_lock(tid, wait=None):
+    """One writer per ticket, so a tick never saves its stale copy over a person's change. The tick waits for
+    it; a CLI change gives up after `wait` seconds and says so."""
+    os.makedirs(os.path.join(BOARD, ".locks"), exist_ok=True)
+    with open(os.path.join(BOARD, ".locks", tid), "w") as f:
+        give_up = None if wait is None else time.monotonic() + wait
+        while True:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | (0 if give_up is None else fcntl.LOCK_NB))
+                break
+            except BlockingIOError:
+                if time.monotonic() >= give_up:
+                    sys.exit(f"{tid} is busy: the dispatcher is working on it; try again in a few minutes")
+                time.sleep(0.2)
+        yield
+
+
+def reread(t):
+    """t as saved now, which a person may have changed since it was read; call under its lock."""
+    try:
+        return load_ticket(t["id"])
+    except FileNotFoundError:
+        return t
+
+
+def each_locked(tickets, wanted):
+    """The tickets that are still `wanted` once re-read, each held under its lock until the caller moves on.
+    Re-read copies replace the stale ones in `tickets`."""
+    for i, t in enumerate(tickets):
+        if not wanted(t):
+            continue
+        with ticket_lock(t["id"]):
+            t = tickets[i] = reread(t)
+            if wanted(t):
+                yield t
+
+
+@contextlib.contextmanager
+def changing(tid):
+    """A ticket for a CLI command to change: loaded under its lock, saved unless the command exits."""
+    tid = tid.upper()
+    if not re.fullmatch(r"T\d{4,6}", tid) or not os.path.exists(ticket_path(tid)):
+        sys.exit(f"no ticket {tid}")
+    with ticket_lock(tid, CLI_WAIT):
+        t = load_ticket(tid)
+        yield t
+        save_ticket(t)
+
+
 def all_tickets():
     out = []
     for p in sorted(glob.glob(os.path.join(BOARD, "T*.json"))):
@@ -162,15 +219,87 @@ def next_id():
     return f"T{(max(nums) + 1) if nums else 1:04d}"
 
 
-def event(t, kind, detail=""):
-    t["history"].append({"at": now(), "event": kind, "detail": detail})
+def event(t, kind, detail="", rule=None):
+    """rule: which rule decided, in a sentence, for a person reading the history."""
+    h = {"at": now(), "event": kind, "detail": detail}
+    if rule:
+        h["rule"] = rule
+    t["history"].append(h)
     log(f"{t['id']} {kind} {detail}".rstrip())
 
 
-def move(t, column, detail=""):
+def move(t, column, detail="", rule=None):
     old = t["column"]
     t["column"] = column
-    event(t, "move", f"{old} -> {column}" + (f": {detail}" if detail else ""))
+    event(t, "move", f"{old} -> {column}" + (f": {detail}" if detail else ""), rule=rule)
+    t["ask"] = ask_for(t, old, detail)
+
+
+# ---------------------------------------------------------------- asks: what a ticket waiting on a person asks them
+
+ASK_COLUMNS = ("needs_human", "pr_open")
+# column a stuck ticket left -> where a retry sends it, and what that step is called
+RETRY_COLUMN = {"working": "ready"}
+STEP_NAMES = {"triage": "triage", "ready": "work", "working": "work", "voting": "panel vote", "review": "review",
+              "security": "security check", "gate": "gate checks", "ready_for_pr": "PR", "pr_open": "PR"}
+DOOR_NAMES = {"github": "GitHub issues", "clock": "clock tickets", "human": "tickets from a person",
+              "peer": "tickets from a peer"}
+
+
+def clip(text, n=500):
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= n else text[:n - 1].rstrip() + "…"
+
+
+def sentence(text, n=3):
+    """At most n sentences, ending in a full stop."""
+    text = clip(" ".join(re.split(r"(?<=[.?!])\s+", " ".join(str(text or "").split()))[:n]))
+    return text if not text or text[-1] in ".?!…" else text + "."
+
+
+def ask_for(t, old, detail, since=None):
+    """The question a ticket in needs_human or pr_open puts to the maintainer, or None anywhere else."""
+    column, kind, reports = t["column"], t.get("kind"), t.get("reports") or {}
+    since = since or now()
+    a = lambda k, question, why, retry=None: {"kind": k, "question": question, "why": sentence(why),
+                                              "since": since, "retry_column": retry}
+    if column == "pr_open":
+        n = (t.get("pr") or {}).get("number")
+        return a("review", f"Review and merge PR #{n}?" if n else "Review and merge the PR?",
+                 (reports.get("work") or {}).get("summary") or detail)
+    if column != "needs_human":
+        return None
+    title = f"“{t['title']}”"
+    issue = (t.get("source") or {}).get("issue")
+    subject = f"issue #{issue}, {title}" if issue else title
+    if kind == "proposal":
+        p, panel = t.get("proposal") or {}, t.get("panel") or {}
+        scores = " · ".join(str(s) for s in panel.get("scores", []))
+        return a("proposal", f"File {title} as a change, or drop it?",
+                 f"{sentence(p.get('why', ''), 2)} The panel scored it {scores or 'nothing'}, mean {panel.get('mean', '?')}")
+    # a blocked designer may still leave a draft; that is not one to approve
+    if kind == "intent" and t.get("design") and t.get("proposed") and not detail.startswith("designer blocked"):
+        return a("design", f"Approve the design for {title} and its {len(t['proposed'])} proposed tickets, or send it back?",
+                 (reports.get("design") or {}).get("summary") or detail)
+    if (kind == "task" and (detail.startswith("task ") or old is None)) or (t.get("project") == NOTICE_PROJECT and kind is None):
+        task = kind == "task"
+        return a("notice", "Read the task's result and close it?" if task else "Read this notice and close it when it is handled?",
+                 (t.get("result") or (reports.get("task") or {}).get("summary") or t.get("body")) if task else t.get("body"))
+    triage = (reports.get("triage") or {}).get("reason") or detail
+    if detail.startswith("triage accepted"):
+        return a("start", f"Start work on {subject}?", triage)
+    if detail.startswith("triage unsure"):
+        return a("decide", f"Triage could not decide on {subject}: start it, or drop it?", triage)
+    retry = RETRY_COLUMN.get(old, old) if old in STEP_NAMES else None
+    stage = {"ready": "work", "working": "task" if kind == "task" else "design" if kind == "intent" else "work"}.get(old, old)
+    summary = (reports.get(stage) or {}).get("summary") if isinstance(reports.get(stage), dict) else None
+    if detail in ("", "by human", "by human in Fizzy"):
+        detail = "Moved here by hand"
+    # the detail often quotes the report already
+    repeated = summary and " ".join(str(summary).split())[:80] in " ".join(detail.split())
+    why = sentence(detail) + (" " + sentence(summary) if summary and not repeated else "")
+    return a("unstick", f"This stopped at the {STEP_NAMES[old]} step; retry it, or close it?" if retry
+             else "This needs you: what should happen next?", why, retry)
 
 
 def starts(t, stage):
@@ -610,6 +739,13 @@ def gate(cfg, project, t):
     return result
 
 
+def gate_rule(cfg, g):
+    if g["blockers"]:
+        return "gate: needs a maintainer: " + "; ".join(g["blockers"])
+    return (f"gate: auto-merge eligible: tests and lint pass, only allowed paths, {g['changed_lines']} changed lines "
+            f"(limit {cfg.get('gate', {}).get('max_changed_lines', 10)}), reviewer says no runtime change")
+
+
 # ---------------------------------------------------------------- audit trail
 
 def audit_text(t):
@@ -730,12 +866,23 @@ def finish_stage(cfg, project, t, report, head=None):
             return move(t, "needs_human", "review still asks for changes after the last attempt")
         return move(t, "ready", "review asked for changes")
     ok, why = security_outcome(t, report)
+    tier = t.get("security_tier", 4)
+    asked = len(t.get("security_questions") or security_angles(tier))
+    rule = f"security: tier {tier} ({TIER_NAMES.get(tier, '?')}); {asked} questions, "
     if ok:
-        return move(t, "gate")
-    return move(t, "needs_human", f"security: {why}")
+        return move(t, "gate", rule=rule + f"none above {max_concern(report, asked)}")
+    return move(t, "needs_human", f"security: {why}", rule=rule + why)
 
 
 CONCERNS = ("none", "low", "medium", "high")
+TIER_NAMES = {0: "text only", 1: "plain code", 2: "input reaches a sink", 3: "build or dependencies",
+              4: "input reaches a sink, and build or dependencies"}
+
+
+def max_concern(report, asked):
+    answers = report.get("answers") if isinstance(report.get("answers"), list) else []
+    levels = [str(a.get("concern", "")).lower() for a in answers[:asked] if isinstance(a, dict)]
+    return max((c for c in levels if c in CONCERNS), key=CONCERNS.index, default="none")
 
 
 def security_outcome(t, report):
@@ -804,50 +951,88 @@ def finish_vote(cfg, t, report, voter):
     return reveal(t)
 
 
+KEEN_SCORE, KEEN_NEEDED, MEAN_NEEDED = 4, 2, 3.5
+
+
 def panel_tally(proposal_index, votes):
     scores = [v["scores"][str(proposal_index)]["score"] for v in votes if str(proposal_index) in v["scores"]]
     if not scores:
         return {"scores": [], "mean": 0.0, "spread": 0.0, "keen": 0, "priority": 0.0, "survives": False}
     mean = sum(scores) / len(scores)
     spread = (sum((s - mean) ** 2 for s in scores) / len(scores)) ** 0.5
-    keen = sum(1 for s in scores if s >= 4)
+    keen = sum(1 for s in scores if s >= KEEN_SCORE)
     # keen = scored 4 or 5. One keen voter while the rest shrug is the signal to drop it unseen.
-    survives = keen >= 2 or mean >= 3.5
+    survives = keen >= KEEN_NEEDED or mean >= MEAN_NEEDED
     return {"scores": scores, "mean": round(mean, 2), "spread": round(spread, 2), "keen": keen,
             "priority": round(mean - 0.5 * spread, 2), "survives": survives}
 
 
+def panel_rule(tally):
+    n, keen, mean = len(tally["scores"]), tally["keen"], tally["mean"]
+    keen_text = (f"no voter scored {KEEN_SCORE} or more" if not keen else
+                 f"{keen} of {n} voters scored {KEEN_SCORE} or more ({KEEN_NEEDED} needed)")
+    mean_text = f"mean {mean} ({MEAN_NEEDED} needed)"
+    if not tally["survives"]:
+        return f"dropped: {keen_text}; {mean_text}"
+    return f"kept: {keen_text}; {mean_text}" if keen >= KEEN_NEEDED else f"kept: {mean_text}; {keen_text}"
+
+
+def panel_votes(proposal_index, votes):
+    return [{"voter": v["voter"], "host": v.get("host", LOCAL), "score": v["scores"][str(proposal_index)]["score"],
+             "reason": v["scores"][str(proposal_index)].get("reason", "")}
+            for v in votes if str(proposal_index) in v["scores"]]
+
+
+def file_proposal(t, i, p, votes, at=None):
+    """A proposal ticket carrying its votes: a kept one waits for a person, a dropped one is filed rejected.
+    at: when the panel decided, for one filed after the fact."""
+    tally = panel_tally(i, votes)
+    reasons = [f"{v['score']}: {v['reason']}" for v in panel_votes(i, votes)]
+    body = proposal_text(i, p).split("\n", 2)[2] + "\n\nPanel: " + "; ".join(reasons)
+    c = new_ticket(t["project"], p["title"], body, "clock", "needs_human" if tally["survives"] else "rejected",
+                   kind="proposal", parent=t["id"], proposal=p, panel={**tally, "votes": panel_votes(i, votes)})
+    event(c, "panel", f"mean {tally['mean']}, spread {tally['spread']}, scores {tally['scores']}", rule=panel_rule(tally))
+    if at:
+        c["created"] = at
+        for h in c["history"]:
+            h["at"] = at
+        if c["ask"]:
+            c["ask"]["since"] = at
+    save_ticket(c)
+    return c
+
+
 def reveal(t):
-    kept, dropped = [], []
+    kept, dropped, dropped_ids = [], [], []
     for i, p in enumerate(t["proposals"], 1):
-        tally = panel_tally(i, t["votes"])
-        reasons = [f"{v['scores'][str(i)]['score']}: {v['scores'][str(i)]['reason']}"
-                   for v in t["votes"] if str(i) in v["scores"]]
-        if not tally["survives"]:
-            dropped.append(f"{p['title']} ({tally['scores']})")
-            continue
-        body = proposal_text(i, p).split("\n", 2)[2] + "\n\nPanel: " + "; ".join(reasons)
-        c = new_ticket(t["project"], p["title"], body, "clock", "needs_human")
-        c.update(kind="proposal", parent=t["id"], proposal=p, panel=tally)
-        event(c, "panel", f"mean {tally['mean']}, spread {tally['spread']}, scores {tally['scores']}")
-        save_ticket(c)
-        kept.append(c["id"])
-    t["panel_result"] = {"kept": kept, "dropped": dropped}
-    return move(t, "done", f"panel kept {', '.join(kept) or 'none'}; dropped {len(dropped)}")
+        c = file_proposal(t, i, p, t["votes"])
+        if c["panel"]["survives"]:
+            kept.append(c["id"])
+        else:
+            dropped.append(f"{p['title']} ({c['panel']['scores']})")
+            dropped_ids.append(c["id"])
+    t["panel_result"] = {"kept": kept, "dropped": dropped, "dropped_tickets": dropped_ids}
+    return move(t, "done", f"panel kept {', '.join(kept) or 'none'}; dropped {len(dropped)}",
+                rule=f"panel: kept {len(kept)} of {len(t['proposals'])}; {KEEN_NEEDED} voters scoring "
+                     f"{KEEN_SCORE} or more, or a mean of {MEAN_NEEDED}, keeps a proposal")
 
 
 def finish_triage(cfg, t, report):
     decision = report.get("decision")
     if decision == "reject":
-        return move(t, "rejected", f"triage: {str(report.get('reason', ''))[:200]}")
+        return move(t, "rejected", f"triage: {str(report.get('reason', ''))[:200]}", rule="triage rejected it")
     if decision != "accept" or not report.get("task"):
-        return move(t, "needs_human", f"triage unsure: {str(report.get('reason', ''))[:200]}")
+        return move(t, "needs_human", f"triage unsure: {str(report.get('reason', ''))[:200]}",
+                    rule="triage accepted it without writing a task" if decision == "accept" else "triage could not decide")
     t["original"] = {"title": t["title"], "body": t["body"]}
     t["title"] = str(report.get("title") or t["title"])[:120]
     t["body"] = str(report["task"])
+    door = DOOR_NAMES.get(t["door"], f"{t['door']} tickets")
     if cfg.get("triage", {}).get("auto_accept", {}).get(t["door"], False):
-        return move(t, "ready", "triage accepted")
-    return move(t, "needs_human", "triage accepted; move to ready to start work")
+        return move(t, "ready", "triage accepted",
+                    rule=f"triage accepted; {door} start straight away ([triage.auto_accept] {t['door']} = true)")
+    return move(t, "needs_human", "triage accepted; move to ready to start work",
+                rule=f"triage accepted; {door} wait for a person ([triage.auto_accept] {t['door']} = false)")
 
 
 def tick_lock():
@@ -872,9 +1057,7 @@ def tick(cfg):
     running = running_agents(cfg)
     tickets = all_tickets()
 
-    for t in tickets:
-        if not t.get("agent"):
-            continue
+    for t in each_locked(tickets, lambda t: t.get("agent")):
         project, name = cfg["projects"].get(t["project"]), t["agent"]["name"]
         timeout = ticket_timeout(cfg, t)
         if t["agent"].get("host", LOCAL) != LOCAL:
@@ -907,7 +1090,7 @@ def tick(cfg):
         save_ticket(t)
 
     if cfg.get("github", {}).get("installation_id"):
-        for t in tickets:
+        for t in each_locked(tickets, lambda t: t["column"] in ("pr_open", "ready_for_pr")):
             project = cfg["projects"].get(t["project"])
             if not project or not project.get("github"):
                 continue
@@ -928,7 +1111,8 @@ def tick(cfg):
         if t.get("agent") and host != LOCAL:
             busy[host] = busy.get(host, 0) + 1
     down = set()
-    waiting = [t for t in tickets if not t.get("agent") and (t["column"] == "gate" or stage_for(t))]
+    is_waiting = lambda t: not t.get("agent") and (t["column"] == "gate" or stage_for(t))
+    waiting = [t for t in tickets if is_waiting(t)]
     for key in {t["project"] for t in waiting}:
         project = cfg["projects"].get(key)
         if project and project.get("github"):
@@ -936,7 +1120,7 @@ def tick(cfg):
                 refresh_base(project)
             except Exception as e:
                 log(f"refresh {key}: {str(e)[:300]}")
-    for t in waiting:
+    for t in each_locked(waiting, is_waiting):
         project = cfg["projects"].get(t["project"])
         try:
             if project is None and t.get("kind") != "task":
@@ -946,10 +1130,10 @@ def tick(cfg):
                     continue
                 t["gate"] = gate(cfg, project, t)
                 if not t["gate"]["checks_pass"]:
-                    move(t, "needs_human", "gate: tests or lint failed on a fresh checkout")
+                    move(t, "needs_human", "gate: tests or lint failed on a fresh checkout", rule=gate_rule(cfg, t["gate"]))
                 else:
                     move(t, "ready_for_pr", "auto-merge eligible" if t["gate"]["auto_eligible"] else
-                         "needs human review: " + "; ".join(t["gate"]["blockers"])[:200])
+                         "needs human review: " + "; ".join(t["gate"]["blockers"])[:200], rule=gate_rule(cfg, t["gate"]))
                 write_audit(t)
             else:
                 stage = stage_for(t)
@@ -966,7 +1150,7 @@ def tick(cfg):
                         host = pick_host(cfg, stage, busy, down, t.get("host"), local_ok)
         except Exception as e:
             event(t, "error", str(e)[:300])
-            move(t, "needs_human", "dispatcher error")
+            move(t, "needs_human", f"dispatcher error: {str(e)[:150]}")
         save_ticket(t)
     if pulled:
         fizzy_sync(cfg, fizzy_push)
@@ -988,11 +1172,12 @@ def save_state(state):
     os.replace(STATE + ".tmp", STATE)
 
 
-def new_ticket(project, title, body, door, column):
+def new_ticket(project, title, body, door, column, **fields):
     os.makedirs(BOARD, exist_ok=True)
     t = {"id": next_id(), "project": project, "title": title, "body": body, "door": door, "column": column,
-         "branch": None, "agent": None, "reports": {}, "created": now(), "history": []}
+         "branch": None, "agent": None, "reports": {}, "created": now(), "history": [], **fields}
     event(t, "created", f"door={door} column={column}")
+    t["ask"] = ask_for(t, None, "")
     save_ticket(t)
     return t
 
@@ -1126,9 +1311,11 @@ def request_review(cfg, project, t):
 def check_pr(cfg, project, t):
     pr = github_api(cfg, "GET", f"/repos/{project['github']}/pulls/{t['pr']['number']}")
     if pr.get("merged"):
-        move(t, "done", f"PR merged by {(pr.get('merged_by') or {}).get('login', '?')}")
+        who = (pr.get("merged_by") or {}).get("login", "?")
+        move(t, "done", f"PR merged by {who}", rule=f"PR #{t['pr']['number']} was merged on GitHub by {who}")
     elif pr.get("state") == "closed":
-        move(t, "rejected", "PR closed without merging")
+        move(t, "rejected", "PR closed without merging",
+             rule=f"PR #{t['pr']['number']} was closed on GitHub without merging")
 
 
 def sweep(cfg):
@@ -1352,19 +1539,22 @@ def fizzy_command(cfg, t, text):
         return "Opened " + open_pr(cfg, cfg["projects"][t["project"]], t)["url"]
     if word.startswith("/"):
         raise ValueError(f"unknown command {word}; try /approve, /redirect or /pr")
+    add_note(t, text)
+    return ""
+
+
+def add_note(t, text):
+    """A maintainer's note; every later agent on the ticket gets it (notes_text)."""
     t.setdefault("notes", []).append({"at": now(), "text": text})
     event(t, "note", text[:200])
-    return ""
 
 
 def fizzy_pull(cfg):
     """Apply what a person did on the cards since the last push: moves into their columns, and comments."""
     state = load_fizzy_state()
     fz = Fizzy(cfg, state)
-    for t in all_tickets():
-        rec = state["cards"].get(t["id"])
-        if not rec or t["column"] in ("done", "rejected"):
-            continue
+    for t in each_locked(all_tickets(), lambda t: t["id"] in state["cards"] and t["column"] not in ("done", "rejected")):
+        rec = state["cards"][t["id"]]
         try:
             fizzy_pull_card(cfg, fz, t, rec)
         except Exception as e:
@@ -1686,17 +1876,19 @@ def redirect(t, note):
 
 
 def cmd_approve(cfg, a):
-    try:
-        print(" ".join(approve(load_ticket(a.ticket), [int(x) for x in a.only.split(",")] if a.only else None)))
-    except ValueError as e:
-        sys.exit(str(e))
+    with changing(a.ticket) as t:
+        try:
+            print(" ".join(approve(t, [int(x) for x in a.only.split(",")] if a.only else None)))
+        except ValueError as e:
+            sys.exit(str(e))
 
 
 def cmd_redirect(cfg, a):
-    try:
-        redirect(load_ticket(a.ticket), a.note)
-    except ValueError as e:
-        sys.exit(str(e))
+    with changing(a.ticket) as t:
+        try:
+            redirect(t, a.note)
+        except ValueError as e:
+            sys.exit(str(e))
 
 
 def pin_host(cfg, t, host):
@@ -1710,9 +1902,8 @@ def pin_host(cfg, t, host):
 
 
 def cmd_host(cfg, a):
-    t = load_ticket(a.ticket)
-    pin_host(cfg, t, a.host)
-    save_ticket(t)
+    with changing(a.ticket) as t:
+        pin_host(cfg, t, a.host)
 
 
 def cmd_ls(cfg, a):
@@ -1732,9 +1923,8 @@ def cmd_show(cfg, a):
 
 
 def cmd_pr(cfg, a):
-    t = load_ticket(a.ticket)
-    pr = open_pr(cfg, cfg["projects"][t["project"]], t)
-    save_ticket(t)
+    with changing(a.ticket) as t:
+        pr = open_pr(cfg, cfg["projects"][t["project"]], t)
     print(pr["url"])
 
 
@@ -1776,14 +1966,60 @@ def cmd_fizzy(cfg, a):
         print(f"{project:<12} {cards:>3} cards  {fizzy_api_url(cfg)}{state['account']}/boards/{b['id']}")
 
 
+def cmd_note(cfg, a):
+    with changing(a.ticket) as t:
+        add_note(t, " ".join(a.text))
+
+
+MOVE_DETAIL = re.compile(r"(\w+) -> (\w+)(?:: (.*))?", re.S)
+
+
+def migrate():
+    """Backfill boards made before asks and filed votes: asks on waiting tickets, votes on proposals,
+    and dropped proposals filed as rejected tickets. Safe to run again."""
+    for t in each_locked(all_tickets(), lambda t: t["column"] in ASK_COLUMNS and not t.get("ask")):
+        old, detail, since = None, "", t.get("created")
+        for h in reversed(t["history"]):
+            m = MOVE_DETAIL.fullmatch(h["detail"]) if h["event"] == "move" else None
+            if m and m[2] == t["column"]:
+                old, detail, since = m[1], m[3] or "", h["at"]
+                break
+        t["ask"] = ask_for(t, old, detail, since)
+        save_ticket(t)
+        print(f"{t['id']}  ask {t['ask']['kind']}" + (f" (retry from {t['ask']['retry_column']})"
+                                                      if t["ask"]["retry_column"] else ""))
+    unmigrated = lambda t: t.get("kind") == "prospect" and t["column"] == "done" and not t.get("migrated") \
+        and t.get("votes") and t.get("panel_result")
+    for t in each_locked(all_tickets(), unmigrated):
+        decided = next((h["at"] for h in reversed(t["history"])
+                        if h["event"] == "move" and h["detail"].split(":")[0].endswith("-> done")), None)
+        children = [c for c in all_tickets() if c.get("kind") == "proposal" and c.get("parent") == t["id"]]
+        filed = []
+        for i, p in enumerate(t.get("proposals") or [], 1):
+            mine = next((c for c in children if (c.get("proposal") or {}).get("title") == p["title"]), None)
+            if mine is None and not panel_tally(i, t["votes"])["survives"]:
+                c = file_proposal(t, i, p, t["votes"], at=decided)
+                filed.append(c["id"])
+                print(f"{c['id']}  dropped proposal {i} of {t['id']} filed as rejected")
+            elif mine is not None and "votes" not in mine.get("panel", {}):
+                with ticket_lock(mine["id"]):
+                    mine = reread(mine)
+                    mine.setdefault("panel", {})["votes"] = panel_votes(i, t["votes"])
+                    save_ticket(mine)
+                print(f"{mine['id']}  votes added ({len(mine['panel']['votes'])})")
+        t["panel_result"]["dropped_tickets"] = t["panel_result"].get("dropped_tickets", []) + filed
+        t["migrated"] = True
+        save_ticket(t)
+        print(f"{t['id']}  prospect migrated")
+
+
 def cmd_move(cfg, a):
     if a.column not in COLUMNS:
         sys.exit(f"column must be one of: {', '.join(COLUMNS)}")
-    t = load_ticket(a.ticket)
-    if t.get("agent"):
-        sys.exit(f"{t['id']} has a running agent ({t['agent']['name']}); wait for it first")
-    move(t, a.column, a.note or "by human")
-    save_ticket(t)
+    with changing(a.ticket) as t:
+        if t.get("agent"):
+            sys.exit(f"{t['id']} has a running agent ({t['agent']['name']}); wait for it first")
+        move(t, a.column, a.note or "by human")
 
 
 def main():
@@ -1824,6 +2060,10 @@ def main():
     p.add_argument("ticket")
     p.add_argument("column")
     p.add_argument("--note")
+    p = sub.add_parser("note")
+    p.add_argument("ticket")
+    p.add_argument("text", nargs="+")
+    sub.add_parser("migrate")
     sub.add_parser("tick")
     sub.add_parser("sweep")
     sub.add_parser("clock")
@@ -1831,7 +2071,8 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "fizzy": cmd_fizzy, "move": cmd_move,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "fizzy": cmd_fizzy, "move": cmd_move, "note": cmd_note,
+     "migrate": lambda c, _: migrate(),
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),
      "versions": lambda c, _: check_versions(c)}[a.cmd](cfg, a)

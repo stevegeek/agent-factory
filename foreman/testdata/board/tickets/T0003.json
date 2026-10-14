@@ -1,0 +1,44 @@
+{
+  "id": "T0003",
+  "project": "widgets",
+  "title": "Check thread safety",
+  "body": "Make the widgets better.",
+  "door": "github",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {
+    "triage": {
+      "decision": "unsure",
+      "reason": "No failing case was reported."
+    }
+  },
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-05T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage"
+    },
+    {
+      "at": "2026-10-05T09:10:00+00:00",
+      "event": "start",
+      "detail": "triage t0003-t1"
+    },
+    {
+      "at": "2026-10-05T09:12:00+00:00",
+      "event": "finished",
+      "detail": "triage t0003-t1"
+    },
+    {
+      "at": "2026-10-05T09:12:00+00:00",
+      "event": "move",
+      "detail": "triage -> needs_human: triage unsure: No failing case was reported."
+    }
+  ],
+  "source": {
+    "issue": 15,
+    "url": "javascript:alert(1)"
+  }
+}

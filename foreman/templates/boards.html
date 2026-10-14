@@ -1,0 +1,14 @@
+{{define "content" -}}
+<main class="pane">
+  <p class="lede">Each project the factory works on, with what is open, what waits for you, and what is done.</p>
+  <div class="boards">
+    {{range .Boards}}
+    <a class="board" href="{{.Href}}">
+      <span class="tag {{if .Asks}}f{{else}}a{{end}}">{{if .Asks}}{{.Asks}} need you{{else}}nothing for you{{end}}</span>
+      <b>{{.Name}}</b>
+      <span class="meta">{{.Open}} open{{if .PRs}} · {{.PRs}} PR{{if ne .PRs 1}}s{{end}} waiting{{end}}{{if .Running}} · {{.Running}} running{{end}} · {{.Closed}} closed</span>
+    </a>
+    {{else}}<p class="quiet">The board is empty.</p>{{end}}
+  </div>
+</main>
+{{- end}}

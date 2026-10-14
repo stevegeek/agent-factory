@@ -20,6 +20,12 @@ out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 python3 "$core/bin/render" "$config" "$out/r" >/dev/null
 r=$out/r
+# foreman is Go: built here, one static binary shipped with the other bins (the host needs no compiler)
+if command -v go >/dev/null; then
+  (cd "$core/foreman" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$r/bin/foreman" .)
+else
+  echo "warning: go not found; foreman not built (the host keeps the one it has)" >&2
+fi
 if [[ -n $dry ]]; then
   (cd "$r" && find . -type f | sort)
   trap - EXIT
@@ -28,7 +34,14 @@ if [[ -n $dry ]]; then
 fi
 
 ssh "$host" 'mkdir -p ~/factory/bin ~/factory/systemd ~/factory/images ~/factory/board/tickets ~/factory/logs ~/factory/gate ~/.local/bin ~/.scion/templates'
-scp -q "$r"/bin/* "$host":factory/bin/
+bins=()
+for b in "$r"/bin/*; do [[ $b == */foreman ]] || bins+=("$b"); done
+scp -q "${bins[@]}" "$host":factory/bin/
+if [[ -e $r/bin/foreman ]]; then
+  # a running binary can't be written in place (text file busy): copy it beside, then rename over
+  scp -q "$r/bin/foreman" "$host":factory/bin/foreman.new
+  ssh "$host" 'mv -f ~/factory/bin/foreman.new ~/factory/bin/foreman'
+fi
 scp -q "$r"/systemd/* "$host":factory/systemd/
 scp -q -r "$r"/images/* "$host":factory/images/
 scp -q "$r/patch_provision.py" "$host":factory/patch_provision.py
@@ -40,4 +53,8 @@ for t in "$r"/scion-templates/*/; do
   ssh "$host" "mkdir -p ~/.scion/templates/$name"
   scp -q "$t"* "$host":.scion/templates/"$name"/
 done
+# foreman runs as a user unit (lingering); deploy restarts it only if someone enabled it
+ssh "$host" 'mkdir -p ~/.config/systemd/user && cp ~/factory/systemd/foreman.service ~/.config/systemd/user/ &&
+  systemctl --user daemon-reload && if systemctl --user -q is-enabled foreman 2>/dev/null; then systemctl --user restart foreman; fi' ||
+  echo "warning: could not install the foreman user unit on $host" >&2
 echo "deployed to $host"

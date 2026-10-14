@@ -1,0 +1,23 @@
+{{define "content" -}}
+{{with .Board}}
+<main class="pane">
+  <div class="week"><h3>{{.Name}}</h3><p><a href="/boards">All boards</a></p></div>
+  {{if .Lanes}}<div class="lane-grid">
+    {{range .Lanes}}
+    <section class="lane">
+      <h3>{{.Label}} <span>{{len .Tickets}}</span></h3>
+      {{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{.Title}}
+        {{- if .Ask}} <span class="badge small k-{{.Ask}}">{{.AskLabel}}</span>{{end}}
+        {{- with .Agent}} <span class="running-tag">{{.}}</span>{{end}}</a>{{end}}
+    </section>
+    {{end}}
+  </div>{{else}}<p class="quiet">Nothing open.</p>{{end}}
+  {{range .Closed}}
+  <details class="more closed">
+    <summary>{{.Label}} · {{len .Tickets}}</summary>
+    <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{.Title}}</a>{{end}}</div>
+  </details>
+  {{end}}
+</main>
+{{end}}
+{{- end}}

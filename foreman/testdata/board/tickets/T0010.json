@@ -1,0 +1,36 @@
+{
+  "id": "T0010",
+  "project": "widgets",
+  "title": "Ignore generated files",
+  "body": "Make the widgets better.",
+  "door": "human",
+  "column": "done",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-01T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready"
+    },
+    {
+      "at": "2026-10-01T10:00:00+00:00",
+      "event": "move",
+      "detail": "ready_for_pr -> pr_open: PR https://github.com/example/widgets/pull/21"
+    },
+    {
+      "at": "2026-10-05T08:00:00+00:00",
+      "event": "move",
+      "detail": "pr_open -> done: PR merged by maintainer",
+      "rule": "merged on GitHub"
+    }
+  ],
+  "pr": {
+    "number": 21,
+    "url": "https://github.com/example/widgets/pull/21",
+    "draft": false
+  }
+}

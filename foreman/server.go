@@ -1,0 +1,612 @@
+package main
+
+import (
+	"crypto/sha256"
+	"embed"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"html/template"
+	"io/fs"
+	"log"
+	"net/http"
+	"net/url"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+)
+
+//go:embed templates/*.html
+var templateFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
+
+type Server struct {
+	board  *Board
+	auth   *Auth
+	runner *Runner
+	pages  map[string]*template.Template
+	now    func() time.Time
+	assetV string
+}
+
+func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
+	s := &Server{board: board, auth: auth, runner: runner, now: time.Now, pages: map[string]*template.Template{}}
+	h := sha256.New()
+	fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			b, _ := staticFS.ReadFile(p)
+			h.Write(b)
+		}
+		return nil
+	})
+	s.assetV = hex.EncodeToString(h.Sum(nil))[:10]
+	funcs := template.FuncMap{
+		"asset": func(name string) string { return "/static/" + name + "?v=" + s.assetV },
+		"low":   func(n int) bool { return n < 4 },
+		"inc":   func(n int) int { return n + 1 },
+	}
+	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login"} {
+		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
+	}
+	return s
+}
+
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	static, _ := fs.Sub(staticFS, "static")
+	files := http.StripPrefix("/static/", http.FileServer(http.FS(static)))
+	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		files.ServeHTTP(w, r)
+	}))
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "ok") })
+	mux.HandleFunc("GET /login", s.loginPage)
+	mux.HandleFunc("POST /login", s.login)
+	app := http.NewServeMux()
+	app.HandleFunc("GET /{$}", s.desk)
+	app.HandleFunc("GET /t/{id}", s.ticket)
+	app.HandleFunc("POST /t/{id}/act", s.act)
+	app.HandleFunc("GET /floor", s.floor)
+	app.HandleFunc("GET /boards", s.boards)
+	app.HandleFunc("GET /b/{project}", s.boardPage)
+	app.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.auth.Revoke(); err != nil {
+			log.Printf("logout: %v", err)
+		}
+		ClearSession(w, r)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+	})
+	mux.Handle("/", s.auth.Require(app))
+	return headers(s.auth.CheckHost(mux))
+}
+
+func headers(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "+
+			"connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		if !strings.HasPrefix(r.URL.Path, "/static/") {
+			h.Set("Cache-Control", "no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ---------------------------------------------------------------- page data
+
+type Page struct {
+	Title     string
+	Tab       string
+	CSRF      string
+	DeskCount int
+	Flash     *Flash
+	Desk      *DeskView
+	Ticket    *TicketView
+	Floor     *Floor
+	Boards    []BoardSummary
+	Board     *BoardView
+	Next      string
+	Error     string
+}
+
+type Chip struct {
+	Label string
+	N     int
+	On    bool
+	Href  string
+}
+
+type QueueItem struct {
+	ID, Kind, Label, Glyph, Question, Title, Project, Age, Href string
+	Current                                                     bool
+}
+
+type DeskView struct {
+	Filters []Chip
+	Items   []QueueItem
+	Kind    string
+	Open    bool
+	Total   int
+}
+
+type Pick struct {
+	N           int
+	Title, Body string
+}
+
+type TicketView struct {
+	T                       *Ticket
+	Ask                     *Ask
+	Kind, KindLabel, Glyph  string
+	Headline, Subtitle, Why string
+	Age, Filter             string
+	Facts                   []Fact
+	Answers                 []Answer
+	Picks                   []Pick
+	NoteLabel               string
+	CanNote                 bool
+	Story                   Story
+	More                    []More
+	Children                []string
+	ChildrenLabel           string
+	ParentID                string
+	NoteFirst               bool
+	Since                   string
+}
+
+type More struct {
+	Summary, Text string
+}
+
+func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *Page, ts []*Ticket) {
+	if id := identityOf(r); id != "" {
+		p.CSRF = s.auth.CSRF(id)
+	}
+	if ts != nil {
+		p.DeskCount = len(Desk(ts))
+	}
+	if p.Flash == nil {
+		p.Flash = takeFlash(w, r, s.auth)
+	}
+	if r.Header.Get("HX-Request") != "" {
+		w.Header().Set("HX-Push-Url", r.URL.RequestURI())
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.pages[name].ExecuteTemplate(w, "layout", p); err != nil {
+		log.Printf("render %s: %v", name, err)
+	}
+}
+
+func deskView(items []DeskItem, kind, current string, now time.Time) *DeskView {
+	counts := map[string]int{}
+	for _, it := range items {
+		counts[it.Ask.Kind]++
+	}
+	if counts[kind] == 0 {
+		kind = ""
+	}
+	v := &DeskView{Kind: kind, Total: len(items)}
+	v.Filters = append(v.Filters, Chip{Label: "All", N: len(items), On: kind == "", Href: "/"})
+	for _, k := range askOrder {
+		if counts[k] > 0 {
+			v.Filters = append(v.Filters, Chip{Label: askKinds[k].Label, N: counts[k], On: kind == k, Href: "/?kind=" + k})
+		}
+	}
+	for _, it := range items {
+		if kind != "" && it.Ask.Kind != kind {
+			continue
+		}
+		q := QueueItem{ID: it.T.ID, Kind: it.Ask.Kind, Label: kindLabel(it.Ask.Kind), Glyph: kindGlyph(it.Ask.Kind),
+			Question: it.Ask.Question, Project: it.T.Project, Age: ageSince(it.Ask.Since, now),
+			Href: ticketHref(it.T.ID, kind), Current: it.T.ID == current}
+		if !strings.Contains(it.Ask.Question, it.T.Title) {
+			q.Title = it.T.Title
+		}
+		v.Items = append(v.Items, q)
+	}
+	return v
+}
+
+func kindLabel(k string) string {
+	if i, ok := askKinds[k]; ok {
+		return i.Label
+	}
+	return capFirst(k)
+}
+
+func kindGlyph(k string) string {
+	if i, ok := askKinds[k]; ok {
+		return i.Glyph
+	}
+	return "?"
+}
+
+func ticketHref(id, kind string) string {
+	if kind != "" {
+		return "/t/" + id + "?kind=" + url.QueryEscape(kind)
+	}
+	return "/t/" + id
+}
+
+func ageSince(at string, now time.Time) string {
+	t := parseTime(at)
+	if t.IsZero() {
+		return ""
+	}
+	return age(now.Sub(t))
+}
+
+func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView {
+	all := byID(ts)
+	a := AskFor(t)
+	v := &TicketView{T: t, Ask: a, Filter: filter, Story: BuildStory(t, all), Facts: Facts(t, a, all),
+		Answers: Answers(t, a), Children: t.Children, ChildrenLabel: "Filed", ParentID: t.Parent, CanNote: !t.closed()}
+	if pr := t.PanelResult; pr != nil {
+		// a prospect's proposals, kept and dropped, each a ticket of its own
+		v.ChildrenLabel, v.Children = "Proposals", nil
+		for _, id := range append(append([]string{}, pr.Kept...), pr.DroppedTickets...) {
+			if validID(id) {
+				v.Children = append(v.Children, id)
+			}
+		}
+	}
+	if a != nil {
+		v.Kind, v.KindLabel, v.Glyph = a.Kind, kindLabel(a.Kind), kindGlyph(a.Kind)
+		v.Headline, v.Why, v.Since = a.Question, a.Why, a.Since
+		v.Age = ageSince(a.Since, s.now())
+		if !strings.Contains(a.Question, t.Title) {
+			v.Subtitle = t.Title
+		}
+	} else {
+		v.Kind = "closed"
+		v.KindLabel = ticketColumnLabel(t)
+		v.Headline = t.Title
+		v.Age = ageSince(t.Updated, s.now())
+	}
+	switch {
+	case a != nil && a.Kind == "design":
+		v.NoteLabel = "Note for the designer (needed to redirect)"
+		for i, p := range t.Proposed {
+			v.Picks = append(v.Picks, Pick{N: i + 1, Title: p.Title, Body: p.Body})
+		}
+	case a != nil && a.Kind == "question":
+		v.NoteLabel = "Your answer"
+	default:
+		v.NoteLabel = "Note for the next agent"
+		for _, x := range v.Answers {
+			if x.NeedsNote && x.NoteFor != "" {
+				v.NoteLabel = "Note (needed " + x.NoteFor + ")"
+				break
+			}
+		}
+	}
+	for _, x := range v.Answers {
+		// on a phone the field must come before the button that needs it
+		v.NoteFirst = v.NoteFirst || x.NeedsNote
+	}
+	if t.Design != "" {
+		v.More = append(v.More, More{"Read the design", t.Design})
+	}
+	if t.Result != "" {
+		v.More = append(v.More, More{"Read the answer", t.Result})
+	}
+	if p := t.Proposal; p != nil {
+		v.More = append(v.More, More{"Read the proposal", "Noticed: " + p.Noticed + "\n\nChange: " + p.Change + "\n\nWhy: " + p.Why + "\n\nCost: " + p.Cost})
+	}
+	if t.Body != "" && t.Proposal == nil {
+		v.More = append(v.More, More{"Read the ticket", t.Body})
+	}
+	if t.Original != nil && t.Original.Body != "" {
+		v.More = append(v.More, More{"Read the original report (untrusted)", t.Original.Title + "\n\n" + t.Original.Body})
+	}
+	if len(t.Notes) > 0 {
+		var b strings.Builder
+		for _, n := range t.Notes {
+			fmt.Fprintf(&b, "%s  %s\n\n", parseTime(n.At).Local().Format("2 Jan 15:04"), n.Text)
+		}
+		v.More = append(v.More, More{plural(len(t.Notes), "note") + " for the agents", strings.TrimSpace(b.String())})
+	}
+	return v
+}
+
+// ---------------------------------------------------------------- handlers
+
+func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
+	ts := s.board.Load()
+	items := Desk(ts)
+	kind := r.URL.Query().Get("kind")
+	dv := deskView(items, kind, "", s.now())
+	p := &Page{Title: "Desk", Tab: "desk", Desk: dv}
+	if len(dv.Items) > 0 {
+		// wide screens show the first ask beside the queue; phones show only the queue
+		first := dv.Items[0].ID
+		dv.Items[0].Current = true
+		for _, t := range ts {
+			if t.ID == first {
+				p.Ticket = s.ticketView(t, ts, dv.Kind)
+			}
+		}
+	}
+	s.render(w, r, "desk", p, ts)
+}
+
+func (s *Server) ticket(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !validID(id) {
+		http.NotFound(w, r)
+		return
+	}
+	ts := s.board.Load()
+	t := byID(ts)[id]
+	if t == nil {
+		http.NotFound(w, r)
+		return
+	}
+	tv := s.ticketView(t, ts, r.URL.Query().Get("kind"))
+	if tv.Ask != nil {
+		dv := deskView(Desk(ts), r.URL.Query().Get("kind"), id, s.now())
+		dv.Open = true
+		tv.Filter = dv.Kind
+		s.render(w, r, "desk", &Page{Title: id, Tab: "desk", Desk: dv, Ticket: tv}, ts)
+		return
+	}
+	s.render(w, r, "ticket", &Page{Title: id, Tab: "boards", Ticket: tv}, ts)
+}
+
+func (s *Server) act(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !validID(id) {
+		http.NotFound(w, r)
+		return
+	}
+	filter := r.PostFormValue("filter")
+	if _, ok := askKinds[filter]; !ok {
+		filter = ""
+	}
+	back := ticketHref(id, filter)
+	ts := s.board.Load()
+	t := byID(ts)[id]
+	if t == nil {
+		http.NotFound(w, r)
+		return
+	}
+	a := AskFor(t)
+	answer := r.PostFormValue("answer")
+	if a != nil && answer != "note" && (r.PostFormValue("ask") != a.Kind || r.PostFormValue("since") != a.Since) {
+		s.flashRedirect(w, r, back, "error", id+" changed since you opened it. Look again before answering.")
+		return
+	}
+	var picks []int
+	for _, p := range r.PostForm["pick"] {
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			s.flashRedirect(w, r, back, "error", "bad pick")
+			return
+		}
+		picks = append(picks, n)
+	}
+	cmds, err := Plan(t, a, answer, r.PostFormValue("note"), picks)
+	if err != nil {
+		s.flashRedirect(w, r, back, "error", id+": "+capFirst(err.Error())+".")
+		return
+	}
+	out, err := s.runner.Run(cmds)
+	if err != nil {
+		log.Printf("%s %s: %v", id, answer, err)
+		s.flashRedirect(w, r, back, "error", id+": "+err.Error())
+		return
+	}
+	log.Printf("%s %s: ran %d command(s)", id, answer, len(cmds))
+	msg := id + ": " + answerLabel(t, a, answer) + "."
+	if out != "" {
+		msg += " " + clip(strings.Join(strings.Fields(out), " "), 200)
+	}
+	next := "/"
+	if filter != "" {
+		next = "/?kind=" + filter
+	}
+	for _, it := range Desk(s.board.Load()) {
+		if it.T.ID != id && (filter == "" || it.Ask.Kind == filter) {
+			next = ticketHref(it.T.ID, filter)
+			break
+		}
+	}
+	if a == nil || answer == "note" {
+		next = back
+	}
+	s.flashRedirect(w, r, next, "ok", msg)
+}
+
+func answerLabel(t *Ticket, a *Ask, answer string) string {
+	if answer == "note" {
+		return "Note added"
+	}
+	for _, x := range Answers(t, a) {
+		if x.Value == answer {
+			return x.Label
+		}
+	}
+	return answer
+}
+
+func (s *Server) floor(w http.ResponseWriter, r *http.Request) {
+	ts := s.board.Load()
+	at := s.now()
+	if wk := r.URL.Query().Get("week"); wk != "" {
+		d, err := time.ParseInLocation("2006-01-02", wk, time.Local)
+		if err != nil {
+			http.Error(w, "week must be YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		at = d
+	}
+	f := BuildFloor(ts, at, s.now())
+	s.render(w, r, "floor", &Page{Title: "Floor", Tab: "floor", Floor: &f}, ts)
+}
+
+type BoardSummary struct {
+	Name, Href                       string
+	Open, Asks, PRs, Closed, Running int
+}
+
+type Lane struct {
+	Column, Label string
+	Tickets       []LaneTicket
+}
+
+type LaneTicket struct {
+	ID, Title, Ask, AskLabel, Agent string
+}
+
+type BoardView struct {
+	Name   string
+	Lanes  []Lane
+	Closed []Lane
+}
+
+func summaries(ts []*Ticket) []BoardSummary {
+	m := map[string]*BoardSummary{}
+	for _, t := range ts {
+		b := m[t.Project]
+		if b == nil {
+			b = &BoardSummary{Name: t.Project, Href: "/b/" + url.PathEscape(t.Project)}
+			m[t.Project] = b
+		}
+		if t.closed() {
+			b.Closed++
+		} else {
+			b.Open++
+		}
+		if AskFor(t) != nil {
+			b.Asks++
+		}
+		if t.Column == "pr_open" {
+			b.PRs++
+		}
+		if t.Agent != nil {
+			b.Running++
+		}
+	}
+	var out []BoardSummary
+	for _, b := range m {
+		out = append(out, *b)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func (s *Server) boards(w http.ResponseWriter, r *http.Request) {
+	ts := s.board.Load()
+	s.render(w, r, "boards", &Page{Title: "Boards", Tab: "boards", Boards: summaries(ts)}, ts)
+}
+
+func (s *Server) boardPage(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("project")
+	ts := s.board.Load()
+	bv := &BoardView{Name: name}
+	found := false
+	for _, col := range columns {
+		lane := Lane{Column: col, Label: columnLabel(col)}
+		if col == "needs_human" {
+			lane.Label = "Needs you"
+		}
+		for i := len(ts) - 1; i >= 0; i-- {
+			t := ts[i]
+			if t.Project != name || t.Column != col {
+				continue
+			}
+			found = true
+			lt := LaneTicket{ID: t.ID, Title: t.Title}
+			if a := AskFor(t); a != nil {
+				lt.Ask, lt.AskLabel = a.Kind, kindLabel(a.Kind)
+			}
+			if t.Agent != nil {
+				lt.Agent = roles[t.Agent.Stage] + " running"
+			}
+			lane.Tickets = append(lane.Tickets, lt)
+		}
+		if len(lane.Tickets) == 0 {
+			continue
+		}
+		if col == "done" || col == "rejected" {
+			bv.Closed = append(bv.Closed, lane)
+		} else {
+			bv.Lanes = append(bv.Lanes, lane)
+		}
+	}
+	if !found {
+		http.NotFound(w, r)
+		return
+	}
+	s.render(w, r, "board", &Page{Title: name, Tab: "boards", Board: bv}, ts)
+}
+
+func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
+	if s.auth.Identity(r) != "" {
+		http.Redirect(w, r, safeNext(r.URL.Query().Get("next")), http.StatusSeeOther)
+		return
+	}
+	s.render(w, r, "login", &Page{Title: "Log in", Next: safeNext(r.URL.Query().Get("next"))}, nil)
+}
+
+func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+	ip := clientIP(r)
+	next := safeNext(r.PostFormValue("next"))
+	if !sameOrigin(r) {
+		http.Error(w, "cross-site login refused", http.StatusForbidden)
+		return
+	}
+	if !s.auth.Allowed(ip) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		s.render(w, r, "login", &Page{Title: "Log in", Next: next, Error: "Too many wrong tries. Wait a few minutes."}, nil)
+		return
+	}
+	if !s.auth.Login(ip, r.PostFormValue("secret")) {
+		log.Printf("login failed from %s", ip)
+		w.WriteHeader(http.StatusUnauthorized)
+		s.render(w, r, "login", &Page{Title: "Log in", Next: next, Error: "That is not the secret."}, nil)
+		return
+	}
+	s.auth.SetSession(w, r)
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// ---------------------------------------------------------------- flash: one message across a redirect
+
+type Flash struct {
+	Kind, Text string
+}
+
+const flashCookie = "foreman_flash"
+
+func (s *Server) flashRedirect(w http.ResponseWriter, r *http.Request, to, kind, text string) {
+	v := base64.RawURLEncoding.EncodeToString([]byte(kind + "\x00" + clip(text, 600)))
+	http.SetCookie(w, &http.Cookie{Name: flashCookie, Value: v + "." + s.auth.mac("flash", v), Path: "/", MaxAge: 60,
+		HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteStrictMode})
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+func takeFlash(w http.ResponseWriter, r *http.Request, a *Auth) *Flash {
+	c, err := r.Cookie(flashCookie)
+	if err != nil {
+		return nil
+	}
+	http.SetCookie(w, &http.Cookie{Name: flashCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true,
+		Secure: secureRequest(r), SameSite: http.SameSiteStrictMode})
+	v, sig, ok := strings.Cut(c.Value, ".")
+	if !ok || sig != a.mac("flash", v) {
+		return nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(v)
+	if err != nil {
+		return nil
+	}
+	kind, text, _ := strings.Cut(string(raw), "\x00")
+	return &Flash{Kind: kind, Text: text}
+}

@@ -1,0 +1,23 @@
+# Foreman, the maintainer's web app, as a user unit of the factory user (lingering, no root).
+# deploy.sh installs it into ~/.config/systemd/user/; enable once on the host, as the factory user:
+#   systemctl --user enable --now foreman
+[Unit]
+Description=Foreman: the factory's desk for its maintainer
+After=network-online.target
+
+[Service]
+ExecStart=%h/factory/bin/foreman --root %h/factory --listen {{foreman_listen}}
+Restart=on-failure
+RestartSec=5
+MemoryMax=64M
+UMask=0077
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+# no ProtectSystem/ProtectHome: answers run the factory CLI, which writes the board, logs and
+# (for a PR) the project checkouts under the home directory
+
+[Install]
+WantedBy=default.target

@@ -391,11 +391,24 @@ class PanelTest(DoorsTest):
         self.vote(t, [4, 2, 1])
         self.vote(t, [5, 3, 2])
         self.assertEqual(t["column"], "done")
-        kept = [x for x in factory.all_tickets() if x.get("kind") == "proposal"]
+        filed = [x for x in factory.all_tickets() if x.get("kind") == "proposal"]
+        kept = [x for x in filed if x["column"] == "needs_human"]
         self.assertEqual([k["title"] for k in kept], ["P1"])          # P2: one keen voter, mean < 3; P3: none
         self.assertEqual(kept[0]["panel"]["scores"], [5, 4, 5])
         self.assertIsNone(factory.stage_for(kept[0]))
         self.assertEqual(len(t["panel_result"]["dropped"]), 2)
+        self.assertEqual(kept[0]["ask"]["kind"], "proposal")
+        self.assertEqual(kept[0]["history"][-1]["rule"],
+                         "kept: 3 of 3 voters scored 4 or more (2 needed); mean 4.67 (3.5 needed)")
+        dropped = [x for x in filed if x["column"] == "rejected"]
+        self.assertEqual([(d["title"], d["ask"]) for d in dropped], [("P2", None), ("P3", None)])
+        self.assertEqual(t["panel_result"]["dropped_tickets"], [d["id"] for d in dropped])
+        self.assertEqual(dropped[0]["panel"]["votes"],
+                         [{"voter": f"v{n}", "host": "pi", "score": s, "reason": "r"} for n, s in enumerate([5, 2, 3])])
+        self.assertEqual(dropped[0]["history"][-1]["rule"],
+                         "dropped: 1 of 3 voters scored 4 or more (2 needed); mean 3.33 (3.5 needed)")
+        self.assertEqual(dropped[1]["history"][-1]["rule"], "dropped: no voter scored 4 or more; mean 1.67 (3.5 needed)")
+        self.assertIn("rule", t["history"][-1])
 
     def test_tally_ranks_agreement_above_a_split(self):
         votes = [{"scores": {"1": {"score": s1}, "2": {"score": s2}}} for s1, s2 in ((4, 5), (4, 1), (4, 5))]
@@ -413,6 +426,263 @@ class PanelTest(DoorsTest):
         factory.cmd_approve(self.cfg, argparse.Namespace(ticket=prop["id"], only=None))
         change = factory.load_ticket(factory.load_ticket(prop["id"])["children"][0])
         self.assertEqual((change["column"], change.get("kind"), factory.stage_for(change)), ("ready", None, "work"))
+
+
+class AskTest(RepoCase):
+    """Every way into needs_human or pr_open asks the maintainer something; leaving clears it."""
+    ticket, finish, security = TransitionTest.ticket, TransitionTest.finish, TransitionTest.security
+
+    def test_stuck_tickets_ask_to_be_unstuck_from_where_they_stopped(self):
+        self.branch_with("b", {"README.md": "x\n"})
+        t = self.ticket("work", "working")
+        self.finish(t, {"status": "blocked", "summary": "the spec contradicts itself"})
+        self.assertEqual({k: t["ask"][k] for k in ("kind", "retry_column")}, {"kind": "unstick", "retry_column": "ready"})
+        self.assertIn("work step", t["ask"]["question"])
+        self.assertIn("the spec contradicts itself", t["ask"]["why"])
+        with mock.patch.object(factory, "log"):
+            factory.move(t, "ready", "by human")
+        self.assertIsNone(t["ask"])
+        t = self.ticket("security", "security")
+        t["head_before_security"] = factory.branch_head(self.project, "b")
+        self.finish(t, {"verdict": "fail"})
+        self.assertEqual((t["ask"]["kind"], t["ask"]["retry_column"]), ("unstick", "security"))
+        with mock.patch.object(factory, "log"):
+            t["column"] = "gate"
+            factory.move(t, "needs_human", "gate: tests or lint failed on a fresh checkout")
+        self.assertEqual(t["ask"]["retry_column"], "gate")
+
+    def test_pr_open_asks_for_a_review_and_settling_clears_it(self):
+        t = self.ticket("work", "ready_for_pr")
+        t["agent"], t["pr"] = None, {"number": 23}
+        t["reports"]["work"] = {"summary": "Clarify the install steps."}
+        with mock.patch.object(factory, "log"):
+            factory.move(t, "pr_open", "PR https://example.com/pull/23")
+            self.assertEqual((t["ask"]["kind"], t["ask"]["question"], t["ask"]["why"]),
+                             ("review", "Review and merge PR #23?", "Clarify the install steps."))
+            factory.move(t, "done", "PR merged by someone")
+        self.assertIsNone(t["ask"])
+
+    def test_gate_records_its_rule(self):
+        cfg = {"gate": {"max_changed_lines": 10}}
+        g = {"blockers": [], "changed_lines": 7}
+        self.assertEqual(factory.gate_rule(cfg, g), "gate: auto-merge eligible: tests and lint pass, only allowed paths, "
+                                                    "7 changed lines (limit 10), reviewer says no runtime change")
+        g = {"blockers": ["tests or lint failed", "12 changed lines (limit 10)"], "changed_lines": 12}
+        self.assertEqual(factory.gate_rule(cfg, g), "gate: needs a maintainer: tests or lint failed; 12 changed lines (limit 10)")
+
+    def test_gate_in_the_tick_moves_with_its_rule(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        board = os.path.join(tmp.name, "board")
+        os.makedirs(board)
+        t = self.ticket("gate", "gate")
+        t.update(agent=None, project="g")
+        result = {"checks_pass": False, "auto_eligible": False, "blockers": ["tests or lint failed"], "changed_lines": 3,
+                  "files": ["README.md"]}
+        with mock.patch.object(factory, "BOARD", board), mock.patch.object(factory, "ROOT", tmp.name), \
+             mock.patch.object(factory, "LOGS", tmp.name), mock.patch.object(factory, "log"), \
+             mock.patch.object(factory, "running_agents", return_value=set()), \
+             mock.patch.object(factory, "gate", return_value=result):
+            factory.save_ticket(t)
+            factory.tick({"projects": {"g": self.project}})
+            t = factory.load_ticket("T0001")
+        move = t["history"][-1]
+        self.assertEqual((t["column"], move["rule"]), ("needs_human", "gate: needs a maintainer: tests or lint failed"))
+        self.assertEqual((t["ask"]["kind"], t["ask"]["retry_column"]), ("unstick", "gate"))
+
+    def test_security_pass_records_tier_and_worst_concern(self):
+        answer = lambda c: {"question": "q", "answer": "evidence", "concern": c}
+        t = self.security({"verdict": "pass", "answers": [answer("none"), answer("low")]})
+        self.assertEqual(t["history"][-1]["rule"], "security: tier 4 (input reaches a sink, and build or dependencies); "
+                                                   "2 questions, none above low")
+        self.assertIsNone(t["ask"])
+
+
+class TriageAskTest(unittest.TestCase):
+    ticket, finish = TriageTest.ticket, TriageTest.finish
+
+    def test_triage_outcomes_ask_and_record_the_policy(self):
+        t, _ = self.finish(self.ticket("github"), {"decision": "accept", "title": "Fix x", "task": "Do y", "reason": "real bug"},
+                           {"triage": {"auto_accept": {"github": False}}})
+        self.assertEqual((t["ask"]["kind"], t["ask"]["why"]), ("start", "real bug."))
+        self.assertEqual(t["history"][-1]["rule"],
+                         "triage accepted; GitHub issues wait for a person ([triage.auto_accept] github = false)")
+        t, _ = self.finish(self.ticket("clock"), {"decision": "accept", "task": "Do y"}, {"triage": {"auto_accept": {"clock": True}}})
+        self.assertIsNone(t["ask"])
+        self.assertIn("clock = true", t["history"][-1]["rule"])
+        t, _ = self.finish(self.ticket("github"), {"decision": "unsure", "reason": "no steps to reproduce"})
+        self.assertEqual((t["ask"]["kind"], t["ask"]["why"], t["ask"]["retry_column"]),
+                         ("decide", "no steps to reproduce.", None))
+
+
+class KindAskTest(unittest.TestCase):
+    setUp, tearDown = DoorsTest.setUp, DoorsTest.tearDown
+
+    def test_designs_tasks_and_notices_each_ask_their_own_question(self):
+        t = factory.new_ticket("g", "Idea", "idea", "human", "ready", kind="intent")
+        t["agent"] = {"name": "t0001-d1", "stage": "design", "started": factory.now()}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, {"path": "/x", "base": "main"}, t,
+                                 {"status": "done", "summary": "a small encoder", "design": "d",
+                                  "tickets": [{"title": "A", "body": "a"}, {"title": "B", "body": "b"}]})
+        self.assertEqual((t["ask"]["kind"], t["ask"]["why"]), ("design", "a small encoder."))
+        self.assertEqual(t["ask"]["question"], "Approve the design for “Idea” and its 2 proposed tickets, or send it back?")
+        t = factory.new_ticket("factory", "Uptime", "", "human", "working", kind="task")
+        t["agent"] = {"name": "t0002-k1", "stage": "task", "started": factory.now()}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, None, t, {"status": "done", "summary": "s", "result": "all good"})
+        self.assertEqual((t["ask"]["kind"], t["ask"]["why"]), ("notice", "all good."))
+        n = factory.notice("Update something", "A newer release is out.")
+        self.assertEqual((n["ask"]["kind"], n["ask"]["why"], n["ask"]["retry_column"]),
+                         ("notice", "A newer release is out.", None))
+
+    def test_a_blocked_designer_asks_to_be_unstuck_not_approved(self):
+        t = factory.new_ticket("g", "Idea", "idea", "human", "ready", kind="intent")
+        t["agent"] = {"name": "t0001-d1", "stage": "design", "started": factory.now()}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, {"path": "/x", "base": "main"}, t,
+                                 {"status": "blocked", "summary": "two readings of the idea", "design": "half a draft",
+                                  "tickets": [{"title": "A", "body": "a"}]})
+        self.assertEqual((t["ask"]["kind"], t["ask"]["retry_column"]), ("unstick", "ready"))
+
+    def test_questions_name_their_subject(self):
+        t = {"column": "needs_human", "title": "Fix x", "source": {"issue": 18}, "reports": {}}
+        self.assertEqual(factory.ask_for(t, "triage", "triage accepted; move to ready")["question"],
+                         "Start work on issue #18, “Fix x”?")
+        t.pop("source")
+        self.assertEqual(factory.ask_for(t, "triage", "triage unsure: vague")["question"],
+                         "Triage could not decide on “Fix x”: start it, or drop it?")
+        t.update(kind="proposal", proposal={"why": "It is slow."}, panel={"scores": [4, 5, 4], "mean": 4.33})
+        ask = factory.ask_for(t, None, "")
+        self.assertEqual((ask["question"], ask["why"]),
+                         ("File “Fix x” as a change, or drop it?", "It is slow. The panel scored it 4 · 5 · 4, mean 4.33."))
+
+    def test_note_reaches_the_next_agent(self):
+        import argparse
+        t = factory.new_ticket("g", "Fix", "body", "human", "ready")
+        factory.cmd_note(self.cfg, argparse.Namespace(ticket=t["id"], text=["keep", "the old API"]))
+        t = factory.load_ticket(t["id"])
+        self.assertEqual(t["notes"][0]["text"], "keep the old API")
+        self.assertEqual(t["history"][-1]["event"], "note")
+        self.assertIn("keep the old API", factory.work_prompt(t))
+
+
+class TickRaceTest(unittest.TestCase):
+    """Foreman changes tickets while a tick runs; the tick must not save its stale copy over them."""
+
+    def setUp(self):
+        DoorsTest.setUp(self)
+        self.cfg = {"projects": {"g": {}}}
+        root = mock.patch.object(factory, "ROOT", self.tmp.name)
+        root.start()
+        self.patches.append(root)
+
+    tearDown = DoorsTest.tearDown
+
+    def args(self, **kw):
+        import argparse
+        return argparse.Namespace(**kw)
+
+    def test_a_send_back_made_while_the_tick_runs_is_kept(self):
+        t = factory.new_ticket("g", "Fix", "b", "human", "gate", branch="bot/x")
+        calls = []
+
+        def person_sends_it_back(cfg):
+            calls.append(cfg)
+            if len(calls) == 2:     # the tick has read the board by now
+                factory.cmd_note(cfg, self.args(ticket=t["id"], text=["handle the empty case"]))
+                factory.cmd_move(cfg, self.args(ticket=t["id"], column="ready", note=None))
+            return set()
+
+        with mock.patch.object(factory, "running_agents", side_effect=person_sends_it_back), \
+             mock.patch.object(factory, "gate") as gate, mock.patch.object(factory, "start_stage") as start:
+            factory.tick(self.cfg)
+        gate.assert_not_called()
+        start.assert_called_once()
+        t = factory.load_ticket(t["id"])
+        self.assertEqual((t["column"], t["notes"][0]["text"]), ("ready", "handle the empty case"))
+
+    def test_a_cli_change_gives_up_while_the_tick_holds_the_ticket(self):
+        t = factory.new_ticket("g", "Fix", "b", "human", "gate")
+        with factory.ticket_lock(t["id"]), mock.patch.object(factory, "CLI_WAIT", 0.3), \
+             self.assertRaises(SystemExit) as e:
+            factory.cmd_note(self.cfg, self.args(ticket=t["id"], text=["x"]))
+        self.assertIn("busy", str(e.exception))
+        self.assertNotIn("notes", factory.load_ticket(t["id"]))
+        with self.assertRaises(SystemExit):
+            factory.cmd_note(self.cfg, self.args(ticket="../T0001", text=["x"]))
+
+    def test_a_dispatcher_error_says_what_went_wrong(self):
+        t = factory.new_ticket("g", "Fix", "b", "human", "ready")
+        with mock.patch.object(factory, "running_agents", return_value=set()), \
+             mock.patch.object(factory, "start_stage", side_effect=RuntimeError("no space left on device")):
+            factory.tick(self.cfg)
+        t = factory.load_ticket(t["id"])
+        self.assertEqual((t["ask"]["kind"], t["ask"]["retry_column"]), ("unstick", "ready"))
+        self.assertIn("no space left on device", t["ask"]["why"])
+
+
+class MigrateTest(unittest.TestCase):
+    setUp, tearDown = DoorsTest.setUp, DoorsTest.tearDown
+    PROPOSALS, prospected, vote = PanelTest.PROPOSALS, PanelTest.prospected, PanelTest.vote
+
+    def old_board(self):
+        """A board as the dispatcher before asks left it: one kept proposal without votes, nothing filed for the dropped."""
+        t = self.prospected()
+        with mock.patch.object(factory, "file_proposal", side_effect=lambda t, i, p, votes: legacy(t, i, p, votes)):
+            for s in ([5, 2, 1], [4, 2, 1], [5, 3, 1]):
+                self.vote(t, s)
+        t.pop("ask", None)
+        t["panel_result"].pop("dropped_tickets")
+        self.assertIn("-> done", t["history"][-1]["detail"])
+        t["history"][-1]["at"] = DECIDED
+        factory.save_ticket(t)
+        waiting = factory.new_ticket("g", "Fix", "b", "github", "triage")
+        waiting["reports"]["triage"] = {"reason": "real bug"}
+        factory.move(waiting, "needs_human", "triage accepted; move to ready to start work")
+        waiting.pop("ask")
+        factory.save_ticket(waiting)
+        return t, waiting
+
+    def test_migrate_backfills_asks_votes_and_dropped_proposals_once(self):
+        prospect, waiting = self.old_board()
+        out = io.StringIO()
+        with mock.patch("sys.stdout", out):
+            factory.migrate()
+        self.assertEqual(factory.load_ticket(waiting["id"])["ask"]["kind"], "start")
+        filed = [x for x in factory.all_tickets() if x.get("kind") == "proposal"]
+        kept = [x for x in filed if x["column"] == "needs_human"]
+        self.assertEqual([k["title"] for k in kept], ["P1"])
+        self.assertEqual([v["score"] for v in kept[0]["panel"]["votes"]], [5, 4, 5])
+        self.assertEqual(kept[0]["ask"]["kind"], "proposal")
+        dropped = [x for x in filed if x["column"] == "rejected"]
+        self.assertEqual([(d["title"], d["ask"]) for d in dropped], [("P2", None), ("P3", None)])
+        self.assertTrue(all(d["history"][-1]["rule"].startswith("dropped:") for d in dropped))
+        self.assertEqual({d["created"] for d in dropped} | {h["at"] for d in dropped for h in d["history"]}, {DECIDED})
+        prospect = factory.load_ticket(prospect["id"])
+        self.assertTrue(prospect["migrated"])
+        self.assertEqual(prospect["panel_result"]["dropped_tickets"], [d["id"] for d in dropped])
+        before = {x["id"]: x for x in factory.all_tickets()}
+        again = io.StringIO()
+        with mock.patch("sys.stdout", again):
+            factory.migrate()
+        self.assertEqual(again.getvalue(), "")
+        self.assertEqual({x["id"]: x for x in factory.all_tickets()}, before)
+
+
+DECIDED = "2000-01-02T03:04:05+00:00"
+
+
+def legacy(t, i, p, votes):
+    """reveal() before proposals carried votes: kept ones filed without votes, dropped ones not filed."""
+    tally = factory.panel_tally(i, votes)
+    if not tally["survives"]:
+        return {"id": None, "panel": tally}
+    c = factory.new_ticket(t["project"], p["title"], "body", "clock", "needs_human")
+    c.update(kind="proposal", parent=t["id"], proposal=p, panel=tally)
+    c.pop("ask")
+    factory.save_ticket(c)
+    return c
 
 
 class UpkeepTest(DoorsTest):

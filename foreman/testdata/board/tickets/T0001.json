@@ -1,0 +1,167 @@
+{
+  "id": "T0001",
+  "project": "widgets",
+  "title": "Fix the widget finder",
+  "body": "Make the widgets better.",
+  "door": "github",
+  "column": "pr_open",
+  "branch": "bot/widget-finder",
+  "agent": null,
+  "reports": {
+    "triage": {
+      "decision": "accept",
+      "reason": "Reproduced it.",
+      "task": "Fix it."
+    },
+    "work": {
+      "status": "done",
+      "summary": "Changed the widget finder to use the primary key.",
+      "category": "fix",
+      "runtime_behaviour": "yes",
+      "tests": "pass",
+      "lint": "pass"
+    },
+    "review": {
+      "verdict": "pass",
+      "runtime_behaviour": "yes",
+      "findings": [],
+      "summary": "Looks right."
+    },
+    "security": {
+      "verdict": "pass",
+      "summary": "Nothing found.",
+      "answers": [
+        {
+          "question": "q1",
+          "answer": "No.",
+          "concern": "none"
+        },
+        {
+          "question": "q2",
+          "answer": "No.",
+          "concern": "low"
+        }
+      ]
+    }
+  },
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-05T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage"
+    },
+    {
+      "at": "2026-10-05T09:01:00+00:00",
+      "event": "start",
+      "detail": "triage t0001-t1"
+    },
+    {
+      "at": "2026-10-05T09:04:00+00:00",
+      "event": "finished",
+      "detail": "triage t0001-t1"
+    },
+    {
+      "at": "2026-10-05T09:04:00+00:00",
+      "event": "move",
+      "detail": "triage -> needs_human: triage accepted; move to ready to start work"
+    },
+    {
+      "at": "2026-10-06T10:00:00+00:00",
+      "event": "move",
+      "detail": "needs_human -> ready: by human"
+    },
+    {
+      "at": "2026-10-06T10:01:00+00:00",
+      "event": "move",
+      "detail": "ready -> working"
+    },
+    {
+      "at": "2026-10-06T10:01:00+00:00",
+      "event": "start",
+      "detail": "work t0001-w1 on bot/widget-finder"
+    },
+    {
+      "at": "2026-10-06T10:11:00+00:00",
+      "event": "finished",
+      "detail": "work t0001-w1"
+    },
+    {
+      "at": "2026-10-06T10:11:00+00:00",
+      "event": "move",
+      "detail": "working -> review"
+    },
+    {
+      "at": "2026-10-06T10:12:00+00:00",
+      "event": "start",
+      "detail": "review t0001-r1 on bot/widget-finder"
+    },
+    {
+      "at": "2026-10-06T10:20:00+00:00",
+      "event": "finished",
+      "detail": "review t0001-r1"
+    },
+    {
+      "at": "2026-10-06T10:20:00+00:00",
+      "event": "move",
+      "detail": "review -> security"
+    },
+    {
+      "at": "2026-10-06T10:21:00+00:00",
+      "event": "start",
+      "detail": "security t0001-s1 on bot/widget-finder"
+    },
+    {
+      "at": "2026-10-06T10:25:00+00:00",
+      "event": "finished",
+      "detail": "security t0001-s1"
+    },
+    {
+      "at": "2026-10-06T10:25:00+00:00",
+      "event": "move",
+      "detail": "security -> gate"
+    },
+    {
+      "at": "2026-10-06T10:30:00+00:00",
+      "event": "move",
+      "detail": "gate -> ready_for_pr: needs human review: 40 changed lines (limit 10)",
+      "rule": "gate: needs a maintainer: 40 changed lines (limit 10)"
+    },
+    {
+      "at": "2026-10-06T10:31:00+00:00",
+      "event": "move",
+      "detail": "ready_for_pr -> pr_open: draft PR https://github.com/example/widgets/pull/23"
+    }
+  ],
+  "source": {
+    "issue": 17,
+    "url": "https://github.com/example/widgets/issues/17"
+  },
+  "security_tier": 2,
+  "gate": {
+    "checks_pass": true,
+    "files": [
+      "lib/widget.rb",
+      "test/widget_test.rb"
+    ],
+    "changed_lines": 40,
+    "within_size": false,
+    "outside_allowed_paths": [
+      "lib/widget.rb"
+    ],
+    "runtime_behaviour": "yes",
+    "reasoning_stated": true,
+    "head": "abc",
+    "auto_eligible": false,
+    "blockers": [
+      "files outside the allowed paths: lib/widget.rb",
+      "40 changed lines (limit 10)"
+    ]
+  },
+  "pr": {
+    "number": 23,
+    "url": "https://github.com/example/widgets/pull/23",
+    "draft": true
+  }
+}

@@ -1,0 +1,30 @@
+{{define "content" -}}
+{{with .Floor}}
+<main class="pane">
+  <div class="week">
+    <h3>{{.Title}}</h3>
+    <p>{{.Summary}}</p>
+    <nav class="weeknav"><a href="/floor?week={{.Prev}}">← Week before</a>{{with .Next}} <a href="/floor?week={{.}}">Week after →</a>{{end}}</nav>
+  </div>
+  <div class="running"><b>Running now:</b>
+    {{if .Running}}{{range $i, $r := .Running}}{{if $i}} · {{end}}<a class="mono" href="/t/{{$r.T.ID}}">{{$r.T.ID}}</a> {{$r.Role}}{{with $r.Host}} on {{.}}{{end}}{{with $r.Elapsed}}, {{.}}{{end}}{{end}}
+    {{else}}nothing.{{end}}
+    <span>{{if .Asks}}{{.Asks}} on your desk.{{else}}Nothing on your desk.{{end}}</span>
+  </div>
+  {{range .Days}}
+  <section class="day">
+    <h4>{{.Name}}</h4>
+    {{range .Events}}
+    <details class="ev">
+      <summary><time>{{.Time}}</time><span class="out {{.Class}}">{{.Label}}</span><span class="line"><b>{{.Line}}</b> <span>· {{.Detail}}{{with .Earlier}} · earlier: {{range $i, $e := .}}{{if $i}}, {{end}}{{$e}}{{end}}{{end}}</span></span></summary>
+      {{template "story" .Story}}
+      {{if .T.ID}}<p class="evlink"><a href="/t/{{.T.ID}}">Open {{.T.ID}} →</a></p>{{end}}
+    </details>
+    {{end}}
+  </section>
+  {{else}}
+  <p class="quiet">A quiet week: nothing moved.</p>
+  {{end}}
+</main>
+{{end}}
+{{- end}}

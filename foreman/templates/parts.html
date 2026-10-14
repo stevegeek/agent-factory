@@ -1,0 +1,63 @@
+{{define "detail" -}}
+{{$p := .}}{{with .Ticket}}
+{{if $p.Desk}}<a class="back" href="/{{with .Filter}}?kind={{.}}{{end}}">← All asks</a>{{else}}<a class="back show" href="/b/{{.T.Project}}">← {{.T.Project}}</a>{{end}}
+<div class="eyebrow">
+  <span class="badge k-{{.Kind}}">{{.KindLabel}}</span>
+  <span class="mono">{{.T.ID}}</span>
+  <a href="/b/{{.T.Project}}">{{.T.Project}}</a>
+  {{with .Age}}<span>{{.}}</span>{{end}}
+  {{with .ParentID}}<span>from <a class="mono" href="/t/{{.}}">{{.}}</a></span>{{end}}
+</div>
+<h2>{{.Headline}}</h2>
+{{with .Subtitle}}<p class="sub">{{.}}</p>{{end}}
+{{with .Why}}<p class="why">{{.}}</p>{{end}}
+{{if .Facts}}<dl class="facts">
+  {{range .Facts}}<div class="fact"><dt>{{.Label}}</dt><dd class="{{.Tone}}">
+    {{- if .Votes}}<span class="votes">{{range .Votes}}<span class="vote {{if low .}}low{{end}}">{{.}}</span>{{end}}</span>
+    {{- else if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Value}}</a>
+    {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
+</dl>{{end}}
+{{if .Children}}<p class="sub">{{.ChildrenLabel}}: {{range $i, $c := .Children}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$c}}">{{$c}}</a>{{end}}</p>{{end}}
+{{if or .Answers .CanNote}}
+<form class="act" method="post" action="/t/{{.T.ID}}/act">
+  <input type="hidden" name="csrf" value="{{$p.CSRF}}">
+  <input type="hidden" name="filter" value="{{.Filter}}">
+  {{with .Ask}}<input type="hidden" name="ask" value="{{.Kind}}"><input type="hidden" name="since" value="{{.Since}}">{{end}}
+  {{if .Picks}}<div class="picks">
+    {{range .Picks}}<div class="pick"><input type="checkbox" name="pick" value="{{.N}}" id="pick-{{.N}}" checked>
+      <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{.Title}}</label>
+      <details class="more"><summary>Read it</summary><div class="text">{{.Body}}</div></details></div></div>{{end}}
+  </div>{{end}}
+  {{if and .CanNote .NoteFirst}}{{template "note" .}}{{end}}
+  {{if .Answers}}<div class="answers">
+    {{range .Answers}}{{if .Href}}<a class="btn {{if .Primary}}primary{{end}}" href="{{.Href}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Label}}{{with .Sub}}<small>{{.}}</small>{{end}}</a>
+    {{- else}}<button class="btn {{if .Primary}}primary{{end}}" type="submit" name="answer" value="{{.Value}}">{{.Label}}{{with .Sub}}<small>{{.}}</small>{{else}}{{if .NeedsNote}}<small>needs a note</small>{{end}}{{end}}</button>{{end}}
+    {{end}}
+  </div>{{end}}
+  {{if and .CanNote (not .NoteFirst)}}{{template "note" .}}{{end}}
+</form>
+{{end}}
+{{range .More}}<details class="more"><summary>{{.Summary}}</summary><div class="text">{{.Text}}</div></details>{{end}}
+{{template "story" .Story}}
+{{end}}
+{{- end}}
+
+{{define "note" -}}
+<div class="note">
+    <label for="note-{{.T.ID}}">{{.NoteLabel}}</label>
+    <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" placeholder="Anything the agent should know"></textarea>
+    <div><button class="linkbtn" type="submit" name="answer" value="note">Only add the note</button></div>
+  </div>
+{{- end}}
+
+{{define "story" -}}
+{{if .Steps}}<section class="story">
+  <h3>How it got here</h3>
+  <ol class="steps">
+    {{range .Steps}}<li class="step {{.Tone}}"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span> · {{.What}}
+      {{- if .Quotes}}<div class="quotes">{{range .Quotes}}<div class="quote"><span class="vote {{if low .Score}}low{{end}}">{{.Score}}</span><span>{{.Text}}</span></div>{{end}}</div>{{end}}</div></li>
+    {{end}}
+  </ol>
+  {{with .Caveat}}<p class="caveat">{{.}}</p>{{end}}
+</section>{{end}}
+{{- end}}

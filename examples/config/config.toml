@@ -66,6 +66,9 @@ env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
 [panel]                      # blind voting on prospecting proposals
 voters = 3
 
+[foreman]                    # the web app (systemd/foreman.service)
+listen = "127.0.0.1:8790"    # loopback; put `tailscale serve` in front to reach it from elsewhere
+
 [triage.auto_accept]         # accepted triage goes straight to "ready" for these doors
 github = false               # otherwise it waits in needs_human
 clock = true
