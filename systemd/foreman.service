@@ -6,7 +6,7 @@ Description=Foreman: the factory's desk for its maintainer
 After=network-online.target
 
 [Service]
-ExecStart=%h/factory/bin/foreman --root %h/factory --listen {{foreman_listen}}
+ExecStart=%h/factory/bin/foreman --root %h/factory --listen {{foreman_listen}} {{foreman_flags}}
 Restart=on-failure
 RestartSec=5
 MemoryMax=64M

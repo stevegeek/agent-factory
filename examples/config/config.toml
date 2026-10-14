@@ -68,6 +68,9 @@ voters = 3
 
 [foreman]                    # the web app (systemd/foreman.service)
 listen = "127.0.0.1:8790"    # loopback; put `tailscale serve` in front to reach it from elsewhere
+# hosts = ["box.example.ts.net"]            # names it answers to besides IPs and localhost
+# trust_tailscale = true                    # a tailnet login below counts as logged in (via tailscale serve)
+# tailscale_users = ["you@example.com"]
 
 [triage.auto_accept]         # accepted triage goes straight to "ready" for these doors
 github = false               # otherwise it waits in needs_human

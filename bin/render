@@ -32,7 +32,28 @@ def values(cfg):
     missing = [k for k, x in v.items() if not x]
     if missing:
         sys.exit(f"config.toml is missing: {', '.join(missing)} (see [identity] and [host])")
+    v["foreman_flags"] = foreman_flags(cfg.get("foreman", {}))
     return v
+
+
+def foreman_flags(fm):
+    """Extra foreman arguments for its unit's ExecStart: the names it answers to, and whose tailnet login
+    counts as the maintainer. Each must be one word, since systemd splits the line on spaces."""
+    flags = []
+    for h in fm.get("hosts", []):
+        if not re.fullmatch(r"[A-Za-z0-9.-]+", h):
+            sys.exit(f"[foreman] hosts: not a host name: {h!r}")
+        flags += ["--host", h]
+    users = fm.get("tailscale_users", [])
+    if fm.get("trust_tailscale"):
+        if not users:
+            sys.exit("[foreman] trust_tailscale needs tailscale_users")
+        flags.append("--trust-tailscale")
+    for u in users:
+        if not re.fullmatch(r"[^\s\"'\\%$]+", u):
+            sys.exit(f"[foreman] tailscale_users: not a login: {u!r}")
+        flags += ["--tailscale-user", u]
+    return " ".join(flags)
 
 
 def render_file(path, v):
