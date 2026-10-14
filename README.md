@@ -81,6 +81,7 @@ factory clock                                          # clock door: [[schedules
 factory ls [--all] | show T0001 | move T0001 ready --note "approved"
 factory host T0001 helper                              # pin to a host (local, a [hosts] name, or auto)
 factory add factory "Summarise <url>" --task           # one agent run, answer comes back to you
+factory ask T0003 "Did Steep pass on this?"             # a task about a ticket, on its branch; the answer joins its story
 factory result T0009                                   # (project `factory` = no repository; --timeout MIN)
 factory add <project> "Idea" --intent --body "..."     # design first: a designer proposes
 factory result T0010                                   # read the design + proposed tickets
@@ -110,7 +111,7 @@ door → triage → ready → working → review → security → gate → ready
 
 - Intents (`--intent`): a designer (role `designer`) writes a short design and proposes up to 6 tickets, each standing alone on the base branch. It waits in `needs_human`; `approve` files the tickets into `ready` (skipping triage), `redirect` re-runs the designer with your note and its previous design.
 - Prospecting (`[[schedules]]` with `kind = "prospect"`): a prospector proposes at most 5 evidence-backed improvements, never code. In `voting`, `[panel] voters` separate voter agents score every proposal 1–5 for worth, each blind to the others. The dispatcher drops a proposal unless ≥2 voters scored it 4+ or the mean is ≥3.5. Survivors wait as `proposal` tickets; `factory proposals` lists them by mean minus half the spread, and `factory approve` files one as a change.
-- Tasks (`--task`): one agent, no branch, review or gate; the role writes `result` and the ticket lands in `needs_human`. A helper with `prefer = ["task"]` takes them first.
+- Tasks (`--task`): one agent, no branch, review or gate; the role writes `result` and the ticket lands in `needs_human`. A helper with `prefer = ["task"]` takes them first. `factory ask` files one about a ticket: the body carries the ticket's facts, a helper checks out the ticket's branch (`ref`), and Foreman shows the question and answer in that ticket's story. A `[[schedules]]` entry with `kind = "task"` files a recurring check that reports back (e.g. repo hygiene); `{github}` in its body names each project's repository.
 
 ## Fizzy
 
@@ -143,7 +144,7 @@ A web app for the maintainer (`foreman/`, one static Go binary). The desk lists 
 
 ## Config
 
-`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]`, `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`), `[foreman]` (`listen`, `hosts`, `trust_tailscale`, `tailscale_users`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`, `[fizzy]` (`account`, `board_prefix`, `token`, `api`). `FACTORY_ROOT` overrides `~/factory`.
+`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]` (stage → model on every host), `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`, `models`: one per voter, in turn), `[foreman]` (`listen`, `hosts`, `trust_tailscale`, `tailscale_users`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `install`, `test`, `lint`, `pinned_untracked`, `tier3_paths`, `text_paths`), `[[schedules]]`, `[fizzy]` (`account`, `board_prefix`, `token`, `api`). `FACTORY_ROOT` overrides `~/factory`.
 
 ## Tests
 

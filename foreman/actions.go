@@ -20,6 +20,7 @@ type Answer struct {
 	Href              string
 	NeedsNote         bool
 	NoteFor           string // "to send it back": names the answer the note is needed for
+	Danger            bool   // closes the ticket or the PR: shown last, in red
 }
 
 // Answers offered for an ask; Href ones are plain links, the rest submit the ticket's form.
@@ -46,40 +47,50 @@ func Answers(t *Ticket, a *Ask) []Answer {
 			u = safeURL(t.PR.URL)
 		}
 		if u != "" {
-			sub := "approve and merge on GitHub"
+			sub := "approve and merge there; this clears itself"
 			if t.PR.Draft {
-				sub = "on GitHub: mark it ready, approve, merge"
+				sub = "mark it ready, approve, merge; this clears itself"
 			}
-			out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d", t.PR.Number), Sub: sub, Primary: true, Href: u})
+			out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", t.PR.Number), Sub: sub, Primary: true, Href: u})
 		}
 		out = append(out, Answer{Value: "send_back", Label: "Send back with a note", Sub: "a worker reworks it; the PR is a draft meanwhile", NeedsNote: true, NoteFor: "to send it back"})
 		if u != "" {
-			out = append(out, Answer{Label: "Close it on GitHub", Sub: "the factory sees it closed and drops the ticket", Href: u})
+			out = append(out, Answer{Label: "Close it on GitHub", Sub: "the factory sees it closed and drops the ticket", Href: u, Danger: true})
 		}
 		return out
 	case "start":
-		return []Answer{{Value: "start", Label: "Start", Sub: "a worker picks it up on the next tick", Primary: true}, {Value: "not_now", Label: "Not now", Sub: issueStays}}
+		return []Answer{{Value: "start", Label: "Start", Sub: "a worker picks it up on the next tick", Primary: true},
+			{Value: "not_now", Label: "Not now", Sub: orSub(issueStays, "the ticket closes"), Danger: true}}
 	case "decide":
-		return []Answer{{Value: "start", Label: "Start anyway", Primary: true}, {Value: "drop", Label: "Drop", Sub: issueStays},
-			{Value: "reply", Label: "Ask triage again", Sub: "triage reruns with your note", NeedsNote: true, NoteFor: "to ask triage again"}}
+		return []Answer{{Value: "start", Label: "Start anyway", Sub: "a worker picks it up on the next tick", Primary: true},
+			{Value: "reply", Label: "Ask triage again", Sub: "triage reruns with your note", NeedsNote: true, NoteFor: "to ask triage again"},
+			{Value: "drop", Label: "Drop", Sub: orSub(issueStays, "the ticket closes"), Danger: true}}
 	case "design":
 		return []Answer{{Value: "approve", Label: "Approve the ticked ones", Sub: "each goes to Ready on its own", Primary: true},
 			{Value: "redirect", Label: "Redirect with a note", Sub: "the designer tries again", NeedsNote: true, NoteFor: "to redirect"}}
 	case "proposal":
-		return []Answer{{Value: "file", Label: "File it", Sub: "becomes a change ticket in Ready", Primary: true}, {Value: "drop", Label: "Drop"}}
+		return []Answer{{Value: "file", Label: "File it", Sub: "becomes a change ticket in Ready", Primary: true},
+			{Value: "drop", Label: "Drop", Sub: "the proposal closes; nothing is filed", Danger: true}}
 	case "unstick":
 		var out []Answer
 		if a.RetryColumn != "" {
 			out = append(out, Answer{Value: "retry", Label: "Retry", Sub: "back to " + columnLabel(a.RetryColumn), Primary: true},
 				Answer{Value: "retry_note", Label: "Retry with a note", NeedsNote: true, NoteFor: "to retry with it"})
 		}
-		return append(out, Answer{Value: "drop", Label: "Drop"})
+		return append(out, Answer{Value: "drop", Label: "Drop", Sub: "the ticket closes", Danger: true})
 	case "notice":
-		return []Answer{{Value: "done", Label: "Done", Sub: "close it", Primary: true}}
+		return []Answer{{Value: "done", Label: "Done", Sub: "close it; nothing else happens", Primary: true}}
 	case "question":
 		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: true}}
 	}
 	return nil
+}
+
+func orSub(s, fallback string) string {
+	if s != "" {
+		return s
+	}
+	return fallback
 }
 
 const maxNote = 4000
@@ -104,6 +115,13 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 	move := func(col string) []string { return []string{"move", id, col} }
 	var cmds [][]string
 	need := false
+	if answer == "ask" {
+		if note == "" {
+			return nil, errors.New("write the question first")
+		}
+		// the question is the whole argument; "--" keeps a leading "-" from reading as an option
+		return [][]string{{"ask", id, "--", note}}, nil
+	}
 	if answer == "note" {
 		if t.closed() {
 			return nil, errors.New("closed tickets take no notes")

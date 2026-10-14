@@ -121,6 +121,9 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 			}
 		case "note":
 			st = &Step{At: parseTime(e.At), Who: "You", What: "Note: " + clip(e.Detail, 400)}
+		case "asked":
+			s.Steps = append(s.Steps, askSteps(e, all)...)
+			continue
 		case "panel":
 			s.Steps = append(s.Steps, panelSteps(t, all, e)...)
 			continue
@@ -333,7 +336,9 @@ func moveStep(t *Ticket, e Hist) *Step {
 	case to == "ready_for_pr" && detail == "auto-merge eligible":
 		st.Who, st.What = "Gate", "Tests and lint pass, no blockers: auto-merge eligible."
 	case to == "ready_for_pr" && strings.HasPrefix(detail, "needs human review: "):
-		st.Who, st.What = "Gate", sentence("Tests and lint pass. Needs a maintainer: "+strings.TrimPrefix(detail, "needs human review: "))
+		// the same plain words as the draft callout: a list of paths becomes a count
+		why := strings.Join(draftReasons(strings.Split(strings.TrimPrefix(detail, "needs human review: "), "; ")), "; ")
+		st.Who, st.What = "Gate", sentence("Tests and lint pass. Needs a maintainer: "+why)
 	case detail == "review asked for changes":
 		st.Who, st.What = "Reviewer", "Asked for changes; back to the worker."
 	case strings.HasPrefix(detail, "redirected: "):
@@ -552,6 +557,43 @@ func droppedProposals(ts []*Ticket) []*Ticket {
 		}
 	}
 	return out
+}
+
+// askSteps: the question, then its answer (or where the answer is) from the task it filed.
+func askSteps(e Hist, all map[string]*Ticket) []Step {
+	id, q, _ := strings.Cut(e.Detail, ": ")
+	steps := []Step{{At: parseTime(e.At), Who: "You", What: "Asked: " + clip(q, 400)}}
+	c := all[id]
+	switch {
+	case c == nil:
+	case c.Result != "":
+		steps = append(steps, Step{At: parseTime(c.Updated), Who: "Answer", What: clip(c.Result, 900)})
+	case c.Agent != nil:
+		steps = append(steps, Step{Who: "Answer", What: "An agent is working on it (" + id + ").", Tone: "now", When: "now"})
+	case c.closed():
+		steps = append(steps, Step{At: parseTime(c.Updated), Who: "Answer", What: "None came back (" + id + " closed).", Tone: "flag"})
+	default:
+		steps = append(steps, Step{Who: "Answer", What: "Queued (" + id + "); an agent picks it up on the next tick.", Tone: "now", When: "soon"})
+	}
+	return steps
+}
+
+// recentSteps: how many of the latest steps show before "earlier steps" folds the rest away.
+const recentSteps = 5
+
+// Earlier and Recent split the steps so the page opens on what happened last.
+func (s Story) Earlier() []Step {
+	if len(s.Steps) <= recentSteps+1 {
+		return nil
+	}
+	return s.Steps[:len(s.Steps)-recentSteps]
+}
+
+func (s Story) Recent() []Step {
+	if len(s.Steps) <= recentSteps+1 {
+		return s.Steps
+	}
+	return s.Steps[len(s.Steps)-recentSteps:]
 }
 
 func waitingWhat(t *Ticket, a *Ask) string {

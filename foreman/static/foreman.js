@@ -59,6 +59,23 @@
     }
   });
 
+  // An answer that needs the note, clicked with the box empty: point at the box instead of a round trip
+  // to an error. The server still refuses it without a note.
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("button[data-needs-note]");
+    var ta = btn && btn.form && btn.form.querySelector("textarea[name=note]");
+    if (!ta || ta.value.trim()) return;
+    e.preventDefault();
+    var box = ta.closest(".composer"), hint = box && box.querySelector(".hint");
+    if (box) box.classList.add("want");
+    if (hint) hint.textContent = "Write the note first: “" + btn.querySelector("span").textContent + "” sends it to the agent.";
+    ta.focus();
+  }, true);
+  document.addEventListener("input", function (e) {
+    var box = e.target.closest && e.target.closest(".composer.want");
+    if (box && e.target.value.trim()) box.classList.remove("want");
+  });
+
   document.addEventListener("submit", function (e) {
     var ta = e.target.querySelector && e.target.querySelector("textarea[data-draft]");
     if (ta && ta.value.trim()) saveDraft(ta.dataset.draft, { text: ta.value, at: Date.now(), sent: true });

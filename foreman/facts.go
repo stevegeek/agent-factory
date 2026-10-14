@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -94,12 +95,9 @@ func Facts(t *Ticket, a *Ask, all map[string]*Ticket) []Fact {
 			tone = "warn"
 		}
 		f = append(f, Fact{Label: "Size", Value: fmt.Sprintf("%d lines, %s", g.ChangedLines, plural(len(g.Files), "file")), Tone: tone})
-		switch {
-		case g.AutoEligible:
+		if g.AutoEligible {
 			f = append(f, Fact{Label: "Auto-merge", Value: "eligible", Tone: "good"})
-		case t.PR != nil && t.PR.Draft && len(g.Blockers) > 0:
-			f = append(f, Fact{Label: "Draft because", Value: draftReasons(g.Blockers), Tone: "warn"})
-		case g.ChecksPass:
+		} else if g.ChecksPass && PRCallout(t) == nil {
 			f = append(f, Fact{Label: "Auto-merge", Value: "no: needs a maintainer", Tone: "warn"})
 		}
 	}
@@ -127,14 +125,44 @@ func Facts(t *Ticket, a *Ask, all map[string]*Ticket) []Fact {
 	return f
 }
 
-// draftReasons: the gate's blockers, short enough for a fact; a list of paths becomes a count.
-func draftReasons(blockers []string) string {
+// Callout: what a person must know before answering, set apart from the facts.
+type Callout struct {
+	Tone, Title string
+	Lines       []string
+}
+
+// PRCallout says why an open PR is a draft (the gate's blockers, in plain words) or that it
+// passed everything, and where the next step happens.
+func PRCallout(t *Ticket) *Callout {
+	if t.Column != "pr_open" || t.PR == nil || t.Gate == nil {
+		return nil
+	}
+	if !t.PR.Draft || len(t.Gate.Blockers) == 0 {
+		return &Callout{Tone: "good", Title: "Passed every check for automatic approval"}
+	}
+	return &Callout{Tone: "warn", Title: "Why this PR is a draft", Lines: draftReasons(t.Gate.Blockers)}
+}
+
+// draftReasons: the gate's blockers in plain words; a list of paths becomes a count.
+func draftReasons(blockers []string) []string {
 	var out []string
 	for _, b := range blockers {
-		if head, list, ok := strings.Cut(b, ": "); ok && strings.HasPrefix(head, "files outside") {
-			b = plural(len(strings.Split(list, ", ")), "file") + " outside the auto-merge paths"
+		head, list, ok := strings.Cut(b, ": ")
+		switch {
+		case ok && strings.HasPrefix(head, "files outside"):
+			b = capFirst(plural(len(strings.Split(list, ", ")), "file")) + " outside the paths that may merge automatically (docs, tests, config)"
+		case strings.HasPrefix(b, "reviewer says runtime behaviour changes"):
+			b = "The reviewer says it changes how the code behaves at runtime"
+		default:
+			if m := linesRe.FindStringSubmatch(b); m != nil {
+				b = m[1] + " changed lines; the limit for automatic approval is " + m[2]
+			} else {
+				b = capFirst(b)
+			}
 		}
-		out = append(out, b)
+		out = append(out, clip(b, 200))
 	}
-	return clip(strings.Join(out, "; "), 240)
+	return out
 }
+
+var linesRe = regexp.MustCompile(`^(\d+) changed lines \(limit (\d+)\)$`)

@@ -238,8 +238,12 @@ func TestLabelsAndAnswers(t *testing.T) {
 		t.Errorf("review answers %+v", as)
 	}
 	body = h.do("GET", "/t/T0001", nil, c).Body.String()
-	if strings.Index(body, `name="note"`) > strings.Index(body, `value="send_back"`) || !strings.Contains(body, "Note (needed to send it back)") {
-		t.Errorf("the note field comes before an answer that needs it")
+	// answers first; the composer below says which answer uses the note, and the button is marked for the script
+	if !strings.Contains(body, `value="send_back" data-needs-note`) || !strings.Contains(body, "“Send back with a note” sends this note.") {
+		t.Errorf("send back should be tied to the note")
+	}
+	if !strings.Contains(body, `class="btn danger ext"`) {
+		t.Errorf("closing the PR should read as destructive")
 	}
 }
 

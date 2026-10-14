@@ -8,7 +8,9 @@ The maintainer's web app for the factory. It reads the board (`$FACTORY_ROOT/boa
 
 It changes nothing itself: every answer runs the `factory` CLI. Boards from before the dispatcher wrote `ask`, `rule` and panel votes still work; Foreman derives the same asks from the column and the last move.
 
-One static binary, standard library only, htmx vendored; no external requests.
+One static binary, standard library only, htmx and fonts vendored (Barlow Condensed, IBM Plex; SIL OFL, licences in `static/fonts`); no external requests.
+
+An ask reads top to bottom: a short question with the ticket's title under it, a "Waiting for you" line, the evidence (a callout says why a PR is a draft), then the answers (primary first, anything that closes a ticket or PR last and red), the note box with Ask and Send note, and the story with its earlier steps folded.
 
 Open pages stay current: `static/foreman.js` asks for the page every 30 s (while the tab is visible) with the board version it was rendered from, and the server answers 204 until a ticket changes. A form you have started on is never replaced; if its question moved on, a bar says so and a reload brings the new one. An unsent note is kept in the browser until it goes through.
 
@@ -52,6 +54,8 @@ Each answer runs these, in order (argv, never a shell; `pr` may take 10 minutes,
 | review | Open PR #n | a link to the PR |
 | | Send back with a note | `note T "…"`, `move T ready` (the PR goes back to draft; after the rework "Update PR #n" runs `pr T`) |
 | | Close it on GitHub | a link to the PR; the PR sweep drops the ticket |
+| any open ticket | Ask | `ask T -- "…"`: a task answers from the code; question and answer join the story |
+| | Send note | `note T "…"`: kept for the next agent; starts nothing |
 | start | Start / Not now | `move T ready` / `move T rejected` |
 | decide | Start anyway / Drop | `move T ready` / `move T rejected` |
 | | Ask triage again | `note T "…"`, `move T triage` |

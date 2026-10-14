@@ -101,7 +101,7 @@ func headers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "+
-			"connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+			"connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
 		// not no-referrer: under it browsers send "Origin: null" on this site's own form posts
@@ -166,6 +166,8 @@ type TicketView struct {
 	Answers                 []Answer
 	Picks                   []Pick
 	NoteLabel, NoteSub      string
+	Callout                 *Callout
+	Next                    string
 	CanNote                 bool
 	Story                   Story
 	More                    []More
@@ -221,9 +223,9 @@ func deskView(items []DeskItem, kind, current string, now time.Time) *DeskView {
 			continue
 		}
 		q := QueueItem{ID: it.T.ID, Kind: it.Ask.Kind, Label: kindLabel(it.Ask.Kind), Glyph: kindGlyph(it.Ask.Kind),
-			Question: it.Ask.Question, Project: it.T.Project, Age: ageSince(it.Ask.Since, now),
+			Question: Headline(it.T, it.Ask), Project: it.T.Project, Age: ageSince(it.Ask.Since, now),
 			Href: ticketHref(it.T.ID, kind), Current: it.T.ID == current}
-		if !strings.Contains(it.Ask.Question, it.T.Title) {
+		if !strings.Contains(q.Question, it.T.Title) {
 			q.Title = it.T.Title
 		}
 		v.Items = append(v.Items, q)
@@ -264,7 +266,7 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	all := byID(ts)
 	a := AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: BuildStory(t, all), Facts: Facts(t, a, all),
-		Answers: Answers(t, a), Children: t.Children, ChildrenLabel: "Filed", ParentID: t.Parent, CanNote: !t.closed()}
+		Answers: Answers(t, a), Callout: PRCallout(t), Children: t.Children, ChildrenLabel: "Filed", ParentID: t.Parent, CanNote: !t.closed()}
 	if pr := t.PanelResult; pr != nil {
 		// a prospect's proposals, kept and dropped, each a ticket of its own
 		v.ChildrenLabel, v.Children = "Proposals", nil
@@ -276,9 +278,10 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	}
 	if a != nil {
 		v.Kind, v.KindLabel, v.Glyph = a.Kind, kindLabel(a.Kind), kindGlyph(a.Kind)
-		v.Headline, v.Why, v.Since = a.Question, a.Why, a.Since
+		v.Headline, v.Why, v.Since = Headline(t, a), a.Why, a.Since
+		v.Next = waitingWhat(t, a)
 		v.Age = ageSince(a.Since, s.now())
-		if !strings.Contains(a.Question, t.Title) {
+		if !strings.Contains(v.Headline, t.Title) {
 			v.Subtitle = t.Title
 		}
 	} else {
@@ -289,28 +292,28 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	}
 	switch {
 	case a != nil && a.Kind == "design":
-		v.NoteLabel = "Note for the designer (needed to redirect)"
+		v.NoteLabel = "Note for the designer"
 		for i, p := range t.Proposed {
 			v.Picks = append(v.Picks, Pick{N: i + 1, Title: p.Title, Body: p.Body})
 		}
 	case a != nil && a.Kind == "question":
 		v.NoteLabel = "Your answer"
 	default:
-		v.NoteLabel = "Note for the next agent"
-		for _, x := range v.Answers {
-			if x.NeedsNote && x.NoteFor != "" {
-				v.NoteLabel = "Note (needed " + x.NoteFor + ")"
-				break
-			}
-		}
+		v.NoteLabel = "A note or a question"
 	}
 	switch {
 	case a != nil:
-		v.NoteSub = "the next agent reads it; nothing starts until you answer"
+		v.NoteSub = "Ask gets an answer here in a few minutes. Send note waits for the next agent."
 	case t.Agent != nil:
-		v.NoteSub = "the next agent reads it, not the one running now"
+		v.NoteSub = "Ask gets an answer here. Send note reaches the next agent, not the one running now."
 	default:
-		v.NoteSub = "the next agent on it reads it"
+		v.NoteSub = "Ask gets an answer here. Send note reaches the next agent on it."
+	}
+	for _, x := range v.Answers {
+		if x.NeedsNote && x.NoteFor != "" {
+			v.NoteSub = "“" + x.Label + "” sends this note. " + v.NoteSub
+			break
+		}
 	}
 	for _, x := range v.Answers {
 		// on a phone the field must come before the button that needs it
@@ -404,7 +407,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	}
 	a := AskFor(t)
 	answer := r.PostFormValue("answer")
-	if a != nil && answer != "note" && (r.PostFormValue("ask") != a.Kind || r.PostFormValue("since") != a.Since) {
+	if a != nil && answer != "note" && answer != "ask" && (r.PostFormValue("ask") != a.Kind || r.PostFormValue("since") != a.Since) {
 		s.flashRedirect(w, r, back, "error", id+" changed since you opened it. Look again before answering.")
 		return
 	}
@@ -443,7 +446,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if a == nil || answer == "note" {
+	if a == nil || answer == "note" || answer == "ask" {
 		next = back
 	}
 	s.flashRedirect(w, r, next, "ok", msg)
@@ -452,6 +455,9 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 func answerLabel(t *Ticket, a *Ask, answer string) string {
 	if answer == "note" {
 		return "Note sent"
+	}
+	if answer == "ask" {
+		return "Question sent; the answer appears in How it got here and on your desk"
 	}
 	for _, x := range Answers(t, a) {
 		if x.Value == answer {

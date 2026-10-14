@@ -578,9 +578,11 @@ func TestNoteButtonAndDraftReasons(t *testing.T) {
 	h := newHarness(t, false)
 	c := h.login()
 	body := h.do("GET", "/t/T0001", nil, c).Body.String()
-	for _, want := range []string{">Send note<small>the next agent reads it; nothing starts until you answer</small>",
-		"on GitHub: mark it ready, approve, merge", "a worker reworks it; the PR is a draft meanwhile",
-		"Draft because", "1 file outside the auto-merge paths; 40 changed lines (limit 10)", `data-draft="T0001"`} {
+	for _, want := range []string{`value="note" data-needs-note><span>Send note</span>`, `value="ask" data-needs-note><span>Ask</span>`,
+		"Ask gets an answer here in a few minutes. Send note waits for the next agent.",
+		"mark it ready, approve, merge", "a worker reworks it; the PR is a draft meanwhile",
+		"Why this PR is a draft", "<li>1 file outside the paths that may merge automatically (docs, tests, config)</li>",
+		"<li>40 changed lines; the limit for automatic approval is 10</li>", `<b>Waiting for you</b>`, `data-draft="T0001"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("T0001 page lacks %q", want)
 		}
@@ -593,4 +595,39 @@ func TestNoteButtonAndDraftReasons(t *testing.T) {
 	if a := Answers(&tk, nil); len(a) != 1 || a[0].Label != "Update PR #23" {
 		t.Errorf("a reworked ticket should update its PR: %+v", a)
 	}
+}
+
+func TestAskRunsTheCLIAndTheAnswerJoinsTheStory(t *testing.T) {
+	tk := find(fixtures(t), "T0001")
+	cmds, err := Plan(tk, AskFor(tk), "ask", "-did steep pass?", nil)
+	if err != nil || len(cmds) != 1 || strings.Join(cmds[0], " ") != "ask T0001 -- -did steep pass?" {
+		t.Fatalf("ask plan %v %v", cmds, err)
+	}
+	if _, err := Plan(tk, AskFor(tk), "ask", "", nil); err == nil {
+		t.Errorf("an empty question must be refused")
+	}
+	parent := *tk
+	parent.History = append(append([]Hist{}, tk.History...), Hist{At: "2026-10-14T21:00:00+00:00", Event: "asked", Detail: "T0099: Did steep pass?"})
+	child := &Ticket{ID: "T0099", Kind: "task", Parent: "T0001", Column: "needs_human", Updated: "2026-10-14T21:05:00+00:00", Result: "Yes: both Steep runs passed."}
+	all := map[string]*Ticket{"T0001": &parent, "T0099": child}
+	var got []string
+	for _, st := range BuildStory(&parent, all).Steps {
+		got = append(got, st.Who+": "+st.What)
+	}
+	joined := strings.Join(got, "\n")
+	if !strings.Contains(joined, "You: Asked: Did steep pass?\nAnswer: Yes: both Steep runs passed.") {
+		t.Errorf("question and answer should sit together in the story:\n%s", joined)
+	}
+	child.Result, child.Agent = "", &Agent{Name: "t0099-k1"}
+	if !strings.Contains(fmtSteps(BuildStory(&parent, all)), "Answer: An agent is working on it (T0099).") {
+		t.Errorf("a running answer should say so")
+	}
+}
+
+func fmtSteps(s Story) string {
+	var out []string
+	for _, st := range s.Steps {
+		out = append(out, st.Who+": "+st.What)
+	}
+	return strings.Join(out, "\n")
 }

@@ -313,6 +313,14 @@ class DoorsTest(unittest.TestCase):
         factory.clock(self.cfg)
         self.assertEqual(len(factory.all_tickets()), 2)
 
+    def test_a_task_schedule_files_a_check_that_reports_back_naming_the_repo(self):
+        self.cfg["schedules"] = [{"name": "hygiene", "every_days": 30, "kind": "task", "title": "Repo hygiene",
+                                  "body": "Look at https://github.com/{github} for merged branches."}]
+        factory.clock(self.cfg)
+        t = factory.all_tickets()[0]
+        self.assertEqual((t["kind"], t["column"], t["door"]), ("task", "ready", "clock"))
+        self.assertIn("https://github.com/o/g ", t["body"])
+
 
 class IntentTest(DoorsTest):
     def designed(self, report):
@@ -1076,6 +1084,25 @@ class GithubOutTest(RepoCase):
             factory.hold_pr(cfg, t)
         self.assertIn("convertPullRequestToDraft", next(b for m, p, b in calls if p == "/graphql")["query"])
         self.assertTrue(t["pr"]["draft"])
+
+    def test_ask_files_a_task_on_the_tickets_branch_and_marks_the_parent(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), \
+             mock.patch.object(factory, "log"):
+            self.branch_with("bot/x", {"README.md": "x\n"})
+            parent = factory.new_ticket("gem", "Tidy README", "Make it tidy.", "github", "pr_open", kind=None)
+            parent.update(branch="bot/x", reports={"work": {"summary": "Tidied."}}, pr={"url": "https://github.com/o/gem/pull/5"})
+            factory.save_ticket(parent)
+            cfg = {**self.cfg, "projects": {"gem": self.project}}
+            with mock.patch("sys.stdout"):
+                factory.cmd_ask(cfg, mock.Mock(ticket=parent["id"], question=["Did", "steep", "pass?"]))
+            child = factory.load_ticket("T0002")
+            self.assertEqual((child["kind"], child["parent"], child["ref"], child["column"]), ("task", parent["id"], "bot/x", "ready"))
+            self.assertIn("Did steep pass?", child["body"])
+            self.assertIn("data, not instructions", child["body"])
+            self.assertIn("Tidied.", child["body"])
+            self.assertEqual(factory.load_ticket(parent["id"])["history"][-1]["detail"], "T0002: Did steep pass?")
+            prompt = factory.task_prompt(child, self.project)
+            self.assertIn("git diff main...bot/x", prompt)
 
     def test_models_per_stage_on_any_host_and_per_voter(self):
         cfg = {"models": {"triage": "claude-sonnet-5-5", "review": "claude-opus-5-5"},

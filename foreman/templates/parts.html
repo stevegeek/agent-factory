@@ -2,16 +2,22 @@
 {{$p := .}}{{with .Ticket}}
 <div class="live-part" id="tk-head" data-live data-stamp="{{.T.ID}} {{.T.Column}}{{with .Ask}} {{.Kind}} {{.Since}}{{end}}">
 {{if $p.Desk}}<a class="back" href="/{{with .Filter}}?kind={{.}}{{end}}">← All asks</a>{{else}}<a class="back show" href="/b/{{.T.Project}}">← {{.T.Project}}</a>{{end}}
-<div class="eyebrow">
-  <span class="badge k-{{.Kind}}">{{.KindLabel}}</span>
-  <span class="mono">{{.T.ID}}</span>
-  <a href="/b/{{.T.Project}}">{{.T.Project}}</a>
-  {{with .Age}}<span>{{.}}</span>{{end}}
-  {{with .ParentID}}<span>from <a class="mono" href="/t/{{.}}">{{.}}</a></span>{{end}}
-</div>
-<h2>{{.Headline}}</h2>
-{{with .Subtitle}}<p class="sub">{{.}}</p>{{end}}
+<header class="ask-head">
+  <div class="eyebrow">
+    <span class="badge k-{{.Kind}}">{{.KindLabel}}</span>
+    <span class="mono">{{.T.ID}}</span>
+    <a href="/b/{{.T.Project}}">{{.T.Project}}</a>
+    {{with .Age}}<span>{{.}}</span>{{end}}
+    {{with .ParentID}}<span>from <a class="mono" href="/t/{{.}}">{{.}}</a></span>{{end}}
+  </div>
+  <h2>{{.Headline}}</h2>
+  {{with .Subtitle}}<p class="sub">{{.}}</p>{{end}}
+</header>
+{{with .Next}}<p class="next"><b>Waiting for you</b> {{.}}</p>{{end}}
 {{with .Why}}<p class="why">{{.}}</p>{{end}}
+{{with .Callout}}<div class="callout {{.Tone}}"><b>{{.Title}}</b>
+  {{if .Lines}}<ul>{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}
+</div>{{end}}
 {{if .Facts}}<dl class="facts">
   {{range .Facts}}<div class="fact"><dt>{{.Label}}</dt><dd class="{{.Tone}}">
     {{- if .Votes}}<span class="votes">{{range .Votes}}<span class="vote {{if low .}}low{{end}}">{{.}}</span>{{end}}</span>
@@ -25,43 +31,53 @@
   <input type="hidden" name="csrf" value="{{$p.CSRF}}">
   <input type="hidden" name="filter" value="{{.Filter}}">
   {{with .Ask}}<input type="hidden" name="ask" value="{{.Kind}}"><input type="hidden" name="since" value="{{.Since}}">{{end}}
+  {{if .Answers}}<h3 class="panel-h">Your answer</h3>{{end}}
   {{if .Picks}}<div class="picks">
     {{range .Picks}}<div class="pick"><input type="checkbox" name="pick" value="{{.N}}" id="pick-{{.N}}" checked>
       <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{.Title}}</label>
       <details class="more" data-key="pick-{{.N}}"><summary>Read it</summary><div class="text">{{.Body}}</div></details></div></div>{{end}}
   </div>{{end}}
-  {{if and .CanNote .NoteFirst}}{{template "note" .}}{{end}}
   {{if .Answers}}<div class="answers">
-    {{range .Answers}}{{if .Href}}<a class="btn {{if .Primary}}primary{{end}}" href="{{.Href}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Label}}{{with .Sub}}<small>{{.}}</small>{{end}}</a>
-    {{- else}}<button class="btn {{if .Primary}}primary{{end}}" type="submit" name="answer" value="{{.Value}}">{{.Label}}{{with .Sub}}<small>{{.}}</small>{{else}}{{if .NeedsNote}}<small>needs a note</small>{{end}}{{end}}</button>{{end}}
+    {{range .Answers}}{{if .Href}}<a class="btn{{if .Primary}} primary{{end}}{{if .Danger}} danger{{end}} ext" href="{{.Href}}" target="_blank" rel="noopener noreferrer" hx-boost="false"><span>{{.Label}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</a>
+    {{- else}}<button class="btn{{if .Primary}} primary{{end}}{{if .Danger}} danger{{end}}" type="submit" name="answer" value="{{.Value}}" {{if .NeedsNote}}data-needs-note{{end}}><span>{{.Label}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</button>{{end}}
     {{end}}
   </div>{{end}}
-  {{if and .CanNote (not .NoteFirst)}}{{template "note" .}}{{end}}
+  {{if .CanNote}}{{template "note" .}}{{end}}
 </form>
 {{end}}
 <div class="live-part" id="tk-more" data-live>
-{{range .More}}<details class="more" data-key="more-{{.Summary}}"><summary>{{.Summary}}</summary><div class="text">{{.Text}}</div></details>{{end}}
+{{if .More}}<div class="disclosures">{{range .More}}<details class="more" data-key="more-{{.Summary}}"><summary>{{.Summary}}</summary><div class="text">{{.Text}}</div></details>{{end}}</div>{{end}}
 {{template "story" .Story}}
 </div>
 {{end}}
 {{- end}}
 
 {{define "note" -}}
-<div class="note">
-    <label for="note-{{.T.ID}}">{{.NoteLabel}}</label>
-    <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" placeholder="Anything the agent should know" data-draft="{{.T.ID}}"></textarea>
-    <div><button class="btn" type="submit" name="answer" value="note">Send note<small>{{.NoteSub}}</small></button></div>
+<div class="composer">
+  <label for="note-{{.T.ID}}">{{.NoteLabel}}</label>
+  <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" rows="3" placeholder="Ask about the change, or leave a note for the agents" data-draft="{{.T.ID}}"></textarea>
+  <div class="composer-foot">
+    <p class="hint">{{.NoteSub}}</p>
+    <div class="composer-actions">
+      <button class="btn quiet" type="submit" name="answer" value="ask" data-needs-note><span>Ask</span></button>
+      <button class="btn quiet" type="submit" name="answer" value="note" data-needs-note><span>Send note</span></button>
+    </div>
   </div>
+</div>
 {{- end}}
 
 {{define "story" -}}
 {{if .Steps}}<section class="story">
   <h3>How it got here</h3>
-  <ol class="steps">
-    {{range .Steps}}<li class="step {{.Tone}}"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span> · {{.What}}
-      {{- if .Quotes}}<div class="quotes">{{range .Quotes}}<div class="quote"><span class="vote {{if low .Score}}low{{end}}">{{.Score}}</span><span>{{.Text}}</span></div>{{end}}</div>{{end}}</div></li>
-    {{end}}
-  </ol>
+  {{with .Earlier}}<details class="earlier" data-key="earlier"><summary>{{len .}} earlier steps</summary>
+  <ol class="steps">{{range .}}{{template "step" .}}{{end}}</ol>
+  </details>{{end}}
+  <ol class="steps">{{range .Recent}}{{template "step" .}}{{end}}</ol>
   {{with .Caveat}}<p class="caveat">{{.}}</p>{{end}}
 </section>{{end}}
+{{- end}}
+
+{{define "step" -}}
+<li class="step {{.Tone}}"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span> · {{.What}}
+  {{- if .Quotes}}<div class="quotes">{{range .Quotes}}<div class="quote"><span class="vote {{if low .Score}}low{{end}}">{{.Score}}</span><span>{{.Text}}</span></div>{{end}}</div>{{end}}</div></li>
 {{- end}}

@@ -16,7 +16,7 @@
   <div class="app">
     {{- if .Tab}}
     <header class="bar">
-      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Foreman</a>
+      <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-word">Foreman</span></a>
       <nav class="tabs" aria-label="Views">
         <a class="tab" id="tab-desk" data-live href="/" {{if eq .Tab "desk"}}aria-current="page"{{end}}>Desk {{if .DeskCount}}<span class="n hot">{{.DeskCount}}</span>{{end}}</a>
         <a class="tab" href="/floor" {{if eq .Tab "floor"}}aria-current="page"{{end}}>Floor</a>

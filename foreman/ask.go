@@ -135,6 +135,37 @@ func retryColumn(old string) string {
 	return old
 }
 
+// Headline: the ask's question short enough to read at a glance; the ticket's title goes under it.
+// The full question stays in the ask (the CLI and older pages use it).
+func Headline(t *Ticket, a *Ask) string {
+	issue := ""
+	if t.Source != nil && t.Source.Issue > 0 {
+		issue = fmt.Sprintf(" issue #%d", t.Source.Issue)
+	}
+	switch a.Kind {
+	case "design":
+		return fmt.Sprintf("Approve this design and its %s?", plural(len(t.Proposed), "ticket"))
+	case "proposal":
+		return "File this proposal as a change?"
+	case "start":
+		if issue != "" {
+			return "Start work on" + issue + "?"
+		}
+		return "Start work on this?"
+	case "decide":
+		if issue != "" {
+			return "Start" + issue + ", or drop it?"
+		}
+		return "Start it, or drop it?"
+	case "notice":
+		if t.Kind == "task" {
+			return "Read the answer and close it?"
+		}
+		return "Seen this notice?"
+	}
+	return a.Question
+}
+
 func unstickQuestion(detail string) string {
 	switch {
 	case strings.HasPrefix(detail, "gate:"):

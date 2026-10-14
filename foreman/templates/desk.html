@@ -7,11 +7,9 @@
     <div class="qhead"><span>Needs you</span><span>{{len .Desk.Items}}</span></div>
     {{range .Desk.Items}}
     <a class="qitem k-{{.Kind}}" href="{{.Href}}" {{if .Current}}aria-current="true"{{end}}>
-      <span class="glyph" aria-hidden="true">{{.Glyph}}</span>
-      <span><span class="q">{{.Question}}</span>
-        {{with .Title}}<span class="t">{{.}}</span>{{end}}
-        <span class="meta"><span>{{.Label}}</span><span class="mono">{{.ID}}</span><span>{{.Project}}</span>{{with .Age}}<span>{{.}}</span>{{end}}</span>
-      </span>
+      <span class="meta"><span class="kind">{{.Label}}</span><span class="mono">{{.ID}}</span><span>{{.Project}}</span>{{with .Age}}<span>{{.}}</span>{{end}}</span>
+      <span class="q">{{.Question}}</span>
+      {{with .Title}}<span class="t">{{.}}</span>{{end}}
     </a>
     {{end}}
   </div>

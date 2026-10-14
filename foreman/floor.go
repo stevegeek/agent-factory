@@ -228,7 +228,7 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 		return "failed", "Failed", clip(d, 140)
 	case to == "rejected":
 		if strings.HasPrefix(d, "triage: ") {
-			return "closed", "Closed", clip(strings.TrimPrefix(d, "triage: "), 140)
+			return "info", "Closed", clip(strings.TrimPrefix(d, "triage: "), 140)
 		}
 		return "closed", "Dropped", "by you"
 	case to == "done":
@@ -242,7 +242,7 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 		case strings.HasPrefix(d, "proposal approved"), strings.HasPrefix(d, "design approved"):
 			return "kept", "Approved", strings.SplitN(d, "; ", 2)[len(strings.SplitN(d, "; ", 2))-1]
 		case strings.HasPrefix(d, "prospecting found nothing"):
-			return "closed", "Nothing found", "the prospector found nothing worth proposing"
+			return "info", "Nothing found", "the prospector found nothing worth proposing"
 		}
 		return "info", "Done", "closed by you"
 	case human && to == "ready":
@@ -252,7 +252,7 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 	case strings.HasPrefix(d, "redirected"):
 		return "info", "Redirected", "the design went back to the designer"
 	case d == "review asked for changes":
-		return "waiting", "Changes asked", "the reviewer sent it back to the worker"
+		return "info", "Changes asked", "the reviewer sent it back to the worker"
 	}
 	return "", "", ""
 }
