@@ -71,10 +71,14 @@ systemctl enable --now tailscaled
 tailscale version | head -1
 cat <<'EOF'
 
-Installed. Next, as an admin on this host:
-  sudo tailscale up --accept-dns=false     # prints a login URL; open it and approve the machine
-                                           # (keeps this server's own DNS instead of MagicDNS)
+Installed. First, in the tailnet's policy file: a tag you own ("tagOwners": {"tag:factory": [...]})
+and a rule letting your devices reach it (src your devices, dst tag:factory:443), with no rule whose
+src is tag:factory, so this host can answer but never start a connection to your other machines.
+Then, as an admin on this host:
+  sudo tailscale up --advertise-tags=tag:factory --accept-dns=false
+                                           # prints a login URL; open it and approve the machine
+                                           # (tagged: not you; keeps this server's own DNS)
   sudo tailscale serve --bg 8790           # Foreman over HTTPS on the tailnet (it listens on 127.0.0.1:8790)
   tailscale serve status                   # shows the https://<host>.<tailnet>.ts.net URL
-Foreman can then trust the tailnet login: add --trust-tailscale to its unit.
+Foreman can then trust the tailnet login: --trust-tailscale --tailscale-user <your login> on its unit.
 EOF
