@@ -1,5 +1,6 @@
 {{define "detail" -}}
 {{$p := .}}{{with .Ticket}}
+<div class="live-part" id="tk-head" data-live data-stamp="{{.T.ID}} {{.T.Column}}{{with .Ask}} {{.Kind}} {{.Since}}{{end}}">
 {{if $p.Desk}}<a class="back" href="/{{with .Filter}}?kind={{.}}{{end}}">← All asks</a>{{else}}<a class="back show" href="/b/{{.T.Project}}">← {{.T.Project}}</a>{{end}}
 <div class="eyebrow">
   <span class="badge k-{{.Kind}}">{{.KindLabel}}</span>
@@ -18,6 +19,7 @@
     {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
 </dl>{{end}}
 {{if .Children}}<p class="sub">{{.ChildrenLabel}}: {{range $i, $c := .Children}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$c}}">{{$c}}</a>{{end}}</p>{{end}}
+</div>
 {{if or .Answers .CanNote}}
 <form class="act" method="post" action="/t/{{.T.ID}}/act">
   <input type="hidden" name="csrf" value="{{$p.CSRF}}">
@@ -26,7 +28,7 @@
   {{if .Picks}}<div class="picks">
     {{range .Picks}}<div class="pick"><input type="checkbox" name="pick" value="{{.N}}" id="pick-{{.N}}" checked>
       <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{.Title}}</label>
-      <details class="more"><summary>Read it</summary><div class="text">{{.Body}}</div></details></div></div>{{end}}
+      <details class="more" data-key="pick-{{.N}}"><summary>Read it</summary><div class="text">{{.Body}}</div></details></div></div>{{end}}
   </div>{{end}}
   {{if and .CanNote .NoteFirst}}{{template "note" .}}{{end}}
   {{if .Answers}}<div class="answers">
@@ -37,16 +39,18 @@
   {{if and .CanNote (not .NoteFirst)}}{{template "note" .}}{{end}}
 </form>
 {{end}}
-{{range .More}}<details class="more"><summary>{{.Summary}}</summary><div class="text">{{.Text}}</div></details>{{end}}
+<div class="live-part" id="tk-more" data-live>
+{{range .More}}<details class="more" data-key="more-{{.Summary}}"><summary>{{.Summary}}</summary><div class="text">{{.Text}}</div></details>{{end}}
 {{template "story" .Story}}
+</div>
 {{end}}
 {{- end}}
 
 {{define "note" -}}
 <div class="note">
     <label for="note-{{.T.ID}}">{{.NoteLabel}}</label>
-    <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" placeholder="Anything the agent should know"></textarea>
-    <div><button class="linkbtn" type="submit" name="answer" value="note">Only add the note</button></div>
+    <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" placeholder="Anything the agent should know" data-draft="{{.T.ID}}"></textarea>
+    <div><button class="btn" type="submit" name="answer" value="note">Send note<small>{{.NoteSub}}</small></button></div>
   </div>
 {{- end}}
 

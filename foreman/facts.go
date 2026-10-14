@@ -94,9 +94,12 @@ func Facts(t *Ticket, a *Ask, all map[string]*Ticket) []Fact {
 			tone = "warn"
 		}
 		f = append(f, Fact{Label: "Size", Value: fmt.Sprintf("%d lines, %s", g.ChangedLines, plural(len(g.Files), "file")), Tone: tone})
-		if g.AutoEligible {
+		switch {
+		case g.AutoEligible:
 			f = append(f, Fact{Label: "Auto-merge", Value: "eligible", Tone: "good"})
-		} else if g.ChecksPass {
+		case t.PR != nil && t.PR.Draft && len(g.Blockers) > 0:
+			f = append(f, Fact{Label: "Draft because", Value: draftReasons(g.Blockers), Tone: "warn"})
+		case g.ChecksPass:
 			f = append(f, Fact{Label: "Auto-merge", Value: "no: needs a maintainer", Tone: "warn"})
 		}
 	}
@@ -122,4 +125,16 @@ func Facts(t *Ticket, a *Ask, all map[string]*Ticket) []Fact {
 		f = append(f, Fact{Label: "Column", Value: ticketColumnLabel(t)})
 	}
 	return f
+}
+
+// draftReasons: the gate's blockers, short enough for a fact; a list of paths becomes a count.
+func draftReasons(blockers []string) string {
+	var out []string
+	for _, b := range blockers {
+		if head, list, ok := strings.Cut(b, ": "); ok && strings.HasPrefix(head, "files outside") {
+			b = plural(len(strings.Split(list, ", ")), "file") + " outside the auto-merge paths"
+		}
+		out = append(out, b)
+	}
+	return clip(strings.Join(out, "; "), 240)
 }

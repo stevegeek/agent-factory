@@ -496,14 +496,14 @@ def role_instructions(cfg, stage):
         return f.read()
 
 
-def start_remote(cfg, project, t, stage, name, prompt, host_name):
+def start_remote(cfg, project, t, stage, name, prompt, host_name, model=None):
     h = cfg["hosts"][host_name]
     if stage in NO_BRANCH_STAGES:
         branch, start = stage, project["base"] if project else "none"
     else:
         branch = t["branch"]
         start = branch if branch_exists(project, branch) else project["base"]
-    meta = {"branch": branch, "start": start, "model": h.get("model", ""), "bundle": stage == "work",
+    meta = {"branch": branch, "start": start, "model": h.get("model", "") if model is None else model, "bundle": stage == "work",
             "timeout_minutes": int(ticket_timeout(cfg, t).total_seconds() // 60)}
     files = {"prompt.md": prompt.encode(), "role.md": role_instructions(cfg, stage),
              "meta.json": json.dumps(meta).encode()}
@@ -812,21 +812,34 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
             t["security_tier"] = classify(project, t["branch"])
             t["security_questions"] = security_angles(t["security_tier"])
             prompt = security_prompt(t, project, t["security_tier"])
+    model = stage_model(cfg, t, stage, host)
     if host == LOCAL:
         template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
         args = ["start", name, "-t", template, "--message-mode", "none"]
         if stage not in NO_BRANCH_STAGES:
             args += ["-b", t["branch"]]
-        if cfg.get("models", {}).get(stage):
-            args += ["--model", cfg["models"][stage]]
+        if model:
+            args += ["--model", model]
         scion(project, *args, prompt)
     else:
-        start_remote(cfg, project, t, stage, name, prompt, host)
+        start_remote(cfg, project, t, stage, name, prompt, host, model)
     t["agent"] = {"name": name, "stage": stage, "started": now(), "host": host}
     if t["column"] != RUNNING_COLUMN[stage]:
         move(t, RUNNING_COLUMN[stage])
     event(t, "start", f"{stage} {name}" + (f" on {t['branch']}" if stage not in NO_BRANCH_STAGES else "")
-          + (f" @{host}" if host != LOCAL else ""))
+          + (f" @{host}" if host != LOCAL else "") + (f" ({model})" if model else ""))
+
+
+def stage_model(cfg, t, stage, host=LOCAL):
+    """[panel] models gives each voter its own model, in turn; otherwise [models] per stage on any
+    host, then the helper's own `model`. Empty = the harness default."""
+    voters = cfg.get("panel", {}).get("models") or []
+    if stage == "vote" and voters:
+        return voters[starts(t, "vote") % len(voters)]
+    model = cfg.get("models", {}).get(stage, "")
+    if not model and host != LOCAL:
+        model = cfg["hosts"][host].get("model", "")
+    return model
 
 
 def finish_stage(cfg, project, t, report, head=None):
@@ -1278,19 +1291,28 @@ def open_pr(cfg, project, t):
     push_branch(cfg, project, t["branch"])
     repo, owner = project["github"], project["github"].split("/")[0]
     draft = not t["gate"]["auto_eligible"]
-    try:
-        pr = github_api(cfg, "POST", f"/repos/{repo}/pulls",
-                        {"title": t["title"], "head": t["branch"], "base": project["base"],
-                         "body": pr_body(cfg, t), "draft": draft})
-    except urllib.error.HTTPError as e:
-        if e.code != 422:
-            raise
-        existing = github_api(cfg, "GET", f"/repos/{repo}/pulls?state=open&head={owner}:{t['branch']}")
-        if not existing:
-            raise
-        pr = existing[0]
+    fields = {"title": t["title"], "body": pr_body(cfg, t)}
+    pr = open_pr_of(cfg, repo, t)
+    updated = pr is not None
+    if not pr:
+        try:
+            pr = github_api(cfg, "POST", f"/repos/{repo}/pulls",
+                            {**fields, "head": t["branch"], "base": project["base"], "draft": draft})
+        except urllib.error.HTTPError as e:
+            if e.code != 422:
+                raise
+            existing = github_api(cfg, "GET", f"/repos/{repo}/pulls?state=open&head={owner}:{t['branch']}")
+            if not existing:
+                raise
+            pr, updated = existing[0], True
+    if updated:
+        # a rework: the same PR carries the new commits; its text and draft state follow the new gate
+        pr = github_api(cfg, "PATCH", f"/repos/{repo}/pulls/{pr['number']}", fields)
+        if pr.get("draft") != draft:
+            set_pr_draft(cfg, pr, draft)
+            pr["draft"] = draft
     t["pr"] = {"number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft", draft)}
-    move(t, "pr_open", f"{'draft ' if t['pr']['draft'] else ''}PR {pr['html_url']}")
+    move(t, "pr_open", f"{'draft ' if t['pr']['draft'] else ''}PR {pr['html_url']}" + (" updated" if updated else ""))
     request_review(cfg, project, t)
     return t["pr"]
 
@@ -1306,6 +1328,30 @@ def request_review(cfg, project, t):
     except urllib.error.HTTPError as e:
         # the PR is open either way; a failed request should not leave the ticket behind
         event(t, "error", f"github: review request for {', '.join(reviewers)} failed ({e.code})")
+
+
+def open_pr_of(cfg, repo, t):
+    """The ticket's PR when it is still open on its branch; a rework updates it rather than opening another."""
+    n = (t.get("pr") or {}).get("number")
+    if not n:
+        return None
+    try:
+        pr = github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:  # deleted, or the repository moved: open a new one
+            return None
+        raise
+    return pr if pr.get("state") == "open" and (pr.get("head") or {}).get("ref") == t["branch"] else None
+
+
+def set_pr_draft(cfg, pr, draft):
+    """REST cannot change a PR's draft state; GraphQL can, with the same installation token."""
+    op = "convertPullRequestToDraft" if draft else "markPullRequestReadyForReview"
+    r = github_api(cfg, "POST", "/graphql", {"query": f"mutation($id: ID!) {{ {op}(input: {{pullRequestId: $id}}) "
+                                                      "{ pullRequest { isDraft } } }",
+                                             "variables": {"id": pr["node_id"]}})
+    if r.get("errors"):
+        raise RuntimeError(f"github: {op}: {str(r['errors'])[:200]}")
 
 
 def check_pr(cfg, project, t):
@@ -2019,7 +2065,29 @@ def cmd_move(cfg, a):
     with changing(a.ticket) as t:
         if t.get("agent"):
             sys.exit(f"{t['id']} has a running agent ({t['agent']['name']}); wait for it first")
+        old = t["column"]
         move(t, a.column, a.note or "by human")
+        if old == "pr_open" and a.column not in ("pr_open", "done", "rejected"):
+            hold_pr(cfg, t)
+
+
+def hold_pr(cfg, t):
+    """Sent back for rework: the open PR goes back to draft, so the old version cannot be merged meanwhile."""
+    project = cfg["projects"].get(t["project"]) or {}
+    n = (t.get("pr") or {}).get("number")
+    if not (n and project.get("github") and cfg.get("github", {}).get("installation_id")):
+        return
+    try:
+        pr = github_api(cfg, "GET", f"/repos/{project['github']}/pulls/{n}")
+        if pr.get("state") != "open":
+            return
+        if not pr.get("draft"):
+            set_pr_draft(cfg, pr, True)
+        t["pr"]["draft"] = True
+        event(t, "pr", f"PR #{n} back to draft while it is reworked")
+    except Exception as e:
+        event(t, "error", f"github: could not turn PR #{n} back to draft: {str(e)[:200]}")
+        print(f"warning: PR #{n} is still open for merging; it could not be turned back to draft")
 
 
 def main():

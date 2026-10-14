@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="{{asset "foreman.css"}}">
 <link rel="icon" href="{{asset "icon.svg"}}" type="image/svg+xml">
 <script src="{{asset "htmx.min.js"}}" defer></script>
+<script src="{{asset "foreman.js"}}" defer></script>
 </head>
 <body hx-boost="true">
 <div class="wrap">
@@ -17,7 +18,7 @@
     <header class="bar">
       <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Foreman</a>
       <nav class="tabs" aria-label="Views">
-        <a class="tab" href="/" {{if eq .Tab "desk"}}aria-current="page"{{end}}>Desk {{if .DeskCount}}<span class="n hot">{{.DeskCount}}</span>{{end}}</a>
+        <a class="tab" id="tab-desk" data-live href="/" {{if eq .Tab "desk"}}aria-current="page"{{end}}>Desk {{if .DeskCount}}<span class="n hot">{{.DeskCount}}</span>{{end}}</a>
         <a class="tab" href="/floor" {{if eq .Tab "floor"}}aria-current="page"{{end}}>Floor</a>
         <a class="tab" href="/boards" {{if eq .Tab "boards"}}aria-current="page"{{end}}>Boards</a>
       </nav>
@@ -30,6 +31,7 @@
     {{template "content" .}}
   </div>
 </div>
+{{with .Version}}<div id="live" hidden data-v="{{.}}"></div>{{end}}
 {{with .Flash}}<div class="toast {{.Kind}}" role="status">{{.Text}}</div>{{end}}
 </body>
 </html>

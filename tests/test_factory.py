@@ -1037,6 +1037,61 @@ class GithubOutTest(RepoCase):
         with self.assertRaises(RuntimeError):
             factory.push_branch(self.cfg, self.project, "main")
 
+    def fake_github(self, pr, calls):
+        def api(cfg, method, path, body=None):
+            calls.append((method, path, body))
+            if path == "/graphql":
+                return {"data": {}}
+            if path.endswith("/requested_reviewers"):
+                return {}
+            if method == "PATCH":
+                pr.update(body)
+            return dict(pr)
+        return api
+
+    def test_a_rework_updates_the_open_pr_and_its_draft_state(self):
+        t = {**self.ready_ticket(auto=True), "pr": {"number": 5, "url": "u", "draft": True}}
+        pr = {"number": 5, "html_url": "https://github.com/o/gem/pull/5", "state": "open", "draft": True,
+              "head": {"ref": "bot/x"}, "node_id": "PR_5"}
+        calls = []
+        with mock.patch.object(factory, "github_api", side_effect=self.fake_github(pr, calls)), \
+             mock.patch.object(factory, "push_branch"), mock.patch.object(factory, "log"):
+            factory.open_pr(self.cfg, self.project, t)
+        self.assertNotIn("POST /repos/o/gem/pulls", [f"{m} {p}" for m, p, _ in calls])
+        self.assertIn("Clarify the install steps.", pr["body"])
+        graphql = next(b for m, p, b in calls if p == "/graphql")
+        self.assertIn("markPullRequestReadyForReview", graphql["query"])
+        self.assertEqual(graphql["variables"], {"id": "PR_5"})
+        self.assertEqual((t["column"], t["pr"]["draft"]), ("pr_open", False))
+        self.assertTrue(next(h for h in t["history"] if h["event"] == "move")["detail"].endswith("updated"))
+
+    def test_sending_a_pr_back_turns_it_back_to_draft(self):
+        t = {**self.ready_ticket(), "project": "gem", "column": "pr_open", "pr": {"number": 5, "draft": False}}
+        pr = {"number": 5, "state": "open", "draft": False, "node_id": "PR_5"}
+        calls = []
+        cfg = {**self.cfg, "projects": {"gem": self.project}}
+        with mock.patch.object(factory, "github_api", side_effect=self.fake_github(pr, calls)), \
+             mock.patch.object(factory, "log"):
+            factory.move(t, "ready")
+            factory.hold_pr(cfg, t)
+        self.assertIn("convertPullRequestToDraft", next(b for m, p, b in calls if p == "/graphql")["query"])
+        self.assertTrue(t["pr"]["draft"])
+
+    def test_models_per_stage_on_any_host_and_per_voter(self):
+        cfg = {"models": {"triage": "claude-sonnet-5-5", "review": "claude-opus-5-5"},
+               "hosts": {"helper": {"model": "claude-sonnet-5-5"}},
+               "panel": {"models": ["claude-opus-5-5", "claude-sonnet-5-5"]}}
+        t = {"history": []}
+        self.assertEqual(factory.stage_model(cfg, t, "review"), "claude-opus-5-5")
+        self.assertEqual(factory.stage_model(cfg, t, "review", "helper"), "claude-opus-5-5")
+        self.assertEqual(factory.stage_model(cfg, t, "task", "helper"), "claude-sonnet-5-5")
+        self.assertEqual(factory.stage_model(cfg, t, "work"), "")
+        voters = []
+        for _ in range(3):
+            voters.append(factory.stage_model(cfg, t, "vote", "helper"))
+            t["history"].append({"event": "start", "detail": f"vote t0001-v{len(voters)}"})
+        self.assertEqual(voters, ["claude-opus-5-5", "claude-sonnet-5-5", "claude-opus-5-5"])
+
     def test_merged_and_closed_prs_settle_the_ticket(self):
         base = self.ready_ticket()
         for pr, column in (({"merged": True, "merged_by": {"login": "stevegeek"}}, "done"),

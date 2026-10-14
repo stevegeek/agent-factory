@@ -79,8 +79,22 @@ func (s *Server) Handler() http.Handler {
 		ClearSession(w, r)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	})
-	mux.Handle("/", s.auth.Require(app))
+	mux.Handle("/", s.auth.Require(s.live(app)))
 	return headers(s.auth.CheckHost(mux))
+}
+
+// liveHeader carries the board version a page was rendered from. foreman.js polls the page's own
+// URL with it: 204 while nothing changed, else the page as it is now, to update in place.
+const liveHeader = "X-Foreman-Live"
+
+func (s *Server) live(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if v := r.Header.Get(liveHeader); v != "" && r.Method == http.MethodGet && v == boardVersion(s.board.Load()) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func headers(next http.Handler) http.Handler {
@@ -114,6 +128,7 @@ type Page struct {
 	Board     *BoardView
 	Next      string
 	Error     string
+	Version   string
 }
 
 type Chip struct {
@@ -150,7 +165,7 @@ type TicketView struct {
 	Facts                   []Fact
 	Answers                 []Answer
 	Picks                   []Pick
-	NoteLabel               string
+	NoteLabel, NoteSub      string
 	CanNote                 bool
 	Story                   Story
 	More                    []More
@@ -171,8 +186,10 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 	}
 	if ts != nil {
 		p.DeskCount = len(Desk(ts))
+		p.Version = boardVersion(ts)
 	}
-	if p.Flash == nil {
+	// a poll must not use up the message meant for the next page the person opens
+	if p.Flash == nil && r.Header.Get(liveHeader) == "" {
 		p.Flash = takeFlash(w, r, s.auth)
 	}
 	if r.Header.Get("HX-Request") != "" {
@@ -286,6 +303,14 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 				break
 			}
 		}
+	}
+	switch {
+	case a != nil:
+		v.NoteSub = "the next agent reads it; nothing starts until you answer"
+	case t.Agent != nil:
+		v.NoteSub = "the next agent reads it, not the one running now"
+	default:
+		v.NoteSub = "the next agent on it reads it"
 	}
 	for _, x := range v.Answers {
 		// on a phone the field must come before the button that needs it
@@ -426,7 +451,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 
 func answerLabel(t *Ticket, a *Ask, answer string) string {
 	if answer == "note" {
-		return "Note added"
+		return "Note sent"
 	}
 	for _, x := range Answers(t, a) {
 		if x.Value == answer {

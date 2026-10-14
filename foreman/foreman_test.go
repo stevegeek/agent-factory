@@ -543,3 +543,54 @@ func TestSecretFileCreated(t *testing.T) {
 		t.Errorf("the secret must persist")
 	}
 }
+
+func TestLivePollAnswersOnlyWhenTheBoardChanged(t *testing.T) {
+	h := newHarness(t, false)
+	c := h.login()
+	page := h.do("GET", "/t/T0001", nil, c).Body.String()
+	v := boardVersion(NewBoard("testdata").Load())
+	if !strings.Contains(page, `data-v="`+v+`"`) || !strings.Contains(page, "foreman.js") {
+		t.Fatalf("page lacks the live version or script")
+	}
+	poll := func(version string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "/t/T0001", nil)
+		r.Header.Set(liveHeader, version)
+		r.AddCookie(c)
+		w := httptest.NewRecorder()
+		h.h.ServeHTTP(w, r)
+		return w
+	}
+	if w := poll(v); w.Code != http.StatusNoContent || w.Body.Len() != 0 {
+		t.Errorf("unchanged board: %d %q", w.Code, w.Body.String())
+	}
+	if w := poll("stale"); w.Code != 200 || !strings.Contains(w.Body.String(), `id="tk-head"`) {
+		t.Errorf("changed board: %d", w.Code)
+	}
+	ts := NewBoard("testdata").Load()
+	before := boardVersion(ts)
+	find(ts, "T0001").Notes = append(find(ts, "T0001").Notes, Note{Text: "x"})
+	if boardVersion(ts) == before {
+		t.Errorf("a new note should change the version")
+	}
+}
+
+func TestNoteButtonAndDraftReasons(t *testing.T) {
+	h := newHarness(t, false)
+	c := h.login()
+	body := h.do("GET", "/t/T0001", nil, c).Body.String()
+	for _, want := range []string{">Send note<small>the next agent reads it; nothing starts until you answer</small>",
+		"on GitHub: mark it ready, approve, merge", "a worker reworks it; the PR is a draft meanwhile",
+		"Draft because", "1 file outside the auto-merge paths; 40 changed lines (limit 10)", `data-draft="T0001"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("T0001 page lacks %q", want)
+		}
+	}
+	if strings.Contains(body, "Only add the note") {
+		t.Errorf("the old note link is still there")
+	}
+	tk := *find(fixtures(t), "T0001")
+	tk.Column, tk.Ask = "ready_for_pr", nil
+	if a := Answers(&tk, nil); len(a) != 1 || a[0].Label != "Update PR #23" {
+		t.Errorf("a reworked ticket should update its PR: %+v", a)
+	}
+}

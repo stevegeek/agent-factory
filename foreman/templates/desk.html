@@ -1,6 +1,6 @@
 {{define "content" -}}
 <main class="desk {{if .Desk.Open}}open{{end}}">
-  <div class="queue">
+  <div class="queue" id="queue" data-live>
     {{if .Desk.Total}}<nav class="filters" aria-label="Kinds of ask">
       {{range .Desk.Filters}}<a class="chip" href="{{.Href}}" {{if .On}}aria-current="true"{{end}}>{{.Label}} {{.N}}</a>{{end}}
     </nav>{{end}}
@@ -15,7 +15,7 @@
     </a>
     {{end}}
   </div>
-  <div class="detail">
+  <div class="detail" id="detail">
     {{if .Ticket}}{{template "detail" .}}
     {{else}}<div class="cleared"><strong>Nothing needs you</strong>The factory has everything it needs. <a href="/floor">See what it is doing</a>.</div>{{end}}
   </div>

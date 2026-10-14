@@ -13,7 +13,7 @@
     {{end}}
   </div>{{else}}<p class="quiet">Nothing open.</p>{{end}}
   {{range .Closed}}
-  <details class="more closed">
+  <details class="more closed" data-key="closed-{{.Label}}">
     <summary>{{.Label}} · {{len .Tickets}}</summary>
     <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{.Title}}</a>{{end}}</div>
   </details>

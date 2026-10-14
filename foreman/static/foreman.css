@@ -211,3 +211,8 @@ details.closed { max-width: none; }
   .step { grid-template-columns: 76px minmax(0, 1fr); }
   .weeknav { margin-left: 0; }
 }
+
+/* live updates (foreman.js) */
+.live-part { display: contents; }
+.moved { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px; border-radius: 8px; background: var(--signal-soft); color: var(--ink); font-size: 14px; max-width: 74ch; }
+.moved .btn { padding: 5px 12px; }

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -284,6 +287,20 @@ func decodeTicket(data []byte) (*Ticket, error) {
 	sort.Strings(bad)
 	log.Printf("board: %s: ignoring fields of an unexpected type: %s", t.ID, strings.Join(bad, ", "))
 	return &t, nil
+}
+
+// boardVersion changes whenever any ticket does: the dispatcher stamps `updated` on every save,
+// and the counts catch a writer that does not.
+func boardVersion(ts []*Ticket) string {
+	h := sha256.New()
+	for _, t := range ts {
+		agent := ""
+		if t.Agent != nil {
+			agent = t.Agent.Name
+		}
+		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%d\x00%d\x00%s\n", t.ID, t.Updated, t.Column, len(t.History), len(t.Notes), agent)
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16]
 }
 
 func idLess(a, b string) bool {

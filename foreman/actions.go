@@ -26,6 +26,9 @@ type Answer struct {
 func Answers(t *Ticket, a *Ask) []Answer {
 	if a == nil {
 		if t.Column == "ready_for_pr" {
+			if t.PR != nil && t.PR.Number > 0 {
+				return []Answer{{Value: "open_pr", Label: fmt.Sprintf("Update PR #%d", t.PR.Number), Sub: "push the reworked branch; the same PR updates", Primary: true}}
+			}
 			return []Answer{{Value: "open_pr", Label: "Open the PR", Sub: "push the branch and open it on GitHub", Primary: true}}
 		}
 		return nil
@@ -43,9 +46,13 @@ func Answers(t *Ticket, a *Ask) []Answer {
 			u = safeURL(t.PR.URL)
 		}
 		if u != "" {
-			out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d", t.PR.Number), Sub: "review and merge on GitHub", Primary: true, Href: u})
+			sub := "approve and merge on GitHub"
+			if t.PR.Draft {
+				sub = "on GitHub: mark it ready, approve, merge"
+			}
+			out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d", t.PR.Number), Sub: sub, Primary: true, Href: u})
 		}
-		out = append(out, Answer{Value: "send_back", Label: "Send back with a note", Sub: "a worker picks it up again", NeedsNote: true, NoteFor: "to send it back"})
+		out = append(out, Answer{Value: "send_back", Label: "Send back with a note", Sub: "a worker reworks it; the PR is a draft meanwhile", NeedsNote: true, NoteFor: "to send it back"})
 		if u != "" {
 			out = append(out, Answer{Label: "Close it on GitHub", Sub: "the factory sees it closed and drops the ticket", Href: u})
 		}

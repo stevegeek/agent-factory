@@ -10,6 +10,8 @@ It changes nothing itself: every answer runs the `factory` CLI. Boards from befo
 
 One static binary, standard library only, htmx vendored; no external requests.
 
+Open pages stay current: `static/foreman.js` asks for the page every 30 s (while the tab is visible) with the board version it was rendered from, and the server answers 204 until a ticket changes. A form you have started on is never replaced; if its question moved on, a bar says so and a reload brings the new one. An unsent note is kept in the browser until it goes through.
+
 ## Build and run
 
 ```sh
@@ -43,12 +45,12 @@ Ticket text is untrusted: everything is escaped, only http(s) links render, and 
 
 ## Answers
 
-Each answer runs these, in order (argv, never a shell; `pr` may take 10 minutes, the rest 30 s). A note typed alongside any answer goes first as `factory note`.
+Each answer runs these, in order (argv, never a shell; `pr` may take 10 minutes, the rest 30 s). A note typed alongside any answer goes first as `factory note`; "Send note" sends it alone (the next agent reads it; nothing starts by itself).
 
 | Ask | Answer | Runs |
 | --- | --- | --- |
 | review | Open PR #n | a link to the PR |
-| | Send back with a note | `note T "…"`, `move T ready` |
+| | Send back with a note | `note T "…"`, `move T ready` (the PR goes back to draft; after the rework "Update PR #n" runs `pr T`) |
 | | Close it on GitHub | a link to the PR; the PR sweep drops the ticket |
 | start | Start / Not now | `move T ready` / `move T rejected` |
 | decide | Start anyway / Drop | `move T ready` / `move T rejected` |
