@@ -90,7 +90,8 @@ func headers(next http.Handler) http.Handler {
 			"connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "no-referrer")
+		// not no-referrer: under it browsers send "Origin: null" on this site's own form posts
+		h.Set("Referrer-Policy", "same-origin")
 		if !strings.HasPrefix(r.URL.Path, "/static/") {
 			h.Set("Cache-Control", "no-store")
 		}

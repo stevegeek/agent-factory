@@ -340,8 +340,15 @@ func (a *Auth) Require(next http.Handler) http.Handler {
 	})
 }
 
-// sameOrigin: a browser's Origin, when it sends one, must be this host.
+// sameOrigin: a browser's word that the request came from this site. Sec-Fetch-Site says so
+// directly; failing that, the Origin, when sent, must be this host ("null" never is).
 func sameOrigin(r *http.Request) bool {
+	switch r.Header.Get("Sec-Fetch-Site") {
+	case "same-origin", "none":
+		return true
+	case "same-site", "cross-site":
+		return false
+	}
 	o := r.Header.Get("Origin")
 	if o == "" {
 		return true

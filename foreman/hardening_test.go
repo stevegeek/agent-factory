@@ -242,3 +242,32 @@ func TestLabelsAndAnswers(t *testing.T) {
 		t.Errorf("the note field comes before an answer that needs it")
 	}
 }
+
+// A real browser's own form post: under the old no-referrer policy it carried "Origin: null".
+func TestSameOriginTrustsTheBrowsersFetchSite(t *testing.T) {
+	for _, c := range []struct {
+		site, origin string
+		want         bool
+	}{
+		{"same-origin", "null", true},
+		{"same-origin", "http://desk.example:8790", true},
+		{"none", "", true},
+		{"cross-site", "http://desk.example:8790", false},
+		{"same-site", "http://desk.example:8790", false},
+		{"", "http://desk.example:8790", true},
+		{"", "http://evil.example", false},
+		{"", "null", false},
+		{"", "", true},
+	} {
+		r := httptest.NewRequest("POST", "http://desk.example:8790/login", nil)
+		if c.site != "" {
+			r.Header.Set("Sec-Fetch-Site", c.site)
+		}
+		if c.origin != "" {
+			r.Header.Set("Origin", c.origin)
+		}
+		if got := sameOrigin(r); got != c.want {
+			t.Errorf("Sec-Fetch-Site %q, Origin %q: sameOrigin = %v, want %v", c.site, c.origin, got, c.want)
+		}
+	}
+}
