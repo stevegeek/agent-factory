@@ -16,7 +16,6 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory pr <ticket>      push a ready_for_pr branch and open its PR (draft unless auto-merge eligible)
   factory ask <ticket> Q   a question about a ticket: one agent run reads the code (on its branch) and answers
   factory github           check the GitHub App installation (repos, permissions)
-  factory fizzy            sync the Fizzy boards now (also every tick) and list them
   factory move <ticket> <column> [--note TEXT]
   factory note <ticket> <text>   a note every later agent on the ticket follows
   factory migrate     one-off backfill for older boards: asks on waiting tickets, votes on proposals,
@@ -34,7 +33,6 @@ import datetime as dt
 import fcntl
 import fnmatch
 import glob
-import html
 import io
 import json
 import os
@@ -294,7 +292,7 @@ def ask_for(t, old, detail, since=None):
     retry = RETRY_COLUMN.get(old, old) if old in STEP_NAMES else None
     stage = {"ready": "work", "working": "task" if kind == "task" else "design" if kind == "intent" else "work"}.get(old, old)
     summary = (reports.get(stage) or {}).get("summary") if isinstance(reports.get(stage), dict) else None
-    if detail in ("", "by human", "by human in Fizzy"):
+    if detail in ("", "by human"):
         detail = "Moved here by hand"
     # the detail often quotes the report already
     repeated = summary and " ".join(str(summary).split())[:80] in " ".join(detail.split())
@@ -1095,7 +1093,6 @@ def tick(cfg):
     if lock is None:
         log("tick already running; skipping")
         return
-    pulled = fizzy_sync(cfg, fizzy_pull)
     max_agents = cfg.get("max_agents", 2)
     running = running_agents(cfg)
     tickets = all_tickets()
@@ -1195,8 +1192,6 @@ def tick(cfg):
             event(t, "error", str(e)[:300])
             move(t, "needs_human", f"dispatcher error: {str(e)[:150]}")
         save_ticket(t)
-    if pulled:
-        fizzy_sync(cfg, fizzy_push)
 
 
 # ---------------------------------------------------------------- doors: github sweep and clock
@@ -1439,308 +1434,10 @@ def clock(cfg):
     save_state(state)
 
 
-# ---------------------------------------------------------------- fizzy: the board as Fizzy cards, one board per project
-
-# The file board stays the source of truth. Each tick first reads back what a person did on the cards since the
-# last push (moves into the columns people own, and comments), then pushes the board out again. Only the token
-# owner's comments count; the factory posts as that same user, so it remembers the ids of its own comments.
-FIZZY_TOKEN = os.path.join(HOME, ".config", "factory", "fizzy-token")
-FIZZY_STATE = os.path.join(ROOT, "fizzy.json")
-MAYBE, NOT_NOW, CLOSED = "Maybe?", "Not Now", "Done"
-FIZZY_COLUMNS = ["Ready", "Working", "Checks", "Needs you", "Ready for PR", "PR open"]
-FIZZY_POSITION = {"triage": MAYBE, "ready": "Ready", "working": "Working", "voting": "Checks", "review": "Checks",
-                  "security": "Checks", "gate": "Checks", "ready_for_pr": "Ready for PR", "pr_open": "PR open",
-                  "needs_human": "Needs you", "done": CLOSED, "rejected": NOT_NOW}
-# where a person may put a card -> the column that asks for; the other columns belong to the pipeline
-FIZZY_HUMAN_MOVES = {MAYBE: "triage", "Ready": "ready", "Needs you": "needs_human", CLOSED: "done", NOT_NOW: "rejected"}
-FIZZY_KIND_TAGS = {"task": "task", "intent": "idea", "prospect": "scan", "proposal": "proposal"}
-FIZZY_MARK = "⚙ factory"  # first line of every comment the factory posts
-
-
-def fizzy_open(cfg, method, url, body=None):
-    with open(os.path.expanduser(cfg["fizzy"].get("token", FIZZY_TOKEN))) as f:
-        token = f.read().strip()
-    req = urllib.request.Request(
-        url, method=method, data=json.dumps(body).encode() if body is not None else None,
-        headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": "agent-factory",
-                 "Authorization": f"Bearer {token}"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        raw = r.read()
-        nxt = re.search(r'<([^>]+)>;\s*rel="next"', r.headers.get("Link") or "")
-    return (json.loads(raw) if raw.strip() else None), (nxt.group(1) if nxt else None)
-
-
-def fizzy_api_url(cfg):
-    return cfg["fizzy"].get("api", "https://app.fizzy.do")
-
-
-def load_fizzy_state():
-    try:
-        with open(FIZZY_STATE) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"boards": {}, "cards": {}}
-
-
-def save_fizzy_state(state):
-    with open(FIZZY_STATE + ".tmp", "w") as f:
-        json.dump(state, f, indent=2)
-    os.replace(FIZZY_STATE + ".tmp", FIZZY_STATE)
-
-
-class Fizzy:
-    def __init__(self, cfg, state):
-        self.cfg, self.state = cfg, state
-        if not state.get("account"):
-            accounts = fizzy_open(cfg, "GET", fizzy_api_url(cfg) + "/my/identity.json")[0]["accounts"]
-            wanted = str(cfg["fizzy"].get("account", "")).strip("/")
-            account = next((a for a in accounts if a["slug"].strip("/") == wanted), accounts[0])
-            state.update(account=account["slug"], me=account["user"]["id"])
-        self.base = fizzy_api_url(cfg) + state["account"]
-
-    def call(self, method, path, body=None):
-        return fizzy_open(self.cfg, method, self.base + path, body)[0]
-
-    def all(self, path):
-        out, url = [], self.base + path
-        while url:
-            page, url = fizzy_open(self.cfg, "GET", url)
-            out += page or []
-        return out
-
-    def board(self, project):
-        """The project's board with every pipeline column, created (private to the token owner) on first use."""
-        b = self.state["boards"].get(project)
-        if b and set(FIZZY_COLUMNS) <= set(b["columns"]):
-            return b
-        name = self.cfg["fizzy"].get("board_prefix", "factory: ") + project
-        if not b:
-            found = [x["id"] for x in self.all("/boards.json") if x["name"] == name]
-            bid = found[0] if found else self.call("POST", "/boards.json",
-                                                   {"board": {"name": name, "all_access": False}})["id"]
-            b = self.state["boards"][project] = {"id": bid, "columns": {}}
-        have = {c["name"]: c["id"] for c in self.all(f"/boards/{b['id']}/columns.json")}
-        for col in FIZZY_COLUMNS:
-            if col not in have:
-                have[col] = self.call("POST", f"/boards/{b['id']}/columns.json", {"column": {"name": col}})["id"]
-        b["columns"] = {c: have[c] for c in FIZZY_COLUMNS}
-        return b
-
-    @staticmethod
-    def position(card):
-        if card["closed"]:
-            return CLOSED
-        if card["postponed"]:
-            return NOT_NOW
-        return (card.get("column") or {}).get("name") or MAYBE
-
-    def place(self, project, number, position, current):
-        if position == current:
-            return
-        n = f"/cards/{number}"
-        if position == CLOSED:
-            return self.call("POST", f"{n}/closure.json")
-        if current == CLOSED:
-            self.call("DELETE", f"{n}/closure.json")
-        if position == NOT_NOW:
-            self.call("POST", f"{n}/not_now.json")
-        elif position == MAYBE:
-            self.call("DELETE", f"{n}/triage.json")
-        else:
-            try:
-                self.call("POST", f"{n}/triage.json", {"column_id": self.board(project)["columns"][position]})
-            except urllib.error.HTTPError:
-                # someone deleted or remade the column: look the columns up again, once
-                self.state["boards"][project]["columns"] = {}
-                self.call("POST", f"{n}/triage.json", {"column_id": self.board(project)["columns"][position]})
-
-    def find_card(self, board_id, tid):
-        """An open card already filed for this ticket (a create whose answer was lost), or None."""
-        return next((c for c in self.all(f"/cards.json?board_ids[]={board_id}")
-                     if c["title"].startswith(tid + " ")), None)
-
-    def comment(self, rec, body):
-        c = self.call("POST", f"/cards/{rec['number']}/comments.json",
-                      {"comment": {"body": f"<p>{FIZZY_MARK}</p>{body}"}})
-        rec["posted"].append(c["id"])
-        save_fizzy_state(self.state)
-
-    def human_comments(self, rec):
-        """New comments by the token owner that the factory did not post, oldest first; marks them seen."""
-        skip = set(rec["posted"]) | set(rec["seen"])
-        new = [c for c in self.all(f"/cards/{rec['number']}/comments.json")
-               if c["creator"]["id"] == self.state["me"] and c["id"] not in skip]
-        rec["seen"] += [c["id"] for c in new]
-        save_fizzy_state(self.state)
-        texts = [c["body"]["plain_text"].strip() for c in sorted(new, key=lambda c: c["created_at"])]
-        # the mark catches the factory's own comments whose ids were lost (a post that timed out)
-        return [x for x in texts if not x.startswith(FIZZY_MARK)]
-
-
-def html_paras(text):
-    paras = [p.strip() for p in re.split(r"\n\s*\n", str(text)) if p.strip()]
-    return "".join("<p>" + html.escape(p).replace("\n", "<br>") + "</p>" for p in paras)
-
-
-def card_description(t):
-    links = [f'{label}: <a href="{html.escape(url)}">{html.escape(url)}</a>'
-             for label, url in (("Issue", t.get("source", {}).get("url")), ("PR", (t.get("pr") or {}).get("url"))) if url]
-    return ("<p>" + "<br>".join(links) + "</p>" if links else "") + html_paras(t["body"] or t["title"])
-
-
-def waiting_text(t):
-    """What a person needs to decide a ticket that has just come to them, as comment HTML."""
-    if t.get("kind") == "intent" and t.get("proposed"):
-        tickets = "".join(f"<li><strong>{html.escape(p['title'])}</strong>{html_paras(p['body'])}</li>"
-                          for p in t["proposed"])
-        return (html_paras(t.get("design", "")) + f"<ol>{tickets}</ol><p>Move to Ready (or comment "
-                "<code>/approve 1,3</code>) to file them; comment <code>/redirect …</code> to send the design back.</p>")
-    if t.get("kind") == "proposal":
-        return "<p>Move to Ready to file it as a change; Not Now to drop it.</p>"
-    if t.get("kind") == "task":
-        return html_paras(t.get("result") or (t["reports"].get("task") or {}).get("summary", ""))
-    return ""
-
-
-def fizzy_command(cfg, t, text):
-    """A person's comment: /approve [1,3], /redirect NOTE, /pr; anything else is a note for the next agent."""
-    word, rest = (text.split(None, 1) + [""])[:2]
-    if word == "/approve":
-        return "Filed " + ", ".join(approve(t, [int(x) for x in re.findall(r"\d+", rest)] or None))
-    if word == "/redirect":
-        if not rest.strip():
-            raise ValueError("/redirect needs a note saying what to change")
-        redirect(t, rest.strip())
-        return "Sent the design back to the designer"
-    if word == "/pr":
-        if t["project"] not in cfg["projects"]:
-            raise ValueError(f"{t['project']} has no repository")
-        return "Opened " + open_pr(cfg, cfg["projects"][t["project"]], t)["url"]
-    if word.startswith("/"):
-        raise ValueError(f"unknown command {word}; try /approve, /redirect or /pr")
-    add_note(t, text)
-    return ""
-
-
 def add_note(t, text):
     """A maintainer's note; every later agent on the ticket gets it (notes_text)."""
     t.setdefault("notes", []).append({"at": now(), "text": text})
     event(t, "note", text[:200])
-
-
-def fizzy_pull(cfg):
-    """Apply what a person did on the cards since the last push: moves into their columns, and comments."""
-    state = load_fizzy_state()
-    fz = Fizzy(cfg, state)
-    for t in each_locked(all_tickets(), lambda t: t["id"] in state["cards"] and t["column"] not in ("done", "rejected")):
-        rec = state["cards"][t["id"]]
-        try:
-            fizzy_pull_card(cfg, fz, t, rec)
-        except Exception as e:
-            log(f"fizzy pull {t['id']}: {str(e)[:300]}")
-        save_ticket(t)
-        save_fizzy_state(state)
-
-
-def fizzy_pull_card(cfg, fz, t, rec):
-    try:
-        card = fz.call("GET", f"/cards/{rec['number']}")
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            raise
-        event(t, "fizzy", f"card {rec['number']} was deleted; the next push files a new one")
-        del fz.state["cards"][t["id"]]
-        return
-    replies = []
-    position = fz.position(card)
-    if position != rec["position"]:
-        wanted = FIZZY_HUMAN_MOVES.get(position)
-        try:
-            if t.get("agent"):
-                raise ValueError(f"{t['agent']['name']} is still running; wait for it to finish")
-            if wanted is None:
-                raise ValueError(f"the pipeline moves cards into {position} itself")
-            if wanted == "ready" and t.get("kind") in ("intent", "proposal") and t["column"] == "needs_human":
-                replies.append("Filed " + ", ".join(approve(t)))
-            elif wanted != t["column"]:
-                move(t, wanted, "by human in Fizzy")
-        except ValueError as e:
-            replies.append(f"Moved back: {e}")
-        rec["position"] = position
-    # marked seen (and saved) before running, so a command that fails never runs twice
-    for text in fz.human_comments(rec):
-        try:
-            replies.append(fizzy_command(cfg, t, text))
-        except Exception as e:
-            replies.append(f"Could not do that: {str(e)[:300]}")
-        save_ticket(t)
-    for r in filter(None, replies):
-        fz.comment(rec, html_paras(r))
-
-
-def fizzy_push(cfg):
-    """Mirror every ticket onto its project's board; done and rejected ones only if they already have a card."""
-    state = load_fizzy_state()
-    fz = Fizzy(cfg, state)
-    for t in all_tickets():
-        if t["id"] not in state["cards"] and t["column"] in ("done", "rejected"):
-            continue
-        try:
-            fizzy_push_card(fz, t)
-        except Exception as e:
-            log(f"fizzy push {t['id']}: {str(e)[:300]}")
-        save_fizzy_state(state)
-
-
-def fizzy_push_card(fz, t):
-    state = fz.state
-    rec = state["cards"].get(t["id"])
-    content = [f"{t['id']} {t['title']}", card_description(t)]
-    if not rec:
-        board = fz.board(t["project"])
-        card = fz.find_card(board["id"], t["id"])
-        found = card is not None
-        if not found:
-            card = fz.call("POST", f"/boards/{board['id']}/cards.json",
-                           {"card": {"title": content[0], "description": content[1]}})
-        rec = state["cards"][t["id"]] = {"number": card["number"], "project": t["project"],
-                                         "position": fz.position(card) if found else MAYBE,
-                                         "content": None if found else content, "history": 0, "posted": [], "seen": []}
-        save_fizzy_state(state)
-        # tagging toggles a tag, so only a card made just now is tagged
-        for tag in [] if found else filter(None, [FIZZY_KIND_TAGS.get(t.get("kind")),
-                                                   None if t["door"] == "human" else t["door"]]):
-            fz.call("POST", f"/cards/{card['number']}/taggings.json", {"tag_title": tag})
-    if rec["content"] != content:
-        fz.call("PATCH", f"/cards/{rec['number']}", {"card": {"title": content[0], "description": content[1]}})
-        rec["content"] = content
-    news = [h for h in t["history"][rec["history"]:] if h["event"] != "fizzy"]
-    rec["history"] = len(t["history"])
-    if news:
-        fz.comment(rec, "<ul>" + "".join(f"<li>{html.escape(h['event'] + ' ' + h['detail'])}</li>" for h in news)
-                   + "</ul>")
-        arrived = any(h["event"] == "move" and h["detail"].split(":")[0].endswith("-> needs_human") for h in news)
-        if arrived and t["column"] == "needs_human" and waiting_text(t):
-            fz.comment(rec, waiting_text(t))
-    position = FIZZY_POSITION[t["column"]]
-    if position != rec["position"]:
-        # a tick can run for minutes (the gate): a card a person moved since the pull waits for the next pull
-        if fz.position(fz.call("GET", f"/cards/{rec['number']}")) != rec["position"]:
-            return
-        fz.place(t["project"], rec["number"], position, rec["position"])
-        rec["position"] = position
-
-
-def fizzy_sync(cfg, step):
-    """One Fizzy step, never fatal to the tick; False when it failed."""
-    if not cfg.get("fizzy"):
-        return True
-    try:
-        step(cfg)
-        return True
-    except Exception as e:
-        log(f"fizzy {step.__name__.removeprefix('fizzy_')}: {str(e)[:300]}")
-        return False
 
 
 def notes_text(t):
@@ -2049,20 +1746,6 @@ def cmd_audit(cfg, a):
     print(audit_text(load_ticket(a.ticket)), end="")
 
 
-def cmd_fizzy(cfg, a):
-    if not cfg.get("fizzy"):
-        sys.exit("no [fizzy] in config.toml")
-    lock = tick_lock()
-    if lock is None:
-        sys.exit("a tick is running; try again in a minute")
-    fizzy_pull(cfg)
-    fizzy_push(cfg)
-    state = load_fizzy_state()
-    for project, b in sorted(state["boards"].items()):
-        cards = sum(1 for c in state["cards"].values() if c["project"] == project)
-        print(f"{project:<12} {cards:>3} cards  {fizzy_api_url(cfg)}{state['account']}/boards/{b['id']}")
-
-
 def cmd_note(cfg, a):
     with changing(a.ticket) as t:
         add_note(t, " ".join(a.text))
@@ -2174,7 +1857,6 @@ def main():
     sub.add_parser("proposals")
     sub.add_parser("pr").add_argument("ticket")
     sub.add_parser("github")
-    sub.add_parser("fizzy")
     p = sub.add_parser("move")
     p.add_argument("ticket")
     p.add_argument("column")
@@ -2193,7 +1875,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "fizzy": cmd_fizzy, "move": cmd_move, "note": cmd_note, "ask": cmd_ask,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "move": cmd_move, "note": cmd_note, "ask": cmd_ask,
      "migrate": lambda c, _: migrate(),
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),
