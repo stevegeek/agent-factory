@@ -1450,11 +1450,11 @@ def pick_up_review(cfg, project, t):
            and str((r.get("user") or {}).get("login", "")).lower() in reviewers]
     if not new:
         return
-    points = []
-    for r in new:
-        if (r.get("body") or "").strip():
-            points.append(r["body"].strip())
-        for c in github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}/reviews/{r['id']}/comments?per_page=100"):
+    points = [r["body"].strip() for r in new if (r.get("body") or "").strip()]
+    # the PR's comment list carries file line numbers; the per-review list only has diff positions
+    ids = {r["id"] for r in new}
+    for c in github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}/comments?per_page=100"):
+        if c.get("pull_request_review_id") in ids:
             points.append(f"`{c.get('path')}` line {c.get('line') or c.get('original_line') or '?'}: {str(c.get('body', '')).strip()}")
     add_note(t, "Review on GitHub, changes requested:\n" + "\n".join(f"- {p}" for p in points)
              + "\nAddress each point. Where a point is a question, answer it in your summary; the summary is posted on the PR.")

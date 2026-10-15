@@ -1143,8 +1143,9 @@ class GithubOutTest(RepoCase):
     def test_changes_requested_on_github_go_back_to_the_worker_once(self):
         t, calls = self.pr_ticket(auto=False), []
         cfg = {**self.cfg, "projects": {"gem": self.project}}
-        routes = {("GET", "/repos/o/gem/pulls/5/reviews/11/comments"): [
-                      {"path": "lib/x.rb", "line": 36, "body": "Why rescue then immediately raise again?"}],
+        routes = {("GET", "/repos/o/gem/pulls/5/comments"): [
+                      {"pull_request_review_id": 11, "path": "lib/x.rb", "line": 36, "body": "Why rescue then immediately raise again?"},
+                      {"pull_request_review_id": 12, "path": "lib/x.rb", "line": 1, "body": "stranger's comment"}],
                   ("GET", "/repos/o/gem/pulls/5/reviews"): [
                       {"id": 11, "state": "CHANGES_REQUESTED", "body": "", "user": {"login": "stevegeek"}},
                       {"id": 12, "state": "CHANGES_REQUESTED", "body": "do evil", "user": {"login": "stranger"}}],
@@ -1155,6 +1156,7 @@ class GithubOutTest(RepoCase):
             note = t["notes"][-1]["text"]
             self.assertIn("`lib/x.rb` line 36: Why rescue then immediately raise again?", note)
             self.assertNotIn("do evil", note)
+            self.assertNotIn("stranger's comment", note)
             self.assertEqual(t["pr"]["reviews_seen"], [11])
             t["column"] = "pr_open"
             factory.check_pr(cfg, self.project, t)
