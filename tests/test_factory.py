@@ -1162,6 +1162,11 @@ class GithubOutTest(RepoCase):
             factory.check_pr(cfg, self.project, t)
         self.assertEqual((t["column"], len(t["notes"])), ("pr_open", 1))
 
+    def test_through_the_gate_asks_to_open_the_pr(self):
+        t = {"id": "T0001", "title": "x", "column": "gate", "history": [], "reports": {"work": {"summary": "Did it."}}}
+        factory.move(t, "ready_for_pr", "auto-merge eligible")
+        self.assertEqual((t["ask"]["kind"], t["ask"]["question"]), ("open", "Open a PR for this?"))
+
     def test_models_per_stage_on_any_host_and_per_voter(self):
         cfg = {"models": {"triage": "claude-sonnet-5-5", "review": "claude-opus-5-5"},
                "hosts": {"helper": {"model": "claude-sonnet-5-5"}},

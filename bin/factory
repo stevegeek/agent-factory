@@ -237,7 +237,7 @@ def move(t, column, detail="", rule=None):
 
 # ---------------------------------------------------------------- asks: what a ticket waiting on a person asks them
 
-ASK_COLUMNS = ("needs_human", "pr_open")
+ASK_COLUMNS = ("needs_human", "pr_open", "ready_for_pr")
 # column a stuck ticket left -> where a retry sends it, and what that step is called
 RETRY_COLUMN = {"working": "ready"}
 STEP_NAMES = {"triage": "triage", "ready": "work", "working": "work", "voting": "panel vote", "review": "review",
@@ -258,7 +258,7 @@ def sentence(text, n=3):
 
 
 def ask_for(t, old, detail, since=None):
-    """The question a ticket in needs_human or pr_open puts to the maintainer, or None anywhere else."""
+    """The question a ticket in needs_human, ready_for_pr or pr_open puts to the maintainer, or None anywhere else."""
     column, kind, reports = t["column"], t.get("kind"), t.get("reports") or {}
     since = since or now()
     a = lambda k, question, why, retry=None: {"kind": k, "question": question, "why": sentence(why),
@@ -267,6 +267,9 @@ def ask_for(t, old, detail, since=None):
         n = (t.get("pr") or {}).get("number")
         return a("review", f"Review and merge PR #{n}?" if n else "Review and merge the PR?",
                  (reports.get("work") or {}).get("summary") or detail)
+    if column == "ready_for_pr":
+        # through the gate, waiting to go out (open_prs = "manual"); a rework updates its PR by itself
+        return a("open", "Open a PR for this?", (reports.get("work") or {}).get("summary") or detail)
     if column != "needs_human":
         return None
     title = f"“{t['title']}”"
@@ -1138,7 +1141,9 @@ def tick(cfg):
             try:
                 if t["column"] == "pr_open":
                     check_pr(cfg, project, t)
-                elif t["column"] == "ready_for_pr" and cfg["github"].get("open_prs") == "auto":
+                elif t["column"] == "ready_for_pr" and (cfg["github"].get("open_prs") == "auto"
+                                                        or (t.get("pr") or {}).get("number")):
+                    # a rework of a PR you sent back goes out by itself: you already asked for it
                     open_pr(cfg, project, t)
                 else:
                     continue

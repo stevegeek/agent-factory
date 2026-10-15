@@ -69,6 +69,12 @@ func Answers(t *Ticket, a *Ask) []Answer {
 			out = append(out, Answer{Label: "Close it on GitHub", Sub: "the factory sees it closed and drops the ticket", Href: u, Danger: true})
 		}
 		return out
+	case "open":
+		open := Answer{Value: "open_pr", Label: "Open the PR", Sub: "push the branch and open it on GitHub", Primary: true}
+		if t.PR != nil && t.PR.Number > 0 {
+			open.Label, open.Sub = fmt.Sprintf("Update PR #%d", t.PR.Number), "push the reworked branch; the same PR updates"
+		}
+		return []Answer{open, {Value: "send_back", Label: "Send back with a note", Sub: "a worker changes it first", NeedsNote: true, NoteFor: "to send it back"}}
 	case "start":
 		return []Answer{{Value: "start", Label: "Start", Sub: "a worker picks it up on the next tick", Primary: true},
 			{Value: "not_now", Label: "Not now", Sub: orSub(issueStays, "the ticket closes"), Danger: true}}
@@ -150,7 +156,9 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 				return nil, errors.New("this PR is not one the factory may merge; review and merge it on GitHub")
 			}
 			return [][]string{{"merge", id}}, nil
-		case "review:send_back":
+		case "open:open_pr":
+			return [][]string{{"pr", id}}, nil
+		case "review:send_back", "open:send_back":
 			need = true
 			cmds = append(cmds, move("ready"))
 		case "start:start", "decide:start":

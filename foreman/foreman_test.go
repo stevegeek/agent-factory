@@ -652,3 +652,22 @@ func TestMergeOnlyForAnEligiblePROnYourWord(t *testing.T) {
 		t.Errorf("a draft PR must not be merged by the factory")
 	}
 }
+
+func TestReadyForPRIsOnTheDesk(t *testing.T) {
+	tk := *find(fixtures(t), "T0001")
+	tk.Column, tk.Ask = "ready_for_pr", nil
+	a := AskFor(&tk)
+	if a == nil || a.Kind != "open" {
+		t.Fatalf("a ticket waiting to go out must ask: %+v", a)
+	}
+	as := Answers(&tk, a)
+	if as[0].Value != "open_pr" || as[0].Label != "Update PR #23" || as[1].Value != "send_back" {
+		t.Errorf("answers %+v", as)
+	}
+	if cmds, err := Plan(&tk, a, "open_pr", "", nil); err != nil || strings.Join(cmds[0], " ") != "pr T0001" {
+		t.Errorf("open plan %v %v", cmds, err)
+	}
+	if cmds, err := Plan(&tk, a, "send_back", "tighten it", nil); err != nil || strings.Join(cmds[len(cmds)-1], " ") != "move T0001 ready" {
+		t.Errorf("send back plan %v %v", cmds, err)
+	}
+}

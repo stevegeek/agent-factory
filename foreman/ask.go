@@ -11,12 +11,13 @@ type kindInfo struct {
 }
 
 // Desk order: an agent waiting mid-run first, then what is stuck, then what is ready to land.
-var askOrder = []string{"question", "unstick", "review", "start", "design", "proposal", "decide", "notice"}
+var askOrder = []string{"question", "unstick", "review", "open", "start", "design", "proposal", "decide", "notice"}
 
 var askKinds = map[string]kindInfo{
 	"question": {"Question", "?"},
 	"unstick":  {"Unstick", "!"},
 	"review":   {"Review", "PR"},
+	"open":     {"Open PR", "PR"},
 	"start":    {"Start", "GO"},
 	"design":   {"Design", "DS"},
 	"proposal": {"Proposal", "PP"},
@@ -38,7 +39,7 @@ const noticeProject = "factory"
 // AskFor is the ticket's ask: the dispatcher's when it wrote one, else derived the same way from
 // the column and the move that brought the ticket there (boards from before asks existed).
 func AskFor(t *Ticket) *Ask {
-	if t.Column != "needs_human" && t.Column != "pr_open" {
+	if t.Column != "needs_human" && t.Column != "pr_open" && t.Column != "ready_for_pr" {
 		return nil
 	}
 	if t.Ask != nil && t.Ask.Kind != "" {
@@ -79,6 +80,10 @@ func deriveAsk(t *Ticket) *Ask {
 		}
 		a.Question = fmt.Sprintf("Review and merge PR #%d?", n)
 		a.Why = t.report("work").str("summary")
+	case t.Column == "ready_for_pr":
+		a.Kind = "open"
+		a.Question = "Open a PR for this?"
+		a.Why = firstNonEmpty(t.report("work").str("summary"), detail)
 	case t.Kind == "proposal":
 		a.Kind = "proposal"
 		a.Question = "File this as a change: " + t.Title + "?"

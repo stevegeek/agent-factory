@@ -92,7 +92,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .qitem .meta { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
 .k-question { --k: var(--signal); --k-soft: var(--signal-soft); }
 .k-unstick { --k: var(--stop); --k-soft: var(--stop-soft); }
-.k-review { --k: var(--info); --k-soft: var(--info-soft); }
+.k-review, .k-open { --k: var(--info); --k-soft: var(--info-soft); }
 .k-start { --k: var(--go); --k-soft: var(--go-soft); }
 .k-design, .k-proposal { --k: var(--violet); --k-soft: var(--violet-soft); }
 .k-decide, .k-notice, .k-closed { --k: var(--muted); --k-soft: var(--sunk); }
