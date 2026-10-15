@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -27,6 +28,7 @@ type Server struct {
 	board  *Board
 	auth   *Auth
 	runner *Runner
+	push   *Pusher // nil: notifications are off
 	pages  map[string]*template.Template
 	now    func() time.Time
 	assetV string
@@ -48,7 +50,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"low":   func(n int) bool { return n < 4 },
 		"inc":   func(n int) int { return n + 1 },
 	}
-	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login"} {
+	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
 	}
 	return s
@@ -63,6 +65,15 @@ func (s *Server) Handler() http.Handler {
 		files.ServeHTTP(w, r)
 	}))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "ok") })
+	// the installable app: the manifest and the service worker must be readable before login,
+	// and the worker must come from the root to cover every page
+	mux.HandleFunc("GET /manifest.webmanifest", s.manifest)
+	mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {
+		data, _ := staticFS.ReadFile("static/sw.js")
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Write(data)
+	})
 	mux.HandleFunc("GET /login", s.loginPage)
 	mux.HandleFunc("POST /login", s.login)
 	app := http.NewServeMux()
@@ -71,6 +82,10 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("POST /t/{id}/act", s.act)
 	app.HandleFunc("GET /floor", s.floor)
 	app.HandleFunc("GET /boards", s.boards)
+	app.HandleFunc("GET /settings", s.settings)
+	app.HandleFunc("POST /push/subscribe", s.pushSubscribe)
+	app.HandleFunc("POST /push/unsubscribe", s.pushUnsubscribe)
+	app.HandleFunc("POST /push/test", s.pushTest)
 	app.HandleFunc("GET /b/{project}", s.boardPage)
 	app.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.auth.Revoke(); err != nil {
@@ -101,7 +116,7 @@ func headers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "+
-			"connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+			"connect-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
 		// not no-referrer: under it browsers send "Origin: null" on this site's own form posts
@@ -129,6 +144,12 @@ type Page struct {
 	Next      string
 	Error     string
 	Version   string
+	Settings  *SettingsView
+}
+
+type SettingsView struct {
+	PushKey string // empty: notifications are off on this server
+	Devices int
 }
 
 type Chip struct {
@@ -607,6 +628,72 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	s.auth.SetSession(w, r)
 	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// ---------------------------------------------------------------- installable app and notifications
+
+func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/manifest+json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	fmt.Fprint(w, `{"name":"Foreman","short_name":"Foreman","description":"The factory's desk: what needs you, and what happened.",`+
+		`"start_url":"/","scope":"/","display":"standalone","background_color":"#111519","theme_color":"#111519",`+
+		`"icons":[{"src":"/static/icons/icon-192.png","sizes":"192x192","type":"image/png"},`+
+		`{"src":"/static/icons/icon-512.png","sizes":"512x512","type":"image/png"},`+
+		`{"src":"/static/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}]}`)
+}
+
+func (s *Server) settings(w http.ResponseWriter, r *http.Request) {
+	ts := s.board.Load()
+	v := &SettingsView{}
+	if s.push != nil {
+		v.PushKey, v.Devices = s.push.PublicKey(), s.push.Count()
+	}
+	s.render(w, r, "settings", &Page{Title: "Settings", Tab: "settings", Settings: v}, ts)
+}
+
+func jsonReply(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(v)
+}
+
+func (s *Server) pushSubscribe(w http.ResponseWriter, r *http.Request) {
+	if s.push == nil {
+		jsonReply(w, http.StatusNotFound, map[string]string{"error": "notifications are off on this server"})
+		return
+	}
+	var sub Subscription
+	if err := json.Unmarshal([]byte(r.PostFormValue("subscription")), &sub); err != nil {
+		jsonReply(w, http.StatusBadRequest, map[string]string{"error": "bad subscription"})
+		return
+	}
+	if err := s.push.Add(sub); err != nil {
+		jsonReply(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	log.Printf("push: a device subscribed (%s)", hostOf(sub.Endpoint))
+	jsonReply(w, http.StatusOK, map[string]int{"devices": s.push.Count()})
+}
+
+func (s *Server) pushUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	if s.push != nil {
+		s.push.Remove(r.PostFormValue("endpoint"))
+	}
+	n := 0
+	if s.push != nil {
+		n = s.push.Count()
+	}
+	jsonReply(w, http.StatusOK, map[string]int{"devices": n})
+}
+
+func (s *Server) pushTest(w http.ResponseWriter, r *http.Request) {
+	if s.push == nil {
+		jsonReply(w, http.StatusNotFound, map[string]string{"error": "notifications are off on this server"})
+		return
+	}
+	n := s.push.Send(Message{Title: "Foreman", Body: "Notifications work. You'll hear when something needs you.", URL: "/",
+		Tag: "test", Badge: len(Desk(s.board.Load()))})
+	jsonReply(w, http.StatusOK, map[string]int{"sent": n, "devices": s.push.Count()})
 }
 
 // ---------------------------------------------------------------- flash: one message across a redirect

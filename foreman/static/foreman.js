@@ -145,7 +145,9 @@
       return;
     }
     mine.dataset.v = v.dataset.v;
+    mine.dataset.desk = v.dataset.desk;
     document.title = doc.title;
+    badge();
   }
 
   function poll() {
@@ -167,6 +169,84 @@
       .catch(function () {})
       .then(function () { busy = false; });
   }
+
+  // ---------------------------------------------------------------- installed app: worker, badge, notifications
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function () {});
+
+  // the home-screen icon shows how many asks wait on the desk
+  function badge() {
+    var live = document.getElementById("live"), n = live ? Number(live.dataset.desk) : NaN;
+    if (isNaN(n) || !navigator.setAppBadge) return;
+    (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(function () {});
+  }
+
+  function post(path, fields) {
+    var meta = document.querySelector('meta[name="csrf"]'), body = new URLSearchParams(fields);
+    body.set("csrf", meta ? meta.content : "");
+    return fetch(path, { method: "POST", body: body, credentials: "same-origin" }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) throw new Error(j.error || "the server said " + r.status);
+        return j;
+      });
+    });
+  }
+
+  function keyBytes(s) {
+    var raw = atob((s + "===".slice((s.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function settingsPage() {
+    var box = document.getElementById("push");
+    if (!box || !box.dataset.key || box.dataset.ready) return;
+    box.dataset.ready = "1";
+    var state = document.getElementById("push-state"), on = document.getElementById("push-on"),
+        test = document.getElementById("push-test"), off = document.getElementById("push-off");
+    function show(text, sub) {
+      state.textContent = text;
+      on.hidden = !!sub; test.hidden = !sub; off.hidden = !sub;
+    }
+    function fail(err) { state.textContent = "Did not work: " + (err && err.message || err); }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      state.textContent = "This browser can't receive notifications here. On an iPhone, add Foreman to the Home Screen and open it from there.";
+      return;
+    }
+    if (Notification.permission === "denied") {
+      state.textContent = "Notifications are blocked for Foreman. Allow them in the phone's Settings → Notifications → Foreman.";
+      return;
+    }
+    var reg;
+    navigator.serviceWorker.ready.then(function (r) { reg = r; return r.pushManager.getSubscription(); })
+      .then(function (sub) { show(sub ? "On for this device." : "Off for this device.", sub); })
+      .catch(fail);
+    on.addEventListener("click", function () {
+      // the permission prompt must come straight from the tap
+      Notification.requestPermission().then(function (p) {
+        if (p !== "granted") throw new Error("permission was not given");
+        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(box.dataset.key) });
+      }).then(function (sub) {
+        return post("/push/subscribe", { subscription: JSON.stringify(sub) }).then(function () { show("On for this device.", sub); });
+      }).catch(fail);
+    });
+    test.addEventListener("click", function () {
+      post("/push/test", {}).then(function (j) { state.textContent = "Sent to " + j.sent + " of " + j.devices + " device(s)."; }).catch(fail);
+    });
+    off.addEventListener("click", function () {
+      reg.pushManager.getSubscription().then(function (sub) {
+        if (!sub) return show("Off for this device.", null);
+        return post("/push/unsubscribe", { endpoint: sub.endpoint }).then(function () { return sub.unsubscribe(); })
+          .then(function () { show("Off for this device.", null); });
+      }).catch(fail);
+    });
+  }
+
+  function pageReady() { badge(); settingsPage(); }
+  document.addEventListener("htmx:afterSettle", pageReady);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", pageReady);
+  else pageReady();
 
   setInterval(poll, EVERY);
   document.addEventListener("visibilitychange", function () {

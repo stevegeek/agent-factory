@@ -8,6 +8,13 @@
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false,"historyCacheSize":0,"refreshOnHistoryMiss":true}'>
 <link rel="stylesheet" href="{{asset "foreman.css"}}">
 <link rel="icon" href="{{asset "icon.svg"}}" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Foreman">
+<meta name="theme-color" content="#111519">
+{{with .CSRF}}<meta name="csrf" content="{{.}}">{{end}}
 <script src="{{asset "htmx.min.js"}}" defer></script>
 <script src="{{asset "foreman.js"}}" defer></script>
 </head>
@@ -21,6 +28,7 @@
         <a class="tab" id="tab-desk" data-live href="/" {{if eq .Tab "desk"}}aria-current="page"{{end}}>Desk {{if .DeskCount}}<span class="n hot">{{.DeskCount}}</span>{{end}}</a>
         <a class="tab" href="/floor" {{if eq .Tab "floor"}}aria-current="page"{{end}}>Floor</a>
         <a class="tab" href="/boards" {{if eq .Tab "boards"}}aria-current="page"{{end}}>Boards</a>
+        <a class="tab" href="/settings" {{if eq .Tab "settings"}}aria-current="page"{{end}} aria-label="Settings">⚙</a>
       </nav>
       <form class="who" method="post" action="/logout">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
@@ -31,7 +39,7 @@
     {{template "content" .}}
   </div>
 </div>
-{{with .Version}}<div id="live" hidden data-v="{{.}}"></div>{{end}}
+{{with .Version}}<div id="live" hidden data-v="{{.}}" data-desk="{{$.DeskCount}}"></div>{{end}}
 {{with .Flash}}<div class="toast {{.Kind}}" role="status">{{.Text}}</div>{{end}}
 </body>
 </html>

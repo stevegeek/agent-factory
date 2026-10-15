@@ -34,6 +34,13 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o for
 | `--tailscale-user` | | a login let in by `--trust-tailscale` (repeatable; required with it) |
 | `--host` | | a host name to answer to besides IP addresses and `localhost`, e.g. the ts.net name (repeatable) |
 | `--revoke-sessions` | | log out every browser and exit |
+| `--push` | on | Web Push to subscribed devices; the VAPID key (`foreman-vapid.pem`) and the devices (`foreman-push.json`) live beside the secret |
+
+## Install and notifications
+
+Foreman is an installable web app (`/manifest.webmanifest`, the service worker `/sw.js`, icons in `static/icons`). On an iPhone: Safari → Share → Add to Home Screen, then open it from the home screen and turn notifications on under ⚙ (iOS 16.4 or later; push only works in the installed app). The app icon's badge counts the desk.
+
+Every 30 s Foreman compares the board with what it saw before and pushes: a new ask on the desk, the answer to a question asked with Ask, and a ticket with a PR that closed without you (merged or closed on GitHub). What you did yourself (a move `by human`) is not news; more than three at once arrive as one. Tapping a notification opens the ticket. Payloads are encrypted for the device (RFC 8291) and signed with VAPID (RFC 8292); a subscription may only point at a known push service (Apple, Google, Mozilla, Microsoft). What it last saw is kept in `foreman-seen.json` beside the secret, so a change made while Foreman was down (a deploy, a reboot) is still announced; a board that fails to read is skipped, not taken as every ticket gone.
 
 ## Auth
 

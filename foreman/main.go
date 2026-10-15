@@ -35,6 +35,7 @@ func main() {
 	flag.Var(&tsUsers, "tailscale-user", "a Tailscale login that counts as the maintainer (repeatable; needed with --trust-tailscale)")
 	flag.Var(&hosts, "host", "a host name to answer to besides IP addresses and localhost, e.g. the ts.net name (repeatable)")
 	revoke := flag.Bool("revoke-sessions", false, "log out every browser, then exit")
+	push := flag.Bool("push", true, "send Web Push notifications to subscribed devices (keys beside the secret)")
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.LUTC)
 	if *revoke {
@@ -74,7 +75,24 @@ func main() {
 		log.Printf("WARNING: listening on %s over plain HTTP: the secret and the session cookie cross the network "+
 			"in the clear. Prefer loopback behind `tailscale serve` or another TLS proxy.", *listen)
 	}
-	s := NewServer(NewBoard(*root), auth, &Runner{Factory: *factory, Root: *root})
+	board := NewBoard(*root)
+	s := NewServer(board, auth, &Runner{Factory: *factory, Root: *root})
+	if *push {
+		// the VAPID contact: the page's own address when known (push services want an https: or mailto: URL)
+		subject := "mailto:foreman@localhost"
+		if len(hosts) > 0 {
+			subject = "https://" + hosts[0]
+		} else {
+			log.Printf("push: no --host given; Apple's push service may refuse the placeholder contact %s", subject)
+		}
+		p, err := NewPusher(filepath.Dir(*secretFile), subject)
+		if err != nil {
+			log.Fatalf("push: %v", err)
+		}
+		s.push = p
+		go p.Watch(board, 30*time.Second, nil)
+		log.Printf("notifications on: %d device(s)", p.Count())
+	}
 	srv := &http.Server{Addr: *listen, Handler: s.Handler(), ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 30 * time.Second, WriteTimeout: 11 * time.Minute, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 64 << 10}
 	go func() {
