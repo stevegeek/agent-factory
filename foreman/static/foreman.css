@@ -50,7 +50,10 @@
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
+/* the home-screen app draws the iPhone's status bar over the page (white text, black-translucent):
+   the page starts below it, and a dark strip behind it keeps the clock readable in the light theme too */
+body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background: #111519; z-index: 10; }
 a { color: var(--info); }
 button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
@@ -236,7 +239,7 @@ details.closed { max-width: none; }
 .back { display: none; color: var(--info); font-weight: 500; text-decoration: none; }
 .back.show { display: inline-flex; }
 @media (max-width: 820px) {
-  .wrap { padding-top: 0; padding-left: 0; padding-right: 0; }
+  .wrap { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) max(64px, env(safe-area-inset-bottom, 0px)) env(safe-area-inset-left, 0px); }
   .app { border-radius: 0; border-left: 0; border-right: 0; }
   .bar { padding: 6px 12px; flex-wrap: nowrap; gap: 6px; }
   .brand-word { display: none; }
