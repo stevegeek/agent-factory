@@ -143,6 +143,10 @@ func Headline(t *Ticket, a *Ask) string {
 		issue = fmt.Sprintf(" issue #%d", t.Source.Issue)
 	}
 	switch a.Kind {
+	case "review":
+		if mergeable(t) {
+			return fmt.Sprintf("Merge PR #%d?", t.PR.Number)
+		}
 	case "design":
 		return fmt.Sprintf("Approve this design and its %s?", plural(len(t.Proposed), "ticket"))
 	case "proposal":

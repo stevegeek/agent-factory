@@ -15,6 +15,7 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory proposals        open proposals from prospecting, in the blind panel's priority order
   factory pr <ticket>      push a ready_for_pr branch and open its PR (draft unless auto-merge eligible)
   factory ask <ticket> Q   a question about a ticket: one agent run reads the code (on its branch) and answers
+  factory merge <ticket>   merge an auto-merge-eligible PR on your go-ahead (only the commit the gate checked)
   factory github           check the GitHub App installation (repos, permissions)
   factory move <ticket> <column> [--note TEXT]
   factory note <ticket> <text>   a note every later agent on the ticket follows
@@ -1336,10 +1337,55 @@ def open_pr(cfg, project, t):
         if pr.get("draft") != draft:
             set_pr_draft(cfg, pr, draft)
             pr["draft"] = draft
-    t["pr"] = {"number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft", draft)}
+    t["pr"] = {**(t.get("pr") or {}), "number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft", draft)}
     move(t, "pr_open", f"{'draft ' if t['pr']['draft'] else ''}PR {pr['html_url']}" + (" updated" if updated else ""))
+    if updated and t["pr"].get("reviews_seen"):
+        # the worker's summary answers the review's points and questions; public text, no internal ids
+        summary = str((t["reports"].get("work") or {}).get("summary", "")).strip()
+        try:
+            github_api(cfg, "POST", f"/repos/{repo}/issues/{pr['number']}/comments",
+                       {"body": f"Updated after your review.\n\n{summary}\n\n{cfg.get('identity', {}).get('pr_footer', '')}".strip()})
+        except urllib.error.HTTPError as e:
+            event(t, "error", f"github: could not comment on PR #{pr['number']} ({e.code})")
     request_review(cfg, project, t)
     return t["pr"]
+
+
+def github_error(e):
+    """GitHub's own words for a refused request, for the person who asked."""
+    try:
+        return json.loads(e.read() or b"{}").get("message") or str(e)
+    except Exception:
+        return str(e)
+
+
+def merge_pr(cfg, project, t):
+    """The maintainer's go-ahead for an auto-merge-eligible PR: merge exactly the commit the gate checked."""
+    if t["column"] != "pr_open" or not t.get("pr"):
+        raise RuntimeError(f"{t['id']} has no open PR")
+    if not (t.get("gate") or {}).get("auto_eligible"):
+        raise RuntimeError(f"{t['id']} is not auto-merge eligible; review and merge it on GitHub")
+    repo, n = project["github"], t["pr"]["number"]
+    pr = github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}")
+    if pr.get("state") != "open" or pr.get("draft"):
+        raise RuntimeError(f"PR #{n} is {'a draft' if pr.get('draft') else pr.get('state')}; nothing to merge")
+    head = (pr.get("head") or {}).get("sha")
+    if head != t["gate"]["head"]:
+        raise RuntimeError(f"PR #{n} moved since the gate checked it; it needs the gate again")
+    try:
+        r = github_api(cfg, "PUT", f"/repos/{repo}/pulls/{n}/merge", {"sha": head, "merge_method": "merge"})
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"GitHub refused the merge of PR #{n}: {github_error(e)}")
+    if not r.get("merged"):
+        raise RuntimeError(f"GitHub did not merge PR #{n}: {r.get('message', '?')}")
+    move(t, "done", "PR merged by the factory on your go-ahead",
+         rule=f"PR #{n} was auto-merge eligible; you confirmed it in Foreman and the factory merged {head[:7]}")
+    if t["branch"].startswith("bot/"):
+        try:
+            github_api(cfg, "DELETE", f"/repos/{repo}/git/refs/heads/{t['branch']}")
+        except urllib.error.HTTPError as e:
+            event(t, "error", f"github: merged, but could not delete {t['branch']} ({e.code})")
+    return r
 
 
 def request_review(cfg, project, t):
@@ -1387,6 +1433,35 @@ def check_pr(cfg, project, t):
     elif pr.get("state") == "closed":
         move(t, "rejected", "PR closed without merging",
              rule=f"PR #{t['pr']['number']} was closed on GitHub without merging")
+    else:
+        pick_up_review(cfg, project, t)
+
+
+def pick_up_review(cfg, project, t):
+    """Changes requested on GitHub by a maintainer ([github] reviewers, nobody else): the review and its line
+    comments become a note, and the ticket goes back for rework with the PR as a draft meanwhile."""
+    reviewers = {r.lower() for r in cfg.get("github", {}).get("reviewers", [])}
+    if not reviewers:
+        return
+    repo, n = project["github"], t["pr"]["number"]
+    seen = set(t["pr"].get("reviews_seen", []))
+    new = [r for r in github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}/reviews?per_page=100")
+           if r.get("state") == "CHANGES_REQUESTED" and r.get("id") not in seen
+           and str((r.get("user") or {}).get("login", "")).lower() in reviewers]
+    if not new:
+        return
+    points = []
+    for r in new:
+        if (r.get("body") or "").strip():
+            points.append(r["body"].strip())
+        for c in github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}/reviews/{r['id']}/comments?per_page=100"):
+            points.append(f"`{c.get('path')}` line {c.get('line') or c.get('original_line') or '?'}: {str(c.get('body', '')).strip()}")
+    add_note(t, "Review on GitHub, changes requested:\n" + "\n".join(f"- {p}" for p in points)
+             + "\nAddress each point. Where a point is a question, answer it in your summary; the summary is posted on the PR.")
+    t["pr"]["reviews_seen"] = sorted(seen | {r["id"] for r in new})
+    move(t, "ready", "changes requested on GitHub",
+         rule=f"{len(points)} point(s) from your review of PR #{n} went to the worker as a note")
+    hold_pr(cfg, t)
 
 
 def sweep(cfg):
@@ -1588,6 +1663,18 @@ def cmd_add(cfg, a):
         pin_host(cfg, t, a.host)
     save_ticket(t)
     print(t["id"])
+
+
+def cmd_merge(cfg, a):
+    with changing(a.ticket) as t:
+        project = cfg["projects"].get(t["project"]) or {}
+        if not project.get("github"):
+            sys.exit(f"{t['project']} has no GitHub repository")
+        try:
+            merge_pr(cfg, project, t)
+        except RuntimeError as e:
+            sys.exit(str(e))
+    print(f"merged PR #{t['pr']['number']}")
 
 
 def cmd_ask(cfg, a):
@@ -1864,6 +1951,7 @@ def main():
     p = sub.add_parser("note")
     p.add_argument("ticket")
     p.add_argument("text", nargs="+")
+    sub.add_parser("merge").add_argument("ticket")
     p = sub.add_parser("ask")
     p.add_argument("ticket")
     p.add_argument("question", nargs="+")
@@ -1875,7 +1963,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "move": cmd_move, "note": cmd_note, "ask": cmd_ask,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "merge": cmd_merge,
      "migrate": lambda c, _: migrate(),
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),

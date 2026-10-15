@@ -386,7 +386,8 @@ func askedBy(t *Ticket, all map[string]*Ticket) *Ticket {
 func byYou(t *Ticket) bool {
 	for i := len(t.History) - 1; i >= 0; i-- {
 		if h := t.History[i]; h.Event == "move" {
-			return strings.HasSuffix(h.Detail, ": by human")
+			// a merge you confirmed in Foreman is yours too
+			return strings.HasSuffix(h.Detail, ": by human") || strings.HasSuffix(h.Detail, "on your go-ahead")
 		}
 	}
 	return false

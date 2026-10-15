@@ -23,6 +23,12 @@ type Answer struct {
 	Danger            bool   // closes the ticket or the PR: shown last, in red
 }
 
+// mergeable: the gate found the change auto-merge eligible and its PR is open and not a draft,
+// so the factory may merge it once the maintainer says so.
+func mergeable(t *Ticket) bool {
+	return t.Column == "pr_open" && t.Gate != nil && t.Gate.AutoEligible && t.PR != nil && t.PR.Number > 0 && !t.PR.Draft
+}
+
 // Answers offered for an ask; Href ones are plain links, the rest submit the ticket's form.
 func Answers(t *Ticket, a *Ask) []Answer {
 	if a == nil {
@@ -47,11 +53,16 @@ func Answers(t *Ticket, a *Ask) []Answer {
 			u = safeURL(t.PR.URL)
 		}
 		if u != "" {
-			sub := "approve and merge there; this clears itself"
-			if t.PR.Draft {
-				sub = "mark it ready, approve, merge; this clears itself"
+			if mergeable(t) {
+				out = append(out, Answer{Value: "merge", Label: "Merge it", Sub: fmt.Sprintf("the factory merges PR #%d and closes the ticket", t.PR.Number), Primary: true},
+					Answer{Label: "Read it on GitHub", Sub: "the diff and the checks, before you decide", Href: u})
+			} else {
+				sub := "approve and merge there; this clears itself"
+				if t.PR.Draft {
+					sub = "mark it ready, approve, merge; this clears itself"
+				}
+				out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", t.PR.Number), Sub: sub, Primary: true, Href: u})
 			}
-			out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", t.PR.Number), Sub: sub, Primary: true, Href: u})
 		}
 		out = append(out, Answer{Value: "send_back", Label: "Send back with a note", Sub: "a worker reworks it; the PR is a draft meanwhile", NeedsNote: true, NoteFor: "to send it back"})
 		if u != "" {
@@ -134,6 +145,11 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 		return nil, errors.New("this ticket is not waiting for an answer")
 	} else {
 		switch a.Kind + ":" + answer {
+		case "review:merge":
+			if !mergeable(t) {
+				return nil, errors.New("this PR is not one the factory may merge; review and merge it on GitHub")
+			}
+			return [][]string{{"merge", id}}, nil
 		case "review:send_back":
 			need = true
 			cmds = append(cmds, move("ready"))

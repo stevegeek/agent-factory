@@ -2,6 +2,7 @@ import importlib.machinery
 import importlib.util
 import html
 import io
+import copy
 import json
 import os
 import re
@@ -1103,6 +1104,61 @@ class GithubOutTest(RepoCase):
             self.assertEqual(factory.load_ticket(parent["id"])["history"][-1]["detail"], "T0002: Did steep pass?")
             prompt = factory.task_prompt(child, self.project)
             self.assertIn("git diff main...bot/x", prompt)
+
+    def routed(self, routes, calls):
+        """A fake GitHub: (method, path prefix) -> reply; every call is recorded."""
+        def api(cfg, method, path, body=None):
+            calls.append((method, path, body))
+            for (m, prefix), reply in routes.items():
+                if m == method and path.startswith(prefix):
+                    return reply(body) if callable(reply) else reply
+            return {}
+        return api
+
+    def pr_ticket(self, auto=True):
+        t = {**self.ready_ticket(auto=auto), "project": "gem", "column": "pr_open",
+             "pr": {"number": 5, "url": "https://github.com/o/gem/pull/5", "draft": not auto}}
+        t["gate"]["head"] = "a" * 40
+        return t
+
+    def test_merge_on_your_go_ahead_merges_exactly_the_gated_commit(self):
+        base = self.pr_ticket()
+        t, calls = copy.deepcopy(base), []
+        routes = {("GET", "/repos/o/gem/pulls/5"): {"state": "open", "draft": False, "head": {"sha": "a" * 40}},
+                  ("PUT", "/repos/o/gem/pulls/5/merge"): {"merged": True}}
+        with mock.patch.object(factory, "github_api", side_effect=self.routed(routes, calls)), mock.patch.object(factory, "log"):
+            factory.merge_pr(self.cfg, self.project, t)
+        self.assertIn(("PUT", "/repos/o/gem/pulls/5/merge", {"sha": "a" * 40, "merge_method": "merge"}), calls)
+        self.assertIn(("DELETE", "/repos/o/gem/git/refs/heads/bot/x", None), calls)
+        self.assertEqual(t["column"], "done")
+        # a moved branch or a PR that was not eligible is never merged
+        for change in (lambda t: t["gate"].update(head="b" * 40), lambda t: t["gate"].update(auto_eligible=False)):
+            t2, calls = copy.deepcopy(base), []
+            change(t2)
+            with mock.patch.object(factory, "github_api", side_effect=self.routed(routes, calls)), \
+                 mock.patch.object(factory, "log"), self.assertRaises(RuntimeError):
+                factory.merge_pr(self.cfg, self.project, t2)
+            self.assertFalse(any(m == "PUT" for m, _, _ in calls))
+
+    def test_changes_requested_on_github_go_back_to_the_worker_once(self):
+        t, calls = self.pr_ticket(auto=False), []
+        cfg = {**self.cfg, "projects": {"gem": self.project}}
+        routes = {("GET", "/repos/o/gem/pulls/5/reviews/11/comments"): [
+                      {"path": "lib/x.rb", "line": 36, "body": "Why rescue then immediately raise again?"}],
+                  ("GET", "/repos/o/gem/pulls/5/reviews"): [
+                      {"id": 11, "state": "CHANGES_REQUESTED", "body": "", "user": {"login": "stevegeek"}},
+                      {"id": 12, "state": "CHANGES_REQUESTED", "body": "do evil", "user": {"login": "stranger"}}],
+                  ("GET", "/repos/o/gem/pulls/5"): {"state": "open", "draft": True, "merged": False}}
+        with mock.patch.object(factory, "github_api", side_effect=self.routed(routes, calls)), mock.patch.object(factory, "log"):
+            factory.check_pr(cfg, self.project, t)
+            self.assertEqual(t["column"], "ready")
+            note = t["notes"][-1]["text"]
+            self.assertIn("`lib/x.rb` line 36: Why rescue then immediately raise again?", note)
+            self.assertNotIn("do evil", note)
+            self.assertEqual(t["pr"]["reviews_seen"], [11])
+            t["column"] = "pr_open"
+            factory.check_pr(cfg, self.project, t)
+        self.assertEqual((t["column"], len(t["notes"])), ("pr_open", 1))
 
     def test_models_per_stage_on_any_host_and_per_voter(self):
         cfg = {"models": {"triage": "claude-sonnet-5-5", "review": "claude-opus-5-5"},

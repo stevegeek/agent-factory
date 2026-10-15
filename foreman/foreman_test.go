@@ -631,3 +631,24 @@ func fmtSteps(s Story) string {
 	}
 	return strings.Join(out, "\n")
 }
+
+func TestMergeOnlyForAnEligiblePROnYourWord(t *testing.T) {
+	tk := *find(fixtures(t), "T0001")
+	g, pr := *tk.Gate, *tk.PR
+	g.AutoEligible, pr.Draft = true, false
+	tk.Gate, tk.PR = &g, &pr
+	a := AskFor(&tk)
+	if as := Answers(&tk, a); as[0].Value != "merge" || !as[0].Primary || as[1].Href == "" {
+		t.Fatalf("an eligible PR should offer Merge it first: %+v", as)
+	}
+	if h := Headline(&tk, a); h != "Merge PR #23?" {
+		t.Errorf("headline %q", h)
+	}
+	if cmds, err := Plan(&tk, a, "merge", "", nil); err != nil || strings.Join(cmds[0], " ") != "merge T0001" {
+		t.Errorf("merge plan %v %v", cmds, err)
+	}
+	draft := *find(fixtures(t), "T0001")
+	if _, err := Plan(&draft, AskFor(&draft), "merge", "", nil); err == nil {
+		t.Errorf("a draft PR must not be merged by the factory")
+	}
+}

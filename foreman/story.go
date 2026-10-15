@@ -599,6 +599,9 @@ func (s Story) Recent() []Step {
 func waitingWhat(t *Ticket, a *Ask) string {
 	switch a.Kind {
 	case "review":
+		if mergeable(t) {
+			return "It passed every check for automatic approval. Merge it, or read it on GitHub first."
+		}
 		return "Merge it on GitHub, or send it back with a note."
 	case "start":
 		return "Start it, or not now."
