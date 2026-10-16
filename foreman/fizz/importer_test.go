@@ -20,6 +20,8 @@ type fakeFizzy struct {
 	mu       sync.Mutex
 	paths    []string
 	evilNext bool // a page whose next link points at another host
+	redirect bool // identity answers with a redirect elsewhere
+	bigCard  bool // a card numbered past nine digits
 }
 
 const (
@@ -68,7 +70,7 @@ func newFakeFizzy(t *testing.T) *fakeFizzy {
 		if to < len(items) {
 			q := r.URL.Query()
 			q.Set("page", strconv.Itoa(p+1))
-			host := "http://" + r.Host
+			host := r.URL.Scheme + "://" + r.Host // the in-memory transport hands over the client request
 			if f.evilNext {
 				host = "http://evil.example"
 			}
@@ -85,6 +87,14 @@ func newFakeFizzy(t *testing.T) *fakeFizzy {
 			return
 		}
 		p := strings.TrimSuffix(r.URL.Path, ".json")
+		if f.redirect {
+			http.Redirect(w, r, "https://evil.example/steal", http.StatusFound)
+			return
+		}
+		if f.bigCard && p == "/"+acct+"/cards" && r.URL.Query().Get("indexed_by") == "all" {
+			json.NewEncoder(w).Encode([]any{fakeCard(1_000_000_000, "Huge", nil)})
+			return
+		}
 		switch {
 		case p == "/my/identity":
 			json.NewEncoder(w).Encode(map[string]any{"accounts": []any{map[string]any{"id": "x", "name": "Stephen's Fizzy", "slug": "/" + acct}}})
@@ -168,7 +178,7 @@ func newFakeFizzy(t *testing.T) *fakeFizzy {
 	return f
 }
 
-const fakeBase = "http://fizzy.test"
+const fakeBase = "https://fizzy.test"
 
 // inMemory serves requests straight from a handler: no sockets in tests.
 type inMemory struct{ h http.Handler }
@@ -207,14 +217,15 @@ func TestImportFromFizzy(t *testing.T) {
 	if u := a.User(uAgent); u == nil || u.Name != "Agent" || u.Email != "agent@example.com" {
 		t.Errorf("agent user %+v", u)
 	}
-	if a.User(uSteve) != nil || a.UserNamed("Stephen").ID != localSteve || a.UserNamed("Stephen").Email != "stephen@example.com" {
-		t.Errorf("Stephen should be merged by name: %+v", a.Users)
+	// users map by id only: Fizzy's Stephen is not taken for the local one by name
+	if u := a.User(uSteve); u == nil || u.ID == localSteve || a.User(localSteve).Email != "" {
+		t.Errorf("Fizzy's Stephen should be a user of his own: %+v", a.Users)
 	}
-	if a.User(uSystem) != nil || len(a.Users) != 3 {
-		t.Errorf("Fizzy's system user maps onto ours: %+v", a.Users)
+	if u := a.User(uSystem); u == nil || u.Role != "system" || len(a.Users) != 5 {
+		t.Errorf("users %+v", a.Users)
 	}
 	b, err := st.Board(acct, bA)
-	if err != nil || b.Name != "Alpha" || len(b.Columns) != 2 || b.Columns[0].ColorName != "Lime" || b.Columns[1].ColorValue != "var(--color-card-6)" || b.CreatorID != localSteve {
+	if err != nil || b.Name != "Alpha" || len(b.Columns) != 2 || b.Columns[0].ColorName != "Lime" || b.Columns[1].ColorValue != "var(--color-card-6)" || b.CreatorID != uSteve {
 		t.Fatalf("board %+v %v", b, err)
 	}
 	if _, err := st.Board(acct, bB); err != ErrNotFound {
@@ -291,5 +302,32 @@ func TestImportKeepsTheTokenOnItsHost(t *testing.T) {
 	}
 	if _, err := f.importer("fizzy-token", "nope").Run(st); err == nil {
 		t.Error("a missing board was not an error")
+	}
+
+	f.evilNext = false
+	f.redirect = true
+	if _, err := f.importer("fizzy-token").Run(st); err == nil || !strings.Contains(err.Error(), "302") {
+		t.Errorf("a redirect was followed (or not reported): %v", err)
+	}
+	f.redirect = false
+
+	for _, base := range []string{"http://fizzy.test", "ftp://fizzy.test", "fizzy.test"} {
+		im := f.importer("fizzy-token")
+		im.Base = base
+		if _, err := im.Run(st); err == nil {
+			t.Errorf("imported over %s", base)
+		}
+	}
+	for _, base := range []string{"http://127.0.0.1:9", "http://localhost:9"} {
+		im := f.importer("fizzy-token", bA)
+		im.Base = base
+		if _, err := im.Run(st); err != nil {
+			t.Errorf("a loopback test server %s: %v", base, err)
+		}
+	}
+
+	f.bigCard = true
+	if _, err := f.importer("fizzy-token", bA).Run(Open(filepath.Join(t.TempDir(), "b"))); err == nil || !strings.Contains(err.Error(), "1000000000") {
+		t.Errorf("a ten-digit card number: %v", err)
 	}
 }

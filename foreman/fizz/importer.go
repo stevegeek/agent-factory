@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -207,9 +208,21 @@ func (im *Importer) Run(st *Store) (Imported, error) {
 	if !ValidAccount(im.Account) {
 		return n, fmt.Errorf("account must be digits: %q", im.Account)
 	}
-	if im.Client == nil {
-		im.Client = &http.Client{Timeout: 60 * time.Second}
+	base, err := url.Parse(im.Base)
+	if err != nil || base.Host == "" {
+		return n, fmt.Errorf("bad Fizzy URL %q", im.Base)
 	}
+	// the token crosses the network only encrypted (a local test server excepted)
+	if base.Scheme != "https" && !(base.Scheme == "http" && loopback(base.Hostname())) {
+		return n, fmt.Errorf("the Fizzy URL must be https: %s", im.Base)
+	}
+	client := http.Client{Timeout: 60 * time.Second}
+	if im.Client != nil {
+		client = *im.Client
+	}
+	// a redirect could carry the token elsewhere: take the answer as it is
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	im.Client = &client
 	if im.Sleep == nil {
 		im.Sleep = time.Sleep
 	}
@@ -283,12 +296,18 @@ func (im *Importer) Run(st *Store) (Imported, error) {
 				return n, err
 			}
 			for _, c := range list {
+				if c.Number < 1 || c.Number > MaxNumber {
+					return n, fmt.Errorf("card number %d is not one this store can keep", c.Number)
+				}
 				if c.Board == nil || c.Board.ID == b.ID {
 					cards[c.Number] = &full{card: c}
 				}
 			}
 		}
 		im.logf("board %s (%s): %d columns", b.Name, b.ID, len(cols))
+	}
+	if len(cards) > maxCards {
+		return n, fmt.Errorf("%d cards: more than the %d an account may hold", len(cards), maxCards)
 	}
 	numbers := make([]int, 0, len(cards))
 	for num := range cards {
@@ -308,11 +327,16 @@ func (im *Importer) Run(st *Store) (Imported, error) {
 		if err := im.all("/cards/"+strconv.Itoa(num)+"/comments.json", decode(&f.comments)); err != nil {
 			return n, err
 		}
+		if len(f.comments) > maxComments || len(shown.Steps) > maxSteps {
+			return n, fmt.Errorf("card #%d has more than %d comments or %d steps", num, maxComments, maxSteps)
+		}
 	}
 
 	// write
-	st.Mu.Lock()
-	defer st.Mu.Unlock()
+	if err := st.Lock(); err != nil {
+		return n, err
+	}
+	defer st.Unlock()
 	a, err := st.Account(im.Account)
 	if errors.Is(err, ErrNotFound) {
 		a, err = st.Init(im.Account, name, im.Owner, "")
@@ -320,7 +344,8 @@ func (im *Importer) Run(st *Store) (Imported, error) {
 	if err != nil {
 		return n, err
 	}
-	// a remote user maps onto a local one by id, then by name (the owner made by init), then is added
+	// a remote user maps onto a local one by id only; one not here yet is added with its id.
+	// Never by name: a name is no proof two accounts are one person.
 	ids := map[string]string{}
 	var mapUser func(u *rUser) string
 	mapUser = func(u *rUser) string {
@@ -331,14 +356,6 @@ func (im *Importer) Run(st *Store) (Imported, error) {
 			return id
 		}
 		local := a.User(u.ID)
-		if local == nil && u.Role == "system" {
-			local = a.System(st.Stamp())
-		}
-		if local == nil {
-			if l := a.UserNamed(u.Name); l != nil && l.Role != "system" {
-				local = l
-			}
-		}
 		if local == nil {
 			if !ValidID(u.ID) {
 				return ""
@@ -375,7 +392,7 @@ func (im *Importer) Run(st *Store) (Imported, error) {
 	var out []*Card
 	for _, num := range numbers {
 		rc, rcs := cards[num].card, cards[num].comments
-		if !ValidID(rc.ID) || num <= 0 {
+		if !ValidID(rc.ID) || num < 1 || num > MaxNumber {
 			return n, fmt.Errorf("card %d: id %q is not one this store can keep", num, rc.ID)
 		}
 		if old, err := st.Card(a.ID, num); err == nil && old.ID != rc.ID {
@@ -482,4 +499,12 @@ func colorOf(raw json.RawMessage) (string, string) {
 		return orDefault(colors[s], "Custom"), s
 	}
 	return "Blue", "var(--color-card-default)"
+}
+
+func loopback(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

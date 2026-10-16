@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -49,6 +51,8 @@ func CardNumber(s string) int {
 }
 
 var ErrNotFound = errors.New("not found")
+
+const MaxNumber = 999_999_999 // nine digits, as numberRe allows
 
 type Account struct {
 	ID         string  `json:"id"`
@@ -130,12 +134,71 @@ type Comment struct {
 }
 
 type Store struct {
-	Dir string
-	Mu  sync.Mutex
-	Now func() time.Time
+	Dir      string
+	Now      func() time.Time
+	MaxBytes int64 // writes are refused once the store is this big
+
+	mu     sync.Mutex
+	lockf  *os.File
+	sizeMu sync.Mutex
+	size   int64
+	sizeAt time.Time
 }
 
-func Open(dir string) *Store { return &Store{Dir: dir, Now: time.Now} }
+func Open(dir string) *Store { return &Store{Dir: dir, Now: time.Now, MaxBytes: 200 << 20} }
+
+// Lock holds the store against this process (a mutex) and every other one (flock on
+// <dir>/.lock): the server, the web views, an import and the token commands never interleave.
+func (s *Store) Lock() error {
+	s.mu.Lock()
+	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(s.Dir, ".lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	if err == nil {
+		if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+			f.Close()
+		}
+	}
+	if err != nil {
+		s.mu.Unlock()
+		return fmt.Errorf("lock %s: %w", s.Dir, err)
+	}
+	s.lockf = f
+	return nil
+}
+
+func (s *Store) Unlock() {
+	if s.lockf != nil {
+		syscall.Flock(int(s.lockf.Fd()), syscall.LOCK_UN)
+		s.lockf.Close()
+		s.lockf = nil
+	}
+	s.mu.Unlock()
+}
+
+// Full: the store has reached MaxBytes. The walk is redone at most every 10 s.
+func (s *Store) Full() bool {
+	s.sizeMu.Lock()
+	defer s.sizeMu.Unlock()
+	if s.MaxBytes <= 0 {
+		return false
+	}
+	if now := time.Now(); s.sizeAt.IsZero() || now.Sub(s.sizeAt) > 10*time.Second {
+		var total int64
+		filepath.WalkDir(s.Dir, func(p string, d fs.DirEntry, err error) error {
+			if err == nil && !d.IsDir() {
+				if info, err := d.Info(); err == nil {
+					total += info.Size()
+				}
+			}
+			return nil
+		})
+		s.size, s.sizeAt = total, now
+	}
+	return s.size >= s.MaxBytes
+}
 
 func (s *Store) Stamp() string { return s.Now().UTC().Format(TimeFormat) }
 
@@ -273,30 +336,85 @@ func (s *Store) SaveCard(acct string, c *Card) error {
 	return writeFile(filepath.Join(dir, "cards", strconv.Itoa(c.Number)+".json"), c)
 }
 
+// DeleteCard moves a card to cards/.trash/<n>-<unixnano>.json: gone from the API, kept for RestoreCard.
 func (s *Store) DeleteCard(acct string, n int) error {
 	dir, err := s.accountDir(acct)
 	if err != nil || n <= 0 {
 		return ErrNotFound
 	}
-	err = os.Remove(filepath.Join(dir, "cards", strconv.Itoa(n)+".json"))
-	if errors.Is(err, os.ErrNotExist) {
+	from := filepath.Join(dir, "cards", strconv.Itoa(n)+".json")
+	if _, err := os.Stat(from); errors.Is(err, os.ErrNotExist) {
 		return ErrNotFound
 	}
-	return err
+	trash := filepath.Join(dir, "cards", ".trash")
+	if err := os.MkdirAll(trash, 0o700); err != nil {
+		return err
+	}
+	return os.Rename(from, filepath.Join(trash, fmt.Sprintf("%d-%d.json", n, s.Now().UnixNano())))
 }
 
-// NextNumber reserves the account's next card number.
-func (s *Store) NextNumber(a *Account) (int, error) {
-	cards, err := s.Cards(a.ID)
+// RestoreCard brings back the card most recently deleted with number n.
+func (s *Store) RestoreCard(acct string, n int) error {
+	dir, err := s.accountDir(acct)
+	if err != nil || n <= 0 {
+		return ErrNotFound
+	}
+	to := filepath.Join(dir, "cards", strconv.Itoa(n)+".json")
+	if _, err := os.Stat(to); err == nil {
+		return fmt.Errorf("card #%d exists; not restoring over it", n)
+	}
+	es, _ := os.ReadDir(filepath.Join(dir, "cards", ".trash"))
+	latest, at := "", int64(-1)
+	for _, e := range es {
+		num, stamp, ok := strings.Cut(strings.TrimSuffix(e.Name(), ".json"), "-")
+		t, err := strconv.ParseInt(stamp, 10, 64)
+		if ok && err == nil && num == strconv.Itoa(n) && t > at {
+			latest, at = e.Name(), t
+		}
+	}
+	if latest == "" {
+		return ErrNotFound
+	}
+	return os.Rename(filepath.Join(dir, "cards", ".trash", latest), to)
+}
+
+// CountCards counts an account's live cards from their file names alone.
+func (s *Store) CountCards(acct string) (int, error) {
+	dir, err := s.accountDir(acct)
 	if err != nil {
 		return 0, err
 	}
-	n := a.LastNumber
-	for _, c := range cards {
-		n = max(n, c.Number)
+	es, err := os.ReadDir(filepath.Join(dir, "cards"))
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, nil
 	}
-	a.LastNumber = n + 1
-	return a.LastNumber, s.SaveAccount(a)
+	n := 0
+	for _, e := range es {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") && !strings.HasPrefix(e.Name(), ".") {
+			n++
+		}
+	}
+	return n, err
+}
+
+// NextNumber reserves the account's next card number: one past the last given, skipping
+// any number a card file already holds.
+func (s *Store) NextNumber(a *Account) (int, error) {
+	dir, err := s.accountDir(a.ID)
+	if err != nil {
+		return 0, err
+	}
+	n := a.LastNumber + 1
+	for ; n <= MaxNumber; n++ {
+		if _, err := os.Stat(filepath.Join(dir, "cards", strconv.Itoa(n)+".json")); errors.Is(err, os.ErrNotExist) {
+			break
+		}
+	}
+	if n > MaxNumber {
+		return 0, errors.New("card numbers are used up")
+	}
+	a.LastNumber = n
+	return n, s.SaveAccount(a)
 }
 
 func (s *Store) each(acct, kind string, f func([]byte) error) error {

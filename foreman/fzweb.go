@@ -5,6 +5,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -65,8 +66,10 @@ func (s *Server) projectSummaries() []ProjectSummary {
 	if s.fz == nil {
 		return nil
 	}
-	s.fz.Mu.Lock()
-	defer s.fz.Mu.Unlock()
+	if s.fz.Lock() != nil {
+		return nil
+	}
+	defer s.fz.Unlock()
 	var out []ProjectSummary
 	for _, acct := range s.fz.Accounts() {
 		boards, err := s.fz.Boards(acct)
@@ -115,7 +118,10 @@ func (s *Server) projectBoard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.fz.Mu.Lock()
+	if err := s.fz.Lock(); err != nil {
+		http.Error(w, "the project boards cannot be read just now", http.StatusInternalServerError)
+		return
+	}
 	a, err := s.fz.Account(acct)
 	var b *fizz.Board
 	var cards []*fizz.Card
@@ -125,15 +131,13 @@ func (s *Server) projectBoard(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		cards, err = s.fz.Cards(acct)
 	}
-	s.fz.Mu.Unlock()
+	s.fz.Unlock()
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	// newest activity first in every lane, as Fizzy shows them
-	for i, j := 0, len(cards)-1; i < j; i, j = i+1, j-1 {
-		cards[i], cards[j] = cards[j], cards[i]
-	}
+	sort.SliceStable(cards, func(i, j int) bool { return cards[i].LastActiveAt > cards[j].LastActiveAt })
 	v := &PBoardView{Name: b.Name}
 	lane := func(label string, keep func(*fizz.Card) bool) PLane {
 		l := PLane{Label: label}
@@ -163,7 +167,10 @@ func (s *Server) projectCard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.fz.Mu.Lock()
+	if err := s.fz.Lock(); err != nil {
+		http.Error(w, "the project boards cannot be read just now", http.StatusInternalServerError)
+		return
+	}
 	a, err := s.fz.Account(acct)
 	var c *fizz.Card
 	var b *fizz.Board
@@ -173,7 +180,7 @@ func (s *Server) projectCard(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		b, _ = s.fz.Board(acct, c.BoardID)
 	}
-	s.fz.Mu.Unlock()
+	s.fz.Unlock()
 	if err != nil {
 		http.NotFound(w, r)
 		return

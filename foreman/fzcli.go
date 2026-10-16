@@ -16,6 +16,7 @@ import (
 
 const boardsUsage = `usage:
   foreman boards init [--account 6182510] [--name NAME] [--owner Stephen] [--email ADDR]
+  foreman boards restore --number N [--account 6182510]
   foreman boards import --from-fizzy --token-file PATH [--account 6182510] [--board ID ...] [--fizzy-url https://app.fizzy.do]
   foreman tokens add NAME [--user Stephen] [--account ID]
   foreman tokens list
@@ -74,11 +75,41 @@ func cli(args []string, stdout, stderr io.Writer) error {
 			return err
 		}
 		st := fizz.Open(storeDir(*root))
+		if err := st.Lock(); err != nil {
+			return err
+		}
+		defer st.Unlock()
 		a, err := st.Init(orStr(*account, "6182510"), *name, *owner, *email)
 		if err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "account %s (%s) in %s; owner %s\n", a.ID, a.Name, st.Dir, a.Users[0].Name)
+		return nil
+
+	case "boards restore":
+		number := fs.Int("number", 0, "the deleted card's number")
+		if _, err := parse(fs, args[2:]); err != nil {
+			return err
+		}
+		if *number <= 0 {
+			return errors.New("usage: foreman boards restore --number N [--account ID]")
+		}
+		st := fizz.Open(storeDir(*root))
+		if err := st.Lock(); err != nil {
+			return err
+		}
+		defer st.Unlock()
+		a, err := oneAccount(st, *account)
+		if err != nil {
+			return err
+		}
+		if err := st.RestoreCard(a.ID, *number); err != nil {
+			if errors.Is(err, fizz.ErrNotFound) {
+				return fmt.Errorf("no deleted card #%d in account %s", *number, a.ID)
+			}
+			return err
+		}
+		fmt.Fprintf(stdout, "restored card #%d\n", *number)
 		return nil
 
 	case "boards import":
@@ -120,6 +151,10 @@ func cli(args []string, stdout, stderr io.Writer) error {
 			return errors.New("usage: foreman tokens add NAME [--user NAME] [--account ID]")
 		}
 		st := fizz.Open(storeDir(*root))
+		if err := st.Lock(); err != nil {
+			return err
+		}
+		defer st.Unlock()
 		a, err := oneAccount(st, *account)
 		if err != nil {
 			return err
@@ -179,7 +214,12 @@ func cli(args []string, stdout, stderr io.Writer) error {
 		if len(pos) != 1 {
 			return errors.New("usage: foreman tokens revoke NAME")
 		}
-		if err := fizz.Open(storeDir(*root)).RevokeToken(pos[0]); err != nil {
+		st := fizz.Open(storeDir(*root))
+		if err := st.Lock(); err != nil {
+			return err
+		}
+		defer st.Unlock()
+		if err := st.RevokeToken(pos[0]); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "revoked %s\n", pos[0])

@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stevegeek/agent-factory/foreman/fizz"
 )
@@ -201,5 +203,64 @@ func TestTokensCLI(t *testing.T) {
 	}
 	if _, _, code := run("boards", "import", "--token-file", "/nonexistent"); code == 0 {
 		t.Error("import without --from-fizzy")
+	}
+}
+
+func TestProjectBoardNewestActivityFirst(t *testing.T) {
+	h, st, board, _ := projectHarness(t)
+	for n, at := range map[int]string{3: "2026-01-01T00:00:00.000Z", 4: "2026-03-01T00:00:00.000Z", 5: "2026-02-01T00:00:00.000Z"} {
+		st.SaveCard("6182510", &fizz.Card{ID: fizz.NewID(), Number: n, BoardID: board, Title: "maybe " + strconv.Itoa(n), LastActiveAt: at})
+	}
+	body := h.do("GET", "/pb/6182510/"+board, nil, h.login()).Body.String()
+	i4, i5, i3 := strings.Index(body, "maybe 4"), strings.Index(body, "maybe 5"), strings.Index(body, "maybe 3")
+	if i4 < 0 || !(i4 < i5 && i5 < i3) {
+		t.Errorf("Maybe? lane order: 4 at %d, 5 at %d, 3 at %d", i4, i5, i3)
+	}
+}
+
+func TestBoardsRestoreCLI(t *testing.T) {
+	_, st, _, _ := projectHarness(t)
+	root := filepath.Dir(st.Dir)
+	if err := st.DeleteCard("6182510", 2); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := runCLI([]string{"boards", "restore", "--root", root, "--number", "2"}, &out, &errb); code != 0 {
+		t.Fatalf("restore: %s", errb.String())
+	}
+	if c, err := st.Card("6182510", 2); err != nil || c.Title != "Second" {
+		t.Errorf("restored %+v %v", c, err)
+	}
+	errb.Reset()
+	if code := runCLI([]string{"boards", "restore", "--root", root, "--number", "2"}, &out, &errb); code == 0 || !strings.Contains(errb.String(), "exists") {
+		t.Errorf("restore over a live card: %d %s", code, errb.String())
+	}
+	errb.Reset()
+	if code := runCLI([]string{"boards", "restore", "--root", root, "--number", "9"}, &out, &errb); code == 0 || !strings.Contains(errb.String(), "no deleted card #9") {
+		t.Errorf("restore of nothing: %d %s", code, errb.String())
+	}
+}
+
+func TestCLIWaitsForTheStoreLock(t *testing.T) {
+	root := t.TempDir()
+	var out, errb bytes.Buffer
+	runCLI([]string{"boards", "init", "--root", root}, &out, &errb)
+	held := fizz.Open(storeDir(root))
+	if err := held.Lock(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan int)
+	go func() {
+		var o, e bytes.Buffer
+		done <- runCLI([]string{"tokens", "add", "late", "--root", root}, &o, &e)
+	}()
+	select {
+	case <-done:
+		t.Fatal("tokens add ran while the store was locked")
+	case <-time.After(100 * time.Millisecond):
+	}
+	held.Unlock()
+	if code := <-done; code != 0 {
+		t.Errorf("tokens add after the lock: %d", code)
 	}
 }

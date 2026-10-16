@@ -9,8 +9,22 @@ import (
 // client reached it (scheme, host and mount path), so urls work for the caller.
 
 type view struct {
-	base string
-	a    *Account
+	base  string
+	a     *Account
+	plain map[string]string // card id -> description as plain text, made once per request
+}
+
+// descText: a card's description as plain text, converted once per request.
+func (v view) descText(c *Card) string {
+	if v.plain == nil {
+		return PlainText(c.Description, false)
+	}
+	t, ok := v.plain[c.ID]
+	if !ok {
+		t = PlainText(c.Description, false)
+		v.plain[c.ID] = t
+	}
+	return t
 }
 
 func (v view) acctURL() string { return v.base + "/" + v.a.ID }
@@ -63,7 +77,7 @@ func (v view) card(c *Card, b *Board, withSteps bool) map[string]any {
 	}
 	m := map[string]any{
 		"id": c.ID, "number": c.Number, "title": c.Title, "status": orDefault(c.Status, "published"),
-		"description": PlainText(c.Description, false), "description_html": c.Description,
+		"description": v.descText(c), "description_html": c.Description,
 		"image_url": nil, "has_attachments": strings.Contains(c.Description, "<action-text-attachment"),
 		"tags": tags, "closed": c.Closed, "postponed": c.Postponed, "golden": c.Golden,
 		"last_active_at": c.LastActiveAt, "created_at": c.CreatedAt,

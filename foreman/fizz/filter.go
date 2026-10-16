@@ -41,8 +41,14 @@ func newFilter(q url.Values, a *Account, now time.Time) (*filter, string) {
 		tags: set(q, "tag_ids[]"), assignees: set(q, "assignee_ids[]"), creators: set(q, "creator_ids[]"),
 		closers: set(q, "closer_ids[]"), unassigned: q.Get("assignment_status") == "unassigned",
 		sortBy: q.Get("sorted_by"), acct: a, now: now.UTC()}
+	seen := map[string]bool{}
 	for _, t := range q["terms[]"] {
-		f.terms = append(f.terms, strings.Fields(strings.ToLower(t))...)
+		for _, w := range strings.Fields(strings.ToLower(t)) {
+			if !seen[w] && len(f.terms) < maxTerms && len(w) <= maxTitle {
+				seen[w] = true
+				f.terms = append(f.terms, w)
+			}
+		}
 	}
 	if f.index == "" && (q.Get("closure") != "" || f.closers != nil) {
 		f.index = "closed" // asking who closed what, or when, is asking about closed cards
@@ -103,7 +109,8 @@ func anyIn(ids []string, m map[string]bool) bool {
 	return false
 }
 
-func (f *filter) match(c *Card) bool {
+// match: desc gives a card's description as plain text (cached by the caller).
+func (f *filter) match(c *Card, desc func(*Card) string) bool {
 	open := !c.Closed && !c.Postponed
 	switch f.index {
 	case "", "all":
@@ -160,7 +167,7 @@ func (f *filter) match(c *Card) bool {
 	}
 	if len(f.terms) > 0 {
 		var text strings.Builder
-		text.WriteString(strings.ToLower(c.Title) + "\n" + strings.ToLower(PlainText(c.Description, false)))
+		text.WriteString(strings.ToLower(c.Title) + "\n" + strings.ToLower(desc(c)))
 		for _, cm := range c.Comments {
 			text.WriteString("\n" + strings.ToLower(PlainText(cm.Body, false)))
 		}

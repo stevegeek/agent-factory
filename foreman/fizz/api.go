@@ -83,15 +83,19 @@ func NewAPI(st *Store) *API {
 
 func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) { a.mux.ServeHTTP(w, r) }
 
-// call: one request, authenticated, with its account loaded.
+// call: one request, authenticated, with its account loaded. Handlers set code and out;
+// serve writes them after the store is unlocked.
 type call struct {
-	w    http.ResponseWriter
+	hdr  http.Header
 	r    *http.Request
+	raw  []byte // the request body, read before the lock
 	st   *Store
 	tok  *Token
 	acct *Account
 	v    view
 	per  int
+	code int
+	out  []byte
 }
 
 type httpError struct {
@@ -105,6 +109,11 @@ func fail(code int, msg string) { panic(&httpError{code, msg}) }
 
 func notFound() { fail(http.StatusNotFound, "Not Found") }
 
+func errorBody(msg string) []byte {
+	b, _ := json.Marshal(map[string]any{"error": msg})
+	return append(b, '\n')
+}
+
 func (a *API) serve(w http.ResponseWriter, r *http.Request, h func(*call)) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	secret, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -112,9 +121,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request, h func(*call)) {
 		unauthorized(w)
 		return
 	}
-	// one request at a time: the store's read-modify-writes never interleave
-	a.Store.Mu.Lock()
-	defer a.Store.Mu.Unlock()
+	// tokens.json is only ever replaced whole, so it is read without the lock
 	tok, err := a.Store.CheckToken(strings.TrimSpace(secret))
 	if err != nil {
 		log.Printf("fizzy api: tokens: %v", err)
@@ -126,33 +133,61 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request, h func(*call)) {
 		unauthorized(w)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-	c := &call{w: w, r: r, st: a.Store, tok: tok, per: a.PerPage}
+	// the body is read, and the answer written, outside the lock: a slow client holds up no one
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBody))
+	if err != nil {
+		var mb *http.MaxBytesError
+		if errors.As(err, &mb) {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": "Request body too large"})
+		} else {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Bad request"})
+		}
+		return
+	}
+	c := &call{hdr: w.Header(), r: r, raw: raw, st: a.Store, tok: tok, per: a.PerPage}
+	code, out := a.run(c, h)
+	w.WriteHeader(code)
+	w.Write(out)
+}
+
+// run handles one call under the store's lock and returns the status and body to send.
+func (a *API) run(c *call, h func(*call)) (code int, out []byte) {
+	if err := a.Store.Lock(); err != nil {
+		log.Printf("fizzy api: %v", err)
+		return http.StatusInternalServerError, errorBody("Internal Server Error")
+	}
+	defer a.Store.Unlock()
 	defer func() {
 		if p := recover(); p != nil {
 			e, ok := p.(*httpError)
 			if !ok {
 				panic(p)
 			}
-			writeJSON(w, e.code, map[string]any{"error": e.msg})
+			code, out = e.code, errorBody(e.msg)
 		}
 	}()
+	r := c.r
 	if h == nil {
 		notFound()
 	}
-	if r.PathValue("account") != tok.Account && r.URL.Path != Mount+"/my/identity.json" {
+	if r.PathValue("account") != c.tok.Account && r.URL.Path != Mount+"/my/identity.json" {
 		notFound()
 	}
-	acct, err := a.Store.Account(tok.Account)
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && a.Store.Full() {
+		fail(http.StatusInsufficientStorage, "The board store is full")
+	}
+	acct, err := a.Store.Account(c.tok.Account)
 	if err != nil {
 		if !errors.Is(err, ErrNotFound) {
-			log.Printf("fizzy api: account %s: %v", tok.Account, err)
+			log.Printf("fizzy api: account %s: %v", c.tok.Account, err)
 		}
 		notFound()
 	}
 	c.acct = acct
-	c.v = view{base: baseURL(r), a: acct}
+	c.v = view{base: baseURL(r), a: acct, plain: map[string]string{}}
+	c.code = http.StatusOK
 	h(c)
+	return c.code, c.out
 }
 
 // unauthorized: what the CLI reads as an auth error ({"error": …} with 401).
@@ -177,26 +212,27 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	}
 }
 
-func (c *call) ok(v any)   { writeJSON(c.w, http.StatusOK, v) }
-func (c *call) noContent() { c.w.WriteHeader(http.StatusNoContent) }
-func (c *call) created(loc string, v any) {
-	c.w.Header().Set("Location", loc)
-	writeJSON(c.w, http.StatusCreated, v)
+func (c *call) reply(code int, v any) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		must(err)
+	}
+	c.code, c.out = code, append(b, '\n')
 }
 
-// body decodes a JSON request body into v. The real API also takes Rails-style
+func (c *call) ok(v any)   { c.reply(http.StatusOK, v) }
+func (c *call) noContent() { c.code, c.out = http.StatusNoContent, nil }
+func (c *call) created(loc string, v any) {
+	c.hdr.Set("Location", loc)
+	c.reply(http.StatusCreated, v)
+}
+
+// body decodes the JSON request body into v. The real API also takes Rails-style
 // {"card": {…}}; a single object under the wrapper key is unwrapped.
 func (c *call) body(wrapper string, v any) {
-	var raw map[string]json.RawMessage
-	dec := json.NewDecoder(c.r.Body)
-	if err := dec.Decode(&raw); err != nil {
-		var mb *http.MaxBytesError
-		if errors.As(err, &mb) {
-			fail(http.StatusRequestEntityTooLarge, "Request body too large")
-		}
-		if errors.Is(err, io.EOF) {
-			raw = map[string]json.RawMessage{}
-		} else {
+	raw := map[string]json.RawMessage{}
+	if len(strings.TrimSpace(string(c.raw))) > 0 {
+		if err := json.Unmarshal(c.raw, &raw); err != nil {
 			fail(http.StatusBadRequest, "Bad request: the body is not a JSON object")
 		}
 	}
@@ -207,6 +243,41 @@ func (c *call) body(wrapper string, v any) {
 	if err := json.Unmarshal(data, v); err != nil {
 		fail(http.StatusUnprocessableEntity, "Invalid parameters: "+err.Error())
 	}
+}
+
+// Limits: what one account may hold, so no client can make the store, or an answer, huge.
+const (
+	maxTitle    = 1 << 10   // card titles, step content, board, column and tag names
+	maxText     = 128 << 10 // a description or comment, as stored
+	maxComments = 1000      // per card
+	maxSteps    = 1000      // per card
+	maxCards    = 10000     // per account
+	maxBoards   = 1000      // per account
+	maxColumns  = 100       // per board
+	maxTags     = 1000      // per account
+	maxTerms    = 10        // search words
+	pageBudget  = 1 << 20   // a list page stops growing near this many bytes
+)
+
+// short checks a one-line field: present and at most maxTitle bytes.
+func short(field, v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		fail(http.StatusUnprocessableEntity, field+" can't be blank")
+	}
+	if len(v) > maxTitle {
+		fail(http.StatusUnprocessableEntity, field+" is too long (at most 1 KB)")
+	}
+	return v
+}
+
+// long stores rich text, at most maxText bytes once stored.
+func long(field, v string) string {
+	h := RichText(v)
+	if len(h) > maxText {
+		fail(http.StatusUnprocessableEntity, field+" is too long (at most 128 KB)")
+	}
+	return h
 }
 
 // seg: a path value with an optional ".json" suffix removed.
@@ -264,8 +335,13 @@ func (c *call) boardOf(card *Card) *Board {
 	return b
 }
 
-// page cuts one page from n items and sets the Link header when more follow.
-func (c *call) page(n int) (from, to int) {
+// page cuts one page from n items of about the same size.
+func (c *call) page(n int) (from, to int) { return c.pageSized(n, nil) }
+
+// pageSized cuts one page from n items: at most per items, and fewer once size (an estimate
+// of each item's JSON) passes pageBudget. Pages are cut the same way on every request, so
+// ?page=N stays meaningful. It sets the Link header when more follow.
+func (c *call) pageSized(n int, size func(int) int) (from, to int) {
 	p := 1
 	if s := c.r.URL.Query().Get("page"); s != "" {
 		var err error
@@ -273,15 +349,39 @@ func (c *call) page(n int) (from, to int) {
 			fail(http.StatusBadRequest, "Bad page")
 		}
 	}
-	from = min((p-1)*c.per, n)
-	to = min(from+c.per, n)
+	if size == nil {
+		from = min((p-1)*c.per, n)
+		to = min(from+c.per, n)
+	} else {
+		start := 0
+		for page := 1; ; page++ {
+			end, bytes := start, 0
+			for end < n && end-start < c.per {
+				sz := size(end)
+				if end > start && bytes+sz > pageBudget {
+					break
+				}
+				bytes += sz
+				end++
+			}
+			if page == p || end >= n {
+				from, to = start, end
+				if page != p {
+					from = n
+					to = n
+				}
+				break
+			}
+			start = end
+		}
+	}
 	if to < n {
 		q := c.r.URL.Query()
 		q.Set("page", strconv.Itoa(p+1))
 		u := *c.r.URL
 		u.RawQuery = q.Encode()
 		next := strings.TrimSuffix(c.v.base, Mount) + u.RequestURI()
-		c.w.Header().Set("Link", "<"+next+`>; rel="next"`)
+		c.hdr.Set("Link", "<"+next+`>; rel="next"`)
 	}
 	return from, to
 }
@@ -306,6 +406,9 @@ func (c *call) note(card *Card, text string) {
 	sys := c.acct.System(c.st.Stamp())
 	if len(c.acct.Users) != n {
 		c.saveAccount()
+	}
+	if len(card.Comments) >= maxComments {
+		return
 	}
 	now := c.st.Stamp()
 	card.Comments = append(card.Comments, &Comment{ID: NewID(), Body: RichText(text), CreatorID: sys.ID, CreatedAt: now, UpdatedAt: now})
@@ -370,10 +473,13 @@ func (a *API) createBoard(c *call) {
 		AutoPostpone int    `json:"auto_postpone_period_in_days"`
 	}
 	c.body("board", &in)
-	if strings.TrimSpace(in.Name) == "" {
-		fail(http.StatusUnprocessableEntity, "Name can't be blank")
+	name := short("Name", in.Name)
+	bs, err := c.st.Boards(c.acct.ID)
+	must(err)
+	if len(bs) >= maxBoards {
+		fail(http.StatusUnprocessableEntity, "This account has as many boards as it may")
 	}
-	b := &Board{ID: NewID(), Name: strings.TrimSpace(in.Name), AllAccess: in.AllAccess == nil || *in.AllAccess,
+	b := &Board{ID: NewID(), Name: name, AllAccess: in.AllAccess == nil || *in.AllAccess,
 		AutoPostpone: in.AutoPostpone, CreatedAt: c.st.Stamp(), CreatorID: c.user().ID, Columns: []*Column{}}
 	if b.AutoPostpone == 0 {
 		b.AutoPostpone = 30
@@ -405,10 +511,14 @@ func (a *API) createColumn(c *call) {
 		Color string `json:"color"`
 	}
 	c.body("column", &in)
-	if strings.TrimSpace(in.Name) == "" {
-		fail(http.StatusUnprocessableEntity, "Name can't be blank")
+	name := short("Name", in.Name)
+	if len(in.Color) > 100 {
+		fail(http.StatusUnprocessableEntity, "Color is too long")
 	}
-	col := &Column{ID: NewID(), Name: strings.TrimSpace(in.Name), ColorValue: orDefault(in.Color, "var(--color-card-default)"), CreatedAt: c.st.Stamp()}
+	if len(b.Columns) >= maxColumns {
+		fail(http.StatusUnprocessableEntity, "This board has as many columns as it may")
+	}
+	col := &Column{ID: NewID(), Name: name, ColorValue: orDefault(in.Color, "var(--color-card-default)"), CreatedAt: c.st.Stamp()}
 	col.ColorName = orDefault(colors[col.ColorValue], "Custom")
 	b.Columns = append(b.Columns, col)
 	must(c.st.SaveBoard(c.acct.ID, b))
@@ -451,12 +561,12 @@ func (c *call) listCards(q url.Values) {
 	}
 	var hits []*Card
 	for _, card := range cards {
-		if byID[card.BoardID] != nil && f.match(card) {
+		if byID[card.BoardID] != nil && f.match(card, c.v.descText) {
 			hits = append(hits, card)
 		}
 	}
 	f.sort(hits)
-	from, to := c.page(len(hits))
+	from, to := c.pageSized(len(hits), func(i int) int { return cardSize(hits[i]) })
 	out := []any{}
 	for _, card := range hits[from:to] {
 		out = append(out, c.v.card(card, byID[card.BoardID], false))
@@ -500,14 +610,17 @@ func (a *API) createCard(c *call) {
 		in.BoardID = c.r.URL.Query().Get("board_id")
 	}
 	b := c.loadBoard(in.BoardID)
-	if strings.TrimSpace(in.Title) == "" {
-		fail(http.StatusUnprocessableEntity, "Title can't be blank")
+	title, desc := short("Title", in.Title), long("Description", in.Description)
+	at := c.stamp(in.CreatedAt)
+	count, err := c.st.CountCards(c.acct.ID)
+	must(err)
+	if count >= maxCards {
+		fail(http.StatusUnprocessableEntity, "This account has as many cards as it may")
 	}
 	n, err := c.st.NextNumber(c.acct)
 	must(err)
-	at := c.stamp(in.CreatedAt)
-	card := &Card{ID: NewID(), Number: n, BoardID: b.ID, Title: strings.TrimSpace(in.Title),
-		Description: RichText(in.Description), Status: "published", CreatedAt: at, CreatorID: c.user().ID,
+	card := &Card{ID: NewID(), Number: n, BoardID: b.ID, Title: title,
+		Description: desc, Status: "published", CreatedAt: at, CreatorID: c.user().ID,
 		Assignees: []string{}, Tags: []string{}, Steps: []*Step{}, Comments: []*Comment{}}
 	c.save(card)
 	c.created(c.v.cardURL(n)+".json", c.v.card(card, b, true))
@@ -522,13 +635,10 @@ func (a *API) updateCard(c *call) {
 	}
 	c.body("card", &in)
 	if in.Title != nil {
-		if strings.TrimSpace(*in.Title) == "" {
-			fail(http.StatusUnprocessableEntity, "Title can't be blank")
-		}
-		card.Title = strings.TrimSpace(*in.Title)
+		card.Title = short("Title", *in.Title)
 	}
 	if in.Description != nil {
-		card.Description = RichText(*in.Description)
+		card.Description = long("Description", *in.Description)
 	}
 	if in.CreatedAt != "" {
 		card.CreatedAt = c.stamp(in.CreatedAt)
@@ -614,12 +724,12 @@ func (a *API) tagging(c *call) {
 		TagTitle string `json:"tag_title"`
 	}
 	c.body("tagging", &in)
-	title := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(in.TagTitle), "#"))
-	if title == "" || len(title) > 100 {
-		fail(http.StatusUnprocessableEntity, "Tag title can't be blank")
-	}
+	title := short("Tag title", strings.TrimPrefix(strings.TrimSpace(in.TagTitle), "#"))
 	t := c.acct.TagTitled(title)
 	if t == nil {
+		if len(c.acct.Tags) >= maxTags {
+			fail(http.StatusUnprocessableEntity, "This account has as many tags as it may")
+		}
 		t = &Tag{ID: NewID(), Title: title, CreatedAt: c.st.Stamp()}
 		c.acct.Tags = append(c.acct.Tags, t)
 		c.saveAccount()
@@ -673,7 +783,7 @@ func toggle(ids []string, id string) []string {
 
 func (a *API) comments(c *call) {
 	card := c.loadCard()
-	from, to := c.page(len(card.Comments))
+	from, to := c.pageSized(len(card.Comments), func(i int) int { return 2*len(card.Comments[i].Body) + 1500 })
 	out := []any{}
 	for _, cm := range card.Comments[from:to] {
 		out = append(out, c.v.comment(card, cm))
@@ -707,8 +817,12 @@ func (a *API) createComment(c *call) {
 	if strings.TrimSpace(in.Body) == "" {
 		fail(http.StatusUnprocessableEntity, "Body can't be blank")
 	}
+	body := long("Body", in.Body)
+	if len(card.Comments) >= maxComments {
+		fail(http.StatusUnprocessableEntity, "This card has as many comments as it may")
+	}
 	at := c.stamp(in.CreatedAt)
-	cm := &Comment{ID: NewID(), Body: RichText(in.Body), CreatorID: c.user().ID, CreatedAt: at, UpdatedAt: at}
+	cm := &Comment{ID: NewID(), Body: body, CreatorID: c.user().ID, CreatedAt: at, UpdatedAt: at}
 	card.Comments = append(card.Comments, cm)
 	c.save(card)
 	c.created(c.v.cardURL(card.Number)+"/comments/"+cm.ID+".json", c.v.comment(card, cm))
@@ -725,7 +839,7 @@ func (a *API) updateComment(c *call) {
 	if strings.TrimSpace(in.Body) == "" {
 		fail(http.StatusUnprocessableEntity, "Body can't be blank")
 	}
-	cm.Body, cm.UpdatedAt = RichText(in.Body), c.st.Stamp()
+	cm.Body, cm.UpdatedAt = long("Body", in.Body), c.st.Stamp()
 	c.save(card)
 	c.ok(c.v.comment(card, cm))
 }
@@ -780,10 +894,11 @@ func (a *API) createStep(c *call) {
 		Completed bool   `json:"completed"`
 	}
 	c.body("step", &in)
-	if strings.TrimSpace(in.Content) == "" {
-		fail(http.StatusUnprocessableEntity, "Content can't be blank")
+	content := short("Content", in.Content)
+	if len(card.Steps) >= maxSteps {
+		fail(http.StatusUnprocessableEntity, "This card has as many steps as it may")
 	}
-	s := &Step{ID: NewID(), Content: strings.TrimSpace(in.Content), Completed: in.Completed}
+	s := &Step{ID: NewID(), Content: content, Completed: in.Completed}
 	card.Steps = append(card.Steps, s)
 	c.save(card)
 	c.created(c.v.cardURL(card.Number)+"/steps/"+s.ID+".json", c.v.step(card, s))
@@ -798,10 +913,7 @@ func (a *API) updateStep(c *call) {
 	}
 	c.body("step", &in)
 	if in.Content != nil {
-		if strings.TrimSpace(*in.Content) == "" {
-			fail(http.StatusUnprocessableEntity, "Content can't be blank")
-		}
-		s.Content = strings.TrimSpace(*in.Content)
+		s.Content = short("Content", *in.Content)
 	}
 	if in.Completed != nil {
 		s.Completed = *in.Completed
@@ -816,4 +928,10 @@ func (a *API) deleteStep(c *call) {
 	card.Steps = append(card.Steps[:i:i], card.Steps[i+1:]...)
 	c.save(card)
 	c.noContent()
+}
+
+// cardSize estimates a listed card's JSON: its text twice (HTML and plain), escaped, and the
+// nested board, creator and assignees.
+func cardSize(c *Card) int {
+	return 2*len(c.Title) + 3*len(c.Description) + 3000 + 600*len(c.Assignees) + 100*len(c.Tags)
 }

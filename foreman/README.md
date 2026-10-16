@@ -59,7 +59,7 @@ Ticket text is untrusted: everything is escaped, only http(s) links render, and 
 
 ## Project boards
 
-Boards for projects outside the factory, kept by Foreman and served through a Fizzy-compatible API at `/fizzy`, so the `fizzy` CLI (and its Claude skill) works against Foreman by changing `api_url` and `token`. The data is JSON under `<root>/boards/` (`tokens.json`; per account `account.json` with users and tags, `boards/<id>.json` with columns, `cards/<number>.json` with steps and comments), each write a temp file renamed into place, one API request at a time.
+Boards for projects outside the factory, kept by Foreman and served through a Fizzy-compatible API at `/fizzy`, so the `fizzy` CLI (and its Claude skill) works against Foreman by changing `api_url` and `token`. The data is JSON under `<root>/boards/` (`tokens.json`; per account `account.json` with users and tags, `boards/<id>.json` with columns, `cards/<number>.json` with steps and comments), each write a temp file renamed into place. One request, import or token command at a time holds the store (a mutex and `flock` on `<root>/boards/.lock`); a request's body is read, and its answer sent, outside that lock.
 
 ```sh
 foreman boards init --account 6182510            # the account (keep your Fizzy number) and its owner, Stephen
@@ -68,9 +68,10 @@ foreman tokens add stephen                       # prints a token once; acts as 
 foreman tokens add thriceforged-agent --user thriceforged-agent   # an agent, as its own user (made if new)
 foreman tokens list
 foreman tokens revoke thriceforged-agent
+foreman boards restore --number 42               # undo a delete: deleted cards wait in cards/.trash/<n>-<time>.json
 ```
 
-All take `--root` (default `$FACTORY_ROOT` or `~/factory`). Import keeps ids, card numbers, timestamps, column placement, closed / not now / golden, steps, comments, tags and assignees; Fizzy's users map onto local ones by id, then name. Running it again refreshes what it copied; a local card with the same number but another id stops it. Run it while nothing else writes (the store's lock is per process).
+All take `--root` (default `$FACTORY_ROOT` or `~/factory`). Import keeps ids, card numbers, timestamps, column placement, closed / not now / golden, steps, comments, tags and assignees; Fizzy's users map onto local ones by id only (an unknown id becomes a new local user, never matched by name). It talks only https (plain http only to a loopback test server), follows no redirects, and sends the token to no other host. Running it again refreshes what it copied; a local card with the same number but another id stops it.
 
 A project's `.fizzy.yaml`:
 
@@ -83,7 +84,7 @@ board: <board id>
 
 Supported: identity, boards (list, show, create; `board closed` / `postponed`), columns (list, show, create), cards (list with `--board --column --indexed-by --tag --assignee --search --sort --creator --closer --unassigned --created --closed --page --all`, show, create, update, delete, close, reopen, column, untriage, postpone, golden, ungolden, tag, assign, self-assign), comments (list, show, create, update, delete), steps, search, tags, users. Moves are recorded as comments by the account's System user, as in Fizzy. Not supported: reactions, pins, watching, notifications, webhooks, uploads and attachments, board publishing, account admin, `card move`, `indexed_by=postponing_soon`.
 
-Every `/fizzy` request needs `Authorization: Bearer <token>`; the login session is never accepted there, and a token is no login for the app. Tokens are stored as sha256 and compared in constant time; each acts as one user in one account. Without a valid one the answer is 401 `{"error":"Unauthorized"}`. Bodies are limited to 1 MB. The host allowlist and security headers apply as everywhere. Descriptions and comments are stored as the HTML the CLI sends and shown in the web app as escaped Markdown, never as HTML.
+Every `/fizzy` request needs `Authorization: Bearer <token>`; the login session is never accepted there, and a token is no login for the app. Tokens are stored as sha256 and compared in constant time; each acts as one user in one account. Without a valid one the answer is 401 `{"error":"Unauthorized"}`. Bodies are limited to 1 MB; titles and names to 1 KB, a description or comment to 128 KB (422 beyond); a card holds at most 1000 comments and 1000 steps, an account 10,000 cards, 1000 boards and 1000 tags, a board 100 columns; past 200 MB the store refuses writes (507). Search uses the first ten different words. A list page holds up to 50 items and stops early near 1 MB, its `Link` header naming the next. The host allowlist and security headers apply as everywhere. Descriptions and comments are stored as the HTML the CLI sends and shown in the web app as escaped Markdown, never as HTML.
 
 ## Answers
 
