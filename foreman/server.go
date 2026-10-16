@@ -228,7 +228,11 @@ func latestAnswer(t *Ticket, a *Ask, all map[string]*Ticket) *AnswerView {
 		}
 		id, q, _ := strings.Cut(h.Detail, ": ")
 		if c := all[id]; c != nil && c.Result != "" {
-			return &AnswerView{ID: id, Question: q, Lead: mdLead(c.Result, 600), Full: c.Result}
+			lead := c.report("task").str("summary")
+			if lead == "" {
+				lead = mdLead(c.Result, 600)
+			}
+			return &AnswerView{ID: id, Question: q, Lead: lead, Full: c.Result}
 		}
 	}
 	return nil

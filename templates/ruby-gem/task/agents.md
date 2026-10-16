@@ -18,4 +18,4 @@ Write `~/report.json` (`/home/scion/report.json`):
  "result": "the full answer for the person, in Markdown: findings, figures, sources (links you actually opened)"}
 ```
 
-Then give the same summary as your final message.
+`result` is the whole answer itself, complete on its own: the person reads only this file. Never write "see my final message" or point elsewhere. Then give the same summary as your final message.
