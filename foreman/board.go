@@ -38,6 +38,7 @@ type Ticket struct {
 	SecurityQuestions []string          `json:"security_questions"`
 	Design            string            `json:"design"`
 	Proposed          []Proposed        `json:"proposed"`
+	Drafts            []Draft           `json:"drafts"`
 	Feedback          []Feedback        `json:"feedback"`
 	Proposals         []Proposal        `json:"proposals"`
 	Votes             []Vote            `json:"votes"`
@@ -94,6 +95,13 @@ type PR struct {
 	Number int    `json:"number"`
 	URL    string `json:"url"`
 	Draft  bool   `json:"draft"`
+}
+
+// Draft: a change to the factory's own config that the manager wrote; the maintainer applies it.
+type Draft struct {
+	Title string `json:"title"`
+	Why   string `json:"why"`
+	Patch string `json:"patch"`
 }
 
 type Proposed struct {

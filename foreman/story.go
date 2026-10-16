@@ -30,7 +30,7 @@ type Story struct {
 }
 
 var roles = map[string]string{"triage": "Triage", "work": "Worker", "review": "Reviewer", "security": "Security",
-	"task": "Task agent", "design": "Designer", "prospect": "Prospector", "vote": "Voter"}
+	"task": "Task agent", "design": "Designer", "prospect": "Prospector", "vote": "Voter", "manage": "Manager"}
 
 var columnLabels = map[string]string{"triage": "Triage", "ready": "Ready", "working": "Working", "voting": "Voting",
 	"review": "Review", "security": "Security", "gate": "the gate", "ready_for_pr": "Ready for PR", "pr_open": "PR open",
@@ -121,6 +121,18 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 			}
 		case "note":
 			st = &Step{At: parseTime(e.At), Who: "You", What: "Note: " + clip(e.Detail, 400)}
+		case "memory":
+			// "worker memory 1a2b3c4: knowledge/x.md, tickets/T0042.md": what the agent will remember next time
+			role, files, _ := strings.Cut(e.Detail, ": ")
+			role, _, _ = strings.Cut(role, " ")
+			st = &Step{At: parseTime(e.At), Who: "Memory", What: capFirst(role) + " remembered: " + files + "."}
+			if files == "" {
+				st.What = sentence(e.Detail)
+			}
+			if e.Rule != "" {
+				st.What += " " + sentence(e.Rule)
+				st.Tone = "flag"
+			}
 		case "asked":
 			s.Steps = append(s.Steps, askSteps(e, all)...)
 			continue

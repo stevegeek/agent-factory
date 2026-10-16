@@ -12,6 +12,7 @@
   </div>
   <h2>{{mdi .Headline}}</h2>
   {{with .Subtitle}}<p class="sub">{{mdi .}}</p>{{end}}
+  <nav class="subtabs" aria-label="Views of {{.T.ID}}"><a href="/t/{{.T.ID}}" aria-current="page">Ticket</a><a href="/t/{{.T.ID}}/talk">Conversation</a></nav>
 </header>
 {{with .Next}}<p class="next"><b>Waiting for you</b> {{.}}</p>{{end}}
 {{with .Answer}}<section class="answered" aria-label="Answer to your question">
@@ -30,6 +31,13 @@
     {{- else if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Value}}</a>
     {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
 </dl>{{end}}
+{{range $i, $d := .T.Drafts}}<section class="draft" aria-label="Draft {{inc $i}}">
+  <h3 class="panel-h">Draft {{inc $i}}: {{$d.Title}}</h3>
+  <div class="text md">{{md $d.Why}}</div>
+  <div class="patch-head"><span class="quiet">Apply it in the config repo on your machine (<code>git apply</code>), then deploy.</span>
+    <button type="button" class="btn quiet" data-copy="patch-{{$.Ticket.T.ID}}-{{$i}}">Copy the diff</button></div>
+  <pre class="patch" id="patch-{{$.Ticket.T.ID}}-{{$i}}">{{$d.Patch}}</pre>
+</section>{{end}}
 {{if .Children}}<p class="sub">{{.ChildrenLabel}}: {{range $i, $c := .Children}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$c}}">{{$c}}</a>{{end}}</p>{{end}}
 </div>
 {{if or .Answers .CanNote}}

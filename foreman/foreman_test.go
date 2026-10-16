@@ -421,7 +421,7 @@ func TestActions(t *testing.T) {
 		{"T0007", "drop", "", nil, [][]string{{"move", "T0007", "rejected"}}, "ok"},
 		{"T0012", "retry", "", nil, [][]string{{"move", "T0012", "ready"}}, "ok"},
 		{"T0008", "done", "", nil, [][]string{{"move", "T0008", "done"}}, "ok"},
-		{"T0009", "answer", "-yes, keep it", nil, [][]string{{"note", "T0009", "--", "-yes, keep it"}}, "ok"},
+		{"T0009", "answer", "-yes, keep it", nil, [][]string{{"reply", "T0009", "--", "-yes, keep it"}}, "ok"},
 		{"T0009", "note", "plain note", nil, [][]string{{"note", "T0009", "plain note"}}, "ok"},
 		{"T0011", "start", "", nil, nil, "error"},
 		{"T0010", "note", "too late", nil, nil, "error"},

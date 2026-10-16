@@ -11,7 +11,7 @@ type kindInfo struct {
 }
 
 // Desk order: an agent waiting mid-run first, then what is stuck, then what is ready to land.
-var askOrder = []string{"question", "unstick", "review", "open", "start", "design", "proposal", "decide", "notice"}
+var askOrder = []string{"question", "unstick", "review", "open", "draft", "start", "design", "proposal", "decide", "notice"}
 
 var askKinds = map[string]kindInfo{
 	"question": {"Question", "?"},
@@ -23,6 +23,7 @@ var askKinds = map[string]kindInfo{
 	"proposal": {"Proposal", "PP"},
 	"decide":   {"Decide", "··"},
 	"notice":   {"Notice", "NB"},
+	"draft":    {"Config draft", "CF"},
 }
 
 func askRank(kind string) int {
@@ -307,6 +308,8 @@ func Action(t *Ticket, a *Ask) string {
 		return "Read the notice"
 	case "question":
 		return "Answer the agent"
+	case "draft":
+		return "Apply the draft? · " + plural(len(t.Drafts), "change")
 	case "unstick":
 		return "Stuck: retry or drop?"
 	}

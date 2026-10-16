@@ -5,7 +5,7 @@ forced to this script, so these verbs are all it can do here:
   start <job>     read a tar from stdin ([repo.bundle], prompt.md, role.md, meta.json,
                   untracked/...), start the job in the background
   status <job>    {"state": "running" | "done" | "missing"}
-  collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle
+  collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle, memory.tar
   tail <job>      the last 64 KB of a job's output while it runs (for the live view)
   remove <job>    stop the job and delete its files
   list            job names, one per line
@@ -40,7 +40,7 @@ MAX_TIMEOUT_MINUTES = 120
 MAX_INPUT_BYTES = 200 * 1024 * 1024
 MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_COLLECTED_BYTES = {"report.json": 1_000_000, "prompt.md": 1_000_000, "head": 1_000,
-                       "agent.log": 2_000_000, "out.bundle": 100 * 1024 * 1024}
+                       "agent.log": 2_000_000, "out.bundle": 100 * 1024 * 1024, "memory.tar": 4_000_000}
 SSH_VERBS = {"start", "status", "collect", "tail", "remove", "list"}
 TAIL_BYTES = 64 * 1024
 
@@ -64,6 +64,7 @@ pi --provider anthropic --model "$JOB_MODEL" -p --no-session --no-approve \
 echo "pi exited $?" >> /job/agent.log
 git rev-parse "refs/heads/$JOB_BRANCH" > /job/head
 if [ "$JOB_BUNDLE" = 1 ]; then git bundle create -q /job/out.bundle "refs/heads/$JOB_BRANCH"; fi
+if [ -d /job/memory ]; then tar -C /job/memory -cf /job/memory.tar .; fi
 """
 
 

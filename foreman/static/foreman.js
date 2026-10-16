@@ -204,6 +204,19 @@
       .then(function () { busy = false; });
   }
 
+  // ---------------------------------------------------------------- copy a draft's diff
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-copy]");
+    if (!b) return;
+    var el = document.getElementById(b.dataset.copy);
+    if (!el || !navigator.clipboard) return;
+    navigator.clipboard.writeText(el.textContent).then(function () {
+      b.textContent = "Copied";
+      setTimeout(function () { b.textContent = "Copy the diff"; }, 2000);
+    }).catch(function () {});
+  });
+
   // ---------------------------------------------------------------- Live: screens that refresh themselves
 
   var due = {};

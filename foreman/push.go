@@ -411,8 +411,13 @@ func News(prev map[string]snap, ts []*Ticket) []Message {
 			out = append(out, Message{Title: "Answer to your question on " + p.ID, Body: clip(t.Result, 220), URL: "/t/" + p.ID, Tag: t.ID})
 		case now.Ask != "" && (!seen || was.Ask != now.Ask) && !byYou(t):
 			a := AskFor(t)
-			out = append(out, Message{Title: kindLabel(a.Kind) + ": " + clip(Headline(t, a), 80), Body: clip(t.Title, 160),
-				URL: "/t/" + t.ID, Tag: t.ID})
+			m := Message{Title: kindLabel(a.Kind) + ": " + clip(Headline(t, a), 80), Body: clip(t.Title, 160),
+				URL: "/t/" + t.ID, Tag: t.ID}
+			if a.Kind == "question" {
+				// an agent's question opens the conversation, reply box ready
+				m.Title, m.Body, m.URL = t.ID+" asks: "+clip(a.Question, 90), clip(t.Title, 160), "/t/"+t.ID+"/talk#reply"
+			}
+			out = append(out, m)
 		case seen && t.closed() && was.Column != t.Column && t.PR != nil && !byYou(t):
 			verb := "closed"
 			if t.Column == "done" {

@@ -65,6 +65,17 @@ func TestAgentLogsOnlyFromTheTicketsOwnRuns(t *testing.T) {
 	}
 }
 
+func TestMemoryChangesShowInTheStory(t *testing.T) {
+	tk := &Ticket{ID: "T0042", Project: "p", Column: "review", History: []Hist{
+		{At: "2026-10-16T10:00:00Z", Event: "memory", Detail: "worker memory 1a2b3c4: knowledge/rules.md, tickets/T0042.md",
+			Rule: "knowledge changed on a ticket from a public issue: check it"}}}
+	got := fmtSteps(BuildStory(tk, map[string]*Ticket{"T0042": tk}))
+	if !strings.Contains(got, "Memory") || !strings.Contains(got, "Worker remembered: knowledge/rules.md, tickets/T0042.md.") ||
+		!strings.Contains(got, "public issue") {
+		t.Errorf("story: %s", got)
+	}
+}
+
 func TestTailFileKeepsWholeLines(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "f")
 	os.WriteFile(p, []byte("aaaa\nbbbb\ncccc\n"), 0o644)

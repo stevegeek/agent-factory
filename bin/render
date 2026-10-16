@@ -12,7 +12,7 @@ import sys
 import tomllib
 
 CORE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROLES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security", "task": "task", "design": "designer", "prospect": "prospector", "vote": "voter"}
+ROLES = {"triage": "triage", "work": "worker", "review": "reviewer", "security": "security", "task": "task", "design": "designer", "prospect": "prospector", "vote": "voter", "manage": "manager"}
 PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
 
 

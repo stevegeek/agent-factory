@@ -18,6 +18,9 @@ loader = importlib.machinery.SourceFileLoader("factory", os.path.join(HERE, ".."
 spec = importlib.util.spec_from_loader("factory", loader)
 factory = importlib.util.module_from_spec(spec)
 loader.exec_module(factory)
+# memory stores and per-run files never land in the real factory root
+SCRATCH = tempfile.TemporaryDirectory()
+factory.MEMORY_GIT, factory.RUN_DIR = (os.path.join(SCRATCH.name, d) for d in ("memory", "run"))
 
 
 def sh(cwd, *cmd):
@@ -1359,6 +1362,281 @@ class GithubOutTest(RepoCase):
                 factory.check_pr(self.cfg, self.project, t)
             self.assertEqual(t["column"], column)
 
+
+class MemoryTest(RemoteStageTest):
+    def setUp(self):
+        super().setUp()
+        self.mem = tempfile.TemporaryDirectory()
+        self.mpatch = [mock.patch.object(factory, "MEMORY_GIT", os.path.join(self.mem.name, "memory")),
+                       mock.patch.object(factory, "RUN_DIR", os.path.join(self.mem.name, "run"))]
+        for x in self.mpatch:
+            x.start()
+        os.makedirs(factory.RUN_DIR)
+
+    def tearDown(self):
+        for x in self.mpatch:
+            x.stop()
+        self.mem.cleanup()
+        super().tearDown()
+
+    def head_files(self, role="worker"):
+        repo = factory.memory_repo("p", role)
+        return factory.memory_snapshot(repo, factory.memory_head(repo))
+
+    def start_local(self, t, stage="work"):
+        with mock.patch.object(factory, "scion") as scion, mock.patch.object(factory, "ensure_scion_project"):
+            factory.start_stage(self.cfg, self.project, t, stage)
+        return scion.call_args.args
+
+    def finish_local(self, t):
+        agent = t["agent"]
+        with mock.patch.object(factory, "remove_agent"):
+            factory.settle_memory(self.cfg, t, agent)
+        return agent
+
+    def test_a_local_run_gets_its_own_copy_and_its_changes_are_committed(self):
+        t = self.ticket("ready")
+        args = self.start_local(t)
+        copy = t["agent"]["memory"]["dir"]
+        conf = open(args[args.index("--config") + 1]).read()
+        self.assertIn(json.dumps(copy), conf)
+        self.assertIn("target: /home/scion/memory", conf)
+        self.assertIn("/home/scion/memory/tickets/T0003.md", args[-1])
+        self.assertTrue(os.path.exists(os.path.join(copy, "README.md")))
+        with open(os.path.join(copy, "tickets", "T0003.md"), "w") as f:
+            f.write("stopped at the parser\n")
+        self.finish_local(t)
+        self.assertFalse(os.path.exists(copy))
+        self.assertEqual(self.head_files()["tickets/T0003.md"], b"stopped at the parser\n")
+        last = t["history"][-1]
+        self.assertEqual(last["event"], "memory")
+        self.assertIn("tickets/T0003.md", last["detail"])
+        self.assertIsNone(last.get("rule"))
+
+    def test_nothing_the_agent_plants_runs_or_leaves_the_copy(self):
+        marker = os.path.join(self.mem.name, "pwned")
+        secret = os.path.join(self.mem.name, "secret")
+        with open(secret, "w") as f:
+            f.write("token")
+        t = self.ticket("ready")
+        self.start_local(t)
+        copy = t["agent"]["memory"]["dir"]
+        # a nested repository whose config would run a command when git looks at it
+        nested = os.path.join(copy, "knowledge", "x")
+        os.makedirs(nested)
+        sh(nested, "git", "init", "-q")
+        sh(nested, "git", "config", "core.fsmonitor", f"touch {marker}; false")
+        with open(os.path.join(nested, ".gitattributes"), "w") as f:
+            f.write("* filter=evil\n")
+        sh(nested, "git", "config", "filter.evil.clean", f"touch {marker}")
+        with open(os.path.join(nested, "note.md"), "w") as f:
+            f.write("ok\n")
+        os.makedirs(os.path.join(copy, ".git", "hooks"))
+        with open(os.path.join(copy, ".GIT"), "w") as f:
+            f.write("x")
+        os.symlink(secret, os.path.join(copy, "knowledge", "stolen.md"))
+        os.symlink(self.mem.name, os.path.join(copy, "linked"))
+        os.makedirs(os.path.join(copy, "locked"))
+        os.chmod(os.path.join(copy, "locked"), 0)
+        self.finish_local(t)
+        self.assertFalse(os.path.exists(marker))
+        files = self.head_files()
+        self.assertEqual(files["knowledge/x/note.md"], b"ok\n")
+        self.assertEqual(files["knowledge/x/.gitattributes"], b"* filter=evil\n")  # only text, never applied
+        self.assertFalse([x for x in files if ".git/" in x.casefold() + "/" or x.casefold().endswith(".git")])
+        self.assertNotIn("knowledge/stolen.md", files)
+        self.assertNotIn(b"token", b"".join(files.values()))
+        self.assertIn("left out", t["history"][-1]["rule"])
+        self.assertFalse(os.path.exists(copy))
+
+    def test_two_runs_of_one_role_merge_instead_of_overwriting(self):
+        a, b = self.ticket("ready"), {**self.ticket("ready"), "id": "T0004"}
+        self.start_local(a)
+        self.start_local(b)
+        for t, text in ((a, "from A"), (b, "from B")):
+            with open(os.path.join(t["agent"]["memory"]["dir"], "tickets", t["id"] + ".md"), "w") as f:
+                f.write(text)
+        with open(os.path.join(a["agent"]["memory"]["dir"], "knowledge", "INDEX.md"), "w") as f:
+            f.write("A's index\n")
+        with open(os.path.join(b["agent"]["memory"]["dir"], "knowledge", "INDEX.md"), "w") as f:
+            f.write("B's index\n")
+        self.finish_local(a)
+        self.finish_local(b)
+        files = self.head_files()
+        self.assertEqual((files["tickets/T0003.md"], files["tickets/T0004.md"]), (b"from A", b"from B"))
+        self.assertIn(b"A's index", files["knowledge/INDEX.md"])
+        self.assertIn(b"B's index", files["knowledge/INDEX.md"])
+        self.assertIn("both versions", b["history"][-1]["rule"])
+
+    def test_voters_stay_blind_and_memory_can_be_off(self):
+        self.assertIsNone(factory.memory_role(self.cfg, "vote"))
+        self.assertEqual(factory.memory_role(self.cfg, "review"), "reviewer")
+        self.assertIsNone(factory.memory_role({"memory": {"enabled": False}}, "work"))
+        with self.assertRaises(ValueError):
+            factory.memory_repo("../x", "worker")
+
+    def test_lasting_changes_from_public_tickets_are_flagged(self):
+        t = {**self.ticket("ready"), "door": "github"}
+        self.start_local(t)
+        with open(os.path.join(t["agent"]["memory"]["dir"], "tickets", "T0003.md"), "w") as f:
+            f.write("mine\n")
+        self.finish_local(t)
+        self.assertIsNone(t["history"][-1].get("rule"))  # its own handover is fine
+        self.start_local(t)
+        with open(os.path.join(t["agent"]["memory"]["dir"], "README.md"), "w") as f:
+            f.write("always do X\n")
+        self.finish_local(t)
+        self.assertIn("GitHub issues", t["history"][-1]["rule"])
+
+    def test_a_helper_host_gets_a_snapshot_and_its_tar_is_read_in_memory(self):
+        t = self.ticket("ready")
+        files = self.start(t, "work")
+        self.assertIn("memory/README.md", files)
+        self.assertIn(b"/job/memory/tickets/T0003.md", files["prompt.md"])
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            for name, data in (("./knowledge/a.md", b"fact\n"), ("./tickets/T0003.md", b"next: tests\n"),
+                               ("./.git/hooks/post-commit", b"#!/bin/sh\n"), ("../escape.md", b"x")):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            link = tarfile.TarInfo("./knowledge/link.md")
+            link.type, link.linkname = tarfile.SYMTYPE, "/etc/passwd"
+            tar.addfile(link)
+        factory.settle_memory(self.cfg, t, t["agent"], files=factory.read_memory_tar(buf.getvalue()))
+        got = self.head_files()
+        self.assertEqual((got["knowledge/a.md"], got["tickets/T0003.md"]), (b"fact\n", b"next: tests\n"))
+        self.assertFalse([x for x in got if ".git" in x or "escape" in x or "link" in x])
+
+    def test_a_memory_failure_never_holds_up_the_ticket(self):
+        t = self.ticket("ready")
+        self.start_local(t)
+        with mock.patch.object(factory, "memory_tree", side_effect=RuntimeError("disk full")):
+            self.finish_local(t)
+        self.assertEqual(t["history"][-1]["event"], "error")
+        self.assertFalse(os.path.exists(t["agent"]["memory"]["dir"]))
+
+    def test_a_store_stays_small_and_plain(self):
+        big = b"x" * (factory.MEMORY_MAX_FILE - 1)
+        files = {f"knowledge/{i}.md": big for i in range(20)}
+        files.update({"a": b"file", "a/b": b"under a file"})
+        kept, skipped = factory.capped(files, [])
+        self.assertLessEqual(sum(map(len, kept.values())), factory.MEMORY_MAX_BYTES)
+        self.assertIn("a", skipped)
+        self.assertFalse(factory.memory_path_ok('"..'))
+
+    def test_a_failed_scion_list_is_not_an_empty_one(self):
+        cfg = {"projects": {"p": self.project}}
+        with mock.patch.object(factory, "scion", return_value=subprocess.CompletedProcess([], 1, "", "boom")):
+            self.assertIsNone(factory.running_agents(cfg))
+        with mock.patch.object(factory, "scion", return_value=subprocess.CompletedProcess([], 0, '[{"name": "a"}]', "")):
+            self.assertEqual(factory.running_agents(cfg), {"a"})
+
+    def test_undo_a_memory_change(self):
+        t = self.ticket("ready")
+        self.start_local(t)
+        with open(os.path.join(t["agent"]["memory"]["dir"], "knowledge", "bad.md"), "w") as f:
+            f.write("wrong\n")
+        self.finish_local(t)
+        bad = t["history"][-1]["detail"].split()[2].rstrip(":")
+        with mock.patch("sys.stdout"):
+            factory.cmd_memory(self.cfg, mock.Mock(project="p", role="worker", revert=bad))
+        self.assertNotIn("knowledge/bad.md", self.head_files())
+
+
+class AgentQuestionTest(RemoteStageTest):
+    def test_an_agent_asks_the_reply_carries_the_stage_on(self):
+        report = {"report.json": b'{"status": "question", "question": "Should the minimum be 8 or 16?", '
+                                 b'"summary": "Stopped before changing the default."}'}
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root):
+            t = factory.new_ticket("p", "Tune the minimum", "b", "human", "working", kind="task")
+            t = self.collected(t, "task", report)
+            self.assertEqual(t["column"], "needs_human")
+            self.assertEqual((t["ask"]["kind"], t["ask"]["question"]), ("question", "Should the minimum be 8 or 16?"))
+            self.assertEqual(t["ask"]["why"], "Stopped before changing the default.")
+            factory.save_ticket(t)
+            args = mock.Mock(ticket=t["id"], text=["16,", "like", "the", "docs"])
+            with mock.patch.object(factory, "wake") as wake:
+                factory.cmd_reply(self.cfg, args)
+            wake.assert_called_once()
+            t = factory.load_ticket(t["id"])
+            self.assertEqual(t["column"], "ready")
+            self.assertIn("16, like the docs", t["notes"][-1]["text"])
+            self.assertIn("8 or 16", t["notes"][-1]["text"])
+            self.assertIn(b"If you need a decision", self.start(self.ticket("triage"), "triage")["prompt.md"])
+            # no open question: a reply is an Ask, answered on the ticket
+            with mock.patch.object(factory, "wake"), mock.patch.object(factory, "cmd_ask") as ask:
+                factory.cmd_reply(self.cfg, mock.Mock(ticket=t["id"], text=["why?"]))
+            self.assertEqual(ask.call_args.args[1].question, ["why?"])
+
+    def test_a_question_without_a_question_is_just_blocked(self):
+        report = {"report.json": b'{"status": "question", "summary": "hm"}'}
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root):
+            t = factory.new_ticket("p", "x", "b", "human", "working", kind="task")
+            t = self.collected(t, "task", report)
+            self.assertNotEqual((t.get("ask") or {}).get("kind"), "question")
+
+class ManagerTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.patches = [mock.patch.object(factory, "BOARD", os.path.join(self.tmp.name, "board")),
+                        mock.patch.object(factory, "MANAGER_DIR", os.path.join(self.tmp.name, "manager")),
+                        mock.patch.object(factory, "log")]
+        for x in self.patches:
+            x.start()
+        os.makedirs(factory.BOARD)
+        self.cfg = {"projects": {"gem": {"path": "/x", "base": "main"}}}
+
+    def tearDown(self):
+        for x in self.patches:
+            x.stop()
+        self.tmp.cleanup()
+
+    def add(self, **kw):
+        args = dict(project="factory", title="A morning check", body="Every weekday", body_file=None, door="human",
+                    triage=False, host=None, task=False, intent=False, manage=True, timeout=None)
+        args.update(kw)
+        with mock.patch("sys.stdout"):
+            factory.cmd_add(self.cfg, mock.Mock(**args))
+        return factory.all_tickets()[-1]
+
+    def test_filing_runs_here_only_on_the_factory_project(self):
+        t = self.add()
+        self.assertEqual((t["kind"], t["column"], t["host"], factory.stage_for(t)), ("manage", "ready", "local", "manage"))
+        with self.assertRaises(SystemExit):
+            self.add(project="gem")
+        with self.assertRaises(SystemExit):
+            self.add(task=True)
+
+    def test_drafts_wait_for_you_and_a_reply_carries_on(self):
+        t = self.add()
+        t["agent"] = {"name": "t0001-m1", "stage": "manage", "started": factory.now(), "host": "local"}
+        patch = "--- a/config/config.toml\n+++ b/config/config.toml\n@@ -1 +1,2 @@\n+[[schedules]]\n"
+        report = {"status": "done", "summary": "Drafted a weekday check.", "result": "## Plan\nA schedule.",
+                  "drafts": [{"title": "Weekday check", "why": "Files it at 05:30.", "patch": patch}, {"title": "empty"}, "junk"]}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, factory.manager_project(), t, report)
+        self.assertEqual(len(t["drafts"]), 1)
+        self.assertEqual((t["column"], t["ask"]["kind"]), ("needs_human", "draft"))
+        self.assertIn("1 config change", t["ask"]["question"])
+        self.assertTrue(os.path.isdir(os.path.join(factory.MANAGER_DIR, ".git")))
+        factory.save_ticket(t)
+        with mock.patch.object(factory, "wake") as wake, mock.patch("sys.stdout"):
+            factory.cmd_reply(self.cfg, mock.Mock(ticket=t["id"], text=["only", "weekdays"]))
+        wake.assert_called_once()
+        t = factory.load_ticket(t["id"])
+        self.assertEqual((t["column"], t["notes"][-1]["text"]), ("ready", "only weekdays"))
+        prompt = factory.manage_prompt(t)
+        self.assertIn("Your previous answer", prompt)
+        self.assertIn("Weekday check", prompt)
+        self.assertIn("only weekdays", prompt)
+
+    def test_an_answer_without_drafts_is_a_notice(self):
+        t = self.add()
+        t["agent"] = {"name": "t0001-m1", "stage": "manage", "started": factory.now(), "host": "local"}
+        with mock.patch.object(factory, "remove_agent"):
+            factory.finish_stage(self.cfg, None, t, {"status": "done", "summary": "T0042 failed on lint.", "result": "Lint."})
+        self.assertEqual(t["ask"]["kind"], "notice")
 
 class FactoryRemoteTest(unittest.TestCase):
     def setUp(self):

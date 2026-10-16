@@ -96,6 +96,10 @@ func Answers(t *Ticket, a *Ask) []Answer {
 		return []Answer{{Value: "done", Label: "Done", Sub: "close it; nothing else happens", Primary: true}}
 	case "question":
 		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: true}}
+	case "draft":
+		return []Answer{{Value: "applied", Label: "I've applied it", Sub: "you deployed it from your machine; the ticket closes", Primary: true},
+			{Value: "send_back", Label: "Send back with a note", Sub: "the manager redrafts it", NeedsNote: true, NoteFor: "to send it back"},
+			{Value: "drop", Label: "Drop", Sub: "nothing changes; the ticket closes", Danger: true}}
 	}
 	return nil
 }
@@ -136,6 +140,12 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 		// the question is the whole argument; "--" keeps a leading "-" from reading as an option
 		return [][]string{{"ask", id, "--", note}}, nil
 	}
+	if answer == "talk" {
+		if note == "" {
+			return nil, errors.New("write your reply first")
+		}
+		return [][]string{{"reply", id, "--", note}}, nil
+	}
 	if answer == "note" {
 		if t.closed() {
 			return nil, errors.New("closed tickets take no notes")
@@ -166,7 +176,10 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 			need = true
 			cmds = append(cmds, move("triage"))
 		case "question:answer":
-			need = true
+			if note == "" {
+				return nil, errNoteNeeded
+			}
+			return [][]string{{"reply", id, "--", note}}, nil
 		case "design:approve":
 			n := len(t.Proposed)
 			seen := map[int]bool{}
@@ -202,8 +215,13 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 			}
 			need = answer == "retry_note"
 			cmds = append(cmds, move(a.RetryColumn))
-		case "notice:done":
+		case "notice:done", "draft:applied":
 			cmds = append(cmds, move("done"))
+		case "draft:send_back":
+			need = true
+			cmds = append(cmds, move("ready"))
+		case "draft:drop":
+			cmds = append(cmds, move("rejected"))
 		default:
 			return nil, fmt.Errorf("%q is not an answer to this ask", answer)
 		}

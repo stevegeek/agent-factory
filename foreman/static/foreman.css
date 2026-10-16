@@ -361,3 +361,31 @@ details.closed { max-width: none; }
 .screen.log { max-height: 40vh; }
 @media (max-width: 640px) { .screen { font-size: 11px; max-height: 45vh; } }
 .logs { color: var(--muted); font-size: 13px; }
+
+/* a ticket as a conversation */
+.subtabs { display: flex; gap: 4px; margin-top: 10px; }
+.subtabs a { padding: 6px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; font-weight: 500; border: 1px solid var(--line); }
+.subtabs a[aria-current] { color: var(--ink); background: var(--sunk); }
+.thread { list-style: none; margin: 8px 0 16px; padding: 0; display: grid; gap: 12px; max-width: 74ch; }
+.msg { display: grid; gap: 4px; max-width: 92%; }
+.msg.me { justify-self: end; }
+.msg.system { justify-self: center; max-width: 100%; color: var(--muted); font-size: 13px; }
+.msg-meta { font-size: 12px; color: var(--muted); }
+.msg.me .msg-meta { text-align: right; }
+.msg-meta time { font-family: var(--mono); }
+.bubble { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--surface); }
+.msg.me .bubble { background: color-mix(in srgb, var(--info-soft) 60%, var(--surface)); border-color: color-mix(in srgb, var(--info) 30%, var(--line)); }
+.msg.system .bubble { border: 0; background: none; padding: 0 4px; text-align: center; }
+.msg.question .bubble { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal) inset; }
+.bubble .md > :first-child { margin-top: 0; }
+.bubble .md > :last-child { margin-bottom: 0; }
+form.reply { padding-top: 14px; }
+form.reply .composer-foot { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+@media (max-width: 640px) { .msg { max-width: 100%; } form.reply .composer-foot { flex-direction: column; align-items: stretch; } form.reply .hint { flex: none; } }
+
+/* the manager's config drafts */
+.draft { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; max-width: 90ch; }
+.draft .panel-h { margin: 0; }
+.patch-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; font-size: 13px; }
+.patch { margin: 0; padding: 10px 12px; background: var(--sunk); color: var(--ink); border-radius: 8px; overflow: auto; max-height: 50vh;
+  font: 12px/1.45 var(--mono); white-space: pre; }

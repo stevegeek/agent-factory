@@ -1,0 +1,36 @@
+{{define "content" -}}
+{{$p := .}}{{with .Talk}}
+<main class="detail solo talk" id="detail">
+<div class="live-part" id="tk-head" data-live data-stamp="{{.T.ID}} talk">
+<a class="back show" href="/t/{{.T.ID}}">← {{.T.ID}}</a>
+<header class="ask-head">
+  <div class="eyebrow"><span class="mono">{{.T.ID}}</span> <a href="/b/{{.T.Project}}">{{.T.Project}}</a></div>
+  <h2>{{mdi .T.Title}}</h2>
+  <nav class="subtabs" aria-label="Views of {{.T.ID}}"><a href="/t/{{.T.ID}}">Ticket</a><a href="/t/{{.T.ID}}/talk" aria-current="page">Conversation</a></nav>
+</header>
+</div>
+<div class="live-part" id="thread" data-live>
+<ol class="thread">
+  {{range .Msgs}}<li class="msg {{.Side}}{{with .Tone}} {{.}}{{end}}">
+    <div class="msg-meta"><b>{{.Who}}</b>{{with .When}} <time>{{.}}</time>{{end}}{{with .Ref}} · <a class="mono" href="/t/{{.}}">{{.}}</a>{{end}}</div>
+    <div class="bubble"><div class="text md">{{md .Text}}</div>
+    {{with .More}}<details class="more"><summary>Read it all</summary><div class="text md">{{md .}}</div></details>{{end}}</div>
+  </li>{{end}}
+</ol>
+{{with .Waiting}}<p class="next"><b>Now</b> {{.}}</p>{{end}}
+</div>
+<form class="act reply" id="reply" method="post" action="/t/{{.T.ID}}/act">
+  <input type="hidden" name="csrf" value="{{$p.CSRF}}">
+  <input type="hidden" name="view" value="talk">
+  <div class="composer">
+  <label for="reply-{{.T.ID}}">{{.Label}}</label>
+  <textarea id="reply-{{.T.ID}}" name="note" maxlength="4000" rows="3" placeholder="{{.Placeholder}}" data-draft="talk-{{.T.ID}}" {{if .Question}}autofocus{{end}}></textarea>
+  <div class="composer-foot">
+    <p class="hint">{{.Sub}}</p>
+    <button class="btn primary" type="submit" name="answer" value="talk" data-needs-note data-busy="Sending…"><span>{{.Button}}</span></button>
+  </div>
+  </div>
+</form>
+</main>
+{{end}}
+{{- end}}

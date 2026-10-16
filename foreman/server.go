@@ -56,7 +56,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"mdi":   MarkdownLine,
 		"mdt":   MarkdownText,
 	}
-	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new", "live"} {
+	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new", "live", "talk"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
 	}
 	return s
@@ -95,6 +95,7 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("POST /push/unsubscribe", s.pushUnsubscribe)
 	app.HandleFunc("POST /push/test", s.pushTest)
 	app.HandleFunc("GET /b/{project}", s.boardPage)
+	app.HandleFunc("GET /t/{id}/talk", s.talk)
 	app.HandleFunc("GET /live", s.livePage)
 	app.HandleFunc("GET /live/log", s.liveLog)
 	app.HandleFunc("GET /live/{id}/screen", s.liveScreen)
@@ -149,6 +150,7 @@ type Page struct {
 	DeskCount int
 	Running   int
 	Live      *LiveView
+	Talk      *TalkView
 	Flash     *Flash
 	Desk      *DeskView
 	Ticket    *TicketView
@@ -493,7 +495,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	}
 	a := AskFor(t)
 	answer := r.PostFormValue("answer")
-	if a != nil && answer != "note" && answer != "ask" && (r.PostFormValue("ask") != a.Kind || r.PostFormValue("since") != a.Since) {
+	if a != nil && answer != "note" && answer != "ask" && answer != "talk" && (r.PostFormValue("ask") != a.Kind || r.PostFormValue("since") != a.Since) {
 		s.flashRedirect(w, r, back, "error", id+" changed since you opened it. Look again before answering.")
 		return
 	}
@@ -537,6 +539,9 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		next = back
 	}
+	if r.PostFormValue("view") == "talk" {
+		next = "/t/" + id + "/talk"
+	}
 	s.flashRedirect(w, r, next, "ok", msg)
 }
 
@@ -549,6 +554,12 @@ func answerLabel(t *Ticket, a *Ask, answer string) string {
 	}
 	if answer == "ask" {
 		return "Question sent; an agent answers in a few minutes, on your desk and in How it got here"
+	}
+	if answer == "talk" {
+		if a != nil && a.Kind == "question" {
+			return "Answer sent; the agent carries on with it now"
+		}
+		return "Sent; an agent answers here in a few minutes"
 	}
 	for _, x := range Answers(t, a) {
 		if x.Value == answer {
@@ -708,7 +719,7 @@ type NewView struct {
 	Error                      string
 }
 
-var newKinds = map[string][]string{"change": nil, "intent": {"--intent"}, "task": {"--task"}}
+var newKinds = map[string][]string{"change": nil, "intent": {"--intent"}, "task": {"--task"}, "manage": {"--manage"}}
 
 // projectChoices: the configured projects, then any other on the board, then the no-repository project.
 func (s *Server) projectChoices(ts []*Ticket) []string {
@@ -759,8 +770,11 @@ func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 	case !okKind:
 		again("Pick a kind.")
 		return
-	case v.Project == noticeProject && v.Kind != "task":
-		again("The factory project has no repository: it only takes questions.")
+	case v.Project == noticeProject && v.Kind != "task" && v.Kind != "manage":
+		again("The factory project has no repository: it only takes questions and requests for the manager.")
+		return
+	case v.Kind == "manage" && v.Project != noticeProject:
+		again("Requests for the manager go on the factory project.")
 		return
 	case v.Title == "" || len(v.Title) > 200 || strings.ContainsAny(v.Title, "\x00\r\n"):
 		again("The title is needed, on one line, at most 200 characters.")
@@ -789,7 +803,8 @@ func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s filed from Foreman (%s, %s)", id, v.Project, v.Kind)
 	s.flashRedirect(w, r, "/t/"+id, "ok", id+": filed. "+map[string]string{
 		"change": "A worker picks it up on the next tick.", "intent": "A designer picks it up on the next tick.",
-		"task": "An agent answers it; the answer lands on your desk."}[v.Kind])
+		"task": "An agent answers it; the answer lands on your desk.",
+		"manage": "The manager answers it, with any config change as a draft for you to apply."}[v.Kind])
 }
 
 // ---------------------------------------------------------------- installable app and notifications
