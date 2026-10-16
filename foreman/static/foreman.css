@@ -84,12 +84,31 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .qitem:hover { background: color-mix(in srgb, var(--k-soft) 45%, var(--surface)); }
 .qitem[aria-current="true"] { background: color-mix(in srgb, var(--k-soft) 70%, var(--surface)); box-shadow: inset 4px 0 0 var(--k); }
 .qitem:focus-visible { outline-offset: -3px; }
-.qitem .q { font-weight: 500; line-height: 1.35; }
-.qitem .kind { color: var(--k); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11.5px; }
-.qitem.k-decide .kind, .qitem.k-notice .kind { color: var(--muted); }
-.qitem .q { display: block; font-weight: 500; line-height: 1.35; }
-.qitem .t { display: block; color: var(--muted); font-size: 13.5px; line-height: 1.35; margin-top: 2px; }
-.qitem .meta { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+/* a desk row: which project, what it is (the title), then what it wants from you */
+.qitem .qtop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; color: var(--muted); }
+.qitem .proj { font-weight: 600; color: var(--ink); letter-spacing: 0.02em; }
+.qitem .t { display: block; font-weight: 600; font-size: 15.5px; line-height: 1.35; color: var(--ink); }
+.qitem .qact { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; color: var(--muted); }
+.qitem .qdo { color: var(--k); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.qitem .qdo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--k); flex: none; }
+.qitem.k-decide .qdo, .qitem.k-notice .qdo { color: var(--ink); }
+.qitem.k-decide .qdo::before, .qitem.k-notice .qdo::before { background: var(--muted); }
+.qitem .resp { font-size: 12.5px; color: var(--muted); font-style: italic; }
+.qitem.responded .t { font-weight: 500; color: var(--muted); }
+.qitem.responded .qdo { font-weight: 500; }
+.qhead.done { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 18px; }
+.qempty { margin: 0; padding: 4px 16px 14px; color: var(--muted); font-size: 14px; }
+
+/* an answer on its way: the tapped button says what is happening, the form takes no second tap */
+form.sending { cursor: progress; }
+form.sending .btn:not(.busy) { opacity: 0.55; pointer-events: none; }
+form.sending .btn.busy { pointer-events: none; }
+.btn.busy > span { display: inline-flex; align-items: center; gap: 8px; }
+.btn.busy > span::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor;
+  border-right-color: transparent; animation: spin .8s linear infinite; flex: none; }
+.btn.busy.ext > span::after { content: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn.busy > span::before { animation-duration: 2.4s; } }
 .k-question { --k: var(--signal); --k-soft: var(--signal-soft); }
 .k-unstick { --k: var(--stop); --k-soft: var(--stop-soft); }
 .k-review, .k-open { --k: var(--info); --k-soft: var(--info-soft); }
@@ -262,7 +281,9 @@ details.closed { max-width: none; }
   .step time { font-size: 11px; }
   .detail h2 { max-width: none; }
   .answers { grid-template-columns: minmax(0, 1fr); }
-  .chip { padding: 8px 14px; }
+  .chip { padding: 8px 14px; white-space: nowrap; }
+  .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .filters::-webkit-scrollbar { display: none; }
   .tab { min-height: 44px; display: inline-flex; align-items: center; }
   .who .linkbtn { min-height: 44px; padding: 0 4px; }
   details.more summary, details.earlier summary { padding: 10px 0; }

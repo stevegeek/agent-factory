@@ -2,7 +2,7 @@
 
 The maintainer's web app for the factory. It reads the board (`$FACTORY_ROOT/board/tickets/*.json`) and shows:
 
-- **Desk** (`/`): every ticket that needs a person, as an ask: one question, the evidence, the answers that make sense, and "How it got here" (history, reports, votes, gate and the rule behind each automatic decision).
+- **Desk** (`/`): every ticket that needs a person, as an ask: one question, the evidence, the answers that make sense, and "How it got here" (history, reports, votes, gate and the rule behind each automatic decision). Each row reads project, title, then what it wants ("Review PR #9", "Approve design · 3 tickets"). An ask whose last event is your own note or question moves down to **You've responded** (with what you did and when) and leaves the count and the badge; anything new from the factory brings it back up. After any answer, including a note or a question, the desk moves on to the next ask still waiting for you. A slow answer (opening a PR pushes to GitHub) shows a spinner and what is happening on the tapped button, and the form takes no second tap. Ask the agent gets an answer from an agent in a few minutes; Save note only keeps the note for the next agent that works on the ticket.
 - **Floor** (`/floor`): the week as a log by day, each line expanding into that ticket's story, including proposals the panel dropped and checks that closed with nothing to do. `?week=YYYY-MM-DD` for earlier weeks.
 - **Boards** (`/boards`, `/b/<project>`): tickets by column. `/t/<id>` shows any ticket.
 
@@ -43,7 +43,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o for
 
 ## Install and notifications
 
-Foreman is an installable web app (`/manifest.webmanifest`, the service worker `/sw.js`, icons in `static/icons`). On an iPhone: Safari → Share → Add to Home Screen, then open it from the home screen and turn notifications on under ⚙ (iOS 16.4 or later; push only works in the installed app). The app icon's badge counts the desk.
+Foreman is an installable web app (`/manifest.webmanifest`, the service worker `/sw.js`, icons in `static/icons`). On an iPhone: Safari → Share → Add to Home Screen, then open it from the home screen and turn notifications on under ⚙ (iOS 16.4 or later; push only works in the installed app). The app icon's badge counts the asks still waiting for you.
 
 Every 30 s Foreman compares the board with what it saw before and pushes: a new ask on the desk, the answer to a question asked with Ask, and a ticket with a PR that closed without you (merged or closed on GitHub). What you did yourself (a move `by human`) is not news; more than three at once arrive as one. Tapping a notification opens the ticket. Payloads are encrypted for the device (RFC 8291) and signed with VAPID (RFC 8292); a subscription may only point at a known push service (Apple, Google, Mozilla, Microsoft). What it last saw is kept in `foreman-seen.json` beside the secret, so a change made while Foreman was down (a deploy, a reboot) is still announced; a board that fails to read is skipped, not taken as every ticket gone.
 

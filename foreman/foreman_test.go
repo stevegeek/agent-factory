@@ -578,8 +578,10 @@ func TestNoteButtonAndDraftReasons(t *testing.T) {
 	h := newHarness(t, false)
 	c := h.login()
 	body := h.do("GET", "/t/T0001", nil, c).Body.String()
-	for _, want := range []string{`value="note" data-needs-note><span>Send note</span>`, `value="ask" data-needs-note><span>Ask</span>`,
-		"Ask gets an answer here in a few minutes. Send note waits for the next agent.",
+	for _, want := range []string{`value="note" data-needs-note data-busy="Saving…"><span>Save note</span>`,
+		`value="ask" data-needs-note data-busy="Asking…"><span>Ask the agent</span>`,
+		"Ask the agent: one reads the change and answers on your desk in a few minutes; nothing changes.",
+		"Save note: kept for the next agent that works on it; nothing happens now.",
 		"approve it there and the factory merges it", "a worker reworks it; the PR is a draft meanwhile",
 		"Why this PR is a draft", "<li>1 file outside the paths that may merge automatically (docs, tests, config)</li>",
 		"<li>40 changed lines; the limit for automatic approval is 10</li>", `<b>Waiting for you</b>`, `data-draft="T0001"`} {
@@ -710,5 +712,96 @@ func TestFileANewTicketFromForeman(t *testing.T) {
 		if got := h.argv(); len(got) != 0 && got[0] != nil {
 			t.Errorf("%v ran %v", bad, got)
 		}
+	}
+}
+
+func TestARespondedAskWaitsLowerDownUntilTheFactoryMoves(t *testing.T) {
+	ts := fixtures(t)
+	all := Desk(ts)
+	if len(all) < 2 {
+		t.Fatalf("fixtures need two asks, have %d", len(all))
+	}
+	first := all[0].T
+	since := parseTime(all[0].Ask.Since)
+	at := func(d time.Duration) string { return since.Add(d).UTC().Format(time.RFC3339) }
+	now := since.Add(2 * time.Hour)
+
+	first.History = append(first.History, Hist{At: at(time.Hour), Event: "note", Detail: "not sure about this"})
+	items := Desk(ts)
+	if last := items[len(items)-1]; last.T != first || last.Responded != "note" {
+		t.Errorf("a noted ask should sit last: %s %q", last.T.ID, last.Responded)
+	}
+	if Waiting(items) != len(items)-1 {
+		t.Errorf("waiting %d of %d", Waiting(items), len(items))
+	}
+	v := deskView(items, "", "", now)
+	if len(v.Done) != 1 || v.Done[0].ID != first.ID || v.Done[0].Responded != "You left a note 1 h ago · still yours to decide" {
+		t.Errorf("done: %+v", v.Done)
+	}
+	for _, q := range v.Items {
+		if q.ID == first.ID {
+			t.Errorf("%s is under Needs you and You've responded", q.ID)
+		}
+	}
+
+	first.History = append(first.History, Hist{At: at(90 * time.Minute), Event: "asked", Detail: "T0099: why?"})
+	if it := Desk(ts)[len(items)-1]; it.Responded != "asked" {
+		t.Errorf("a question should keep it down: %q", it.Responded)
+	}
+	// anything new from the factory brings it back up
+	first.History = append(first.History, Hist{At: at(100 * time.Minute), Event: "review requested", Detail: "stevegeek"})
+	if Desk(ts)[0].T != first || Waiting(Desk(ts)) != len(items) {
+		t.Errorf("the factory moved on, so it needs you again")
+	}
+	// a note from before the ask arrived is old news
+	first.History = append(first.History, Hist{At: since.Add(-time.Hour).UTC().Format(time.RFC3339), Event: "note", Detail: "old"})
+	if r, _ := responded(first, all[0].Ask); r != "" {
+		t.Errorf("an older note responds to nothing: %q", r)
+	}
+}
+
+func TestDeskRowsSayWhatItIsAndWhatItWants(t *testing.T) {
+	h := newHarness(t, false)
+	c := h.login()
+	body := h.do("GET", "/", nil, c).Body.String()
+	ts := fixtures(t)
+	it := Desk(ts)[0]
+	for _, want := range []string{`<span class="proj">` + it.T.Project + `</span>`, `<span class="qdo">` + Action(it.T, it.Ask) + `</span>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("desk lacks %q", want)
+		}
+	}
+	pr := &Ticket{Column: "pr_open", PR: &PR{Number: 26}}
+	for _, k := range []struct {
+		t    *Ticket
+		kind string
+		want string
+	}{
+		{pr, "review", "Review PR #26"},
+		{&Ticket{Column: "ready_for_pr"}, "open", "Open a PR?"},
+		{&Ticket{Proposed: make([]Proposed, 3)}, "design", "Approve design · 3 tickets"},
+		{&Ticket{Source: &Source{Issue: 11}}, "decide", "Start or drop? · issue #11"},
+		{&Ticket{Kind: "task"}, "notice", "Read the answer"},
+	} {
+		if got := Action(k.t, &Ask{Kind: k.kind}); got != k.want {
+			t.Errorf("%s: %q, want %q", k.kind, got, k.want)
+		}
+	}
+}
+
+func TestANoteOnTheDeskMovesOnToTheNextAsk(t *testing.T) {
+	h := newHarness(t, false)
+	c := h.login()
+	csrf := h.srv.auth.CSRF(h.srv.auth.session(c.Value))
+	first := Desk(fixtures(t))[0].T.ID
+	w := h.do("POST", "/t/"+first+"/act", url.Values{"csrf": {csrf}, "answer": {"note"}, "note": {"hmm"}}, c)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	if to := w.Header().Get("Location"); to == "/t/"+first || !strings.HasPrefix(to, "/t/") {
+		t.Errorf("after a note the desk should move on, went to %q", to)
+	}
+	if got := h.argv(); len(got) != 1 || got[0][0] != "note" {
+		t.Errorf("ran %v", got)
 	}
 }

@@ -271,20 +271,94 @@ func firstNonEmpty(xs ...string) string {
 	return ""
 }
 
+// Action: what the ask wants, in a few words, for the desk list (the title says what it is about).
+func Action(t *Ticket, a *Ask) string {
+	pr := 0
+	if t.PR != nil {
+		pr = t.PR.Number
+	}
+	issue := ""
+	if t.Source != nil && t.Source.Issue > 0 {
+		issue = fmt.Sprintf(" · issue #%d", t.Source.Issue)
+	}
+	switch a.Kind {
+	case "review":
+		if mergeable(t) {
+			return fmt.Sprintf("Merge PR #%d?", pr)
+		}
+		return fmt.Sprintf("Review PR #%d", pr)
+	case "open":
+		if pr > 0 {
+			return fmt.Sprintf("Update PR #%d?", pr)
+		}
+		return "Open a PR?"
+	case "design":
+		return "Approve design · " + plural(len(t.Proposed), "ticket")
+	case "proposal":
+		return "File as a change?"
+	case "start":
+		return "Start work?" + issue
+	case "decide":
+		return "Start or drop?" + issue
+	case "notice":
+		if t.Kind == "task" {
+			return "Read the answer"
+		}
+		return "Read the notice"
+	case "question":
+		return "Answer the agent"
+	case "unstick":
+		return "Stuck: retry or drop?"
+	}
+	return kindLabel(a.Kind)
+}
+
 type DeskItem struct {
 	T   *Ticket
 	Ask *Ask
+	// Responded: the last thing on the ticket is the maintainer's own "note" or "asked", made after
+	// the ask arrived. The item waits lower down until the factory does anything new with it.
+	Responded, RespondedAt string
 }
 
-// Desk lists the tickets with an ask: by kind in desk order, then oldest first.
+// responded: the factory's own notes (a GitHub review, a rebase request) come with a move off the
+// desk, so a note or a question that is the ticket's last event is the maintainer's.
+func responded(t *Ticket, a *Ask) (string, string) {
+	if len(t.History) == 0 {
+		return "", ""
+	}
+	h := t.History[len(t.History)-1]
+	if (h.Event != "note" && h.Event != "asked") || parseTime(h.At).Before(parseTime(a.Since)) {
+		return "", ""
+	}
+	return h.Event, h.At
+}
+
+// Waiting counts the asks nobody has responded to yet: the desk's number, the badge's and the floor's.
+func Waiting(items []DeskItem) int {
+	n := 0
+	for _, it := range items {
+		if it.Responded == "" {
+			n++
+		}
+	}
+	return n
+}
+
+// Desk lists the tickets with an ask: the ones still waiting for a response first, then by kind in
+// desk order, then oldest first.
 func Desk(ts []*Ticket) []DeskItem {
 	var out []DeskItem
 	for _, t := range ts {
 		if a := AskFor(t); a != nil {
-			out = append(out, DeskItem{t, a})
+			r, at := responded(t, a)
+			out = append(out, DeskItem{t, a, r, at})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
+		if (out[i].Responded == "") != (out[j].Responded == "") {
+			return out[i].Responded == ""
+		}
 		ri, rj := askRank(out[i].Ask.Kind), askRank(out[j].Ask.Kind)
 		if ri != rj {
 			return ri < rj

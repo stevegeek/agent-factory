@@ -152,7 +152,7 @@ func BuildFloor(ts []*Ticket, start, now time.Time) Floor {
 			f.Running = append(f.Running, r)
 		}
 	}
-	f.Asks = len(Desk(ts))
+	f.Asks = Waiting(Desk(ts))
 	return f
 }
 

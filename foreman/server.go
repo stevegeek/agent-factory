@@ -168,12 +168,15 @@ type Chip struct {
 
 type QueueItem struct {
 	ID, Kind, Label, Glyph, Question, Title, Project, Age, Href string
-	Current                                                     bool
+	Action    string // what the ask wants, in a few words
+	Responded string // "You asked 5 min ago": set when the item waits on the factory, not on you
+	Current   bool
 }
 
 type DeskView struct {
 	Filters []Chip
-	Items   []QueueItem
+	Items   []QueueItem // still waiting for you
+	Done    []QueueItem // you have responded; back up top when the factory does anything new
 	Kind    string
 	Open    bool
 	Total   int
@@ -215,7 +218,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 		p.CSRF = s.auth.CSRF(id)
 	}
 	if ts != nil {
-		p.DeskCount = len(Desk(ts))
+		p.DeskCount = Waiting(Desk(ts))
 		p.Version = boardVersion(ts)
 	}
 	// a poll must not use up the message meant for the next page the person opens
@@ -251,10 +254,17 @@ func deskView(items []DeskItem, kind, current string, now time.Time) *DeskView {
 			continue
 		}
 		q := QueueItem{ID: it.T.ID, Kind: it.Ask.Kind, Label: kindLabel(it.Ask.Kind), Glyph: kindGlyph(it.Ask.Kind),
-			Question: Headline(it.T, it.Ask), Project: it.T.Project, Age: ageSince(it.Ask.Since, now),
-			Href: ticketHref(it.T.ID, kind), Current: it.T.ID == current}
-		if !strings.Contains(q.Question, it.T.Title) {
-			q.Title = it.T.Title
+			Question: Headline(it.T, it.Ask), Title: it.T.Title, Action: Action(it.T, it.Ask), Project: it.T.Project,
+			Age: ageSince(it.Ask.Since, now), Href: ticketHref(it.T.ID, kind), Current: it.T.ID == current}
+		switch it.Responded {
+		case "asked":
+			q.Responded = "You asked " + ageSince(it.RespondedAt, now) + " ago · the answer comes here"
+		case "note":
+			q.Responded = "You left a note " + ageSince(it.RespondedAt, now) + " ago · still yours to decide"
+		}
+		if q.Responded != "" {
+			v.Done = append(v.Done, q)
+			continue
 		}
 		v.Items = append(v.Items, q)
 	}
@@ -335,11 +345,12 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	}
 	switch {
 	case a != nil:
-		v.NoteSub = "Ask gets an answer here in a few minutes. Send note waits for the next agent."
+		v.NoteSub = "Ask the agent: one reads the change and answers on your desk in a few minutes; nothing changes. " +
+			"Save note: kept for the next agent that works on it; nothing happens now."
 	case t.Agent != nil:
-		v.NoteSub = "Ask gets an answer here. Send note reaches the next agent, not the one running now."
+		v.NoteSub = "Ask the agent: an answer comes to your desk. Save note: kept for the next agent, not the one running now."
 	default:
-		v.NoteSub = "Ask gets an answer here. Send note reaches the next agent on it."
+		v.NoteSub = "Ask the agent: an answer comes to your desk. Save note: kept for the next agent that works on it."
 	}
 	for _, x := range v.Answers {
 		if x.NeedsNote && x.NoteFor != "" {
@@ -385,7 +396,7 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 	dv := deskView(items, kind, "", s.now())
 	p := &Page{Title: "Desk", Tab: "desk", Desk: dv}
 	if len(dv.Items) > 0 {
-		// wide screens show the first ask beside the queue; phones show only the queue
+		// wide screens show the first waiting ask beside the queue; phones show only the queue
 		first := dv.Items[0].ID
 		dv.Items[0].Current = true
 		for _, t := range ts {
@@ -472,13 +483,15 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	if filter != "" {
 		next = "/?kind=" + filter
 	}
+	// work down the desk: on to the next ask still waiting for you (a note or a question moves this
+	// one down to "You've responded" until the factory does something new with it)
 	for _, it := range Desk(s.board.Load()) {
-		if it.T.ID != id && (filter == "" || it.Ask.Kind == filter) {
+		if it.T.ID != id && it.Responded == "" && (filter == "" || it.Ask.Kind == filter) {
 			next = ticketHref(it.T.ID, filter)
 			break
 		}
 	}
-	if a == nil || answer == "note" || answer == "ask" {
+	if a == nil {
 		next = back
 	}
 	s.flashRedirect(w, r, next, "ok", msg)
@@ -486,10 +499,13 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 
 func answerLabel(t *Ticket, a *Ask, answer string) string {
 	if answer == "note" {
-		return "Note sent"
+		if a != nil {
+			return "Note saved for the next agent on it; the decision is still yours (under You've responded)"
+		}
+		return "Note saved for the next agent on it"
 	}
 	if answer == "ask" {
-		return "Question sent; the answer appears in How it got here and on your desk"
+		return "Question sent; an agent answers in a few minutes, on your desk and in How it got here"
 	}
 	for _, x := range Answers(t, a) {
 		if x.Value == answer {
@@ -795,7 +811,7 @@ func (s *Server) pushTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n := s.push.Send(Message{Title: "Foreman", Body: "Notifications work. You'll hear when something needs you.", URL: "/",
-		Tag: "test", Badge: len(Desk(s.board.Load()))})
+		Tag: "test", Badge: Waiting(Desk(s.board.Load()))})
 	jsonReply(w, http.StatusOK, map[string]int{"sent": n, "devices": s.push.Count()})
 }
 

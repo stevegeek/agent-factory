@@ -398,7 +398,7 @@ func byYou(t *Ticket) bool {
 // What you did yourself is not news.
 func News(prev map[string]snap, ts []*Ticket) []Message {
 	all := byID(ts)
-	desk := len(Desk(ts))
+	desk := Waiting(Desk(ts))
 	var out []Message
 	for _, t := range ts {
 		was, seen := prev[t.ID]

@@ -81,6 +81,40 @@
     if (ta && ta.value.trim()) saveDraft(ta.dataset.draft, { text: ta.value, at: Date.now(), sent: true });
   }, true);
 
+  // An answer can take a while (opening a PR pushes to GitHub): the tapped button says what is
+  // happening and the form takes no second tap. Buttons are not disabled, since a disabled submitter
+  // would drop its value from the request.
+  var BUSY = { open_pr: "Opening the PR…", merge: "Merging…", file: "Filing…",
+               approve: "Approving…", start: "Starting…", retry: "Sending it back…", send_back: "Sending it back…",
+               redirect: "Sending it to the designer…", done: "Closing…", drop: "Closing…", not_now: "Closing…" };
+  // capture: this runs before htmx's own listener on the form, which takes the submit over
+  document.addEventListener("submit", function (e) {
+    var form = e.target, btn = e.submitter;
+    if (e.defaultPrevented || !form.classList) return;
+    if (form.classList.contains("sending")) { e.preventDefault(); e.stopPropagation(); return; }
+    form.classList.add("sending");
+    form.setAttribute("aria-busy", "true");
+    if (!btn || !btn.classList || !btn.classList.contains("btn")) return;
+    btn.classList.add("busy");
+    var label = btn.querySelector("span"), text = btn.dataset.busy || BUSY[btn.value] || "Working…";
+    if (label) { btn.dataset.idle = label.textContent; label.textContent = text; }
+  }, true);
+  // a failed or refused request leaves the page in place: the form works again
+  function unbusy() {
+    document.querySelectorAll("form.sending").forEach(function (f) {
+      f.classList.remove("sending");
+      f.removeAttribute("aria-busy");
+      f.querySelectorAll(".btn.busy").forEach(function (b) {
+        var label = b.querySelector("span");
+        if (label && b.dataset.idle) label.textContent = b.dataset.idle;
+        b.classList.remove("busy");
+      });
+    });
+  }
+  document.addEventListener("htmx:responseError", unbusy);
+  document.addEventListener("htmx:sendError", unbusy);
+  window.addEventListener("pageshow", function (e) { if (e.persisted) unbusy(); });
+
   // ---------------------------------------------------------------- live updates
 
   function started() {
