@@ -34,7 +34,12 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o for
 | `--tailscale-user` | | a login let in by `--trust-tailscale` (repeatable; required with it) |
 | `--host` | | a host name to answer to besides IP addresses and `localhost`, e.g. the ts.net name (repeatable) |
 | `--revoke-sessions` | | log out every browser and exit |
+| `--project` | | a project a new ticket may name (repeatable; deploy passes `[projects]`) |
 | `--push` | on | Web Push to subscribed devices; the VAPID key (`foreman-vapid.pem`) and the devices (`foreman-push.json`) live beside the secret |
+
+## New tickets
+
+＋ (`/new`) files a ticket without GitHub: a project (or `factory` for a question with no repository), a kind (make a change, design it first, ask a question), a title and a Markdown description. It runs `factory add --body=… [--intent|--task] -- <project> <title>`; the ticket skips triage and goes straight to an agent.
 
 ## Install and notifications
 

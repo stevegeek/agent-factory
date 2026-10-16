@@ -671,3 +671,44 @@ func TestReadyForPRIsOnTheDesk(t *testing.T) {
 		t.Errorf("send back plan %v %v", cmds, err)
 	}
 }
+
+func TestFileANewTicketFromForeman(t *testing.T) {
+	h := newHarness(t, false)
+	h.srv.projects = []string{"widgets", "gadgets"}
+	c := h.login()
+	csrf := h.srv.auth.CSRF(h.srv.auth.session(c.Value))
+	page := h.do("GET", "/new", nil, c).Body.String()
+	for _, want := range []string{`<option value="widgets" selected>`, `<option value="gadgets"`, `value="factory"`, `name="kind" value="intent"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("form lacks %q", want)
+		}
+	}
+	post := func(project, kind, title, body string) *httptest.ResponseRecorder {
+		return h.do("POST", "/new", url.Values{"csrf": {csrf}, "project": {project}, "kind": {kind}, "title": {title}, "body": {body}}, c)
+	}
+	cases := []struct {
+		project, kind, title, body string
+		want                       []string
+	}{
+		{"widgets", "change", "Release 1.2.0", "Bump **version**", []string{"add", "--body=Bump **version**", "--", "widgets", "Release 1.2.0"}},
+		{"gadgets", "intent", "-weird title", "", []string{"add", "--body=", "--intent", "--", "gadgets", "-weird title"}},
+		{"factory", "task", "What is new?", "-dash", []string{"add", "--body=-dash", "--task", "--", "factory", "What is new?"}},
+	}
+	for _, k := range cases {
+		if w := post(k.project, k.kind, k.title, k.body); w.Code != http.StatusSeeOther {
+			t.Errorf("%s: %d %s", k.title, w.Code, w.Body.String())
+		}
+		if got := h.argv(); len(got) != 1 || !reflect.DeepEqual(got[0], k.want) {
+			t.Errorf("%s: ran %v", k.title, got)
+		}
+	}
+	for _, bad := range [][4]string{{"nowhere", "change", "x", ""}, {"factory", "change", "x", ""}, {"widgets", "change", "", ""},
+		{"widgets", "change", "two\nlines", ""}, {"widgets", "delete", "x", ""}} {
+		if w := post(bad[0], bad[1], bad[2], bad[3]); w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%v: %d", bad, w.Code)
+		}
+		if got := h.argv(); len(got) != 0 && got[0] != nil {
+			t.Errorf("%v ran %v", bad, got)
+		}
+	}
+}

@@ -25,13 +25,14 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 type Server struct {
-	board  *Board
-	auth   *Auth
-	runner *Runner
-	push   *Pusher // nil: notifications are off
-	pages  map[string]*template.Template
-	now    func() time.Time
-	assetV string
+	board    *Board
+	auth     *Auth
+	runner   *Runner
+	push     *Pusher  // nil: notifications are off
+	projects []string // what a new ticket may name, besides the board's own projects
+	pages    map[string]*template.Template
+	now      func() time.Time
+	assetV   string
 }
 
 func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
@@ -53,7 +54,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"mdi":   MarkdownLine,
 		"mdt":   MarkdownText,
 	}
-	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings"} {
+	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
 	}
 	return s
@@ -86,6 +87,8 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("GET /floor", s.floor)
 	app.HandleFunc("GET /boards", s.boards)
 	app.HandleFunc("GET /settings", s.settings)
+	app.HandleFunc("GET /new", s.newTicket)
+	app.HandleFunc("POST /new", s.fileTicket)
 	app.HandleFunc("POST /push/subscribe", s.pushSubscribe)
 	app.HandleFunc("POST /push/unsubscribe", s.pushUnsubscribe)
 	app.HandleFunc("POST /push/test", s.pushTest)
@@ -148,6 +151,7 @@ type Page struct {
 	Error     string
 	Version   string
 	Settings  *SettingsView
+	New       *NewView
 }
 
 type SettingsView struct {
@@ -635,6 +639,98 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	s.auth.SetSession(w, r)
 	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// ---------------------------------------------------------------- filing a ticket from Foreman
+
+type NewView struct {
+	Projects                   []string
+	Project, Kind, Title, Body string
+	Error                      string
+}
+
+var newKinds = map[string][]string{"change": nil, "intent": {"--intent"}, "task": {"--task"}}
+
+// projectChoices: the configured projects, then any other on the board, then the no-repository project.
+func (s *Server) projectChoices(ts []*Ticket) []string {
+	seen := map[string]bool{noticeProject: true}
+	var out []string
+	add := func(p string) {
+		if p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	for _, p := range s.projects {
+		add(p)
+	}
+	for _, t := range ts {
+		add(t.Project)
+	}
+	return append(out, noticeProject)
+}
+
+func (s *Server) newTicket(w http.ResponseWriter, r *http.Request) {
+	ts := s.board.Load()
+	v := &NewView{Projects: s.projectChoices(ts), Kind: "change"}
+	if len(v.Projects) > 0 {
+		v.Project = v.Projects[0]
+	}
+	s.render(w, r, "new", &Page{Title: "New ticket", Tab: "new", New: v}, ts)
+}
+
+func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
+	ts := s.board.Load()
+	v := &NewView{Projects: s.projectChoices(ts), Project: r.PostFormValue("project"), Kind: r.PostFormValue("kind"),
+		Title: strings.TrimSpace(r.PostFormValue("title")), Body: strings.TrimSpace(r.PostFormValue("body"))}
+	again := func(msg string) {
+		v.Error = msg
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.render(w, r, "new", &Page{Title: "New ticket", Tab: "new", New: v}, ts)
+	}
+	known := false
+	for _, p := range v.Projects {
+		known = known || p == v.Project
+	}
+	flags, okKind := newKinds[v.Kind]
+	switch {
+	case !known:
+		again("Pick one of the projects.")
+		return
+	case !okKind:
+		again("Pick a kind.")
+		return
+	case v.Project == noticeProject && v.Kind != "task":
+		again("The factory project has no repository: it only takes questions.")
+		return
+	case v.Title == "" || len(v.Title) > 200 || strings.ContainsAny(v.Title, "\x00\r\n"):
+		again("The title is needed, on one line, at most 200 characters.")
+		return
+	case len(v.Body) > 8000 || strings.ContainsRune(v.Body, 0):
+		again("The description is at most 8000 characters.")
+		return
+	}
+	// options first, then "--": a title or description starting with "-" is never read as an option
+	args := append([]string{"add", "--body=" + v.Body}, flags...)
+	args = append(args, "--", v.Project, v.Title)
+	out, err := s.runner.Run([][]string{args})
+	if err != nil {
+		log.Printf("new ticket: %v", err)
+		again(err.Error())
+		return
+	}
+	id := strings.TrimSpace(out)
+	if i := strings.LastIndex(id, "\n"); i >= 0 {
+		id = id[i+1:]
+	}
+	if !validID(id) {
+		s.flashRedirect(w, r, "/", "ok", "Filed: "+clip(v.Title, 80))
+		return
+	}
+	log.Printf("%s filed from Foreman (%s, %s)", id, v.Project, v.Kind)
+	s.flashRedirect(w, r, "/t/"+id, "ok", id+": filed. "+map[string]string{
+		"change": "A worker picks it up on the next tick.", "intent": "A designer picks it up on the next tick.",
+		"task": "An agent answers it; the answer lands on your desk."}[v.Kind])
 }
 
 // ---------------------------------------------------------------- installable app and notifications

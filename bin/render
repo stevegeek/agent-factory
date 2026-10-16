@@ -32,14 +32,19 @@ def values(cfg):
     missing = [k for k, x in v.items() if not x]
     if missing:
         sys.exit(f"config.toml is missing: {', '.join(missing)} (see [identity] and [host])")
-    v["foreman_flags"] = foreman_flags(cfg.get("foreman", {}))
+    v["foreman_flags"] = foreman_flags(cfg.get("foreman", {}), cfg.get("projects", {}))
     return v
 
 
-def foreman_flags(fm):
-    """Extra foreman arguments for its unit's ExecStart: the names it answers to, and whose tailnet login
-    counts as the maintainer. Each must be one word, since systemd splits the line on spaces."""
+def foreman_flags(fm, projects=()):
+    """Extra foreman arguments for its unit's ExecStart: the names it answers to, whose tailnet login
+    counts as the maintainer, and the projects a new ticket may name. Each must be one word, since
+    systemd splits the line on spaces."""
     flags = []
+    for p in projects:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", p):
+            sys.exit(f"[projects] not a plain name: {p!r}")
+        flags += ["--project", p]
     for h in fm.get("hosts", []):
         if not re.fullmatch(r"[A-Za-z0-9.-]+", h):
             sys.exit(f"[foreman] hosts: not a host name: {h!r}")

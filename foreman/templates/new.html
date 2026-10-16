@@ -1,0 +1,32 @@
+{{define "content" -}}
+{{with .New}}
+<main class="pane newticket">
+  <h3 class="panel-h">New ticket</h3>
+  <form class="act" method="post" action="/new">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+    <div class="field">
+      <label for="nt-project">Project</label>
+      <select id="nt-project" name="project">
+        {{$cur := .Project}}{{range .Projects}}<option value="{{.}}" {{if eq . $cur}}selected{{end}}>{{.}}{{if eq . "factory"}} (no repository: questions only){{end}}</option>{{end}}
+      </select>
+    </div>
+    <fieldset class="kinds">
+      <legend>What should happen</legend>
+      <label class="kind-opt"><input type="radio" name="kind" value="change" {{if eq .Kind "change"}}checked{{end}}><span><b>Make a change</b><small>a worker does it; review, security and the gate check it; a PR comes to you</small></span></label>
+      <label class="kind-opt"><input type="radio" name="kind" value="intent" {{if eq .Kind "intent"}}checked{{end}}><span><b>Design it first</b><small>a designer proposes and splits it into tickets for you to approve</small></span></label>
+      <label class="kind-opt"><input type="radio" name="kind" value="task" {{if eq .Kind "task"}}checked{{end}}><span><b>Ask a question</b><small>one agent reads the code and answers on your desk; nothing changes</small></span></label>
+    </fieldset>
+    <div class="field">
+      <label for="nt-title">Title</label>
+      <input id="nt-title" name="title" maxlength="200" required value="{{.Title}}" placeholder="e.g. Release 1.2.0: bump the version and the changelog">
+    </div>
+    <div class="field">
+      <label for="nt-body">Description <small>(Markdown; what done looks like helps)</small></label>
+      <textarea id="nt-body" name="body" rows="7" maxlength="8000" placeholder="What you want, and anything the agent should know">{{.Body}}</textarea>
+    </div>
+    <div class="answers"><button class="btn primary" type="submit"><span>File it</span><small>it goes straight to the factory; no triage</small></button></div>
+  </form>
+</main>
+{{end}}
+{{- end}}

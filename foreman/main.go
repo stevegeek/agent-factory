@@ -31,8 +31,9 @@ func main() {
 	listen := flag.String("listen", "127.0.0.1:8790", "address to listen on")
 	secretFile := flag.String("secret-file", filepath.Join(home, ".config", "factory", "foreman-secret"), "login secret; created when missing")
 	trustTS := flag.Bool("trust-tailscale", false, "accept Tailscale-User-Login from loopback (tailscale serve) for the --tailscale-user logins")
-	var tsUsers, hosts list
+	var tsUsers, hosts, projects list
 	flag.Var(&tsUsers, "tailscale-user", "a Tailscale login that counts as the maintainer (repeatable; needed with --trust-tailscale)")
+	flag.Var(&projects, "project", "a project a new ticket may name (repeatable; deploy passes [projects])")
 	flag.Var(&hosts, "host", "a host name to answer to besides IP addresses and localhost, e.g. the ts.net name (repeatable)")
 	revoke := flag.Bool("revoke-sessions", false, "log out every browser, then exit")
 	push := flag.Bool("push", true, "send Web Push notifications to subscribed devices (keys beside the secret)")
@@ -77,6 +78,7 @@ func main() {
 	}
 	board := NewBoard(*root)
 	s := NewServer(board, auth, &Runner{Factory: *factory, Root: *root})
+	s.projects = projects
 	if *push {
 		// the VAPID contact: the page's own address when known (push services want an https: or mailto: URL)
 		subject := "mailto:foreman@localhost"

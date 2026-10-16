@@ -28,6 +28,7 @@
         <a class="tab" id="tab-desk" data-live href="/" {{if eq .Tab "desk"}}aria-current="page"{{end}}>Desk {{if .DeskCount}}<span class="n hot">{{.DeskCount}}</span>{{end}}</a>
         <a class="tab" href="/floor" {{if eq .Tab "floor"}}aria-current="page"{{end}}>Floor</a>
         <a class="tab" href="/boards" {{if eq .Tab "boards"}}aria-current="page"{{end}}>Boards</a>
+        <a class="tab" href="/new" {{if eq .Tab "new"}}aria-current="page"{{end}} aria-label="New ticket">＋</a>
         <a class="tab" href="/settings" {{if eq .Tab "settings"}}aria-current="page"{{end}} aria-label="Settings">⚙</a>
       </nav>
       <form class="who" method="post" action="/logout">
