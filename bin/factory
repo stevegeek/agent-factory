@@ -11,6 +11,7 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory host <ticket> auto|local|<name>
   factory ls [--all]
   factory show <ticket>
+  factory look <ticket> [--lines N]   the running agent's screen now (read-only)
   factory audit <ticket>   what happened and which gate decided (also logs/<ticket>/audit.md)
   factory proposals        open proposals from prospecting, in the blind panel's priority order
   factory pr <ticket>      push a ready_for_pr branch and open its PR (draft unless auto-merge eligible)
@@ -1964,6 +1965,55 @@ def cmd_ls(cfg, a):
         print(f"{t['id']}  {t['column']:<13} {t['project']:<12} {kind:<4} {agent:<9} {t['title'][:60]}")
 
 
+SCION_NOISE = re.compile(r"^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d WARN ")
+
+
+def screen_text(text, lines):
+    keep = [line.rstrip() for line in text.splitlines() if not SCION_NOISE.match(line)]
+    while keep and not keep[-1]:
+        keep.pop()
+    return "\n".join(keep[-lines:])
+
+
+def look(cfg, t, lines=120):
+    """What a ticket's running agent shows now: its terminal here, the tail of its output on a helper
+    host. Read-only: nothing here can type into an agent."""
+    ag = t.get("agent")
+    if not ag:
+        return None
+    host = ag.get("host", LOCAL)
+    if host != LOCAL:
+        h = cfg.get("hosts", {}).get(host)
+        try:
+            out = remote(h, "tail", ag["name"], timeout=20).decode(errors="replace") if h else ""
+        except RemoteError as e:
+            out = f"(could not read the job on {host}: {e})"
+        return screen_text(out, lines)
+    project = cfg["projects"].get(t["project"])
+    if project:
+        r = scion(project, "look", ag["name"], "--plain", "-n", str(lines), check=False)
+        if r.returncode == 0 and r.stdout.strip():
+            return screen_text(r.stdout, lines)
+    home = agent_home(ag["name"])
+    path = home and os.path.join(home, "agent.log")
+    if path and os.path.exists(path):
+        with open(path, "rb") as f:
+            f.seek(max(0, os.path.getsize(path) - 64_000))
+            return screen_text(f.read().decode(errors="replace"), lines)
+    return ""
+
+
+def cmd_look(cfg, a):
+    t = load_ticket(a.ticket)
+    text = look(cfg, t, max(10, min(a.lines, 400)))
+    if text is None:
+        sys.exit(f"{t['id']} has no agent running")
+    ag = t["agent"]
+    host = ag.get("host", LOCAL)
+    print(f"{ag['name']} · {ag['stage']}" + (f" @{host}" if host != LOCAL else "") + f" · started {ag['started']}")
+    print(text)
+
+
 def cmd_show(cfg, a):
     print(json.dumps(load_ticket(a.ticket), indent=2))
 
@@ -2112,6 +2162,9 @@ def main():
     p.add_argument("host", help="auto, local, or a [hosts] name")
     sub.add_parser("ls").add_argument("--all", action="store_true")
     sub.add_parser("show").add_argument("ticket")
+    p = sub.add_parser("look")
+    p.add_argument("ticket")
+    p.add_argument("--lines", type=int, default=120)
     sub.add_parser("audit").add_argument("ticket")
     sub.add_parser("proposals")
     sub.add_parser("pr").add_argument("ticket")
@@ -2135,7 +2188,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "merge": cmd_merge,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "look": cmd_look, "audit": cmd_audit, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "merge": cmd_merge,
      "migrate": lambda c, _: migrate(),
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),

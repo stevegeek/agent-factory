@@ -1407,5 +1407,45 @@ class FactoryRemoteTest(unittest.TestCase):
         self.assertEqual(set(factory.untar_bytes(out.write.call_args.args[0])), {"agent.log"})
 
 
+    def test_tail_reads_only_the_jobs_own_output(self):
+        job = os.path.join(self.tmp.name, "t0001-w1")
+        os.makedirs(os.path.join(job, "work"))
+        with open(os.path.join(job, "work", "agent.log"), "wb") as f:
+            f.write(b"x" * 70_000 + b"the end")
+        out = mock.Mock()
+        with mock.patch.object(factory_remote.sys, "stdout", mock.Mock(buffer=out)):
+            factory_remote.tail("t0001-w1")
+        data = out.write.call_args.args[0]
+        self.assertEqual((len(data), data[-7:]), (factory_remote.TAIL_BYTES, b"the end"))
+        # a link out of the job is never followed
+        os.remove(os.path.join(job, "work", "agent.log"))
+        os.symlink(os.path.join(self.tmp.name, "elsewhere"), os.path.join(job, "work", "agent.log"))
+        with open(os.path.join(self.tmp.name, "elsewhere"), "w") as f:
+            f.write("secret")
+        out = mock.Mock()
+        with mock.patch.object(factory_remote.sys, "stdout", mock.Mock(buffer=out)):
+            factory_remote.tail("t0001-w1")
+        out.write.assert_not_called()
+
+
+class LookTest(unittest.TestCase):
+    def test_screen_drops_scion_noise_and_keeps_the_end(self):
+        text = "2026/10/16 20:12:08 WARN settings file contains unrecognized keys\none\ntwo\nthree\n\n"
+        self.assertEqual(factory.screen_text(text, 2), "two\nthree")
+
+    def test_look_reads_the_local_screen_or_the_helper_hosts_tail(self):
+        cfg = {"projects": {"gem": {"path": "/x"}}, "hosts": {"helper": {"ssh": "h"}}}
+        self.assertIsNone(factory.look(cfg, {"project": "gem", "agent": None}))
+        t = {"project": "gem", "agent": {"name": "t0001-w1", "stage": "work", "host": "local", "started": "x"}}
+        with mock.patch.object(factory, "scion", return_value=subprocess.CompletedProcess([], 0, "working…\n", "")) as sc:
+            self.assertEqual(factory.look(cfg, t), "working…")
+        self.assertEqual(sc.call_args.args[1:], ("look", "t0001-w1", "--plain", "-n", "120"))
+        t["agent"]["host"] = "helper"
+        with mock.patch.object(factory, "remote", return_value=b"pi output") as rm:
+            self.assertEqual(factory.look(cfg, t), "pi output")
+        self.assertEqual(rm.call_args.args[1:], ("tail", "t0001-w1"))
+        with mock.patch.object(factory, "remote", side_effect=factory.RemoteError("down")):
+            self.assertIn("could not read", factory.look(cfg, t))
+
 if __name__ == "__main__":
     unittest.main()

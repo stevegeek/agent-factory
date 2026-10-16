@@ -263,7 +263,9 @@ details.closed { max-width: none; }
   .bar { padding: 6px 12px; flex-wrap: nowrap; gap: 6px; }
   .brand-word { display: none; }
   .tabs { flex-wrap: nowrap; gap: 0; }
-  .tab { padding: 6px 10px; }
+  .tab { padding: 6px 8px; }
+  .tabs { overflow-x: auto; scrollbar-width: none; min-width: 0; }
+  .who .linkbtn { white-space: nowrap; }
   .desk { grid-template-columns: minmax(0, 1fr); min-height: 0; }
   .queue { border-right: 0; }
   .desk.open .queue { display: none; }
@@ -348,3 +350,14 @@ details.closed { max-width: none; }
 .answered .md > :first-child { margin-top: 0; }
 .answered .md > :last-child { margin-bottom: 0; }
 .qitem .resp.new { color: var(--info); font-style: normal; font-weight: 600; }
+
+/* Live: agent screens and the factory log */
+.live-page { display: grid; gap: 16px; }
+.screen-card { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.screen-card header { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.screen-card header .title { flex-basis: 100%; color: var(--ink); }
+.screen { margin: 0; padding: 10px 14px; max-height: 60vh; overflow: auto; font: 12px/1.45 var(--mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; background: var(--sunk); color: var(--ink); }
+.screen.log { max-height: 40vh; }
+@media (max-width: 640px) { .screen { font-size: 11px; max-height: 45vh; } }
+.logs { color: var(--muted); font-size: 13px; }

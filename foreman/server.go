@@ -33,10 +33,12 @@ type Server struct {
 	pages    map[string]*template.Template
 	now      func() time.Time
 	assetV   string
+	looks    shortCache // agent screens, for a few seconds
 }
 
 func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
-	s := &Server{board: board, auth: auth, runner: runner, now: time.Now, pages: map[string]*template.Template{}}
+	s := &Server{board: board, auth: auth, runner: runner, now: time.Now, pages: map[string]*template.Template{},
+		looks: shortCache{ttl: 3 * time.Second}}
 	h := sha256.New()
 	fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
@@ -54,7 +56,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"mdi":   MarkdownLine,
 		"mdt":   MarkdownText,
 	}
-	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new"} {
+	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new", "live"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
 	}
 	return s
@@ -93,6 +95,10 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("POST /push/unsubscribe", s.pushUnsubscribe)
 	app.HandleFunc("POST /push/test", s.pushTest)
 	app.HandleFunc("GET /b/{project}", s.boardPage)
+	app.HandleFunc("GET /live", s.livePage)
+	app.HandleFunc("GET /live/log", s.liveLog)
+	app.HandleFunc("GET /live/{id}/screen", s.liveScreen)
+	app.HandleFunc("GET /t/{id}/logs/{name}", s.agentLog)
 	app.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.auth.Revoke(); err != nil {
 			log.Printf("logout: %v", err)
@@ -141,6 +147,8 @@ type Page struct {
 	Tab       string
 	CSRF      string
 	DeskCount int
+	Running   int
+	Live      *LiveView
 	Flash     *Flash
 	Desk      *DeskView
 	Ticket    *TicketView
@@ -209,6 +217,7 @@ type TicketView struct {
 	NoteFirst               bool
 	Since                   string
 	Answer                  *AnswerView // the latest answer to a question asked while this ask waits
+	Logs                    []string    // archived agent runs, by name
 }
 
 type AnswerView struct {
@@ -248,6 +257,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 	}
 	if ts != nil {
 		p.DeskCount = Waiting(Desk(ts))
+		p.Running = running(ts)
 		p.Version = boardVersion(ts)
 	}
 	// a poll must not use up the message meant for the next page the person opens
@@ -391,6 +401,9 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	for _, x := range v.Answers {
 		// on a phone the field must come before the button that needs it
 		v.NoteFirst = v.NoteFirst || x.NeedsNote
+	}
+	if s.runner != nil {
+		v.Logs = agentLogs(s.runner.Root, t.ID)
 	}
 	if t.Design != "" {
 		v.More = append(v.More, More{"Read the design", t.Design})

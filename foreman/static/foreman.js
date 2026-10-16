@@ -204,6 +204,35 @@
       .then(function () { busy = false; });
   }
 
+  // ---------------------------------------------------------------- Live: screens that refresh themselves
+
+  var due = {};
+  function pollScreens() {
+    if (document.hidden) return;
+    var t = Date.now();
+    document.querySelectorAll("[data-poll]").forEach(function (el) {
+      var url = el.dataset.poll;
+      if (el.dataset.loading || (due[url] && due[url] > t && el.dataset.filled)) return;
+      due[url] = t + 1000 * (parseInt(el.dataset.every, 10) || 5);
+      el.dataset.loading = "1";
+      fetch(url, { cache: "no-store", credentials: "same-origin", redirect: "manual" })
+        .then(function (r) { return r.status === 200 ? r.text() : null; })
+        .then(function (text) {
+          if (text === null) return;
+          // follow the end, unless you scrolled up to read
+          var atEnd = !el.dataset.filled || el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          if (el.textContent !== text) el.textContent = text;
+          el.dataset.filled = "1";
+          if (atEnd) el.scrollTop = el.scrollHeight;
+        })
+        .catch(function () {})
+        .then(function () { delete el.dataset.loading; });
+    });
+  }
+  setInterval(pollScreens, 1000);
+  document.addEventListener("htmx:afterSettle", pollScreens);
+  pollScreens();
+
   // ---------------------------------------------------------------- installed app: worker, badge, notifications
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function () {});

@@ -54,6 +54,8 @@
 <div class="live-part" id="tk-more" data-live>
 {{if .More}}<div class="disclosures">{{range .More}}<details class="more" data-key="more-{{.Summary}}"><summary>{{.Summary}}</summary><div class="text md">{{md .Text}}</div></details>{{end}}</div>{{end}}
 {{template "story" .Story}}
+{{if or .T.Agent .Logs}}<p class="logs">{{with .T.Agent}}<a href="/live#{{$.Ticket.T.ID}}">Watch the {{.Name}} agent live</a>{{if $.Ticket.Logs}} · {{end}}{{end}}
+  {{- if .Logs}}Agent logs: {{range $i, $n := .Logs}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$.Ticket.T.ID}}/logs/{{$n}}" target="_blank" rel="noopener" hx-boost="false">{{$n}}</a>{{end}}{{end}}</p>{{end}}
 </div>
 {{end}}
 {{- end}}

@@ -6,6 +6,7 @@ forced to this script, so these verbs are all it can do here:
                   untracked/...), start the job in the background
   status <job>    {"state": "running" | "done" | "missing"}
   collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle
+  tail <job>      the last 64 KB of a job's output while it runs (for the live view)
   remove <job>    stop the job and delete its files
   list            job names, one per line
 
@@ -40,7 +41,8 @@ MAX_INPUT_BYTES = 200 * 1024 * 1024
 MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_COLLECTED_BYTES = {"report.json": 1_000_000, "prompt.md": 1_000_000, "head": 1_000,
                        "agent.log": 2_000_000, "out.bundle": 100 * 1024 * 1024}
-SSH_VERBS = {"start", "status", "collect", "remove", "list"}
+SSH_VERBS = {"start", "status", "collect", "tail", "remove", "list"}
+TAIL_BYTES = 64 * 1024
 
 # Runs inside the container as uid 1000. /job is the job's work/ directory (the agent can
 # write there); exit, run.log and meta.json stay outside it, so the agent cannot fake them.
@@ -222,6 +224,18 @@ def collect(job):
     sys.stdout.buffer.write(buf.getvalue())
 
 
+def tail(job):
+    d = job_dir(job)
+    real_d = os.path.realpath(d)
+    src = os.path.join(d, "work", "agent.log")
+    # the job writes this file; never follow a link out of its directory
+    if not os.path.isfile(src) or os.path.realpath(src) != os.path.join(real_d, "work", "agent.log"):
+        return
+    with open(src, "rb") as f:
+        f.seek(max(0, os.path.getsize(src) - TAIL_BYTES))
+        sys.stdout.buffer.write(f.read(TAIL_BYTES))
+
+
 def remove(job):
     d = job_dir(job)
     subprocess.run(["systemctl", "--user", "stop", unit(job)], capture_output=True)
@@ -250,7 +264,7 @@ def main():
         return list_jobs()
     if len(rest) != 1:
         die(f"usage: {verb} <job>")
-    {"start": start, "status": status, "collect": collect, "remove": remove}[verb](rest[0])
+    {"start": start, "status": status, "collect": collect, "tail": tail, "remove": remove}[verb](rest[0])
 
 
 if __name__ == "__main__":

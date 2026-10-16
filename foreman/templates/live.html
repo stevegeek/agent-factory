@@ -1,0 +1,19 @@
+{{define "content" -}}
+<main class="pane live-page">
+  <p class="lede">What the agents are doing now, and the factory's log. Read-only: nothing here can type into an agent.</p>
+  <div class="live-part" id="live-agents" data-live>
+  {{range .Live.Agents}}
+  <section class="screen-card" id="{{.ID}}">
+    <header><span class="mono">{{.ID}}</span> <b>{{.Role}}</b> <span class="quiet">{{.Project}}{{with .Host}} · on {{.}}{{end}} · {{.Age}}</span>
+      <a class="title" href="{{.Href}}">{{.Title}}</a></header>
+    <pre class="screen" data-poll="/live/{{.ID}}/screen" data-every="5" tabindex="0" aria-label="{{.ID}}'s screen">Loading…</pre>
+  </section>
+  {{else}}<div class="cleared"><strong>No agent is running</strong>The next tick starts whatever is ready (every five minutes).</div>
+  {{end}}
+  </div>
+  <section class="screen-card">
+    <header><b>Factory log</b> <span class="quiet">starts, moves, gates and PRs, newest last</span></header>
+    <pre class="screen log" data-poll="/live/log" data-every="10" tabindex="0" aria-label="Factory log">Loading…</pre>
+  </section>
+</main>
+{{- end}}
