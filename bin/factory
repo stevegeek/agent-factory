@@ -1612,6 +1612,13 @@ IMAGES = {
            "npm": "@earendil-works/pi-coding-agent",
            "changelog": "https://www.npmjs.com/package/@earendil-works/pi-coding-agent?activeTab=versions"},
 }
+# toolchains inside the images, checked against their GitHub releases; the Containerfiles hold the defaults
+TOOLS = {
+    "crystal": {"name": "Crystal", "repo": "crystal-lang/crystal", "default": "1.20.1", "language": "crystal",
+                "changelog": "https://github.com/crystal-lang/crystal/releases"},
+    "ameba": {"name": "ameba", "repo": "crystal-ameba/ameba", "default": "1.7.0", "language": "crystal",
+              "changelog": "https://github.com/crystal-ameba/ameba/releases"},
+}
 NOTICE_PROJECT = "factory"
 
 
@@ -1636,7 +1643,31 @@ def latest_npm_version(package):
         return json.load(r)["version"]
 
 
+def latest_github_release(repo):
+    req = urllib.request.Request(f"https://api.github.com/repos/{repo}/releases/latest",
+                                 headers={"User-Agent": "agent-factory", "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)["tag_name"].lstrip("v")
+
+
 def check_versions(cfg):
+    languages = " ".join(p.get("language", "") for p in cfg.get("projects", {}).values()).lower()
+    for key, spec in TOOLS.items():
+        if spec["language"] not in languages:
+            continue
+        pinned = cfg.get("images", {}).get(key, spec["default"])
+        try:
+            latest = latest_github_release(spec["repo"])
+        except Exception as e:
+            log(f"versions {spec['name']}: {e}")
+            continue
+        if version_tuple(latest) > version_tuple(pinned):
+            notice(f"Update {spec['name']} {pinned} -> {latest}",
+                   f"{spec['name']} {latest} is out; the images have {pinned}.\n\nRelease notes: {spec['changelog']}\n\n"
+                   f"To take it: set [images] {key} = \"{latest}\" in config.toml and deploy. The weekly rebuild "
+                   f"runs every project's tests in the new image, so it is also the check that each "
+                   f"{spec['language'].title()} project builds and passes on {latest}. If one fails, the old image "
+                   f"stays and the rebuild log says which; file a fix ticket for it. Then move this ticket to done.")
     for kind, spec in IMAGES.items():
         pinned = cfg.get("images", {}).get(kind)
         if not pinned:

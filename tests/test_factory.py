@@ -83,6 +83,17 @@ class ProjectFactsTest(unittest.TestCase):
             self.assertIn(want, text)
         self.assertNotIn("set up", factory.project_facts({"test": "rake"}))
 
+    def test_a_new_crystal_release_files_a_notice_only_when_a_project_uses_crystal(self):
+        filed = []
+        cfg = {"images": {"crystal": "1.20.1"}, "projects": {"a": {"language": "Ruby gem"}}}
+        with mock.patch.object(factory, "latest_github_release", return_value="1.22.0"), \
+             mock.patch.object(factory, "notice", side_effect=lambda title, body: filed.append(title)):
+            factory.check_versions(cfg)
+            self.assertEqual(filed, [])
+            cfg["projects"]["b"] = {"language": "Crystal shard"}
+            factory.check_versions(cfg)
+        self.assertEqual(filed, ["Update Crystal 1.20.1 -> 1.22.0", "Update ameba 1.7.0 -> 1.22.0"])
+
     def test_crystal_sinks_and_files_raise_the_security_tier(self):
         self.assertTrue(factory.TIER2_CONTENT.search('Process.run("sh", ["-c", input])'))
         self.assertTrue(factory.TIER2_CONTENT.search("Config.from_json(body)"))
