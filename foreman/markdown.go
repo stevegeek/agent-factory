@@ -196,3 +196,57 @@ func mdInline(s string) string {
 	}
 	return s
 }
+
+var mdHeadMark = regexp.MustCompile(`(^|\s)#{1,6}\s+`)
+
+// MarkdownLine renders one line of agent text (a title, a summary, a story step): inline marks only.
+// Text cut down to a few sentences can carry heading marks from the middle of a document; they go.
+func MarkdownLine(s string) template.HTML {
+	return template.HTML(mdInline(mdHeadMark.ReplaceAllString(s, "$1")))
+}
+
+// mdLead: the opening of a Markdown document as one line, for a summary. It skips headings, rules,
+// code and tables, and takes the first paragraph, or the first list items when the text opens with a list.
+func mdLead(src string, n int) string {
+	var out []string
+	inFence, inList := false, false
+	for _, line := range strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n") {
+		t := strings.TrimSpace(line)
+		switch {
+		case mdFence.MatchString(line):
+			inFence = !inFence
+			continue
+		case inFence:
+			continue
+		case t == "":
+			if len(out) > 0 && !inList {
+				return clip(strings.Join(out, " "), n)
+			}
+			continue
+		case mdHeading.MatchString(t), mdRule.MatchString(line), strings.HasPrefix(t, "|"):
+			if len(out) > 0 {
+				return clip(strings.Join(out, " "), n)
+			}
+			continue
+		}
+		if m := mdBullet.FindStringSubmatch(line); m != nil {
+			inList, t = true, m[3]+";"
+		} else if m := mdOrdered.FindStringSubmatch(line); m != nil {
+			inList, t = true, m[3]+";"
+		} else if inList {
+			return clip(strings.TrimSuffix(strings.Join(out, " "), ";"), n)
+		}
+		out = append(out, strings.TrimPrefix(t, "> "))
+		if len(strings.Join(out, " ")) >= n {
+			break
+		}
+	}
+	return clip(strings.TrimSuffix(strings.Join(out, " "), ";"), n)
+}
+
+var mdAnchor = regexp.MustCompile(`<a [^>]*>|</a>`)
+
+// MarkdownText: MarkdownLine without links, for text that sits inside a link already (a queue item, a card).
+func MarkdownText(s string) template.HTML {
+	return template.HTML(mdAnchor.ReplaceAllString(string(MarkdownLine(s)), ""))
+}

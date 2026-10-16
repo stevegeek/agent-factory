@@ -50,6 +50,8 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"low":   func(n int) bool { return n < 4 },
 		"inc":   func(n int) int { return n + 1 },
 		"md":    Markdown,
+		"mdi":   MarkdownLine,
+		"mdt":   MarkdownText,
 	}
 	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
@@ -301,6 +303,10 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	if a != nil {
 		v.Kind, v.KindLabel, v.Glyph = a.Kind, kindLabel(a.Kind), kindGlyph(a.Kind)
 		v.Headline, v.Why, v.Since = Headline(t, a), a.Why, a.Since
+		if a.Kind == "notice" && t.Result != "" {
+			// an answer is a Markdown document: its opening paragraph, not a run of its first sentences
+			v.Why = mdLead(t.Result, 320)
+		}
 		v.Next = waitingWhat(t, a)
 		v.Age = ageSince(a.Since, s.now())
 		if !strings.Contains(v.Headline, t.Title) {

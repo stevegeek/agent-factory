@@ -10,11 +10,11 @@
     {{with .Age}}<span>{{.}}</span>{{end}}
     {{with .ParentID}}<span>from <a class="mono" href="/t/{{.}}">{{.}}</a></span>{{end}}
   </div>
-  <h2>{{.Headline}}</h2>
-  {{with .Subtitle}}<p class="sub">{{.}}</p>{{end}}
+  <h2>{{mdi .Headline}}</h2>
+  {{with .Subtitle}}<p class="sub">{{mdi .}}</p>{{end}}
 </header>
 {{with .Next}}<p class="next"><b>Waiting for you</b> {{.}}</p>{{end}}
-{{with .Why}}<p class="why">{{.}}</p>{{end}}
+{{with .Why}}<p class="why">{{mdi .}}</p>{{end}}
 {{with .Callout}}<div class="callout {{.Tone}}"><b>{{.Title}}</b>
   {{if .Lines}}<ul>{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}
 </div>{{end}}
@@ -34,7 +34,7 @@
   {{if .Answers}}<h3 class="panel-h">Your answer</h3>{{end}}
   {{if .Picks}}<div class="picks">
     {{range .Picks}}<div class="pick"><input type="checkbox" name="pick" value="{{.N}}" id="pick-{{.N}}" checked>
-      <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{.Title}}</label>
+      <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{mdi .Title}}</label>
       <details class="more" data-key="pick-{{.N}}"><summary>Read it</summary><div class="text md">{{md .Body}}</div></details></div></div>{{end}}
   </div>{{end}}
   {{if .Answers}}<div class="answers">
@@ -78,6 +78,6 @@
 {{- end}}
 
 {{define "step" -}}
-<li class="step {{.Tone}}"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span> · {{.What}}
-  {{- if .Quotes}}<div class="quotes">{{range .Quotes}}<div class="quote"><span class="vote {{if low .Score}}low{{end}}">{{.Score}}</span><span>{{.Text}}</span></div>{{end}}</div>{{end}}</div></li>
+<li class="step {{.Tone}}"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span> · {{mdi .What}}
+  {{- if .Quotes}}<div class="quotes">{{range .Quotes}}<div class="quote"><span class="vote {{if low .Score}}low{{end}}">{{.Score}}</span><span>{{mdi .Text}}</span></div>{{end}}</div>{{end}}</div></li>
 {{- end}}

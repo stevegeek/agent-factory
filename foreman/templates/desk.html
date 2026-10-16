@@ -8,8 +8,8 @@
     {{range .Desk.Items}}
     <a class="qitem k-{{.Kind}}" href="{{.Href}}" {{if .Current}}aria-current="true"{{end}}>
       <span class="meta"><span class="kind">{{.Label}}</span><span class="mono">{{.ID}}</span><span>{{.Project}}</span>{{with .Age}}<span>{{.}}</span>{{end}}</span>
-      <span class="q">{{.Question}}</span>
-      {{with .Title}}<span class="t">{{.}}</span>{{end}}
+      <span class="q">{{mdt .Question}}</span>
+      {{with .Title}}<span class="t">{{mdt .}}</span>{{end}}
     </a>
     {{end}}
   </div>

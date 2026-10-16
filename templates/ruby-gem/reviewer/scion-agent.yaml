@@ -10,6 +10,9 @@ resources:
   requests:
     memory: 300Mi
 env:
+  # Scion's agent instructions read these before any git history change; local mode leaves them unset
+  SCION_WORKSPACE_MODE: worktree-per-agent
+  SCION_WORKSPACE_GIT: "true"
   BUNDLE_PATH: /home/scion/.bundle-cache
 volumes:
   - type: local

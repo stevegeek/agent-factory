@@ -6,7 +6,7 @@
     {{range .Lanes}}
     <section class="lane">
       <h3>{{.Label}} <span>{{len .Tickets}}</span></h3>
-      {{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{.Title}}
+      {{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{mdt .Title}}
         {{- if .Ask}} <span class="badge small k-{{.Ask}}">{{.AskLabel}}</span>{{end}}
         {{- with .Agent}} <span class="running-tag">{{.}}</span>{{end}}</a>{{end}}
     </section>
@@ -15,7 +15,7 @@
   {{range .Closed}}
   <details class="more closed" data-key="closed-{{.Label}}">
     <summary>{{.Label}} · {{len .Tickets}}</summary>
-    <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{.Title}}</a>{{end}}</div>
+    <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{mdt .Title}}</a>{{end}}</div>
   </details>
   {{end}}
 </main>

@@ -40,3 +40,23 @@ func TestMarkdownIsSafe(t *testing.T) {
 		t.Errorf("text should be escaped, not dropped: %s", got)
 	}
 }
+
+func TestOneLineMarkdownAndTheLeadOfAnAnswer(t *testing.T) {
+	if got := string(MarkdownLine("Make `require \"x\"` work ## 1. Branches **all** <b>")); got !=
+		`Make <code>require &#34;x&#34;</code> work 1. Branches <strong>all</strong> &lt;b&gt;` {
+		t.Errorf("line: %s", got)
+	}
+	doc := "## Hygiene check\n\n### 1. Branches\n\nAll three branches are **open**.\nLeave them.\n\n| a | b |\n| --- | --- |\n"
+	if got := mdLead(doc, 320); got != "All three branches are **open**. Leave them." {
+		t.Errorf("lead: %q", got)
+	}
+	if got := mdLead("# Plan\n\n- one\n- two\n\nlater", 320); got != "one; two" {
+		t.Errorf("list lead: %q", got)
+	}
+}
+
+func TestTextInsideALinkGetsNoLink(t *testing.T) {
+	if got := string(MarkdownText("see https://example.com/x and `code`")); strings.Contains(got, "<a") || !strings.Contains(got, "<code>code</code>") {
+		t.Errorf("text: %s", got)
+	}
+}
