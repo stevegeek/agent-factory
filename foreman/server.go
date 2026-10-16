@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stevegeek/agent-factory/foreman/fizz"
 )
 
 //go:embed templates/*.html
@@ -28,8 +30,10 @@ type Server struct {
 	board       *Board
 	auth        *Auth
 	runner      *Runner
-	push        *Pusher  // nil: notifications are off
-	projects    []string // what a new ticket may name, besides the board's own projects
+	push        *Pusher     // nil: notifications are off
+	projects    []string    // what a new ticket may name, besides the board's own projects
+	fz          *fizz.Store // project boards; nil: none
+	fzAPI       *fizz.API
 	pages       map[string]*template.Template
 	now         func() time.Time
 	assetV      string
@@ -58,7 +62,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"mdi":   MarkdownLine,
 		"mdt":   MarkdownText,
 	}
-	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new", "live", "talk"} {
+	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings", "new", "live", "talk", "pboard", "pcard"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
 	}
 	return s
@@ -82,6 +86,10 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(data)
 	})
+	if s.fzAPI != nil {
+		// the Fizzy-compatible API: bearer tokens, never the login session
+		mux.Handle(fizz.Mount+"/", s.fzAPI)
+	}
 	mux.HandleFunc("GET /login", s.loginPage)
 	mux.HandleFunc("POST /login", s.login)
 	app := http.NewServeMux()
@@ -102,6 +110,9 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("GET /live/log", s.maintainerOnly(s.liveLog))
 	app.HandleFunc("GET /live/{id}/screen", s.maintainerOnly(s.liveScreen))
 	app.HandleFunc("GET /t/{id}/logs/{name}", s.maintainerOnly(s.agentLog))
+	// project boards are the maintainer's until they have owners of their own
+	app.HandleFunc("GET /pb/{account}/{board}", s.maintainerOnly(s.projectBoard))
+	app.HandleFunc("GET /pc/{account}/{number}", s.maintainerOnly(s.projectCard))
 	app.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.auth.Revoke(); err != nil {
 			log.Printf("logout: %v", err)
@@ -204,6 +215,9 @@ type Page struct {
 	Floor     *Floor
 	Boards    []BoardSummary
 	Board     *BoardView
+	Projects  []ProjectSummary
+	PBoard    *PBoardView
+	PCard     *PCardView
 	Next      string
 	Error     string
 	Version   string
@@ -687,7 +701,11 @@ func summaries(ts []*Ticket) []BoardSummary {
 
 func (s *Server) boards(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
-	s.render(w, r, "boards", &Page{Title: "Boards", Tab: "boards", Boards: summaries(ts)}, ts)
+	var projects []ProjectSummary
+	if s.isMaintainer(r) {
+		projects = s.projectSummaries()
+	}
+	s.render(w, r, "boards", &Page{Title: "Boards", Tab: "boards", Boards: summaries(ts), Projects: projects}, ts)
 }
 
 func (s *Server) boardPage(w http.ResponseWriter, r *http.Request) {

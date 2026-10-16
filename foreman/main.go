@@ -16,6 +16,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/stevegeek/agent-factory/foreman/fizz"
 )
 
 // list: a repeatable string flag.
@@ -25,6 +27,9 @@ func (l *list) String() string     { return strings.Join(*l, ",") }
 func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "boards" || os.Args[1] == "tokens") {
+		os.Exit(runCLI(os.Args[1:], os.Stdout, os.Stderr))
+	}
 	home, _ := os.UserHomeDir()
 	if len(os.Args) > 1 && os.Args[1] == "users" {
 		// other people's logins: foreman users add NAME --project P... | list | remove NAME
@@ -89,6 +94,7 @@ func main() {
 	board := NewBoard(*root)
 	s := NewServer(board, auth, &Runner{Factory: *factory, Root: *root})
 	s.projects = projects
+	s.SetProjectBoards(fizz.Open(storeDir(*root)))
 	if *push {
 		// the VAPID contact: the page's own address when known (push services want an https: or mailto: URL)
 		subject := "mailto:foreman@localhost"

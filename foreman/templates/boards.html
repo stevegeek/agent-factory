@@ -10,5 +10,17 @@
     </a>
     {{else}}<p class="quiet">The board is empty.</p>{{end}}
   </div>
+  {{if .Projects}}
+  <p class="lede">Project boards, kept here for the fizzy CLI (<span class="mono">/fizzy</span>).</p>
+  <div class="boards">
+    {{range .Projects}}
+    <a class="board" href="{{.Href}}">
+      <span class="tag {{if .Maybe}}f{{else}}a{{end}}">{{if .Maybe}}{{.Maybe}} in Maybe?{{else}}triaged{{end}}</span>
+      <b>{{.Name}}</b>
+      <span class="meta">{{.Open}} open · {{.Closed}} done</span>
+    </a>
+    {{end}}
+  </div>
+  {{end}}
 </main>
 {{- end}}

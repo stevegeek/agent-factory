@@ -1,0 +1,23 @@
+{{define "content" -}}
+{{with .PBoard}}
+<main class="pane">
+  <div class="week"><h3>{{.Name}}</h3><p><a href="/boards">All boards</a></p></div>
+  <div class="lane-grid">
+    {{range .Lanes}}
+    <section class="lane">
+      <h3>{{.Label}} <span>{{len .Cards}}</span></h3>
+      {{range .Cards}}<a class="tk" href="{{.Href}}"><span class="mono">#{{.Number}}</span> {{.Title}}
+        {{- if .Golden}} <span class="badge small k-question">golden</span>{{end}}
+        {{- range .Tags}} <span class="badge small k-closed">{{.}}</span>{{end}}</a>{{end}}
+    </section>
+    {{end}}
+  </div>
+  {{range .Folded}}{{if .Cards}}
+  <details class="more closed" data-key="pclosed-{{.Label}}">
+    <summary>{{.Label}} · {{len .Cards}}</summary>
+    <div class="closed-list">{{range .Cards}}<a class="tk" href="{{.Href}}"><span class="mono">#{{.Number}}</span> {{.Title}}</a>{{end}}</div>
+  </details>
+  {{end}}{{end}}
+</main>
+{{end}}
+{{- end}}

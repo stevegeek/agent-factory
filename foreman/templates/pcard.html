@@ -1,0 +1,30 @@
+{{define "content" -}}
+{{with .PCard}}
+<main class="detail solo">
+  <div class="ask-head">
+    <div class="eyebrow">
+      <span class="mono">#{{.Number}}</span>
+      {{if .BoardHref}}<a href="{{.BoardHref}}">{{.Board}}</a>{{end}}
+      <span class="badge small k-{{if eq .State "Done"}}closed{{else}}open{{end}}">{{.State}}</span>
+      {{if .Golden}}<span class="badge small k-question">golden</span>{{end}}
+      {{range .Tags}}<span class="badge small k-closed">{{.}}</span>{{end}}
+    </div>
+    <h2>{{.Title}}</h2>
+    <p class="sub">Added by {{.Creator}}, {{.Created}}{{if .Assignees}} · assigned to {{range $i, $a := .Assignees}}{{if $i}}, {{end}}{{$a}}{{end}}{{end}}</p>
+  </div>
+  {{if .Description}}<div class="why">{{md .Description}}</div>{{end}}
+  {{if .Steps}}
+  <section class="story">
+    <h3>Steps</h3>
+    <ul class="steps">{{range .Steps}}<li class="step"><time>{{if .Completed}}☑ done{{else}}☐{{end}}</time><div>{{mdi .Content}}</div></li>{{end}}</ul>
+  </section>
+  {{end}}
+  <section class="story">
+    <h3>Comments</h3>
+    {{if .Comments}}<ul class="steps">{{range .Comments}}
+      <li class="step"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span>{{if .System}} <span class="quiet">{{.Body}}</span>{{else}}{{md .Body}}{{end}}</div></li>
+    {{end}}</ul>{{else}}<p class="quiet">No comments.</p>{{end}}
+  </section>
+</main>
+{{end}}
+{{- end}}

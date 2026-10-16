@@ -4,7 +4,7 @@ The maintainer's web app for the factory. It reads the board (`$FACTORY_ROOT/boa
 
 - **Desk** (`/`): every ticket that needs a person, as an ask: one question, the evidence, the answers that make sense, and "How it got here" (history, reports, votes, gate and the rule behind each automatic decision). Each row reads project, title, then what it wants ("Review PR #9", "Approve design · 3 tickets"). An ask whose last event is your own note or question moves down to **You've responded** (with what you did and when) and leaves the count and the badge; anything new from the factory brings it back up. After any answer, including a note or a question, the desk moves on to the next ask still waiting for you. A slow answer (opening a PR pushes to GitHub) shows a spinner and what is happening on the tapped button, and the form takes no second tap. Ask the agent gets an answer from an agent in a few minutes; Save note only keeps the note for the next agent that works on the ticket.
 - **Floor** (`/floor`): the week as a log by day, each line expanding into that ticket's story, including proposals the panel dropped and checks that closed with nothing to do. `?week=YYYY-MM-DD` for earlier weeks.
-- **Boards** (`/boards`, `/b/<project>`): tickets by column. `/t/<id>` shows any ticket.
+- **Boards** (`/boards`, `/b/<project>`): tickets by column. `/t/<id>` shows any ticket. Below them, the project boards (`/pb/<account>/<board>`, cards at `/pc/<account>/<number>`), read-only; see [Project boards](#project-boards).
 
 It changes nothing itself: every answer runs the `factory` CLI. Boards from before the dispatcher wrote `ask`, `rule` and panel votes still work; Foreman derives the same asks from the column and the last move.
 
@@ -56,6 +56,34 @@ Listening on anything but loopback sends the secret and cookie over plain HTTP; 
 With `--trust-tailscale`, a request from loopback whose `Tailscale-User-Login` (set by `tailscale serve`) is one of the `--tailscale-user` logins counts as logged in. Every process on the host that can reach the port can send that header, agents included; use it only where that is acceptable.
 
 Ticket text is untrusted: everything is escaped, only http(s) links render, and the CSP allows nothing off the box. Agent-written fields of an unexpected type are ignored rather than hiding the ticket.
+
+## Project boards
+
+Boards for projects outside the factory, kept by Foreman and served through a Fizzy-compatible API at `/fizzy`, so the `fizzy` CLI (and its Claude skill) works against Foreman by changing `api_url` and `token`. The data is JSON under `<root>/boards/` (`tokens.json`; per account `account.json` with users and tags, `boards/<id>.json` with columns, `cards/<number>.json` with steps and comments), each write a temp file renamed into place, one API request at a time.
+
+```sh
+foreman boards init --account 6182510            # the account (keep your Fizzy number) and its owner, Stephen
+foreman boards import --from-fizzy --token-file ~/.config/fizzy-token [--board ID ...]   # optional: copy from app.fizzy.do
+foreman tokens add stephen                       # prints a token once; acts as the owner
+foreman tokens add thriceforged-agent --user thriceforged-agent   # an agent, as its own user (made if new)
+foreman tokens list
+foreman tokens revoke thriceforged-agent
+```
+
+All take `--root` (default `$FACTORY_ROOT` or `~/factory`). Import keeps ids, card numbers, timestamps, column placement, closed / not now / golden, steps, comments, tags and assignees; Fizzy's users map onto local ones by id, then name. Running it again refreshes what it copied; a local card with the same number but another id stops it. Run it while nothing else writes (the store's lock is per process).
+
+A project's `.fizzy.yaml`:
+
+```yaml
+account: 6182510
+api_url: https://<host>.ts.net/fizzy
+token: foreman_…
+board: <board id>
+```
+
+Supported: identity, boards (list, show, create; `board closed` / `postponed`), columns (list, show, create), cards (list with `--board --column --indexed-by --tag --assignee --search --sort --creator --closer --unassigned --created --closed --page --all`, show, create, update, delete, close, reopen, column, untriage, postpone, golden, ungolden, tag, assign, self-assign), comments (list, show, create, update, delete), steps, search, tags, users. Moves are recorded as comments by the account's System user, as in Fizzy. Not supported: reactions, pins, watching, notifications, webhooks, uploads and attachments, board publishing, account admin, `card move`, `indexed_by=postponing_soon`.
+
+Every `/fizzy` request needs `Authorization: Bearer <token>`; the login session is never accepted there, and a token is no login for the app. Tokens are stored as sha256 and compared in constant time; each acts as one user in one account. Without a valid one the answer is 401 `{"error":"Unauthorized"}`. Bodies are limited to 1 MB. The host allowlist and security headers apply as everywhere. Descriptions and comments are stored as the HTML the CLI sends and shown in the web app as escaped Markdown, never as HTML.
 
 ## Answers
 
