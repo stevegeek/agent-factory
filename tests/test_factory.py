@@ -104,6 +104,15 @@ class ScionProjectTest(unittest.TestCase):
         with open(os.path.join(self.dir, ".git", "info", "exclude")) as f:
             self.assertEqual(f.read().splitlines().count(".scion/"), 1)
 
+    def test_a_repository_without_a_gitignore_stays_clean_too(self):
+        subprocess.run(["git", "-C", self.dir, "rm", "-q", ".gitignore"], check=True)
+        subprocess.run(["git", "-C", self.dir, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "r"], check=True)
+        self.calls = []
+        with mock.patch.object(factory, "scion", side_effect=self.fake_init):
+            factory.ensure_scion_project(self.project)
+        status = subprocess.run(["git", "-C", self.dir, "status", "--porcelain"], capture_output=True, text=True).stdout
+        self.assertEqual(status, "")
+
     def test_no_agent_starts_when_init_makes_no_project(self):
         with mock.patch.object(factory, "scion"):
             with self.assertRaises(RuntimeError):

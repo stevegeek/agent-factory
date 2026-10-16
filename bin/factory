@@ -407,7 +407,10 @@ def ensure_scion_project(project):
     if not os.path.exists(marker):
         raise RuntimeError(f"scion init made no project in {project['path']}")
     # init appends to .gitignore; keep the checkout clean (base refreshes fast-forward) and .scion out of git
-    if git(project, "status", "--porcelain", "--", ".gitignore"):
+    status = git(project, "status", "--porcelain", "--", ".gitignore")
+    if status.startswith("??"):
+        os.remove(os.path.join(project["path"], ".gitignore"))   # scion made it; the repository had none
+    elif status:
         git(project, "checkout", "--", ".gitignore")
     exclude = os.path.join(project["path"], ".git", "info", "exclude")
     os.makedirs(os.path.dirname(exclude), exist_ok=True)
