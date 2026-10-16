@@ -240,6 +240,7 @@ func newHarness(t *testing.T, trustTS bool) *harness {
 	// one line per call: FACTORY_ROOT, then each argument, separated by 0x1f
 	os.WriteFile(script, []byte("#!/bin/sh\n"+
 		"if [ -n \"$FAKE_FAIL\" ]; then echo 'boom: that went wrong' >&2; exit 1; fi\n"+
+		"if [ -n \"$FAKE_ID\" ]; then echo \"$FAKE_ID\"; fi\n"+
 		"{ printf '%s' \"$FACTORY_ROOT\"; for a in \"$@\"; do printf '\\037%s' \"$a\"; done; printf '\\n'; } >> \""+logf+"\"\n"), 0o755)
 	a := NewAuth([]byte(testSecret))
 	a.delay = 0

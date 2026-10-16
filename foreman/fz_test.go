@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -118,6 +120,44 @@ func TestProjectBoardPages(t *testing.T) {
 	// logged out: the login page, not the board
 	if w := h.do("GET", "/pb/6182510/"+board, nil); w.Code != http.StatusSeeOther {
 		t.Errorf("logged out: %d", w.Code)
+	}
+}
+
+func TestSendACardToTheFactory(t *testing.T) {
+	h, st, _, _ := projectHarness(t)
+	c := h.login()
+	if !strings.Contains(h.do("GET", "/pc/6182510/1", nil, c).Body.String(), `action="/pc/6182510/1/send"`) {
+		t.Fatalf("the card page should offer to send it")
+	}
+	h.argv()
+	t.Setenv("FAKE_ID", "T0099")
+	csrf := h.srv.auth.CSRF(h.srv.auth.session(c.Value))
+	w := h.do("POST", "/pc/6182510/1/send", url.Values{"csrf": {csrf}, "project": {"widgets"}, "kind": {"change"}}, c)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/t/T0099" {
+		t.Fatalf("send: %d %s", w.Code, w.Header().Get("Location"))
+	}
+	// the harness logs one line per call, so a body with newlines spreads over several: read them as one
+	raw, _ := os.ReadFile(h.log)
+	os.Remove(h.log)
+	call := string(raw)
+	for _, want := range []string{"add\x1f--body=From card #1 on the Thriceforged board.", "- [ ] write a test", "--\x1fwidgets\x1fFix <the> widget"} {
+		if !strings.Contains(call, want) {
+			t.Errorf("the add call lacks %q:\n%q", want, call)
+		}
+	}
+	card, _ := st.Card("6182510", 1)
+	if last := card.Comments[len(card.Comments)-1]; !strings.Contains(last.Body, "Sent to the factory as T0099 (widgets).") {
+		t.Errorf("the card should say where it went: %q", last.Body)
+	}
+	for _, bad := range []url.Values{{"project": {"nowhere"}, "kind": {"change"}}, {"project": {"widgets"}, "kind": {"manage"}},
+		{"project": {"factory"}, "kind": {"change"}}} {
+		bad.Set("csrf", csrf)
+		if w := h.do("POST", "/pc/6182510/1/send", bad, c); w.Header().Get("Location") != "/pc/6182510/1" {
+			t.Errorf("%v: %s", bad, w.Header().Get("Location"))
+		}
+	}
+	if got := h.argv(); len(got) != 0 {
+		t.Errorf("a refused send ran %v", got)
 	}
 }
 

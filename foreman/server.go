@@ -113,6 +113,7 @@ func (s *Server) Handler() http.Handler {
 	// project boards are the maintainer's until they have owners of their own
 	app.HandleFunc("GET /pb/{account}/{board}", s.maintainerOnly(s.projectBoard))
 	app.HandleFunc("GET /pc/{account}/{number}", s.maintainerOnly(s.projectCard))
+	app.HandleFunc("POST /pc/{account}/{number}/send", s.maintainerOnly(s.sendCard))
 	app.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.auth.Revoke(); err != nil {
 			log.Printf("logout: %v", err)

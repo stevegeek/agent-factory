@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stevegeek/agent-factory/foreman/fizz"
@@ -50,6 +53,8 @@ type PCardView struct {
 	Number                                  int
 	Title, Board, BoardHref, State, Created string
 	Creator, Description                    string
+	Account                                 string   // for the send-to-factory form
+	Projects                                []string // factory projects a card can be sent to
 	Golden                                  bool
 	Tags, Assignees                         []string
 	Steps                                   []*fizz.Step
@@ -209,7 +214,90 @@ func (s *Server) projectCard(w http.ResponseWriter, r *http.Request) {
 			Body: fizz.PlainText(cm.Body, true), System: u != nil && u.Role == "system"})
 	}
 	ts := s.board.Load()
+	v.Account, v.Projects = acct, s.projectChoices(ts, nil)
 	s.render(w, r, "pcard", &Page{Title: "#" + strconv.Itoa(c.Number) + " " + c.Title, Tab: "boards", PCard: v}, ts)
+}
+
+// sendCard: a project-board card becomes a factory ticket (Foreman step 3, first pass). The ticket
+// carries the card's text; the card gets a comment naming the ticket, so each leads to the other.
+func (s *Server) sendCard(w http.ResponseWriter, r *http.Request) {
+	acct := r.PathValue("account")
+	n := fizz.CardNumber(r.PathValue("number"))
+	back := "/pc/" + acct + "/" + strconv.Itoa(n)
+	if s.fz == nil || n == 0 || !fizz.ValidAccount(acct) {
+		http.NotFound(w, r)
+		return
+	}
+	project, kind := r.PostFormValue("project"), r.PostFormValue("kind")
+	known := false
+	for _, p := range s.projectChoices(s.board.Load(), nil) {
+		known = known || p == project
+	}
+	flags, okKind := newKinds[kind]
+	if !known || !okKind || kind == "manage" || (project == noticeProject && kind != "task") {
+		s.flashRedirect(w, r, back, "error", "Pick a project and what should happen.")
+		return
+	}
+	s.fz.Mu.Lock()
+	c, err := s.fz.Card(acct, n)
+	var b *fizz.Board
+	if err == nil {
+		b, _ = s.fz.Board(acct, c.BoardID)
+	}
+	s.fz.Mu.Unlock()
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	var body strings.Builder
+	board := "a project board"
+	if b != nil {
+		board = "the " + b.Name + " board"
+	}
+	fmt.Fprintf(&body, "From card #%d on %s.\n\n%s", c.Number, board, fizz.PlainText(c.Description, true))
+	for i, st := range c.Steps {
+		if i == 0 {
+			body.WriteString("\n\nSteps:\n")
+		}
+		mark := "[ ]"
+		if st.Completed {
+			mark = "[x]"
+		}
+		fmt.Fprintf(&body, "- %s %s\n", mark, st.Content)
+	}
+	title := strings.TrimSpace(strings.ReplaceAll(c.Title, "\n", " "))
+	if len(title) > 200 {
+		title = title[:200]
+	}
+	args := append([]string{"add", "--body=" + clip(strings.TrimSpace(body.String()), 7900)}, flags...)
+	out, err := s.runner.Run([][]string{append(args, "--", project, title)})
+	if err != nil {
+		s.flashRedirect(w, r, back, "error", err.Error())
+		return
+	}
+	id := strings.TrimSpace(out)
+	if i := strings.LastIndex(id, "\n"); i >= 0 {
+		id = id[i+1:]
+	}
+	if !validID(id) {
+		s.flashRedirect(w, r, back, "ok", "Sent to the factory.")
+		return
+	}
+	s.fz.Mu.Lock()
+	if a, err := s.fz.Account(acct); err == nil {
+		if c, err := s.fz.Card(acct, n); err == nil {
+			sys := a.System(s.fz.Stamp())
+			c.Comments = append(c.Comments, &fizz.Comment{ID: fizz.NewID(), CreatorID: sys.ID, CreatedAt: s.fz.Stamp(), UpdatedAt: s.fz.Stamp(),
+				Body: "<p>Sent to the factory as " + id + " (" + html.EscapeString(project) + ").</p>"})
+			c.LastActiveAt = s.fz.Stamp()
+			if err := s.fz.SaveAccount(a); err == nil {
+				s.fz.SaveCard(acct, c)
+			}
+		}
+	}
+	s.fz.Mu.Unlock()
+	log.Printf("card %s/#%d sent to the factory as %s", acct, n, id)
+	s.flashRedirect(w, r, "/t/"+id, "ok", id+": filed from card #"+strconv.Itoa(n)+".")
 }
 
 func stampLabel(s string) string {

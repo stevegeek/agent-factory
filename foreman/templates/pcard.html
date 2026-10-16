@@ -25,6 +25,18 @@
       <li class="step"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span>{{if .System}} <span class="quiet">{{.Body}}</span>{{else}}{{md .Body}}{{end}}</div></li>
     {{end}}</ul>{{else}}<p class="quiet">No comments.</p>{{end}}
   </section>
+  {{if .Projects}}<form class="act" method="post" action="/pc/{{.Account}}/{{.Number}}/send">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <h3 class="panel-h">Send it to the factory</h3>
+    <p class="hint">It becomes a ticket with this card's text; the card gets a comment naming the ticket.</p>
+    <div class="field"><label for="send-project">Project</label>
+      <select id="send-project" name="project">{{range .Projects}}<option>{{.}}</option>{{end}}</select></div>
+    <div class="answers">
+      <button class="btn primary" type="submit" name="kind" value="change"><span>Make the change</span><small>worker, review, gate, PR</small></button>
+      <button class="btn" type="submit" name="kind" value="intent"><span>Design it first</span><small>a design for you to approve</small></button>
+      <button class="btn" type="submit" name="kind" value="task"><span>Ask about it</span><small>an answer, nothing changes</small></button>
+    </div>
+  </form>{{end}}
 </main>
 {{end}}
 {{- end}}
