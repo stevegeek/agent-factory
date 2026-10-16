@@ -667,6 +667,31 @@ def task_prompt(t, project):
     return f"Task: {t['title']}\n\n{t['body']}".rstrip() + f"\n\n{where}" + untrusted_note(t) + notes_text(t)
 
 
+def asked_on(t):
+    """The open ticket whose Ask filed this task, or None (a task with a parent is not always a question)."""
+    pid = t.get("parent")
+    if not pid or not re.fullmatch(r"T\d{4,6}", pid) or not os.path.exists(ticket_path(pid)):
+        return None
+    p = load_ticket(pid)
+    if p["column"] in ("done", "rejected"):
+        return None
+    return p if any(h["event"] == "asked" and h["detail"].startswith(t["id"] + ":") for h in p["history"]) else None
+
+
+def deliver_answer(t, summary):
+    """An Ask's answer goes back to the ticket it was asked on, which returns to the desk with the answer in its
+    story; the question's own ticket closes. One asked on a closed ticket stays on the desk by itself."""
+    if asked_on(t) is None:
+        return False
+    with ticket_lock(t["parent"]):
+        p = load_ticket(t["parent"])
+        if p["column"] in ("done", "rejected"):
+            return False
+        event(p, "answered", f"{t['id']}: {clip(summary, 300)}")
+        save_ticket(p)
+    return True
+
+
 def ask_body(parent, question):
     """The question plus what the factory already knows about the ticket, so the answer starts from the facts."""
     reports = parent.get("reports") or {}
@@ -923,7 +948,10 @@ def finish_stage(cfg, project, t, report, head=None):
     if stage == "task":
         t["result"] = str(report.get("result") or "")
         state = "done" if report.get("status") == "done" else "blocked"
-        return move(t, "needs_human", f"task {state}: {str(report.get('summary', ''))[:200]}")
+        summary = str(report.get("summary", ""))
+        if state == "done" and deliver_answer(t, summary):
+            return move(t, "done", f"answered on {t['parent']}")
+        return move(t, "needs_human", f"task {state}: {summary[:200]}")
     if stage == "design":
         return finish_design(t, report)
     if stage == "prospect":
@@ -1981,6 +2009,13 @@ MOVE_DETAIL = re.compile(r"(\w+) -> (\w+)(?:: (.*))?", re.S)
 def migrate():
     """Backfill boards made before asks and filed votes: asks on waiting tickets, votes on proposals,
     and dropped proposals filed as rejected tickets. Safe to run again."""
+    for t in each_locked(all_tickets(), lambda t: t.get("kind") == "task" and t["column"] == "needs_human"
+                         and t.get("result") and asked_on(t) is not None):
+        summary = next((h["detail"].split("task done: ", 1)[-1] for h in reversed(t["history"])
+                        if h["event"] == "move" and "task done" in h["detail"]), "")
+        if deliver_answer(t, summary):
+            move(t, "done", f"answered on {t['parent']}")
+            save_ticket(t)
     for t in each_locked(all_tickets(), lambda t: t["column"] in ASK_COLUMNS and not t.get("ask")):
         old, detail, since = None, "", t.get("created")
         for h in reversed(t["history"]):

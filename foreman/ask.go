@@ -319,6 +319,7 @@ type DeskItem struct {
 	// Responded: the last thing on the ticket is the maintainer's own "note" or "asked", made after
 	// the ask arrived. The item waits lower down until the factory does anything new with it.
 	Responded, RespondedAt string
+	Answered               bool // the last thing on it is the answer to your question
 }
 
 // responded: the factory's own notes (a GitHub review, a rebase request) come with a move off the
@@ -352,7 +353,8 @@ func Desk(ts []*Ticket) []DeskItem {
 	for _, t := range ts {
 		if a := AskFor(t); a != nil {
 			r, at := responded(t, a)
-			out = append(out, DeskItem{t, a, r, at})
+			answered := len(t.History) > 0 && t.History[len(t.History)-1].Event == "answered"
+			out = append(out, DeskItem{t, a, r, at, answered})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {

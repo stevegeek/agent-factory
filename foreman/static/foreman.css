@@ -338,3 +338,13 @@ details.closed { max-width: none; }
 .kind-opt input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--info); flex: none; }
 .kind-opt span { display: grid; gap: 2px; }
 .kind-opt small { color: var(--muted); font-size: 13px; }
+
+/* the answer to your question, at the top of the ticket it was asked on */
+.answered { border: 1px solid color-mix(in srgb, var(--info) 45%, var(--line)); background: color-mix(in srgb, var(--info-soft) 55%, var(--surface));
+  border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; max-width: 74ch; margin: 4px 0 14px; }
+.answered .panel-h { margin: 0; display: flex; gap: 10px; align-items: baseline; }
+.answered .panel-h a { font-size: 12px; font-weight: 400; color: var(--muted); }
+.answered .asked { margin: 0; color: var(--muted); font-style: italic; }
+.answered .md > :first-child { margin-top: 0; }
+.answered .md > :last-child { margin-bottom: 0; }
+.qitem .resp.new { color: var(--info); font-style: normal; font-weight: 600; }

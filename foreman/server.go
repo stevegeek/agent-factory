@@ -170,6 +170,7 @@ type QueueItem struct {
 	ID, Kind, Label, Glyph, Question, Title, Project, Age, Href string
 	Action    string // what the ask wants, in a few words
 	Responded string // "You asked 5 min ago": set when the item waits on the factory, not on you
+	Answered  bool   // back on the desk because your question was answered
 	Current   bool
 }
 
@@ -207,6 +208,30 @@ type TicketView struct {
 	ParentID                string
 	NoteFirst               bool
 	Since                   string
+	Answer                  *AnswerView // the latest answer to a question asked while this ask waits
+}
+
+type AnswerView struct {
+	ID, Question, Lead, Full string
+}
+
+// latestAnswer: the newest of your questions on t that has an answer, asked since the ask arrived (an
+// answer about an earlier decision stays in the story).
+func latestAnswer(t *Ticket, a *Ask, all map[string]*Ticket) *AnswerView {
+	for i := len(t.History) - 1; i >= 0; i-- {
+		h := t.History[i]
+		if h.Event != "asked" {
+			continue
+		}
+		if a != nil && parseTime(h.At).Before(parseTime(a.Since)) {
+			return nil
+		}
+		id, q, _ := strings.Cut(h.Detail, ": ")
+		if c := all[id]; c != nil && c.Result != "" {
+			return &AnswerView{ID: id, Question: q, Lead: mdLead(c.Result, 600), Full: c.Result}
+		}
+	}
+	return nil
 }
 
 type More struct {
@@ -255,7 +280,7 @@ func deskView(items []DeskItem, kind, current string, now time.Time) *DeskView {
 		}
 		q := QueueItem{ID: it.T.ID, Kind: it.Ask.Kind, Label: kindLabel(it.Ask.Kind), Glyph: kindGlyph(it.Ask.Kind),
 			Question: Headline(it.T, it.Ask), Title: it.T.Title, Action: Action(it.T, it.Ask), Project: it.T.Project,
-			Age: ageSince(it.Ask.Since, now), Href: ticketHref(it.T.ID, kind), Current: it.T.ID == current}
+			Age: ageSince(it.Ask.Since, now), Href: ticketHref(it.T.ID, kind), Current: it.T.ID == current, Answered: it.Answered}
 		switch it.Responded {
 		case "asked":
 			q.Responded = "You asked " + ageSince(it.RespondedAt, now) + " ago · the answer comes here"
@@ -326,6 +351,7 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 		if !strings.Contains(v.Headline, t.Title) {
 			v.Subtitle = t.Title
 		}
+		v.Answer = latestAnswer(t, a, all)
 	} else {
 		v.Kind = "closed"
 		v.KindLabel = ticketColumnLabel(t)

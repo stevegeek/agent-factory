@@ -14,6 +14,12 @@
   {{with .Subtitle}}<p class="sub">{{mdi .}}</p>{{end}}
 </header>
 {{with .Next}}<p class="next"><b>Waiting for you</b> {{.}}</p>{{end}}
+{{with .Answer}}<section class="answered" aria-label="Answer to your question">
+  <h3 class="panel-h">Answer to your question <a class="mono" href="/t/{{.ID}}">{{.ID}}</a></h3>
+  <p class="asked">“{{mdt .Question}}”</p>
+  <div class="text md">{{md .Lead}}</div>
+  {{if ne .Lead .Full}}<details class="more" data-key="answer-{{.ID}}"><summary>Read the whole answer</summary><div class="text md">{{md .Full}}</div></details>{{end}}
+</section>{{end}}
 {{with .Why}}<p class="why">{{mdi .}}</p>{{end}}
 {{with .Callout}}<div class="callout {{.Tone}}"><b>{{.Title}}</b>
   {{if .Lines}}<ul>{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}

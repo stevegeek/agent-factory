@@ -1038,6 +1038,44 @@ class TaskTicketTest(RemoteStageTest):
         self.assertIn("task done: up 100%", t["history"][-1]["detail"])
 
 
+    def asked_pair(self, root, parent_column):
+        parent = factory.new_ticket("gem", "Tidy README", "Make it tidy.", "human", parent_column)
+        child = factory.new_ticket("gem", "Question on it", "Why?", "human", "working", kind="task", parent=parent["id"])
+        factory.event(parent, "asked", f"{child['id']}: why this way?")
+        factory.save_ticket(parent)
+        return parent, child
+
+    def test_an_answer_goes_back_to_the_ticket_it_was_asked_on(self):
+        report = {"report.json": b'{"status": "done", "summary": "Because the lint rule says so.", "result": "## Why\\nlint"}'}
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), mock.patch.object(factory, "log"):
+            parent, child = self.asked_pair(root, "pr_open")
+            child = self.collected(child, "task", report)
+            self.assertEqual(child["column"], "done")
+            self.assertIn(f"answered on {parent['id']}", child["history"][-1]["detail"])
+            last = factory.load_ticket(parent["id"])["history"][-1]
+            self.assertEqual((last["event"], last["detail"]), ("answered", f"{child['id']}: Because the lint rule says so."))
+
+            # asked on a ticket that has closed since: the answer stays on the desk by itself
+            parent, child = self.asked_pair(root, "done")
+            self.assertEqual(self.collected(child, "task", report)["column"], "needs_human")
+            # a blocked answer is something to look at on its own
+            parent, child = self.asked_pair(root, "pr_open")
+            blocked = {"report.json": b'{"status": "blocked", "summary": "no access"}'}
+            self.assertEqual(self.collected(child, "task", blocked)["column"], "needs_human")
+            self.assertEqual(factory.load_ticket(parent["id"])["history"][-1]["event"], "asked")
+
+    def test_migrate_sends_answers_already_on_the_desk_back_to_their_ticket(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), mock.patch.object(factory, "log"):
+            parent, child = self.asked_pair(root, "needs_human")
+            child["result"] = "lint"
+            factory.move(child, "needs_human", "task done: Because lint.")
+            factory.save_ticket(child)
+            factory.migrate()
+            factory.migrate()   # safe to run again
+            self.assertEqual(factory.load_ticket(child["id"])["column"], "done")
+            answered = [h for h in factory.load_ticket(parent["id"])["history"] if h["event"] == "answered"]
+            self.assertEqual([h["detail"] for h in answered], [f"{child['id']}: Because lint."])
+
 class GithubOutTest(RepoCase):
     def setUp(self):
         super().setUp()

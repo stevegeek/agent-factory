@@ -805,3 +805,33 @@ func TestANoteOnTheDeskMovesOnToTheNextAsk(t *testing.T) {
 		t.Errorf("ran %v", got)
 	}
 }
+
+func TestAnAnsweredQuestionBringsItsTicketBackWithTheAnswer(t *testing.T) {
+	ts := fixtures(t)
+	it := Desk(ts)[0]
+	p := it.T
+	since := parseTime(it.Ask.Since)
+	at := func(d time.Duration) string { return since.Add(d).UTC().Format(time.RFC3339) }
+	child := &Ticket{ID: "T0999", Kind: "task", Parent: p.ID, Column: "working", Project: p.Project}
+	ts = append(ts, child)
+	p.History = append(p.History, Hist{At: at(time.Hour), Event: "asked", Detail: "T0999: why the nil check?"})
+	if r, _ := responded(p, it.Ask); r != "asked" {
+		t.Fatalf("waiting on the answer: %q", r)
+	}
+	child.Result, child.Column = "Because **lint** says so.\n\nMore detail here.", "done"
+	p.History = append(p.History, Hist{At: at(2 * time.Hour), Event: "answered", Detail: "T0999: Because lint says so."})
+	items := Desk(ts)
+	if items[0].T != p || !items[0].Answered || items[0].Responded != "" {
+		t.Errorf("the answer should bring %s back to the top: %+v", p.ID, items[0])
+	}
+	s := &Server{now: func() time.Time { return since.Add(3 * time.Hour) }}
+	v := s.ticketView(p, ts, "")
+	if v.Answer == nil || v.Answer.ID != "T0999" || v.Answer.Question != "why the nil check?" || !strings.Contains(v.Answer.Lead, "lint") {
+		t.Errorf("answer: %+v", v.Answer)
+	}
+	// a question from before the current ask is old news, kept in the story only
+	p.History = []Hist{{At: since.Add(-time.Hour).UTC().Format(time.RFC3339), Event: "asked", Detail: "T0999: old"}}
+	if latestAnswer(p, it.Ask, byID(ts)) != nil {
+		t.Errorf("an answer about an earlier decision should not lead the page")
+	}
+}
