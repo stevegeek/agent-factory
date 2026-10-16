@@ -1180,6 +1180,13 @@ def tick(cfg):
                 else:
                     move(t, "ready_for_pr", "auto-merge eligible" if t["gate"]["auto_eligible"] else
                          "needs human review: " + "; ".join(t["gate"]["blockers"])[:200], rule=gate_rule(cfg, t["gate"]))
+                    # a rework goes straight onto its PR: until then GitHub shows the old commit,
+                    # and an approval given there would be for code that is no longer the change
+                    if (t.get("pr") or {}).get("number") and project.get("github") and cfg.get("github", {}).get("installation_id"):
+                        try:
+                            open_pr(cfg, project, t)
+                        except Exception as e:
+                            event(t, "error", f"github: {str(e)[:250]}")
                 write_audit(t)
             else:
                 stage = stage_for(t)
