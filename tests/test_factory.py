@@ -357,6 +357,7 @@ class DoorsTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.patches = [mock.patch.object(factory, "BOARD", os.path.join(self.tmp.name, "board")),
                         mock.patch.object(factory, "STATE", os.path.join(self.tmp.name, "state.json")),
+                        mock.patch.object(factory, "MEMORY_GIT", os.path.join(self.tmp.name, "memory")),
                         mock.patch.object(factory, "log")]
         for p in self.patches:
             p.start()
@@ -1541,6 +1542,17 @@ class MemoryTest(RemoteStageTest):
             self.assertIsNone(factory.running_agents(cfg))
         with mock.patch.object(factory, "scion", return_value=subprocess.CompletedProcess([], 0, '[{"name": "a"}]', "")):
             self.assertEqual(factory.running_agents(cfg), {"a"})
+
+    def test_the_monthly_report_names_sizes_and_notes_for_closed_tickets(self):
+        t = self.ticket("ready")
+        self.start_local(t)
+        with open(os.path.join(t["agent"]["memory"]["dir"], "tickets", "T0003.md"), "w") as f:
+            f.write("done\n")
+        self.finish_local(t)
+        with mock.patch.object(factory, "all_tickets", return_value=[{"id": "T0003", "column": "done"}]):
+            report = factory.memory_report(self.cfg)
+        self.assertIn("**p/worker**", report)
+        self.assertIn("notes for closed tickets: T0003", report)
 
     def test_undo_a_memory_change(self):
         t = self.ticket("ready")

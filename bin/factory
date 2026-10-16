@@ -1033,6 +1033,33 @@ def settle_memory(cfg, t, agent, files=None):
             remove_copy(mem["dir"])
 
 
+def memory_report(cfg):
+    """Each store's size and the notes it keeps for tickets that have closed: the monthly tidy-up's facts,
+    gathered without a model. None when there is nothing to report."""
+    closed = {t["id"] for t in all_tickets() if t["column"] in ("done", "rejected")}
+    limit = cfg.get("memory", {}).get("max_kb", 512)
+    lines, stale_total = [], 0
+    for repo in sorted(glob.glob(os.path.join(MEMORY_GIT, "*", "*.git"))):
+        project_key, role = repo.split(os.sep)[-2], os.path.basename(repo)[:-4]
+        try:
+            files = memory_snapshot(repo, memory_head(repo))
+        except RuntimeError:
+            continue
+        size = sum(len(d) for d in files.values())
+        stale = sorted(p for p in files if p.startswith("tickets/") and p[8:-3] in closed)
+        stale_total += len(stale)
+        flag = " **over its limit**" if size > limit * 1024 else ""
+        lines.append(f"- **{project_key}/{role}**: {len(files)} files, {size // 1024} KB{flag}"
+                     + (f"; notes for closed tickets: {', '.join(x[8:-3] for x in stale[:12])}" if stale else ""))
+    if not lines:
+        return None
+    return ("The agents' memory stores (`factory memory <project> <role>` shows each one's history):\n\n"
+            + "\n".join(lines) + "\n\n"
+            + (f"{stale_total} ticket notes belong to closed tickets; they can go when nothing in them is still "
+               "useful (a `factory memory --revert` undoes any change). " if stale_total else "")
+            + "Nothing has been changed.")
+
+
 def cmd_memory(cfg, a):
     if a.revert:
         if not (a.project and a.role):
@@ -2233,6 +2260,11 @@ def clock(cfg):
             else:
                 new_ticket(key, job["title"], body, "clock", job.get("column", "triage"))
         last[job["name"]] = now()
+    if not last.get("memory-report") or dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(last["memory-report"]) >= dt.timedelta(days=30):
+        report = memory_report(cfg)
+        if report:
+            notice("Memory stores: sizes and stale notes", report)
+        last["memory-report"] = now()
     if not last.get("versions") or dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(last["versions"]) >= dt.timedelta(days=7):
         check_versions(cfg)
         last["versions"] = now()
