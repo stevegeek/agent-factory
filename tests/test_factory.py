@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import shutil
 import tarfile
 import tempfile
 import unittest
@@ -1665,6 +1666,23 @@ class WakeTest(unittest.TestCase):
                  mock.patch.object(factory, "tick_pass", side_effect=one_pass):
                 factory.tick({})
             self.assertEqual(len(passes), 2)
+
+class GateWorkflowTest(unittest.TestCase):
+    def test_the_workflow_mirrors_the_gate_and_only_approves_the_factorys_own_eligible_prs(self):
+        cfg = {"gate": {"max_changed_lines": 7, "allowed_paths": ["*.md", "test/*"]}, "github": {"app_slug": "acme-factory"},
+               "projects": {"gem": {"base": "main", "test": "bundle exec rake test", "lint": "bundle exec standardrb"},
+                            "shard": {"language": "Crystal shard", "test": "crystal spec", "lint": ""}}}
+        wf = factory.gate_workflow(cfg, "gem")
+        for want in ('run: "bundle exec rake test"', "lines <= 7", '["*.md", "test/*"]', "'acme-factory[bot]'",
+                     "startsWith(github.head_ref, 'bot/')", "eligible for automatic approval.", "name: factory gate"):
+            self.assertIn(want, wf)
+        cr = factory.gate_workflow(cfg, "shard")
+        self.assertIn("crystal-lang/install-crystal", cr)
+        self.assertIn('run: "true"', cr)
+        if shutil.which("ruby"):
+            for text in (wf, cr):
+                r = subprocess.run(["ruby", "-ryaml", "-e", "YAML.load($stdin.read)"], input=text, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr)
 
 class FactoryRemoteTest(unittest.TestCase):
     def setUp(self):
