@@ -49,6 +49,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"asset": func(name string) string { return "/static/" + name + "?v=" + s.assetV },
 		"low":   func(n int) bool { return n < 4 },
 		"inc":   func(n int) int { return n + 1 },
+		"md":    Markdown,
 	}
 	for _, page := range []string{"desk", "ticket", "floor", "boards", "board", "login", "settings"} {
 		s.pages[page] = template.Must(template.New("").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/parts.html", "templates/"+page+".html"))
