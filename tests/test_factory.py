@@ -73,6 +73,40 @@ class ClassifyTest(RepoCase):
         self.assertEqual(factory.classify(project, "b"), 3)
 
 
+class ScionProjectTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        subprocess.run(["git", "init", "-q", self.dir], check=True)
+        with open(os.path.join(self.dir, ".gitignore"), "w") as f:
+            f.write("/tmp/\n")
+        subprocess.run(["git", "-C", self.dir, "add", "."], check=True)
+        subprocess.run(["git", "-C", self.dir, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "i"], check=True)
+        self.project = {"path": self.dir}
+
+    def fake_init(self, project, *args, **kw):
+        self.calls.append(args)
+        os.makedirs(os.path.join(self.dir, ".scion"), exist_ok=True)
+        open(os.path.join(self.dir, ".scion", "project-id"), "w").write("id")
+        with open(os.path.join(self.dir, ".gitignore"), "a") as f:
+            f.write(".scion/agents/\n")
+
+    def test_a_new_checkout_gets_its_own_scion_project_and_stays_clean(self):
+        self.calls = []
+        with mock.patch.object(factory, "scion", side_effect=self.fake_init):
+            factory.ensure_scion_project(self.project)
+            factory.ensure_scion_project(self.project)     # already there: nothing to do
+        self.assertEqual(self.calls, [("init",)])
+        status = subprocess.run(["git", "-C", self.dir, "status", "--porcelain"], capture_output=True, text=True).stdout
+        self.assertEqual(status, "")
+        with open(os.path.join(self.dir, ".git", "info", "exclude")) as f:
+            self.assertEqual(f.read().splitlines().count(".scion/"), 1)
+
+    def test_no_agent_starts_when_init_makes_no_project(self):
+        with mock.patch.object(factory, "scion"):
+            with self.assertRaises(RuntimeError):
+                factory.ensure_scion_project(self.project)
+
+
 class ProjectFactsTest(unittest.TestCase):
     def test_every_agent_is_told_the_language_and_the_gates_commands(self):
         p = {"language": "Crystal shard", "install": "shards install", "test": "crystal spec",
@@ -117,7 +151,8 @@ class ConfigTest(RepoCase):
     def test_stage_uses_configured_template_name(self):
         t = {"id": "T0001", "title": "t", "body": "", "door": "human", "column": "triage",
              "branch": None, "reports": {}, "history": []}
-        with mock.patch.object(factory, "scion") as scion, mock.patch.object(factory, "log"):
+        with mock.patch.object(factory, "scion") as scion, mock.patch.object(factory, "log"), \
+             mock.patch.object(factory, "ensure_scion_project"):
             factory.start_stage({"templates": {"triage": "gem-triage"}}, self.project, t, "triage")
         args = scion.call_args.args
         self.assertEqual(args[args.index("-t") + 1], "gem-triage")
@@ -920,6 +955,7 @@ class RemoteStageTest(RepoCase):
         cfg = {**self.cfg, "max_agents": 1}
         with mock.patch.object(factory, "remote", side_effect=remote_effect) as remote, \
              mock.patch.object(factory, "scion") as scion, \
+             mock.patch.object(factory, "ensure_scion_project"), \
              mock.patch.object(factory, "running_agents", return_value=set(local_running)), \
              mock.patch.object(factory, "all_tickets", return_value=tickets), \
              mock.patch.object(factory, "save_ticket"), \

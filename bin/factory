@@ -371,6 +371,27 @@ def scion_env():
     return env
 
 
+def ensure_scion_project(project):
+    """Scion runs an agent in the project whose .scion it finds; a checkout without one falls back to
+    the global project, which mounts the checkout itself into the container instead of a worktree."""
+    marker = os.path.join(project["path"], ".scion", "project-id")
+    if os.path.exists(marker):
+        return
+    scion(project, "init")
+    if not os.path.exists(marker):
+        raise RuntimeError(f"scion init made no project in {project['path']}")
+    # init appends to .gitignore; keep the checkout clean (base refreshes fast-forward) and .scion out of git
+    if git(project, "status", "--porcelain", "--", ".gitignore"):
+        git(project, "checkout", "--", ".gitignore")
+    exclude = os.path.join(project["path"], ".git", "info", "exclude")
+    os.makedirs(os.path.dirname(exclude), exist_ok=True)
+    with open(exclude, "a+") as f:
+        f.seek(0)
+        if ".scion/" not in f.read().splitlines():
+            f.write(".scion/\n")
+    log(f"scion project initialised in {project['path']}")
+
+
 def scion(project, *args, check=True):
     return run([SCION, *args], cwd=project["path"], env=scion_env(), check=check, timeout=600)
 
@@ -865,6 +886,7 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
             args += ["-b", t["branch"]]
         if model:
             args += ["--model", model]
+        ensure_scion_project(project)
         scion(project, *args, prompt)
     else:
         start_remote(cfg, project, t, stage, name, prompt, host, model)
