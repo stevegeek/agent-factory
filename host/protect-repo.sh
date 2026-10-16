@@ -55,6 +55,13 @@ for name in "main" "main: review"; do
   elif [ "$dry" = 1 ]; then
     echo "+ $repo: would create \"$name\": $json"
   else
-    gh api -X POST "repos/$repo/rulesets" --input - --jq '"+ \(.name) created: \(._links.html.href)"' <<<"$json"
+    if ! out=$(gh api -X POST "repos/$repo/rulesets" --input - --jq '"+ \(.name) created: \(._links.html.href)"' <<<"$json" 2>&1); then
+      echo "$out" >&2
+      # GitHub accepts the App as a bypass actor only on repositories the App is installed on
+      grep -q "must be part of the ruleset source" <<<"$out" &&
+        echo "! give the factory's GitHub App access to $repo first, then run this again" >&2
+      exit 1
+    fi
+    echo "$out"
   fi
 done
