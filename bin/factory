@@ -108,12 +108,13 @@ TIER_ANGLES = {
 }
 
 TIER3_PATHS = ["*.gemspec", "Gemfile", "Gemfile.lock", "gemfiles/*", "Rakefile", ".github/*", "bin/*",
-               "*extconf.rb", "Appraisals", "package.json", "*.lock"]
+               "*extconf.rb", "Appraisals", "package.json", "*.lock", "shard.yml", "Makefile", "script/*"]
 TEXT_PATHS = ["*.md", "*.txt", "*.rdoc", "docs/*", "LICENSE*", "CHANGELOG*", ".standard.yml", ".rubocop.yml",
-              "*.rbs", "sig/*"]
+              "*.rbs", "sig/*", ".ameba.yml", ".editorconfig"]
 TIER2_CONTENT = re.compile(r"\b(eval|instance_eval|class_eval|send|public_send|constantize|system|exec|spawn|Marshal|"
                            r"YAML\.(unsafe_)?load|JSON\.parse|open\(|html_safe|raw\(|sanitize|find_by_sql|to_sql|"
-                           r"Regexp\.new|Kernel\.)")
+                           r"Regexp\.new|Kernel\.|Process\.(run|exec|new)|from_json|from_yaml|YAML\.parse|"
+                           r"pointerof|Pointer|unsafe_as|\.unsafe_)")
 TIER2_PATH = re.compile(r"(pars|render|serial|encod|decod|request|response|http|json|yaml|sql|html|escap|input)", re.I)
 
 
@@ -582,6 +583,16 @@ def untrusted_note(t):
     return ""
 
 
+def project_facts(project):
+    """What every agent on a project is told about it: the language and the commands the gate runs."""
+    lines = [f"\n\n## This project\n\n{project.get('language', 'Ruby gem')}. Run from the repository root:"]
+    lines += [f"- {label}: `{project[k]}`" for k, label in (("install", "set up"), ("test", "tests"), ("lint", "lint"))
+              if project.get(k)]
+    if project.get("notes"):
+        lines += ["", project["notes"].strip()]
+    return "\n".join(lines)
+
+
 def work_prompt(t):
     p = f"Task: {t['title']}\n\n{t['body']}".rstrip() + untrusted_note(t) + notes_text(t)
     review = t["reports"].get("review")
@@ -736,7 +747,7 @@ def checks_on_fresh_checkout(cfg, project, t, image=None, ref=None):
     try:
         cmd = f"set -e; {project['install']}; {project['test']}; {project['lint']}"
         r = run(["podman", "run", "--rm", "--entrypoint", "", "--network", "none",
-                 "--userns=keep-id:uid=1000,gid=1000", "--user", "1000:1000", "--memory", g.get("memory", "900m"),
+                 "--userns=keep-id:uid=1000,gid=1000", "--user", "1000:1000", "--memory", project.get("gate_memory", g.get("memory", "900m")),
                  *extra, "-v", f"{wt}:/work", "-w", "/work", image or cfg["image"], "sh", "-c", cmd], timeout=1800)
         return r.returncode == 0, (r.stdout + r.stderr)[-4000:]
     finally:
@@ -844,6 +855,8 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
             t["security_tier"] = classify(project, t["branch"])
             t["security_questions"] = security_angles(t["security_tier"])
             prompt = security_prompt(t, project, t["security_tier"])
+    if project:
+        prompt += project_facts(project)
     model = stage_model(cfg, t, stage, host)
     if host == LOCAL:
         template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
@@ -1650,6 +1663,9 @@ def rebuild_image(cfg, kind):
         return False, f"image tag {tag} clashes with the rebuild's own tags", []
     pinned = cfg.get("images", {}).get(kind)
     build_args = ["--build-arg", f"{spec['arg']}={pinned}"] if pinned else []
+    for key, arg in (("crystal", "CRYSTAL_VERSION"), ("ameba", "AMEBA_VERSION")):
+        if cfg.get("images", {}).get(key):
+            build_args += ["--build-arg", f"{arg}={cfg['images'][key]}"]
     out = [f"== {now()} rebuild {kind} -> {tag}"]
     try:
         r = run(["podman", "build", "--pull=newer", "--no-cache", *build_args, "-t", candidate,
@@ -1659,7 +1675,7 @@ def rebuild_image(cfg, kind):
             return False, "build failed", out
         # keep-id here too: it pays the one-time image copy now instead of on the next agent start
         r = run(["podman", "run", "--rm", "--network", "none", "--userns=keep-id:uid=1000,gid=1000", "--user", "1000:1000",
-                 "--entrypoint", "/bin/sh", candidate, "-c", f"ruby -v && bundle -v && git --version && {spec['check']}"],
+                 "--entrypoint", "/bin/sh", candidate, "-c", f"ruby -v && bundle -v && crystal --version && ameba --version && git --version && {spec['check']}"],
                 cwd=HOME, timeout=2400)
         out.append(r.stdout + r.stderr)
         if r.returncode != 0 or (pinned and pinned not in r.stdout):

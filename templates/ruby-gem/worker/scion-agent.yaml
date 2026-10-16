@@ -1,5 +1,5 @@
 schema_version: "1"
-description: "works one ticket on a Ruby gem, commits on its own branch, never pushes"
+description: "works one ticket on a library, commits on its own branch, never pushes"
 agent_instructions: agents.md
 default_harness_config: claude
 max_duration: "45m"

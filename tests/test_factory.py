@@ -73,6 +73,22 @@ class ClassifyTest(RepoCase):
         self.assertEqual(factory.classify(project, "b"), 3)
 
 
+class ProjectFactsTest(unittest.TestCase):
+    def test_every_agent_is_told_the_language_and_the_gates_commands(self):
+        p = {"language": "Crystal shard", "install": "shards install", "test": "crystal spec",
+             "lint": "ameba src spec", "notes": "A port of encoded_id; keep encodings byte-compatible."}
+        text = factory.project_facts(p)
+        for want in ("## This project", "Crystal shard.", "- set up: `shards install`", "- tests: `crystal spec`",
+                     "- lint: `ameba src spec`", "byte-compatible"):
+            self.assertIn(want, text)
+        self.assertNotIn("set up", factory.project_facts({"test": "rake"}))
+
+    def test_crystal_sinks_and_files_raise_the_security_tier(self):
+        self.assertTrue(factory.TIER2_CONTENT.search('Process.run("sh", ["-c", input])'))
+        self.assertTrue(factory.TIER2_CONTENT.search("Config.from_json(body)"))
+        self.assertTrue(any(__import__("fnmatch").fnmatch("shard.yml", p) for p in factory.TIER3_PATHS))
+
+
 class ConfigTest(RepoCase):
     def test_gate_uses_configured_env_mounts_and_memory(self):
         self.branch_with("b", {"README.md": "x\n"})

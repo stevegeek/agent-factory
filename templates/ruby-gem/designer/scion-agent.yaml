@@ -1,5 +1,5 @@
 schema_version: "1"
-description: "Designs a change to a Ruby gem from the maintainer's idea and proposes worker tickets; never commits"
+description: "Designs a change to a library from the maintainer's idea and proposes worker tickets; never commits"
 agent_instructions: agents.md
 default_harness_config: claude
 max_duration: "45m"
