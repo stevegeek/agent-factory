@@ -15,8 +15,9 @@
 #
 # Start with --log-only for a week and read `journalctl -k | grep factory-egress`; add what's missing to
 # EXTRA_DOMAINS, then --enforce. Re-running empties the sets for a moment (the refresh fills them at once).
-# Kernels that don't refresh an element's timeout when it is re-added would expire everything a day after
-# install: check `uname -r` (6.x refreshes it).
+# Re-adding an element must reset its one-day timeout, or every address expires a day after install. Check
+# once per host: `nft add element inet factory_egress allow4 '{ 192.0.2.1 timeout 1h }'`, add it again with
+# `timeout 1d`, then `nft list set inet factory_egress allow4` must show it expiring in about a day.
 set -euo pipefail
 
 FACTORY_USER=${FACTORY_USER:-factory}
@@ -140,7 +141,7 @@ for d in $DOMAINS; do
   for a in $(getent ahostsv6 "$d" | awk '$1 ~ /:/ && $1 !~ /^::ffff:/ {print $1}' | sort -u); do add allow6 "$a"; done
 done
 # the resolvers systemd-resolved (and so the containers' DNS) forwards to
-for a in $(resolvectl dns 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9a-fA-F.:]+$' | sort -u); do
+for a in $(awk '$1 == "nameserver" {print $2}' /run/systemd/resolve/resolv.conf 2>/dev/null | sed 's/[%#].*//' | sort -u); do
   case $a in *:*) add dns6 "$a" ;; *) add dns4 "$a" ;; esac
 done
 [[ $n -gt 0 ]] || { echo "resolved nothing; is DNS working?" >&2; exit 1; }
@@ -187,8 +188,9 @@ EOF
 systemctl daemon-reload
 systemctl enable factory-egress-table.service >/dev/null
 systemctl restart factory-egress-table.service
-"$REFRESH"
+# the timer first: if this first refresh fails (DNS not up yet), it retries on its own
 systemctl enable --now factory-egress-refresh.timer >/dev/null
+"$REFRESH" || echo "WARNING: the first refresh failed; the timer retries every 10 minutes (sudo bash egress.sh --status)" >&2
 
 echo "installed ($mode) for $FACTORY_USER (uids $uids)"
 echo "watch: journalctl -k -f | grep factory-egress    status: sudo bash egress.sh --status"
