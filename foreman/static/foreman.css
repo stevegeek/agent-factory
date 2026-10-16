@@ -389,3 +389,6 @@ form.reply .composer-foot { display: flex; gap: 12px; align-items: center; justi
 .patch-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; font-size: 13px; }
 .patch { margin: 0; padding: 10px 12px; background: var(--sunk); color: var(--ink); border-radius: 8px; overflow: auto; max-height: 50vh;
   font: 12px/1.45 var(--mono); white-space: pre; }
+
+/* long recipe titles must not widen the page */
+.newticket select, .newticket #nt-title, .newticket textarea { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }

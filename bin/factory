@@ -2463,6 +2463,8 @@ def cmd_add(cfg, a):
     if a.body_file:
         with open(a.body_file) as f:
             body = f.read()
+    # a recipe's text names the project's repository as {github}, wherever the ticket came from
+    body = body.replace("{github}", (cfg["projects"].get(a.project) or {}).get("github", ""))
     if a.task and a.intent:
         sys.exit("--task and --intent are different kinds; pick one")
     if a.intent and a.project not in cfg["projects"]:

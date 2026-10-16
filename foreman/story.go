@@ -629,6 +629,8 @@ func waitingWhat(t *Ticket, a *Ask) string {
 		return "Close it when you have read it."
 	case "question":
 		return "The agent waits for your answer."
+	case "draft":
+		return "Apply the diff in the config repo on your machine and deploy, then say so here; or send it back, or drop it."
 	}
 	return "Retry it, retry with a note, or drop it."
 }
