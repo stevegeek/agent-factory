@@ -1378,13 +1378,21 @@ def merge_pr(cfg, project, t):
     if head != t["gate"]["head"]:
         raise RuntimeError(f"PR #{n} moved since the gate checked it; it needs the gate again")
     try:
-        r = github_api(cfg, "PUT", f"/repos/{repo}/pulls/{n}/merge", {"sha": head, "merge_method": "merge"})
+        return land_pr(cfg, project, t, head, "PR merged by the factory on your go-ahead",
+                       f"PR #{n} was auto-merge eligible; you confirmed it in Foreman and the factory merged {head[:7]}")
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"GitHub refused the merge of PR #{n}: {github_error(e)}")
+
+
+def land_pr(cfg, project, t, head, detail, rule):
+    """Merge the PR at exactly `head` (a merge commit), close the ticket, delete the bot branch. GitHub's own
+    rules still apply: a required check that is not green makes it refuse (HTTPError)."""
+    repo, n = project["github"], t["pr"]["number"]
+    r = github_api(cfg, "PUT", f"/repos/{repo}/pulls/{n}/merge", {"sha": head, "merge_method": "merge"})
     if not r.get("merged"):
         raise RuntimeError(f"GitHub did not merge PR #{n}: {r.get('message', '?')}")
-    move(t, "done", "PR merged by the factory on your go-ahead",
-         rule=f"PR #{n} was auto-merge eligible; you confirmed it in Foreman and the factory merged {head[:7]}")
+    move(t, "done", detail, rule=rule)
+    t["pr"].pop("merge_wait", None)
     if t["branch"].startswith("bot/"):
         try:
             github_api(cfg, "DELETE", f"/repos/{repo}/git/refs/heads/{t['branch']}")
@@ -1439,22 +1447,60 @@ def check_pr(cfg, project, t):
         move(t, "rejected", "PR closed without merging",
              rule=f"PR #{t['pr']['number']} was closed on GitHub without merging")
     else:
-        pick_up_review(cfg, project, t)
+        follow_reviews(cfg, project, t, pr)
 
 
-def pick_up_review(cfg, project, t):
-    """Changes requested on GitHub by a maintainer ([github] reviewers, nobody else): the review and its line
-    comments become a note, and the ticket goes back for rework with the PR as a draft meanwhile."""
+def follow_reviews(cfg, project, t, pr):
+    """A maintainer's review on GitHub ([github] reviewers, nobody else) is an instruction; the latest new one
+    decides. Changes requested: back for rework. Approved: the factory merges it (approve_to_merge)."""
     reviewers = {r.lower() for r in cfg.get("github", {}).get("reviewers", [])}
     if not reviewers:
         return
     repo, n = project["github"], t["pr"]["number"]
     seen = set(t["pr"].get("reviews_seen", []))
-    new = [r for r in github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}/reviews?per_page=100")
-           if r.get("state") == "CHANGES_REQUESTED" and r.get("id") not in seen
-           and str((r.get("user") or {}).get("login", "")).lower() in reviewers]
-    if not new:
+    unseen = [r for r in github_api(cfg, "GET", f"/repos/{repo}/pulls/{n}/reviews?per_page=100")
+              if r.get("state") in ("CHANGES_REQUESTED", "APPROVED") and r.get("id") not in seen
+              and str((r.get("user") or {}).get("login", "")).lower() in reviewers]
+    if not unseen:
         return
+    if unseen[-1]["state"] == "APPROVED":
+        return approve_to_merge(cfg, project, t, pr, unseen)
+    pick_up_changes(cfg, project, t, [r for r in unseen if r["state"] == "CHANGES_REQUESTED"])
+    # an approval a later review overruled is done with too; it must not merge the rework unseen
+    t["pr"]["reviews_seen"] = sorted(set(t["pr"].get("reviews_seen", [])) | {r["id"] for r in unseen})
+
+
+def approve_to_merge(cfg, project, t, pr, unseen):
+    """Your approval is the go-ahead: the factory marks the PR ready and merges it, but only the commit you
+    approved, and only if that is the commit the gate checked. Checks still running: it tries again next tick."""
+    repo, n, review = project["github"], t["pr"]["number"], unseen[-1]
+    head, gated = (pr.get("head") or {}).get("sha"), (t.get("gate") or {}).get("head")
+    done_with = lambda: t["pr"].update(reviews_seen=sorted(set(t["pr"].get("reviews_seen", [])) | {r["id"] for r in unseen}))
+    if review.get("commit_id") != head or head != gated:
+        done_with()
+        what = (f"your approval is for {str(review.get('commit_id'))[:7]}, but PR #{n} is now at {str(head)[:7]}"
+                if review.get("commit_id") != head else f"PR #{n} moved since the gate checked it")
+        return event(t, "pr", f"not merged: {what}; approve the latest commit to merge it")
+    try:
+        if pr.get("draft"):
+            set_pr_draft(cfg, pr, False)
+            t["pr"]["draft"] = False
+        land_pr(cfg, project, t, head, "PR merged by the factory on your approval",
+                f"you approved PR #{n} at {head[:7]} on GitHub, the commit the gate checked; the factory merged it")
+        done_with()
+    except (urllib.error.HTTPError, RuntimeError) as e:
+        # usually the required checks are still running; say why once, then keep trying each tick
+        why = github_error(e) if isinstance(e, urllib.error.HTTPError) else str(e)
+        if t["pr"].get("merge_wait") != why:
+            t["pr"]["merge_wait"] = why
+            event(t, "pr", f"approved; not merged yet: {why}")
+
+
+def pick_up_changes(cfg, project, t, new):
+    """Changes requested: the reviews and their line comments become a note, and the ticket goes back for
+    rework with the PR as a draft meanwhile."""
+    repo, n = project["github"], t["pr"]["number"]
+    seen = set(t["pr"].get("reviews_seen", []))
     points = [r["body"].strip() for r in new if (r.get("body") or "").strip()]
     # the PR's comment list carries file line numbers; the per-review list only has diff positions
     ids = {r["id"] for r in new}

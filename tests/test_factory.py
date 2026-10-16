@@ -1162,6 +1162,59 @@ class GithubOutTest(RepoCase):
             factory.check_pr(cfg, self.project, t)
         self.assertEqual((t["column"], len(t["notes"])), ("pr_open", 1))
 
+    def test_your_approval_merges_the_gated_commit_and_nothing_else(self):
+        cfg = {**self.cfg, "projects": {"gem": self.project}}
+        head, base = "a" * 40, self.pr_ticket(auto=False)
+
+        def run(review, pr_reply=None, merge=None):
+            t, calls = copy.deepcopy(base), []
+            t["pr"]["reviews_seen"] = [1]
+            pr = pr_reply or {"state": "open", "draft": True, "merged": False, "head": {"sha": head}, "node_id": "PR_5"}
+            routes = {("GET", "/repos/o/gem/pulls/5/reviews"): [
+                          {"id": 1, "state": "CHANGES_REQUESTED", "user": {"login": "stevegeek"}, "commit_id": "0" * 40},
+                          {"id": 2, "state": "APPROVED", "user": {"login": "stranger"}, "commit_id": head}] + review,
+                      ("GET", "/repos/o/gem/pulls/5"): pr,
+                      ("PUT", "/repos/o/gem/pulls/5/merge"): merge or {"merged": True},
+                      ("POST", "/graphql"): {"data": {}}}
+            with mock.patch.object(factory, "github_api", side_effect=self.routed(routes, calls)), mock.patch.object(factory, "log"):
+                factory.check_pr(cfg, self.project, t)
+            return t, calls
+
+        t, calls = run([{"id": 3, "state": "APPROVED", "user": {"login": "stevegeek"}, "commit_id": head}])
+        self.assertEqual(t["column"], "done")
+        self.assertIn(("PUT", "/repos/o/gem/pulls/5/merge", {"sha": head, "merge_method": "merge"}), calls)
+        self.assertIn("markPullRequestReadyForReview", next(b for m, p, b in calls if p == "/graphql")["query"])
+        self.assertIn(3, t["pr"]["reviews_seen"])
+
+        t, calls = run([{"id": 3, "state": "APPROVED", "user": {"login": "stevegeek"}, "commit_id": "b" * 40}])
+        self.assertEqual(t["column"], "pr_open")
+        self.assertFalse(any(m == "PUT" for m, _, _ in calls))
+        self.assertIn("approve the latest commit", t["history"][-1]["detail"])
+
+        t, calls = run([])  # only a stranger approved
+        self.assertEqual(t["column"], "pr_open")
+        self.assertFalse(any(m == "PUT" for m, _, _ in calls))
+
+    def test_an_approval_waits_while_checks_run_and_says_so_once(self):
+        cfg = {**self.cfg, "projects": {"gem": self.project}}
+        t = self.pr_ticket(auto=False)
+        head = t["gate"]["head"]
+        routes = {("GET", "/repos/o/gem/pulls/5/reviews"): [{"id": 3, "state": "APPROVED", "user": {"login": "stevegeek"}, "commit_id": head}],
+                  ("GET", "/repos/o/gem/pulls/5"): {"state": "open", "draft": False, "merged": False, "head": {"sha": head}}}
+
+        def api(cfg_, method, path, body=None):
+            if method == "PUT":
+                raise urllib.error.HTTPError("u", 405, "x", {}, io.BytesIO(b'{"message": "Required status check is expected."}'))
+            return self.routed(routes, [])(cfg_, method, path, body)
+        with mock.patch.object(factory, "github_api", side_effect=api), mock.patch.object(factory, "log"):
+            factory.check_pr(cfg, self.project, t)
+            factory.check_pr(cfg, self.project, t)
+        self.assertEqual(t["column"], "pr_open")
+        self.assertNotIn(3, t["pr"].get("reviews_seen", []))
+        waits = [h for h in t["history"] if "not merged yet" in h["detail"]]
+        self.assertEqual(len(waits), 1)
+        self.assertIn("Required status check is expected.", waits[0]["detail"])
+
     def test_through_the_gate_asks_to_open_the_pr(self):
         t = {"id": "T0001", "title": "x", "column": "gate", "history": [], "reports": {"work": {"summary": "Did it."}}}
         factory.move(t, "ready_for_pr", "auto-merge eligible")

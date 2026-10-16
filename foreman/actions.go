@@ -57,11 +57,8 @@ func Answers(t *Ticket, a *Ask) []Answer {
 				out = append(out, Answer{Value: "merge", Label: "Merge it", Sub: fmt.Sprintf("the factory merges PR #%d and closes the ticket", t.PR.Number), Primary: true},
 					Answer{Label: "Read it on GitHub", Sub: "the diff and the checks, before you decide", Href: u})
 			} else {
-				sub := "approve and merge there; this clears itself"
-				if t.PR.Draft {
-					sub = "mark it ready, approve, merge; this clears itself"
-				}
-				out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", t.PR.Number), Sub: sub, Primary: true, Href: u})
+				out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", t.PR.Number),
+					Sub: "approve it there and the factory merges it; or request changes for a rework", Primary: true, Href: u})
 			}
 		}
 		out = append(out, Answer{Value: "send_back", Label: "Send back with a note", Sub: "a worker reworks it; the PR is a draft meanwhile", NeedsNote: true, NoteFor: "to send it back"})

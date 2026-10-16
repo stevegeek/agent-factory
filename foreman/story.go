@@ -602,7 +602,7 @@ func waitingWhat(t *Ticket, a *Ask) string {
 		if mergeable(t) {
 			return "It passed every check for automatic approval. Merge it, or read it on GitHub first."
 		}
-		return "Merge it on GitHub, or send it back with a note."
+		return "Approve it on GitHub and the factory merges it, or request changes there (or send it back with a note here)."
 	case "open":
 		return "Open the PR on GitHub, or send it back with a note."
 	case "start":

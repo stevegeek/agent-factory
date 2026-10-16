@@ -580,7 +580,7 @@ func TestNoteButtonAndDraftReasons(t *testing.T) {
 	body := h.do("GET", "/t/T0001", nil, c).Body.String()
 	for _, want := range []string{`value="note" data-needs-note><span>Send note</span>`, `value="ask" data-needs-note><span>Ask</span>`,
 		"Ask gets an answer here in a few minutes. Send note waits for the next agent.",
-		"mark it ready, approve, merge", "a worker reworks it; the PR is a draft meanwhile",
+		"approve it there and the factory merges it", "a worker reworks it; the PR is a draft meanwhile",
 		"Why this PR is a draft", "<li>1 file outside the paths that may merge automatically (docs, tests, config)</li>",
 		"<li>40 changed lines; the limit for automatic approval is 10</li>", `<b>Waiting for you</b>`, `data-draft="T0001"`} {
 		if !strings.Contains(body, want) {
