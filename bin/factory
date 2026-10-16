@@ -1244,9 +1244,13 @@ def checks_on_fresh_checkout(cfg, project, t, image=None, ref=None):
     run(["git", "clone", "-q", "--no-hardlinks", "--no-checkout", project["path"], wt], check=True)
     run(["git", "-C", wt, "checkout", "-q", "--detach", ref or branch_head(project, t["branch"])], check=True)
     # libraries often gitignore their lockfile; without it the package manager re-resolves over the network
+    # (a directory too: a Crystal shard's installed lib/, since the gate has no network to fetch it)
     for f in project.get("pinned_untracked", []):
-        if os.path.exists(os.path.join(project["path"], f)):
-            shutil.copy2(os.path.join(project["path"], f), os.path.join(wt, f))
+        src = os.path.join(project["path"], f)
+        if os.path.isdir(src) and not os.path.islink(src):
+            shutil.copytree(src, os.path.join(wt, f), symlinks=True, dirs_exist_ok=True)
+        elif os.path.exists(src):
+            shutil.copy2(src, os.path.join(wt, f))
     g = cfg.get("gate", {})
     extra = []
     for k, v in g.get("env", {}).items():
@@ -2133,7 +2137,7 @@ def sweep(cfg):
     known = {(t["project"], t.get("source", {}).get("issue")) for t in all_tickets()}
     for key, project in cfg["projects"].items():
         repo = project.get("github")
-        if not repo:
+        if not repo or project.get("sweep", True) is False:
             continue
         try:
             issues = fetch_open_issues(repo)
@@ -2157,7 +2161,9 @@ def clock(cfg):
         prev = last.get(job["name"])
         if prev and dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(prev) < dt.timedelta(days=due_days):
             continue
-        for key in job.get("projects", list(cfg["projects"])):
+        # a schedule for "every project" skips those that opted out (`clock = false`, e.g. while onboarding)
+        every = [k for k, p in cfg["projects"].items() if p.get("clock", True) is not False]
+        for key in job.get("projects", every):
             # {github} names the project's repository, so one schedule serves every project
             body = job["body"].replace("{github}", cfg["projects"][key].get("github", "") if key in cfg["projects"] else "")
             if job.get("kind") in ("prospect", "task"):
@@ -2565,7 +2571,7 @@ def look(cfg, t, lines=120):
         except RemoteError as e:
             out = f"(could not read the job on {host}: {e})"
         return screen_text(out, lines)
-    project = cfg["projects"].get(t["project"])
+    project = project_for(cfg, t)
     if project:
         r = scion(project, "look", ag["name"], "--plain", "-n", str(lines), check=False)
         if r.returncode == 0 and r.stdout.strip():
