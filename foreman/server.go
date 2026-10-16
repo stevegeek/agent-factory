@@ -25,20 +25,21 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 type Server struct {
-	board    *Board
-	auth     *Auth
-	runner   *Runner
-	push     *Pusher  // nil: notifications are off
-	projects []string // what a new ticket may name, besides the board's own projects
-	pages    map[string]*template.Template
-	now      func() time.Time
-	assetV   string
-	looks    shortCache // agent screens, for a few seconds
+	board       *Board
+	auth        *Auth
+	runner      *Runner
+	push        *Pusher  // nil: notifications are off
+	projects    []string // what a new ticket may name, besides the board's own projects
+	pages       map[string]*template.Template
+	now         func() time.Time
+	assetV      string
+	looks       shortCache // agent screens, for a few seconds
+	recipeCache shortCache
 }
 
 func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 	s := &Server{board: board, auth: auth, runner: runner, now: time.Now, pages: map[string]*template.Template{},
-		looks: shortCache{ttl: 3 * time.Second}}
+		looks: shortCache{ttl: 3 * time.Second}, recipeCache: shortCache{ttl: time.Minute}}
 	h := sha256.New()
 	fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
@@ -52,6 +53,7 @@ func NewServer(board *Board, auth *Auth, runner *Runner) *Server {
 		"asset": func(name string) string { return "/static/" + name + "?v=" + s.assetV },
 		"low":   func(n int) bool { return n < 4 },
 		"inc":   func(n int) int { return n + 1 },
+		"join":  strings.Join,
 		"md":    Markdown,
 		"mdi":   MarkdownLine,
 		"mdt":   MarkdownText,
@@ -96,10 +98,10 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("POST /push/test", s.pushTest)
 	app.HandleFunc("GET /b/{project}", s.boardPage)
 	app.HandleFunc("GET /t/{id}/talk", s.talk)
-	app.HandleFunc("GET /live", s.livePage)
-	app.HandleFunc("GET /live/log", s.liveLog)
-	app.HandleFunc("GET /live/{id}/screen", s.liveScreen)
-	app.HandleFunc("GET /t/{id}/logs/{name}", s.agentLog)
+	app.HandleFunc("GET /live", s.maintainerOnly(s.livePage))
+	app.HandleFunc("GET /live/log", s.maintainerOnly(s.liveLog))
+	app.HandleFunc("GET /live/{id}/screen", s.maintainerOnly(s.liveScreen))
+	app.HandleFunc("GET /t/{id}/logs/{name}", s.maintainerOnly(s.agentLog))
 	app.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.auth.Revoke(); err != nil {
 			log.Printf("logout: %v", err)
@@ -141,6 +143,50 @@ func headers(next http.Handler) http.Handler {
 	})
 }
 
+// ---------------------------------------------------------------- who is asking, and what they may see
+
+// viewer: nil for the maintainer (everything); else the user, whose projects bound what they see.
+// A session whose user has gone sees nothing (the session check already refuses it).
+func (s *Server) viewer(r *http.Request) *User {
+	name := s.auth.UserOf(identityOf(r))
+	if name == maintainer {
+		return nil
+	}
+	if u := s.auth.users.Get(name); u != nil {
+		return u
+	}
+	return &User{Name: name}
+}
+
+func (s *Server) isMaintainer(r *http.Request) bool { return s.viewer(r) == nil }
+
+// visible: the board as this person may see it.
+func (s *Server) visible(r *http.Request) []*Ticket {
+	ts := s.board.Load()
+	u := s.viewer(r)
+	if u == nil {
+		return ts
+	}
+	var out []*Ticket
+	for _, t := range ts {
+		if u.Sees(t.Project) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// maintainerOnly: pages that show the whole factory (live screens, logs) are the maintainer's.
+func (s *Server) maintainerOnly(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.isMaintainer(r) {
+			http.NotFound(w, r)
+			return
+		}
+		h(w, r)
+	}
+}
+
 // ---------------------------------------------------------------- page data
 
 type Page struct {
@@ -149,6 +195,7 @@ type Page struct {
 	CSRF      string
 	DeskCount int
 	Running   int
+	Who       string // "" for the maintainer; else the user's name (no Live tab, no manager)
 	Live      *LiveView
 	Talk      *TalkView
 	Flash     *Flash
@@ -178,10 +225,10 @@ type Chip struct {
 
 type QueueItem struct {
 	ID, Kind, Label, Glyph, Question, Title, Project, Age, Href string
-	Action    string // what the ask wants, in a few words
-	Responded string // "You asked 5 min ago": set when the item waits on the factory, not on you
-	Answered  bool   // back on the desk because your question was answered
-	Current   bool
+	Action                                                      string // what the ask wants, in a few words
+	Responded                                                   string // "You asked 5 min ago": set when the item waits on the factory, not on you
+	Answered                                                    bool   // back on the desk because your question was answered
+	Current                                                     bool
 }
 
 type DeskView struct {
@@ -256,6 +303,9 @@ type More struct {
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *Page, ts []*Ticket) {
 	if id := identityOf(r); id != "" {
 		p.CSRF = s.auth.CSRF(id)
+		if u := s.viewer(r); u != nil {
+			p.Who = u.Name
+		}
 	}
 	if ts != nil {
 		p.DeskCount = Waiting(Desk(ts))
@@ -435,7 +485,7 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 // ---------------------------------------------------------------- handlers
 
 func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
+	ts := s.visible(r)
 	items := Desk(ts)
 	kind := r.URL.Query().Get("kind")
 	dv := deskView(items, kind, "", s.now())
@@ -459,7 +509,7 @@ func (s *Server) ticket(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	ts := s.board.Load()
+	ts := s.visible(r)
 	t := byID(ts)[id]
 	if t == nil {
 		http.NotFound(w, r)
@@ -487,7 +537,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 		filter = ""
 	}
 	back := ticketHref(id, filter)
-	ts := s.board.Load()
+	ts := s.visible(r)
 	t := byID(ts)[id]
 	if t == nil {
 		http.NotFound(w, r)
@@ -530,7 +580,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	}
 	// work down the desk: on to the next ask still waiting for you (a note or a question moves this
 	// one down to "You've responded" until the factory does something new with it)
-	for _, it := range Desk(s.board.Load()) {
+	for _, it := range Desk(s.visible(r)) {
 		if it.T.ID != id && it.Responded == "" && (filter == "" || it.Ask.Kind == filter) {
 			next = ticketHref(it.T.ID, filter)
 			break
@@ -570,7 +620,7 @@ func answerLabel(t *Ticket, a *Ask, answer string) string {
 }
 
 func (s *Server) floor(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
+	ts := s.visible(r)
 	at := s.now()
 	if wk := r.URL.Query().Get("week"); wk != "" {
 		d, err := time.ParseInLocation("2006-01-02", wk, time.Local)
@@ -636,13 +686,13 @@ func summaries(ts []*Ticket) []BoardSummary {
 }
 
 func (s *Server) boards(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
+	ts := s.visible(r)
 	s.render(w, r, "boards", &Page{Title: "Boards", Tab: "boards", Boards: summaries(ts)}, ts)
 }
 
 func (s *Server) boardPage(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("project")
-	ts := s.board.Load()
+	ts := s.visible(r)
 	bv := &BoardView{Name: name}
 	found := false
 	for _, col := range columns {
@@ -701,13 +751,17 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, "login", &Page{Title: "Log in", Next: next, Error: "Too many wrong tries. Wait a few minutes."}, nil)
 		return
 	}
-	if !s.auth.Login(ip, r.PostFormValue("secret")) {
+	user, ok := s.auth.LoginAs(ip, r.PostFormValue("secret"))
+	if !ok {
 		log.Printf("login failed from %s", ip)
 		w.WriteHeader(http.StatusUnauthorized)
 		s.render(w, r, "login", &Page{Title: "Log in", Next: next, Error: "That is not the secret."}, nil)
 		return
 	}
-	s.auth.SetSession(w, r)
+	s.auth.SetSessionFor(w, r, user)
+	if user != maintainer {
+		log.Printf("%s logged in", user)
+	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
@@ -717,12 +771,46 @@ type NewView struct {
 	Projects                   []string
 	Project, Kind, Title, Body string
 	Error                      string
+	Recipes                    []Recipe
+}
+
+// Recipe: a standing intent from the factory's config (`factory recipes`), to start a ticket from.
+type Recipe struct {
+	Name, Title, Body, Kind string
+	Projects                []string
+	Scheduled               bool
+}
+
+// recipes: the factory's recipes, read through its CLI (Foreman has no TOML parser), for a minute at a time.
+func (s *Server) recipes() []Recipe {
+	text := s.recipeCache.get("all", func() string {
+		out, err := s.runner.Output("recipes", "--json")
+		if err != nil {
+			return "[]"
+		}
+		return out
+	})
+	var raw []struct {
+		Name, Title, Body, Kind string
+		Projects                []string
+		Scheduled               bool
+	}
+	if json.Unmarshal([]byte(text), &raw) != nil {
+		return nil
+	}
+	var out []Recipe
+	for _, r := range raw {
+		if _, ok := newKinds[r.Kind]; ok {
+			out = append(out, Recipe(r))
+		}
+	}
+	return out
 }
 
 var newKinds = map[string][]string{"change": nil, "intent": {"--intent"}, "task": {"--task"}, "manage": {"--manage"}}
 
 // projectChoices: the configured projects, then any other on the board, then the no-repository project.
-func (s *Server) projectChoices(ts []*Ticket) []string {
+func (s *Server) projectChoices(ts []*Ticket, u *User) []string {
 	seen := map[string]bool{noticeProject: true}
 	var out []string
 	add := func(p string) {
@@ -732,17 +820,22 @@ func (s *Server) projectChoices(ts []*Ticket) []string {
 		}
 	}
 	for _, p := range s.projects {
-		add(p)
+		if u.Sees(p) {
+			add(p)
+		}
 	}
 	for _, t := range ts {
 		add(t.Project)
+	}
+	if u != nil {
+		return out
 	}
 	return append(out, noticeProject)
 }
 
 func (s *Server) newTicket(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
-	v := &NewView{Projects: s.projectChoices(ts), Kind: "change"}
+	ts := s.visible(r)
+	v := &NewView{Projects: s.projectChoices(ts, s.viewer(r)), Kind: "change", Recipes: s.recipes()}
 	if len(v.Projects) > 0 {
 		v.Project = v.Projects[0]
 	}
@@ -750,8 +843,8 @@ func (s *Server) newTicket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
-	v := &NewView{Projects: s.projectChoices(ts), Project: r.PostFormValue("project"), Kind: r.PostFormValue("kind"),
+	ts := s.visible(r)
+	v := &NewView{Projects: s.projectChoices(ts, s.viewer(r)), Project: r.PostFormValue("project"), Kind: r.PostFormValue("kind"),
 		Title: strings.TrimSpace(r.PostFormValue("title")), Body: strings.TrimSpace(r.PostFormValue("body"))}
 	again := func(msg string) {
 		v.Error = msg
@@ -772,6 +865,9 @@ func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	case v.Project == noticeProject && v.Kind != "task" && v.Kind != "manage":
 		again("The factory project has no repository: it only takes questions and requests for the manager.")
+		return
+	case v.Kind == "manage" && s.viewer(r) != nil:
+		again("Only the maintainer talks to the manager.")
 		return
 	case v.Kind == "manage" && v.Project != noticeProject:
 		again("Requests for the manager go on the factory project.")
@@ -803,7 +899,7 @@ func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 	log.Printf("%s filed from Foreman (%s, %s)", id, v.Project, v.Kind)
 	s.flashRedirect(w, r, "/t/"+id, "ok", id+": filed. "+map[string]string{
 		"change": "A worker picks it up on the next tick.", "intent": "A designer picks it up on the next tick.",
-		"task": "An agent answers it; the answer lands on your desk.",
+		"task":   "An agent answers it; the answer lands on your desk.",
 		"manage": "The manager answers it, with any config change as a draft for you to apply."}[v.Kind])
 }
 
@@ -820,7 +916,7 @@ func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) settings(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
+	ts := s.visible(r)
 	v := &SettingsView{}
 	if s.push != nil {
 		v.PushKey, v.Devices = s.push.PublicKey(), s.push.Count()
@@ -843,6 +939,9 @@ func (s *Server) pushSubscribe(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal([]byte(r.PostFormValue("subscription")), &sub); err != nil {
 		jsonReply(w, http.StatusBadRequest, map[string]string{"error": "bad subscription"})
 		return
+	}
+	if u := s.viewer(r); u != nil {
+		sub.User = u.Name
 	}
 	if err := s.push.Add(sub); err != nil {
 		jsonReply(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -869,7 +968,7 @@ func (s *Server) pushTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n := s.push.Send(Message{Title: "Foreman", Body: "Notifications work. You'll hear when something needs you.", URL: "/",
-		Tag: "test", Badge: Waiting(Desk(s.board.Load()))})
+		Tag: "test", Badge: Waiting(Desk(s.visible(r)))})
 	jsonReply(w, http.StatusOK, map[string]int{"sent": n, "devices": s.push.Count()})
 }
 

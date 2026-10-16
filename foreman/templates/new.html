@@ -11,12 +11,19 @@
         {{$cur := .Project}}{{range .Projects}}<option value="{{.}}" {{if eq . $cur}}selected{{end}}>{{.}}{{if eq . "factory"}} (no repository: questions only){{end}}</option>{{end}}
       </select>
     </div>
+    {{if .Recipes}}<div class="field">
+      <label for="nt-recipe">Start from a recipe <small>(optional; it fills in the rest, and you can edit it)</small></label>
+      <select id="nt-recipe" data-recipes>
+        <option value="">None</option>
+        {{range .Recipes}}<option value="{{.Name}}" data-title="{{.Title}}" data-body="{{.Body}}" data-kind="{{.Kind}}" data-projects="{{join .Projects ","}}">{{.Title}}{{if .Projects}} ({{join .Projects ", "}}){{end}}{{if .Scheduled}} · also scheduled{{end}}</option>{{end}}
+      </select>
+    </div>{{end}}
     <fieldset class="kinds">
       <legend>What should happen</legend>
       <label class="kind-opt"><input type="radio" name="kind" value="change" {{if eq .Kind "change"}}checked{{end}}><span><b>Make a change</b><small>a worker does it; review, security and the gate check it; a PR comes to you</small></span></label>
       <label class="kind-opt"><input type="radio" name="kind" value="intent" {{if eq .Kind "intent"}}checked{{end}}><span><b>Design it first</b><small>a designer proposes and splits it into tickets for you to approve</small></span></label>
       <label class="kind-opt"><input type="radio" name="kind" value="task" {{if eq .Kind "task"}}checked{{end}}><span><b>Ask a question</b><small>one agent reads the code and answers on your desk; nothing changes</small></span></label>
-      <label class="kind-opt"><input type="radio" name="kind" value="manage" {{if eq .Kind "manage"}}checked{{end}}><span><b>Ask the manager</b><small>about the factory itself (project “factory”): it answers, and drafts any config change for you to apply</small></span></label>
+      {{if not $.Who}}<label class="kind-opt"><input type="radio" name="kind" value="manage" {{if eq .Kind "manage"}}checked{{end}}><span><b>Ask the manager</b><small>about the factory itself (project “factory”): it answers, and drafts any config change for you to apply</small></span></label>{{end}}
     </fieldset>
     <div class="field">
       <label for="nt-title">Title</label>

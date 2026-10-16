@@ -129,6 +129,7 @@ type Auth struct {
 	sinceMod    time.Time
 	sinceAt     int64
 	now         func() time.Time
+	users       *Users // other people's logins; nil: the maintainer only
 }
 
 func NewAuth(secret []byte) *Auth {
@@ -163,11 +164,30 @@ func (a *Auth) CheckSecret(given string) bool {
 	return subtle.ConstantTimeCompare(g[:], s[:]) == 1
 }
 
-func (a *Auth) NewSession() string {
+func (a *Auth) NewSession() string { return a.newSession(maintainer) }
+
+// newSession: a signed cookie value; another user's name rides in it ("u-<name>"), the maintainer's doesn't.
+func (a *Auth) newSession(user string) string {
 	nonce := make([]byte, 12)
 	rand.Read(nonce)
 	payload := strconv.FormatInt(a.now().Add(sessionLife).Unix(), 10) + "." + base64.RawURLEncoding.EncodeToString(nonce)
+	if user != maintainer {
+		payload += ".u-" + user
+	}
 	return payload + "." + a.mac("session", payload)
+}
+
+// UserOf: whose session an identity is: "maintainer" or another user's name.
+func (a *Auth) UserOf(identity string) string {
+	payload, ok := strings.CutPrefix(identity, "session:")
+	if !ok {
+		return maintainer // a trusted Tailscale login
+	}
+	parts := strings.Split(payload, ".")
+	if len(parts) == 3 && strings.HasPrefix(parts[2], "u-") {
+		return parts[2][2:]
+	}
+	return maintainer
 }
 
 // revokedBefore: the unix time a session must be issued at or after; re-read when the file changes.
@@ -202,6 +222,10 @@ func (a *Auth) session(v string) string {
 	}
 	exp, err := strconv.ParseInt(strings.SplitN(payload, ".", 2)[0], 10, 64)
 	if err != nil || a.now().Unix() > exp || exp-int64(sessionLife.Seconds()) < a.revokedBefore() {
+		return ""
+	}
+	// a user who has been removed is logged out
+	if u := a.UserOf("session:" + payload); u != maintainer && (a.users == nil || a.users.Get(u) == nil) {
 		return ""
 	}
 	return "session:" + payload
@@ -278,14 +302,25 @@ func (a *Auth) Failed(ip string) {
 // Login checks one secret at a time and holds the lock a while after a wrong one: guessing
 // stays slow from any number of addresses, and nobody can lock the maintainer out.
 func (a *Auth) Login(ip, given string) bool {
+	_, ok := a.LoginAs(ip, given)
+	return ok
+}
+
+// LoginAs: whose secret this is: the maintainer's, or another user's.
+func (a *Auth) LoginAs(ip, given string) (string, bool) {
 	a.check.Lock()
 	defer a.check.Unlock()
 	if a.CheckSecret(given) {
-		return true
+		return maintainer, true
+	}
+	if a.users != nil {
+		if u := a.users.Match(given); u != "" {
+			return u, true
+		}
 	}
 	a.Failed(ip)
 	time.Sleep(a.delay)
-	return false
+	return "", false
 }
 
 func recent(ts []time.Time, cut time.Time) []time.Time {
@@ -300,8 +335,10 @@ func secureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
-func (a *Auth) SetSession(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: a.NewSession(), Path: "/", MaxAge: int(sessionLife.Seconds()),
+func (a *Auth) SetSession(w http.ResponseWriter, r *http.Request) { a.SetSessionFor(w, r, maintainer) }
+
+func (a *Auth) SetSessionFor(w http.ResponseWriter, r *http.Request, user string) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: a.newSession(user), Path: "/", MaxAge: int(sessionLife.Seconds()),
 		HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteStrictMode})
 }
 

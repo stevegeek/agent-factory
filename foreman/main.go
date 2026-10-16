@@ -26,6 +26,15 @@ func (l *list) Set(v string) error { *l = append(*l, v); return nil }
 
 func main() {
 	home, _ := os.UserHomeDir()
+	if len(os.Args) > 1 && os.Args[1] == "users" {
+		// other people's logins: foreman users add NAME --project P... | list | remove NAME
+		secret := envOr("FOREMAN_SECRET_FILE", filepath.Join(home, ".config", "factory", "foreman-secret"))
+		if err := usersCommand(secret, os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	root := flag.String("root", envOr("FACTORY_ROOT", filepath.Join(home, "factory")), "factory root (FACTORY_ROOT)")
 	factory := flag.String("factory", "", "factory command (default <root>/bin/factory)")
 	listen := flag.String("listen", "127.0.0.1:8790", "address to listen on")
@@ -67,6 +76,7 @@ func main() {
 	}
 	auth := NewAuth(secret)
 	auth.since = sinceFile(*secretFile)
+	auth.users = NewUsers(filepath.Join(filepath.Dir(*secretFile), "foreman-users.json"))
 	auth.AllowHosts(hosts...)
 	if *trustTS {
 		auth.TrustTailscale(tsUsers...)
@@ -91,6 +101,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("push: %v", err)
 		}
+		p.users = auth.users
 		s.push = p
 		go p.Watch(board, 30*time.Second, nil)
 		log.Printf("notifications on: %d device(s)", p.Count())

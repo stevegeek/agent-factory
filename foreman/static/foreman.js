@@ -204,6 +204,23 @@
       .then(function () { busy = false; });
   }
 
+  // ---------------------------------------------------------------- a recipe fills in the new ticket
+
+  document.addEventListener("change", function (e) {
+    var sel = e.target;
+    if (!sel.matches || !sel.matches("select[data-recipes]")) return;
+    var o = sel.selectedOptions[0], form = sel.form;
+    if (!o || !o.value || !form) return;
+    form.querySelector("[name=title]").value = o.dataset.title;
+    form.querySelector("[name=body]").value = o.dataset.body;
+    var kind = form.querySelector("input[name=kind][value='" + o.dataset.kind + "']");
+    if (kind) kind.checked = true;
+    var projects = o.dataset.projects ? o.dataset.projects.split(",") : [], p = form.querySelector("[name=project]");
+    if (projects.length && p && projects.indexOf(p.value) < 0) {
+      for (var i = 0; i < p.options.length; i++) if (p.options[i].value === projects[0]) p.selectedIndex = i;
+    }
+  });
+
   // ---------------------------------------------------------------- copy a draft's diff
 
   document.addEventListener("click", function (e) {

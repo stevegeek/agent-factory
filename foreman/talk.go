@@ -38,7 +38,7 @@ func (s *Server) talk(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	ts := s.board.Load()
+	ts := s.visible(r)
 	t := byID(ts)[id]
 	if t == nil {
 		http.NotFound(w, r)

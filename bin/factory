@@ -6,6 +6,8 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
 
   factory add <project> "<title>" [--body TEXT | --body-file F] [--door human|clock|github|peer] [--triage]
                                   [--host auto|local|<name>] [--task | --intent | --manage] [--timeout MIN]
+  factory add <project> --recipe NAME   file a standing recipe ([[recipes]], or any schedule) now
+  factory recipes [--json]            the recipes: each [[recipes]] entry and every schedule, to run on demand
   factory result <ticket>             a task's answer, or an intent's design and proposed tickets
   factory approve <ticket> [--only 1,3]   file the design's tickets (ready); redirect <ticket> --note TEXT
   factory host <ticket> auto|local|<name>
@@ -2345,7 +2347,54 @@ def rebuild(cfg):
 
 # ---------------------------------------------------------------- CLI
 
+# Recipes: standing intents to file on demand. Each [[recipes]] entry, and every schedule (a recipe the
+# clock also files on its own), has a title, a body ({github} names the project's repository), a kind
+# (change, task, intent or prospect) and optionally the projects it suits.
+RECIPE_KINDS = ("change", "task", "intent", "prospect")
+
+
+def recipes(cfg):
+    out = {}
+    for r in cfg.get("schedules", []) + cfg.get("recipes", []):
+        kind = r.get("kind") or ("intent" if r.get("intent") else "change")
+        if kind not in RECIPE_KINDS:
+            continue
+        out[r["name"]] = {"name": r["name"], "title": r["title"], "body": r["body"], "kind": kind,
+                          "projects": r.get("projects") or [], "about": r.get("about", ""),
+                          "scheduled": r in cfg.get("schedules", [])}
+    return list(out.values())
+
+
+def cmd_recipes(cfg, a):
+    rs = recipes(cfg)
+    if a.json:
+        print(json.dumps(rs))
+        return
+    for r in rs:
+        where = ", ".join(r["projects"]) or "any project"
+        print(f"{r['name']:<24} {r['kind']:<8} {where:<30} {r['title']}" + (" (also scheduled)" if r["scheduled"] else ""))
+
+
 def cmd_add(cfg, a):
+    if a.recipe:
+        r = {x["name"]: x for x in recipes(cfg)}.get(a.recipe)
+        if not r:
+            sys.exit(f"no recipe {a.recipe}; see `factory recipes`")
+        if r["projects"] and a.project not in r["projects"]:
+            sys.exit(f"recipe {a.recipe} is for {', '.join(r['projects'])}")
+        project = cfg["projects"].get(a.project) or {}
+        a.title = a.title or r["title"]
+        a.body = a.body or r["body"].replace("{github}", project.get("github", ""))
+        a.task = a.task or r["kind"] == "task"
+        a.intent = a.intent or r["kind"] == "intent"
+        if r["kind"] == "prospect":
+            t = new_ticket(a.project, a.title, a.body, a.door, "ready")
+            t["kind"] = "prospect"
+            save_ticket(t)
+            print(t["id"])
+            return
+    if not a.title:
+        sys.exit("a title is needed (or --recipe)")
     known = list(cfg["projects"]) + ([NOTICE_PROJECT] if a.task or a.manage else [])
     if a.project not in known:
         sys.exit(f"unknown project {a.project}; known: {', '.join(known)}"
@@ -2812,7 +2861,8 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("add")
     p.add_argument("project")
-    p.add_argument("title")
+    p.add_argument("title", nargs="?")
+    p.add_argument("--recipe", help="file a recipe (see `factory recipes`); title and body default to the recipe's")
     p.add_argument("--body")
     p.add_argument("--body-file")
     p.add_argument("--door", default="human", choices=["human", "clock", "github", "peer"])
@@ -2837,6 +2887,7 @@ def main():
     p.add_argument("ticket")
     p.add_argument("host", help="auto, local, or a [hosts] name")
     sub.add_parser("ls").add_argument("--all", action="store_true")
+    sub.add_parser("recipes").add_argument("--json", action="store_true")
     sub.add_parser("show").add_argument("ticket")
     p = sub.add_parser("look")
     p.add_argument("ticket")
@@ -2873,7 +2924,7 @@ def main():
     sub.add_parser("versions")
     a = ap.parse_args()
     cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "show": cmd_show, "look": cmd_look, "audit": cmd_audit, "memory": cmd_memory, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "gate-workflow": cmd_gate_workflow, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "reply": cmd_reply, "wake": lambda c, _: wake(), "merge": cmd_merge,
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "recipes": cmd_recipes, "show": cmd_show, "look": cmd_look, "audit": cmd_audit, "memory": cmd_memory, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "gate-workflow": cmd_gate_workflow, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "reply": cmd_reply, "wake": lambda c, _: wake(), "merge": cmd_merge,
      "migrate": lambda c, _: migrate(),
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),

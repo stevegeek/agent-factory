@@ -1604,11 +1604,21 @@ class ManagerTest(unittest.TestCase):
 
     def add(self, **kw):
         args = dict(project="factory", title="A morning check", body="Every weekday", body_file=None, door="human",
-                    triage=False, host=None, task=False, intent=False, manage=True, timeout=None)
+                    triage=False, host=None, task=False, intent=False, manage=True, timeout=None, recipe=None)
         args.update(kw)
         with mock.patch("sys.stdout"):
             factory.cmd_add(self.cfg, mock.Mock(**args))
         return factory.all_tickets()[-1]
+
+    def test_a_recipe_files_with_its_title_body_and_kind(self):
+        self.cfg["projects"]["gem"]["github"] = "acme/gem"
+        self.cfg["schedules"] = [{"name": "bug-hunt", "kind": "task", "title": "Bug hunt", "body": "Look in {github}.", "every_days": 30}]
+        self.cfg["recipes"] = [{"name": "docs-pass", "title": "Tidy the docs", "body": "Read the README.", "projects": ["other"]}]
+        t = self.add(project="gem", title=None, body=None, manage=False, recipe="bug-hunt")
+        self.assertEqual((t["title"], t["body"], t.get("kind")), ("Bug hunt", "Look in acme/gem.", "task"))
+        with self.assertRaises(SystemExit):
+            self.add(project="gem", title=None, body=None, manage=False, recipe="docs-pass")   # not for this project
+        self.assertEqual([r["name"] for r in factory.recipes(self.cfg)], ["bug-hunt", "docs-pass"])
 
     def test_filing_runs_here_only_on_the_factory_project(self):
         t = self.add()

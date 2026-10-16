@@ -59,6 +59,7 @@ type Subscription struct {
 		Auth   string `json:"auth"`
 	} `json:"keys"`
 	Added string `json:"added,omitempty"`
+	User  string `json:"user,omitempty"` // who subscribed it; empty: the maintainer
 }
 
 func (s *Subscription) valid() error {
@@ -83,6 +84,7 @@ type Pusher struct {
 	mu      sync.Mutex
 	subs    []Subscription
 	client  *http.Client
+	users   *Users
 }
 
 func NewPusher(dir, subject string) (*Pusher, error) {
@@ -217,6 +219,10 @@ type Message struct {
 	URL   string `json:"url"`
 	Tag   string `json:"tag,omitempty"`
 	Badge int    `json:"badge"`
+	// the ticket's project: a device of someone other than the maintainer only hears of their projects
+	Project string `json:"-"`
+	// forOthers: already in the maintainer's batch summary; only other people's devices get it
+	forOthers bool
 }
 
 // Send delivers to every device; a device the push service says is gone (404/410) is forgotten.
@@ -226,6 +232,15 @@ func (p *Pusher) Send(m Message) (sent int) {
 	subs := append([]Subscription(nil), p.subs...)
 	p.mu.Unlock()
 	for _, s := range subs {
+		if !p.allowed(s, m) {
+			continue
+		}
+		payload := payload
+		if s.User != "" && s.User != maintainer {
+			mm := m
+			mm.Badge = 0 // the maintainer's desk count is not theirs
+			payload, _ = json.Marshal(mm)
+		}
 		code, err := p.send(s, payload)
 		switch {
 		case err != nil:
@@ -240,6 +255,16 @@ func (p *Pusher) Send(m Message) (sent int) {
 		}
 	}
 	return sent
+}
+
+// allowed: whether this device hears this news. The maintainer's devices hear everything except items
+// already in their summary; anyone else's only news of a ticket in their own projects.
+func (p *Pusher) allowed(s Subscription, m Message) bool {
+	if s.User == "" || s.User == maintainer {
+		return !m.forOthers
+	}
+	u := p.users.Get(s.User)
+	return u != nil && m.Project != "" && u.Sees(m.Project)
 }
 
 func hostOf(endpoint string) string {
@@ -408,11 +433,11 @@ func News(prev map[string]snap, ts []*Ticket) []Message {
 		}
 		switch p := askedBy(t, all); {
 		case t.Kind == "task" && p != nil && t.Result != "" && (!seen || was.Result != t.Result):
-			out = append(out, Message{Title: "Answer to your question on " + p.ID, Body: clip(t.Result, 220), URL: "/t/" + p.ID, Tag: t.ID})
+			out = append(out, Message{Title: "Answer to your question on " + p.ID, Body: clip(t.Result, 220), URL: "/t/" + p.ID, Tag: t.ID, Project: p.Project})
 		case now.Ask != "" && (!seen || was.Ask != now.Ask) && !byYou(t):
 			a := AskFor(t)
 			m := Message{Title: kindLabel(a.Kind) + ": " + clip(Headline(t, a), 80), Body: clip(t.Title, 160),
-				URL: "/t/" + t.ID, Tag: t.ID}
+				URL: "/t/" + t.ID, Tag: t.ID, Project: t.Project}
 			if a.Kind == "question" {
 				// an agent's question opens the conversation, reply box ready
 				m.Title, m.Body, m.URL = t.ID+" asks: "+clip(a.Question, 90), clip(t.Title, 160), "/t/"+t.ID+"/talk#reply"
@@ -424,15 +449,21 @@ func News(prev map[string]snap, ts []*Ticket) []Message {
 				verb = "done"
 			}
 			out = append(out, Message{Title: fmt.Sprintf("%s %s: PR #%d", t.ID, verb, t.PR.Number), Body: clip(t.Title, 160),
-				URL: "/t/" + t.ID, Tag: t.ID})
+				URL: "/t/" + t.ID, Tag: t.ID, Project: t.Project})
 		}
 	}
 	for i := range out {
 		out[i].Badge = desk
 	}
 	if len(out) > 3 {
-		return []Message{{Title: fmt.Sprintf("%d updates from the factory", len(out)), Body: out[0].Title + "; " + out[1].Title + "; …",
+		// the maintainer gets one summary; everyone else still hears of their own projects one by one
+		batch := []Message{{Title: fmt.Sprintf("%d updates from the factory", len(out)), Body: out[0].Title + "; " + out[1].Title + "; …",
 			URL: "/", Tag: "batch", Badge: desk}}
+		for _, m := range out {
+			m.forOthers = true
+			batch = append(batch, m)
+		}
+		return batch
 	}
 	return out
 }

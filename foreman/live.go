@@ -60,7 +60,7 @@ func running(ts []*Ticket) int {
 }
 
 func (s *Server) livePage(w http.ResponseWriter, r *http.Request) {
-	ts := s.board.Load()
+	ts := s.visible(r)
 	s.render(w, r, "live", &Page{Title: "Live", Tab: "live", Live: &LiveView{Agents: liveAgents(ts, s.now())}}, ts)
 }
 
@@ -77,7 +77,7 @@ func (s *Server) liveScreen(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	t := byID(s.board.Load())[id]
+	t := byID(s.visible(r))[id]
 	if t == nil || t.Agent == nil {
 		plain(w, "(this agent has finished; its log is on the ticket)")
 		return
@@ -181,6 +181,24 @@ func (r *Runner) Look(id string) (string, error) {
 }
 
 var lookSlots = make(chan struct{}, 2)
+
+// Output runs a read-only factory command outside the answer queue and returns all of its output.
+func (r *Runner) Output(args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, r.Factory, args...)
+	cmd.Env = append(os.Environ(), "FACTORY_ROOT="+r.Root)
+	cmd.WaitDelay = 2 * time.Second
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		return "", &lookError{tail(strings.TrimSpace(errb.String())+" "+err.Error(), 300)}
+	}
+	if out.Len() > 1<<20 {
+		return "", &lookError{"output too large"}
+	}
+	return out.String(), nil
+}
 
 type lookError struct{ msg string }
 

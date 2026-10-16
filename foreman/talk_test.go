@@ -36,7 +36,7 @@ func TestConversationShowsTheThreadAndAReplyStaysInIt(t *testing.T) {
 
 func TestConversationOrder(t *testing.T) {
 	tk := &Ticket{ID: "T0042", Project: "p", Title: "Tune it", Body: "Make it faster.", Door: "human", Column: "needs_human",
-		Notes: []Note{{Text: "Your question: “8 or 16?” The maintainer's answer: 16"}},
+		Notes:   []Note{{Text: "Your question: “8 or 16?” The maintainer's answer: 16"}},
 		Reports: map[string]Report{"work": {"status": "question", "question": "8 or 16?", "summary": "stopped"}},
 		History: []Hist{
 			{At: "2026-10-16T10:00:00Z", Event: "created"},

@@ -696,6 +696,7 @@ func TestFileANewTicketFromForeman(t *testing.T) {
 		{"gadgets", "intent", "-weird title", "", []string{"add", "--body=", "--intent", "--", "gadgets", "-weird title"}},
 		{"factory", "task", "What is new?", "-dash", []string{"add", "--body=-dash", "--task", "--", "factory", "What is new?"}},
 	}
+	h.argv() // the page itself read the recipes
 	for _, k := range cases {
 		if w := post(k.project, k.kind, k.title, k.body); w.Code != http.StatusSeeOther {
 			t.Errorf("%s: %d %s", k.title, w.Code, w.Body.String())
