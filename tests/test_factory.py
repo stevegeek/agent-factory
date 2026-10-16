@@ -1638,6 +1638,25 @@ class ManagerTest(unittest.TestCase):
             factory.finish_stage(self.cfg, None, t, {"status": "done", "summary": "T0042 failed on lint.", "result": "Lint."})
         self.assertEqual(t["ask"]["kind"], "notice")
 
+class WakeTest(unittest.TestCase):
+    def test_a_wake_during_a_tick_makes_it_go_round_once_more(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "ROOT", root), \
+             mock.patch.object(factory, "BOARD", os.path.join(root, "board")), mock.patch.object(factory, "log"):
+            with mock.patch.object(factory, "tick_lock", return_value=None):
+                factory.tick({})
+            self.assertTrue(os.path.exists(os.path.join(root, ".tick.again")))
+            passes = []
+
+            def one_pass(cfg):
+                passes.append(1)
+                if len(passes) == 1:   # a reply arrives during the first pass
+                    open(os.path.join(root, ".tick.again"), "w").close()
+
+            with mock.patch.object(factory, "tick_lock", return_value=object()), \
+                 mock.patch.object(factory, "tick_pass", side_effect=one_pass):
+                factory.tick({})
+            self.assertEqual(len(passes), 2)
+
 class FactoryRemoteTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

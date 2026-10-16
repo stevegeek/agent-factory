@@ -1667,11 +1667,24 @@ def tick_lock():
 
 
 def tick(cfg):
+    """One pass; a tick asked for while another runs (a wake) leaves a flag, and the running tick makes
+    one more pass when it finishes, so a reply never waits for the next timer."""
     os.makedirs(BOARD, exist_ok=True)
+    again = os.path.join(ROOT, ".tick.again")
     lock = tick_lock()
     if lock is None:
-        log("tick already running; skipping")
+        open(again, "w").close()
+        log("tick already running; it goes round once more")
         return
+    for _ in range(3):
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(again)
+        tick_pass(cfg)
+        if not os.path.exists(again):
+            break
+
+
+def tick_pass(cfg):
     max_agents = cfg.get("max_agents", 2)
     running = running_agents(cfg)
     tickets = all_tickets()
@@ -2415,11 +2428,8 @@ def cmd_reply(cfg, a):
 
 
 def wake():
-    """Start a tick now. The timer's own unit when there is one (a second start while it runs is a no-op);
-    otherwise a tick in the background (its lock keeps it to one)."""
-    with contextlib.suppress(OSError):
-        if run(["systemctl", "--user", "start", "--no-block", "factory@tick.service"]).returncode == 0:
-            return
+    """Start a tick now, in the background: its lock keeps it to one, and one already running goes round
+    again (see tick)."""
     subprocess.Popen([sys.executable, os.path.abspath(__file__), "tick"], stdin=subprocess.DEVNULL,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
