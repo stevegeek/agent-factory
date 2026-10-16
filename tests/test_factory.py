@@ -1195,6 +1195,20 @@ class GithubOutTest(RepoCase):
         self.assertEqual(t["column"], "pr_open")
         self.assertFalse(any(m == "PUT" for m, _, _ in calls))
 
+    def test_an_approved_pr_that_conflicts_goes_back_for_a_rebase(self):
+        cfg = {**self.cfg, "projects": {"gem": self.project}}
+        t, calls = self.pr_ticket(auto=False), []
+        head = t["gate"]["head"]
+        routes = {("GET", "/repos/o/gem/pulls/5/reviews"): [{"id": 3, "state": "APPROVED", "user": {"login": "stevegeek"}, "commit_id": head}],
+                  ("GET", "/repos/o/gem/pulls/5"): {"state": "open", "draft": True, "merged": False, "head": {"sha": head},
+                                                    "mergeable": False, "mergeable_state": "dirty", "node_id": "PR_5"}}
+        with mock.patch.object(factory, "github_api", side_effect=self.routed(routes, calls)), mock.patch.object(factory, "log"):
+            factory.check_pr(cfg, self.project, t)
+        self.assertEqual(t["column"], "ready")
+        self.assertIn("Rebase this branch onto main", t["notes"][-1]["text"])
+        self.assertIn(3, t["pr"]["reviews_seen"])
+        self.assertFalse(any(m == "PUT" for m, _, _ in calls))
+
     def test_an_approval_waits_while_checks_run_and_says_so_once(self):
         cfg = {**self.cfg, "projects": {"gem": self.project}}
         t = self.pr_ticket(auto=False)

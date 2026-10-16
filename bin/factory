@@ -1481,6 +1481,16 @@ def approve_to_merge(cfg, project, t, pr, unseen):
         what = (f"your approval is for {str(review.get('commit_id'))[:7]}, but PR #{n} is now at {str(head)[:7]}"
                 if review.get("commit_id") != head else f"PR #{n} moved since the gate checked it")
         return event(t, "pr", f"not merged: {what}; approve the latest commit to merge it")
+    if pr.get("mergeable_state") == "dirty":
+        # main moved under it: waiting will not help, a rebase will; the approval is spent (a push dismisses it)
+        done_with()
+        t["pr"].pop("merge_wait", None)
+        add_note(t, f"PR #{n} was approved but conflicts with {project['base']}: other changes were merged since. "
+                    f"Rebase this branch onto {project['base']}, resolve the conflicts keeping both the reviewed change "
+                    "and what was merged, run the tests, and say in your summary what conflicted and how you resolved it.")
+        move(t, "ready", f"approved, but conflicts with {project['base']}",
+             rule=f"you approved PR #{n}, but it no longer merges cleanly; a worker rebases it, then it comes back to you")
+        return hold_pr(cfg, t)
     try:
         if pr.get("draft"):
             set_pr_draft(cfg, pr, False)
