@@ -245,13 +245,16 @@ func (s *Server) sendCard(w http.ResponseWriter, r *http.Request) {
 		s.flashRedirect(w, r, back, "error", "Pick a project and what should happen.")
 		return
 	}
-	s.fz.Mu.Lock()
+	if err := s.fz.Lock(); err != nil {
+		s.flashRedirect(w, r, back, "error", "The project boards are busy; try again.")
+		return
+	}
 	c, err := s.fz.Card(acct, n)
 	var b *fizz.Board
 	if err == nil {
 		b, _ = s.fz.Board(acct, c.BoardID)
 	}
-	s.fz.Mu.Unlock()
+	s.fz.Unlock()
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -290,7 +293,13 @@ func (s *Server) sendCard(w http.ResponseWriter, r *http.Request) {
 		s.flashRedirect(w, r, back, "ok", "Sent to the factory.")
 		return
 	}
-	s.fz.Mu.Lock()
+	if err := s.fz.Lock(); err == nil {
+		defer s.fz.Unlock()
+	} else {
+		log.Printf("card %s/#%d: filed as %s, but the card could not be noted: %v", acct, n, id, err)
+		s.flashRedirect(w, r, "/t/"+id, "ok", id+": filed from card #"+strconv.Itoa(n)+".")
+		return
+	}
 	if a, err := s.fz.Account(acct); err == nil {
 		if c, err := s.fz.Card(acct, n); err == nil {
 			sys := a.System(s.fz.Stamp())
@@ -302,7 +311,6 @@ func (s *Server) sendCard(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	s.fz.Mu.Unlock()
 	log.Printf("card %s/#%d sent to the factory as %s", acct, n, id)
 	s.flashRedirect(w, r, "/t/"+id, "ok", id+": filed from card #"+strconv.Itoa(n)+".")
 }
