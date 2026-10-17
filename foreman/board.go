@@ -52,7 +52,56 @@ type Ticket struct {
 	Ask               *Ask              `json:"ask"`
 	Host              string            `json:"host"`
 	AgentLastHost     string            `json:"agent_last_host"`
+	// a board project's ticket (mode "board"): worked by people and their agents through `factory ticket`
+	Mode      string     `json:"mode"`
+	By        string     `json:"by"`
+	Assignee  string     `json:"assignee"`
+	Labels    []string   `json:"labels"`
+	Links     []Link     `json:"links"`
+	Waiting   *WaitState `json:"waiting"`
+	Questions []Question `json:"questions"`
+	Comments  []Comment  `json:"comments"`
 }
+
+type Link struct {
+	Rel    string `json:"rel"`
+	URL    string `json:"url"`
+	Ticket string `json:"ticket"`
+	Title  string `json:"title"`
+}
+
+type WaitState struct {
+	Reason   string `json:"reason"`
+	Question int    `json:"question"`
+	From     string `json:"from"`
+	Since    string `json:"since"`
+	Text     string `json:"text"`
+}
+
+type Question struct {
+	N          int      `json:"n"`
+	By         string   `json:"by"`
+	Recipient  string   `json:"recipient"`
+	Text       string   `json:"text"`
+	Options    []string `json:"options"`
+	At         string   `json:"at"`
+	Answer     *string  `json:"answer"`
+	AnsweredBy string   `json:"answered_by"`
+	AnsweredAt string   `json:"answered_at"`
+}
+
+type Comment struct {
+	N    int    `json:"n"`
+	At   string `json:"at"`
+	By   string `json:"by"`
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+func (t *Ticket) board() bool { return t.Mode == "board" }
+
+// Board: for templates.
+func (t *Ticket) Board() bool { return t.board() }
 
 type Agent struct {
 	Name    string `json:"name"`
@@ -63,11 +112,36 @@ type Agent struct {
 
 type Report map[string]any
 
+// Hist: one history entry. Event and Detail are on every entry; Type and the fields after it only on
+// entries the dispatcher has typed (see events.go).
 type Hist struct {
 	At     string `json:"at"`
 	Event  string `json:"event"`
 	Detail string `json:"detail"`
 	Rule   string `json:"rule"`
+
+	Type        string   `json:"type"`
+	From        string   `json:"from"`
+	To          string   `json:"to"`
+	Reason      string   `json:"reason"`
+	By          string   `json:"by"`
+	Stage       string   `json:"stage"`
+	Agent       string   `json:"agent"`
+	Host        string   `json:"host"`
+	Model       string   `json:"model"`
+	Branch      string   `json:"branch"`
+	Role        string   `json:"role"`
+	Commit      string   `json:"commit"`
+	Files       []string `json:"files"`
+	OverLimitKB int      `json:"over_limit_kb"`
+	LostOn      string   `json:"lost_on"`
+	Ticket      string   `json:"ticket"`
+	Text        string   `json:"text"`
+	Recipient   string   `json:"recipient"`
+	N           int      `json:"n"`
+	Children    []string `json:"children"`
+	Door        string   `json:"door"`
+	Column      string   `json:"column"`
 }
 
 type Source struct {
@@ -158,9 +232,12 @@ type PanelVote struct {
 	Reason string `json:"reason"`
 }
 
+// Note: the maintainer's note. Question and Answer are set when it answers an agent's question.
 type Note struct {
-	At   string `json:"at"`
-	Text string `json:"text"`
+	At       string `json:"at"`
+	Text     string `json:"text"`
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
 }
 
 type Ask struct {
@@ -199,7 +276,9 @@ func (r Report) list(k string) []any {
 
 func (t *Ticket) report(stage string) Report { return t.Reports[stage] }
 
-func (t *Ticket) closed() bool { return t.Column == "done" || t.Column == "rejected" }
+func (t *Ticket) closed() bool {
+	return t.Column == "done" || t.Column == "rejected" || t.Column == "dropped"
+}
 
 // The board: ticket files re-read only when they change.
 type Board struct {

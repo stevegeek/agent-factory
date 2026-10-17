@@ -2754,12 +2754,12 @@ def clock(cfg):
     save_state(state)
 
 
-def add_note(t, text, by="factory", question=None):
+def add_note(t, text, by="factory", question=None, answer=None):
     """A maintainer's note; every later agent on the ticket gets it (notes_text). by: the person, or the factory
-    itself (a GitHub review, a rebase request). question: the agent's question this note answers."""
+    itself (a GitHub review, a rebase request). question and answer: when it answers an agent's question."""
     note = {"at": now(), "text": text}
     if question is not None:
-        note["question"] = question
+        note.update(question=question, answer=answer)
     t.setdefault("notes", []).append(note)
     event(t, "note", text[:200], type="noted", by=by, note=len(t["notes"]) - 1, question=question)
 
@@ -4252,7 +4252,7 @@ def cmd_reply(cfg, a):
             q["answered"] = now()
             # agents read the sentence; Foreman reads the question from its own field
             add_note(t, f"Your question: “{clip(q['text'], 300)}” The maintainer's answer: {text}", by=me,
-                     question=q["text"])
+                     question=q["text"], answer=text)
             move(t, resume_column(t, q["stage"]), "answered the agent's question", reason="question_answered", by=me)
             print(f"{t['id']}: answered; a new {q['stage']} run carries on")
             asked = False

@@ -61,6 +61,9 @@ func BuildFloor(ts []*Ticket, start, now time.Time) Floor {
 	var opened, merged, kept, dropped, closedChecks int
 	var evs []FloorEvent
 	for _, t := range append(append([]*Ticket{}, ts...), droppedProposals(ts)...) {
+		if t.board() {
+			continue
+		}
 		var story *Story
 		for i, h := range t.History {
 			at := parseTime(h.At)
@@ -83,7 +86,7 @@ func BuildFloor(ts []*Ticket, start, now time.Time) Floor {
 			case "Merged":
 				merged++
 			case "Closed":
-				if strings.Contains(h.Detail, "triage: ") {
+				if moveOf(h).is("triage_rejected", strings.Contains(h.Detail, "triage: ")) {
 					closedChecks++
 				}
 			}
@@ -184,15 +187,14 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 		}
 		return "kept", "Kept", scores + then("waiting on your desk")
 	}
-	if h.Event == "created" && t.Column == "needs_human" && t.Project == noticeProject && strings.Contains(h.Detail, "column=needs_human") {
+	if h.Event == "created" && t.Column == "needs_human" && t.Project == noticeProject && createdIn(h) == "needs_human" {
 		return "waiting", "Notice", "the factory needed you to look at something · " + then("waiting on your desk")
 	}
 	if h.Event != "move" {
 		return "", "", ""
 	}
-	head, d, _ := strings.Cut(h.Detail, ": ")
-	_, to, _ := strings.Cut(head, " -> ")
-	human := strings.HasPrefix(d, "by human")
+	m := moveOf(h)
+	to, d, human := m.To, m.Text, m.Human
 	switch {
 	case to == "pr_open":
 		n := ""
@@ -203,9 +205,9 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 			return "pr", "PR opened", "draft PR " + n + " · needs your review"
 		}
 		return "pr", "PR opened", "PR " + n + " · auto-merge eligible"
-	case strings.HasPrefix(d, "PR merged"):
+	case m.is("pr_merged", strings.HasPrefix(d, "PR merged")):
 		return "merged", "Merged", strings.TrimPrefix(d, "PR ")
-	case strings.HasPrefix(d, "PR closed"):
+	case m.is("pr_closed", strings.HasPrefix(d, "PR closed")):
 		return "closed", "Closed", "the PR was closed without merging"
 	case to == "ready_for_pr":
 		if d == "auto-merge eligible" {
@@ -214,36 +216,36 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 		return "kept", "Gate passed", "needs a maintainer's review"
 	case to == "needs_human" && !human:
 		switch {
-		case strings.HasPrefix(d, "triage accepted"):
+		case m.is("triage_accepted", strings.HasPrefix(d, "triage accepted")):
 			return "waiting", "Accepted", "triage accepted it · " + then("waits for you to start it")
-		case strings.HasPrefix(d, "triage unsure"):
+		case m.is("triage_unsure", strings.HasPrefix(d, "triage unsure")):
 			return "waiting", "Unsure", "triage could not decide · " + then("waiting on your desk")
-		case strings.HasPrefix(d, "design ready"):
+		case m.is("design_ready", strings.HasPrefix(d, "design ready")):
 			return "waiting", "Design ready", plural(len(t.Proposed), "ticket") + " proposed · " + then("waiting on your desk")
-		case strings.HasPrefix(d, "task done"):
+		case m.is("task_done", strings.HasPrefix(d, "task done")):
 			return "info", "Answered", clip(strings.TrimPrefix(d, "task done: "), 140)
-		case strings.HasPrefix(d, "gate:"):
+		case m.is("gate_failed", strings.HasPrefix(d, "gate:")):
 			return "failed", "Gate failed", strings.TrimSpace(strings.TrimPrefix(d, "gate:"))
 		}
 		return "failed", "Failed", clip(d, 140)
 	case to == "rejected":
-		if strings.HasPrefix(d, "triage: ") {
+		if m.is("triage_rejected", strings.HasPrefix(d, "triage: ")) {
 			return "info", "Closed", clip(strings.TrimPrefix(d, "triage: "), 140)
 		}
 		return "closed", "Dropped", "by you"
 	case to == "done":
 		switch {
-		case strings.HasPrefix(d, "panel kept"):
+		case m.is("panel_done", strings.HasPrefix(d, "panel kept")):
 			n := 0
 			if t.PanelResult != nil {
 				n = len(t.PanelResult.Kept)
 			}
 			return "kept", fmt.Sprintf("%d kept", n), d
-		case strings.HasPrefix(d, "proposal approved"), strings.HasPrefix(d, "design approved"):
+		case m.is("proposal_approved", strings.HasPrefix(d, "proposal approved")), m.is("design_approved", strings.HasPrefix(d, "design approved")):
 			return "kept", "Approved", strings.SplitN(d, "; ", 2)[len(strings.SplitN(d, "; ", 2))-1]
-		case strings.HasPrefix(d, "prospecting found nothing"):
+		case m.is("prospect_empty", strings.HasPrefix(d, "prospecting found nothing")):
 			return "info", "Nothing found", "the prospector found nothing worth proposing"
-		case strings.HasPrefix(d, "answered on "):
+		case m.is("answered_on", strings.HasPrefix(d, "answered on ")):
 			return "info", "Answered", "the answer went back to " + strings.TrimPrefix(d, "answered on ")
 		}
 		return "info", "Done", "closed by you"
@@ -251,12 +253,24 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 		return "info", "Started", "you moved it to Ready"
 	case human:
 		return "info", "Moved by you", "you moved it to " + columnLabel(to)
-	case strings.HasPrefix(d, "redirected"):
+	case m.is("redirected", strings.HasPrefix(d, "redirected")):
 		return "info", "Redirected", "the design went back to the designer"
-	case d == "review asked for changes":
+	case m.is("review_changes", d == "review asked for changes"):
 		return "info", "Changes asked", "the reviewer sent it back to the worker"
 	}
 	return "", "", ""
+}
+
+// createdIn: the column a ticket was filed into.
+func createdIn(h Hist) string {
+	if h.Type == "created" {
+		return h.Column
+	}
+	fellBack()
+	if _, c, ok := strings.Cut(h.Detail, "column="); ok {
+		return c
+	}
+	return ""
 }
 
 // thenWhat: what became of an entry that waited on the maintainer, or "" while it still waits.
@@ -265,15 +279,14 @@ func thenWhat(t *Ticket, i int) string {
 		if h.Event != "move" {
 			continue
 		}
-		head, d, _ := strings.Cut(h.Detail, ": ")
-		_, to, _ := strings.Cut(head, " -> ")
-		human := strings.HasPrefix(d, "by human")
+		m := moveOf(h)
+		to, d, human := m.To, m.Text, m.Human
 		switch {
-		case strings.HasPrefix(d, "design approved"):
+		case m.is("design_approved", strings.HasPrefix(d, "design approved")):
 			return "you approved it"
-		case strings.HasPrefix(d, "proposal approved"):
+		case m.is("proposal_approved", strings.HasPrefix(d, "proposal approved")):
 			return "you filed it"
-		case strings.HasPrefix(d, "redirected"):
+		case m.is("redirected", strings.HasPrefix(d, "redirected")):
 			return "you sent it back"
 		case human && to == "ready":
 			return "you started it"

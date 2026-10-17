@@ -63,8 +63,8 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 	lastStart := map[string]int{}
 	for i, e := range h {
 		if e.Event == "start" {
-			if m := startDetail.FindStringSubmatch(e.Detail); m != nil {
-				lastStart[m[1]] = i
+			if stage, _, _, ok := runOf(e); ok {
+				lastStart[stage] = i
 			}
 		}
 	}
@@ -77,30 +77,30 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 		case "created":
 			st = createdStep(t, e)
 		case "start":
-			m := startDetail.FindStringSubmatch(e.Detail)
-			if m == nil {
+			stage, agent, host, ok := runOf(e)
+			if !ok {
 				break
 			}
-			if m[1] == "vote" {
+			if stage == "vote" {
 				st = voteGroup(t, h, i, used)
 				break
 			}
-			st = &Step{At: parseTime(e.At), Who: roles[m[1]]}
+			st = &Step{At: parseTime(e.At), Who: roles[stage]}
 			if st.Who == "" {
-				st.Who = capFirst(m[1])
+				st.Who = capFirst(stage)
 			}
-			if m[3] != "" {
-				st.Who += " on " + m[3]
+			if host != "" {
+				st.Who += " on " + host
 			}
-			if j := finishedAt(h, i, m[1]+" "+m[2]); j >= 0 {
+			if j := finishedAt(h, i, stage, agent); j >= 0 {
 				used[j] = true
 				st.End = parseTime(h[j].At)
-				if lastStart[m[1]] == i {
-					st.What = stageWhat(t, m[1])
+				if lastStart[stage] == i {
+					st.What = stageWhat(t, stage)
 				} else {
 					st.What = "An earlier attempt."
 				}
-			} else if t.Agent != nil && t.Agent.Name == m[2] {
+			} else if t.Agent != nil && t.Agent.Name == agent {
 				st.What, st.Tone = "Running now.", "now"
 			} else {
 				st.What, st.Tone = "Stopped without a report.", "flag"
@@ -120,11 +120,7 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 		case "note":
 			st = &Step{At: parseTime(e.At), Who: "You", What: "Note: " + clip(e.Detail, 400)}
 		case "memory":
-			// "worker memory 1a2b3c4: knowledge/x.md, tickets/T0042.md": what the agent will remember next time
-			st = &Step{At: parseTime(e.At), Who: "Memory", What: sentence(e.Detail)}
-			if m := memoryDetail.FindStringSubmatch(e.Detail); m != nil {
-				st.What = capFirst(m[1]) + " remembered: " + m[2] + "."
-			}
+			st = memoryStep(e)
 			if e.Rule != "" {
 				st.What += " " + sentence(e.Rule)
 				st.Tone = "flag"
@@ -165,13 +161,39 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 	return s
 }
 
-func finishedAt(h []Hist, from int, what string) int {
+func finishedAt(h []Hist, from int, stage, agent string) int {
 	for j := from + 1; j < len(h); j++ {
-		if h[j].Event == "finished" && h[j].Detail == what {
+		if h[j].Event != "finished" {
+			continue
+		}
+		if s, a, _, ok := runOf(h[j]); ok && s == stage && a == agent {
 			return j
 		}
 	}
 	return -1
+}
+
+// memoryStep: what an agent will remember next time, a store over its size limit (a warning), or a run whose
+// notes never came back.
+func memoryStep(e Hist) *Step {
+	st := &Step{At: parseTime(e.At), Who: "Memory", What: sentence(e.Detail)}
+	if e.Type == "memory" {
+		switch {
+		case e.Commit != "":
+			st.What = capFirst(e.Role) + " remembered: " + strings.Join(e.Files, ", ") + "."
+		case e.LostOn == "":
+			st.Tone = "flag"
+		}
+		return st
+	}
+	fellBack()
+	// "worker memory 1a2b3c4: knowledge/x.md, tickets/T0042.md"
+	if m := memoryDetail.FindStringSubmatch(e.Detail); m != nil {
+		st.What = capFirst(m[1]) + " remembered: " + m[2] + "."
+	} else if strings.Contains(e.Detail, "over its limit") {
+		st.Tone = "flag"
+	}
+	return st
 }
 
 func createdStep(t *Ticket, e Hist) *Step {
@@ -179,6 +201,9 @@ func createdStep(t *Ticket, e Hist) *Step {
 	switch {
 	case t.Kind == "proposal":
 		return nil
+	case t.Door == "agent":
+		st.Who = "Agent"
+		st.What = "Filed by " + firstNonEmpty(t.By, "an agent") + "."
 	case t.Door == "github":
 		st.Who = "GitHub sweep"
 		if t.Source != nil && t.Source.Issue > 0 {
@@ -296,10 +321,10 @@ func tierWhat(n int) string {
 var prRef = regexp.MustCompile(`/pull/(\d+)`)
 
 func moveStep(t *Ticket, e Hist) *Step {
-	head, detail, _ := strings.Cut(e.Detail, ": ")
-	_, to, _ := strings.Cut(head, " -> ")
+	m := moveOf(e)
+	to, detail := m.To, m.Text
 	st := &Step{At: parseTime(e.At), Who: "Dispatcher"}
-	human := strings.HasPrefix(detail, "by human")
+	human := m.Human && (detail == "" || strings.HasPrefix(detail, "by human"))
 	switch {
 	case human:
 		st.Who = "You"
@@ -321,11 +346,11 @@ func moveStep(t *Ticket, e Hist) *Step {
 		} else {
 			st.What = "Opened PR" + n + "."
 		}
-	case strings.HasPrefix(detail, "PR merged by "):
+	case m.is("pr_merged", strings.HasPrefix(detail, "PR merged by ")):
 		st.Who, st.What = "GitHub", "Merged by "+strings.TrimPrefix(detail, "PR merged by ")+"."
-	case strings.HasPrefix(detail, "PR closed"):
+	case m.is("pr_closed", strings.HasPrefix(detail, "PR closed")):
 		st.Who, st.What, st.Tone = "GitHub", "The PR was closed without merging.", "flag"
-	case strings.HasPrefix(detail, "triage accepted"):
+	case m.is("triage_accepted", strings.HasPrefix(detail, "triage accepted")):
 		switch {
 		case to == "ready":
 			st.What = "Triage accepted it, so it went straight to Ready."
@@ -334,12 +359,12 @@ func moveStep(t *Ticket, e Hist) *Step {
 		default:
 			st.What = "Triage accepted it; it waits for you to start it."
 		}
-	case strings.HasPrefix(detail, "triage unsure"), strings.HasPrefix(detail, "design ready"),
-		strings.HasPrefix(detail, "task done"), strings.HasSuffix(detail, "blind panel next"):
+	case m.is("triage_unsure", strings.HasPrefix(detail, "triage unsure")), m.is("design_ready", strings.HasPrefix(detail, "design ready")),
+		m.is("task_done", strings.HasPrefix(detail, "task done")), m.is("proposals_ready", strings.HasSuffix(detail, "blind panel next")):
 		return nil
-	case strings.HasPrefix(detail, "triage: "):
+	case m.is("triage_rejected", strings.HasPrefix(detail, "triage: ")):
 		st.What, st.Tone = "Closed it, as triage advised.", "flag"
-	case strings.HasPrefix(detail, "gate:"):
+	case m.is("gate_failed", strings.HasPrefix(detail, "gate:")):
 		st.Who, st.What, st.Tone = "Gate", sentence(strings.TrimSpace(strings.TrimPrefix(detail, "gate:"))), "flag"
 	case to == "ready_for_pr" && detail == "auto-merge eligible":
 		st.Who, st.What = "Gate", "Tests and lint pass, no blockers: auto-merge eligible."
@@ -347,26 +372,29 @@ func moveStep(t *Ticket, e Hist) *Step {
 		// the same plain words as the draft callout: a list of paths becomes a count
 		why := strings.Join(draftReasons(strings.Split(strings.TrimPrefix(detail, "needs human review: "), "; ")), "; ")
 		st.Who, st.What = "Gate", sentence("Tests and lint pass. Needs a maintainer: "+why)
-	case detail == "review asked for changes":
+	case m.is("review_changes", detail == "review asked for changes"):
 		st.Who, st.What = "Reviewer", "Asked for changes; back to the worker."
-	case strings.HasPrefix(detail, "redirected: "):
+	case m.is("redirected", strings.HasPrefix(detail, "redirected: ")):
 		st.Who, st.What = "You", "Sent the design back: "+strings.TrimPrefix(detail, "redirected: ")
-	case strings.HasPrefix(detail, "design approved; filed "):
+	case m.is("design_approved", strings.HasPrefix(detail, "design approved; filed ")):
 		st.Who, st.What = "You", "Approved the design; filed "+strings.TrimPrefix(detail, "design approved; filed ")+"."
-	case strings.HasPrefix(detail, "proposal approved; filed "):
+	case m.is("proposal_approved", strings.HasPrefix(detail, "proposal approved; filed ")):
 		st.Who, st.What = "You", "Filed it as a change: "+strings.TrimPrefix(detail, "proposal approved; filed ")+"."
-	case strings.HasPrefix(detail, "panel kept "):
+	case m.is("panel_done", strings.HasPrefix(detail, "panel kept ")):
 		st.What = "The panel kept " + strings.TrimPrefix(detail, "panel kept ") + "."
-	case strings.HasPrefix(detail, "prospecting found nothing"):
+	case m.is("prospect_empty", strings.HasPrefix(detail, "prospecting found nothing")):
 		st.Who, st.What = "Prospector", "Found nothing worth proposing."
-	case strings.HasPrefix(detail, "task blocked"), strings.HasPrefix(detail, "agent "), strings.HasPrefix(detail, "worker "),
-		strings.HasPrefix(detail, "designer "), strings.HasPrefix(detail, "security:"), strings.HasPrefix(detail, "review still"),
-		strings.Contains(detail, "changed the branch"), detail == "dispatcher error":
+	case m.Reason != "" && flagged[m.Reason],
+		m.Reason == "" && (strings.HasPrefix(detail, "task blocked") || strings.HasPrefix(detail, "agent ") || strings.HasPrefix(detail, "worker ") ||
+			strings.HasPrefix(detail, "designer ") || strings.HasPrefix(detail, "security:") || strings.HasPrefix(detail, "review still") ||
+			strings.Contains(detail, "changed the branch") || detail == "dispatcher error"):
 		st.What, st.Tone = sentence(clip(detail, 300)), "flag"
 	case detail == "":
 		if e.Rule == "" {
 			return nil
 		}
+	case m.Reason != "" && e.By == "factory":
+		st.What = sentence(clip(detail, 300))
 	default:
 		// a person's own words from `factory move --note`
 		st.Who, st.What = "You", "Moved it to "+columnLabel(to)+": "+clip(detail, 300)
@@ -374,12 +402,16 @@ func moveStep(t *Ticket, e Hist) *Step {
 	return st
 }
 
+// flagged: the reasons a run stopped or a check failed, which the story marks.
+var flagged = map[string]bool{"task_blocked": true, "timed_out": true, "agent_lost": true, "no_report": true,
+	"worker_blocked": true, "no_commits": true, "designer_blocked": true, "manager_blocked": true, "security_failed": true,
+	"review_exhausted": true, "reviewer_committed": true, "dispatcher_error": true, "usage_limit": true}
+
 func voteGroup(t *Ticket, h []Hist, i int, used []bool) *Step {
 	st := &Step{At: parseTime(h[i].At), Who: "Panel"}
 	end, n := i, 0
 	for j := i; j < len(h); j++ {
-		if (h[j].Event == "start" && strings.HasPrefix(h[j].Detail, "vote ")) ||
-			(h[j].Event == "finished" && strings.HasPrefix(h[j].Detail, "vote ")) || h[j].Event == "vote" {
+		if stageOf(h[j]) == "vote" || h[j].Event == "vote" {
 			used[j] = true
 			end = j
 			if h[j].Event == "finished" {
@@ -403,10 +435,10 @@ func prospectOrigin(p *Ticket) []Step {
 		switch {
 		case e.Event == "created":
 			out = append(out, Step{At: parseTime(e.At), Who: "Clock", What: "Started a prospecting run (" + p.ID + ")."})
-		case e.Event == "start" && strings.HasPrefix(e.Detail, "prospect "):
+		case e.Event == "start" && stageOf(e) == "prospect":
 			st := Step{At: parseTime(e.At), Who: "Prospector", What: stageWhat(p, "prospect")}
-			name := strings.Fields(e.Detail)[1]
-			if j := finishedAt(p.History, i, "prospect "+name); j >= 0 {
+			_, name, _, _ := runOf(e)
+			if j := finishedAt(p.History, i, "prospect", name); j >= 0 {
 				st.End = parseTime(p.History[j].At)
 			}
 			out = append(out, st)
@@ -423,11 +455,11 @@ func panelSteps(t *Ticket, all map[string]*Ticket, e Hist) []Step {
 		// times come from the prospect: a proposal filed later (a migrated board) keeps the panel's own
 		for _, x := range p.History {
 			switch {
-			case x.Event == "start" && strings.HasPrefix(x.Detail, "vote ") && panel.End.IsZero():
+			case x.Event == "start" && stageOf(x) == "vote" && panel.End.IsZero():
 				panel.At, panel.End = parseTime(x.At), at
-			case x.Event == "finished" && strings.HasPrefix(x.Detail, "vote "):
+			case x.Event == "finished" && stageOf(x) == "vote":
 				panel.End = parseTime(x.At)
-			case x.Event == "move" && strings.Contains(x.Detail, "panel kept"):
+			case panelDecided(x):
 				at = parseTime(x.At)
 			}
 		}
@@ -458,7 +490,7 @@ func panelSteps(t *Ticket, all map[string]*Ticket, e Hist) []Step {
 // panelTime: when the prospect's panel decided, or zero.
 func panelTime(p *Ticket) time.Time {
 	for _, x := range p.History {
-		if x.Event == "move" && strings.Contains(x.Detail, "panel kept") {
+		if panelDecided(x) {
 			return parseTime(x.At)
 		}
 	}
@@ -541,7 +573,7 @@ func droppedProposals(ts []*Ticket) []*Ticket {
 		}
 		at := ""
 		for _, h := range p.History {
-			if h.Event == "move" && strings.Contains(h.Detail, "panel kept") {
+			if panelDecided(h) {
 				at = h.At
 			}
 		}
@@ -569,7 +601,7 @@ func droppedProposals(ts []*Ticket) []*Ticket {
 
 // askSteps: the question, then its answer (or where the answer is) from the task it filed.
 func askSteps(e Hist, all map[string]*Ticket) []Step {
-	id, q, _ := strings.Cut(e.Detail, ": ")
+	id, q := askOf(e)
 	steps := []Step{{At: parseTime(e.At), Who: "You", What: "Asked: " + clip(q, 400)}}
 	c := all[id]
 	switch {

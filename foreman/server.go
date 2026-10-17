@@ -299,7 +299,7 @@ func latestAnswer(t *Ticket, a *Ask, all map[string]*Ticket) *AnswerView {
 		if a != nil && parseTime(h.At).Before(parseTime(a.Since)) {
 			return nil
 		}
-		id, q, _ := strings.Cut(h.Detail, ": ")
+		id, q := askOf(h)
 		if c := all[id]; c != nil && c.Result != "" {
 			lead := c.report("task").str("summary")
 			if lead == "" {
@@ -410,7 +410,7 @@ func (s *Server) ticketView(t *Ticket, ts []*Ticket, filter string) *TicketView 
 	all := byID(ts)
 	a := AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: BuildStory(t, all), Facts: Facts(t, a, all),
-		Answers: Answers(t, a), Callout: PRCallout(t), Children: t.Children, ChildrenLabel: "Filed", ParentID: t.Parent, CanNote: !t.closed()}
+		Answers: Answers(t, a), Callout: PRCallout(t), Children: t.Children, ChildrenLabel: "Filed", ParentID: t.Parent, CanNote: !t.closed() && !t.board()}
 	if pr := t.PanelResult; pr != nil {
 		// a prospect's proposals, kept and dropped, each a ticket of its own
 		v.ChildrenLabel, v.Children = "Proposals", nil
@@ -554,7 +554,8 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	back := ticketHref(id, filter)
 	ts := s.visible(r)
 	t := byID(ts)[id]
-	if t == nil {
+	if t == nil || t.board() {
+		// a board ticket is answered through `factory ticket` until its own view exists
 		http.NotFound(w, r)
 		return
 	}
@@ -672,6 +673,9 @@ type BoardView struct {
 func summaries(ts []*Ticket) []BoardSummary {
 	m := map[string]*BoardSummary{}
 	for _, t := range ts {
+		if t.board() {
+			continue // board projects get their own view in step 4 of the ticket plan
+		}
 		b := m[t.Project]
 		if b == nil {
 			b = &BoardSummary{Name: t.Project, Href: "/b/" + url.PathEscape(t.Project)}
@@ -721,7 +725,7 @@ func (s *Server) boardPage(w http.ResponseWriter, r *http.Request) {
 		}
 		for i := len(ts) - 1; i >= 0; i-- {
 			t := ts[i]
-			if t.Project != name || t.Column != col {
+			if t.Project != name || t.Column != col || t.board() {
 				continue
 			}
 			found = true

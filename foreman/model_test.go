@@ -15,6 +15,24 @@ func TestForemanCoversTheDispatchersModel(t *testing.T) {
 			t.Errorf("stage %q has no label", s)
 		}
 	}
+	for _, c := range model.BoardColumns {
+		if columnLabels[c] == "" || columnLabels[c] != model.BoardColumnLabels[c] {
+			t.Errorf("board column %q has no label of its own", c)
+		}
+	}
+	if len(model.Capabilities) != len(apiCapabilities) {
+		t.Errorf("capabilities %v, Foreman knows %v", model.Capabilities, apiCapabilities)
+	}
+	for i, c := range model.Capabilities {
+		if i >= len(apiCapabilities) || apiCapabilities[i] != c {
+			t.Errorf("capability %q is unknown to Foreman", c)
+		}
+	}
+	for _, e := range typedEvents {
+		if _, ok := model.EventTypes[e]; !ok {
+			t.Errorf("Foreman reads typed %q events, which the dispatcher no longer writes", e)
+		}
+	}
 	order := map[string]bool{}
 	for _, k := range askOrder {
 		order[k] = true

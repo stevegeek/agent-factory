@@ -40,6 +40,9 @@ const noticeProject = "factory"
 // AskFor is the ticket's ask: the dispatcher's when it wrote one, else derived the same way from
 // the column and the move that brought the ticket there (boards from before asks existed).
 func AskFor(t *Ticket) *Ask {
+	if t.board() {
+		return nil // a board ticket's questions reach the desk with its own view
+	}
 	if t.Column != "needs_human" && t.Column != "pr_open" && t.Column != "ready_for_pr" {
 		return nil
 	}
@@ -53,16 +56,14 @@ func AskFor(t *Ticket) *Ask {
 func lastArrival(t *Ticket) (old, detail, at string) {
 	for i := len(t.History) - 1; i >= 0; i-- {
 		h := t.History[i]
-		if h.Event == "created" && strings.Contains(h.Detail, "column="+t.Column) {
+		if h.Event == "created" && createdIn(h) == t.Column {
 			return "", "", h.At
 		}
 		if h.Event != "move" {
 			continue
 		}
-		head, rest, _ := strings.Cut(h.Detail, ": ")
-		from, to, ok := strings.Cut(head, " -> ")
-		if ok && to == t.Column {
-			return from, rest, h.At
+		if m := moveOf(h); m.To == t.Column {
+			return m.From, m.Text, h.At
 		}
 	}
 	return "", "", t.Updated
@@ -325,14 +326,15 @@ type DeskItem struct {
 	Answered               bool // the last thing on it is the answer to your question
 }
 
-// responded: the factory's own notes (a GitHub review, a rebase request) come with a move off the
-// desk, so a note or a question that is the ticket's last event is the maintainer's.
+// responded: a note or a question that is the ticket's last event is the maintainer's. Typed history
+// says who wrote a note; on older boards the factory's own notes (a GitHub review, a rebase request) come
+// with a move off the desk, so they are never the last event.
 func responded(t *Ticket, a *Ask) (string, string) {
 	if len(t.History) == 0 {
 		return "", ""
 	}
 	h := t.History[len(t.History)-1]
-	if (h.Event != "note" && h.Event != "asked") || parseTime(h.At).Before(parseTime(a.Since)) {
+	if (h.Event != "note" && h.Event != "asked") || parseTime(h.At).Before(parseTime(a.Since)) || h.By == "factory" {
 		return "", ""
 	}
 	return h.Event, h.At

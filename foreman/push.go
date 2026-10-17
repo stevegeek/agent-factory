@@ -400,7 +400,10 @@ func askedBy(t *Ticket, all map[string]*Ticket) *Ticket {
 		return nil
 	}
 	for _, h := range p.History {
-		if h.Event == "asked" && strings.HasPrefix(h.Detail, t.ID+":") {
+		if h.Event != "asked" {
+			continue
+		}
+		if id, _ := askOf(h); id == t.ID {
 			return p
 		}
 	}
@@ -412,7 +415,7 @@ func byYou(t *Ticket) bool {
 	for i := len(t.History) - 1; i >= 0; i-- {
 		if h := t.History[i]; h.Event == "move" {
 			// a merge you confirmed in Foreman is yours too
-			return strings.HasSuffix(h.Detail, ": by human") || strings.HasSuffix(h.Detail, "on your go-ahead")
+			return moveOf(h).Human || strings.HasSuffix(h.Detail, "on your go-ahead")
 		}
 	}
 	return false
@@ -426,6 +429,9 @@ func News(prev map[string]snap, ts []*Ticket) []Message {
 	desk := Waiting(Desk(ts))
 	var out []Message
 	for _, t := range ts {
+		if t.board() {
+			continue
+		}
 		was, seen := prev[t.ID]
 		now := snapOf(t)
 		if seen && was == now {

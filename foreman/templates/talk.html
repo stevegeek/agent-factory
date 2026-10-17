@@ -19,7 +19,7 @@
 </ol>
 {{with .Waiting}}<p class="next"><b>Now</b> {{.}}</p>{{end}}
 </div>
-<form class="act reply" id="reply" method="post" action="/t/{{.T.ID}}/act">
+{{if not .T.Board}}<form class="act reply" id="reply" method="post" action="/t/{{.T.ID}}/act">
   <input type="hidden" name="csrf" value="{{$p.CSRF}}">
   <input type="hidden" name="view" value="talk">
   <div class="composer">
@@ -30,7 +30,7 @@
     <button class="btn primary" type="submit" name="answer" value="talk" data-needs-note data-busy="Sending…"><span>{{.Button}}</span></button>
   </div>
   </div>
-</form>
+</form>{{end}}
 </main>
 {{end}}
 {{- end}}

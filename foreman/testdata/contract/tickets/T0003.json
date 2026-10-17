@@ -99,7 +99,8 @@
     {
       "at": "2026-10-17T09:05:00+00:00",
       "text": "Your question: \u201cUTF-8 or Latin-1?\u201d The maintainer's answer: UTF-8",
-      "question": "UTF-8 or Latin-1?"
+      "question": "UTF-8 or Latin-1?",
+      "answer": "UTF-8"
     }
   ]
 }

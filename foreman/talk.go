@@ -89,8 +89,7 @@ func Conversation(t *Ticket, all map[string]*Ticket, root string, now time.Time)
 	v.Msgs = append(v.Msgs, opening)
 	lastFinished := map[string]int{}
 	for i, h := range t.History {
-		if h.Event == "finished" {
-			stage, _, _ := strings.Cut(h.Detail, " ")
+		if stage := stageOf(h); h.Event == "finished" && stage != "" {
 			lastFinished[stage] = i
 		}
 	}
@@ -98,7 +97,7 @@ func Conversation(t *Ticket, all map[string]*Ticket, root string, now time.Time)
 	for i, h := range t.History {
 		switch h.Event {
 		case "finished":
-			stage, name, _ := strings.Cut(h.Detail, " ")
+			stage, name, _, _ := runOf(h)
 			if stage == "vote" {
 				continue // the panel stays blind; its scores are on the ticket
 			}
@@ -118,20 +117,26 @@ func Conversation(t *Ticket, all map[string]*Ticket, root string, now time.Time)
 		case "note":
 			text := h.Detail
 			if note < len(t.Notes) {
-				text = t.Notes[note].Text
-			}
-			note++
-			if strings.HasPrefix(text, questionPrefix) {
-				if _, ans, ok := strings.Cut(text, "” The maintainer's answer: "); ok {
-					text = ans
+				n := t.Notes[note]
+				text = n.Text
+				switch {
+				case n.Question != "":
+					// the answer to an agent's question, which the note's sentence quotes for the agents
+					text = n.Answer
+				case strings.HasPrefix(text, questionPrefix):
+					fellBack()
+					if _, ans, ok := strings.Cut(text, "” The maintainer's answer: "); ok {
+						text = ans
+					}
 				}
 			}
+			note++
 			v.Msgs = append(v.Msgs, Msg{Who: "You", Side: "me", When: at(h), Text: text})
 		case "asked":
-			id, q, _ := strings.Cut(h.Detail, ": ")
+			id, q := askOf(h)
 			v.Msgs = append(v.Msgs, Msg{Who: "You", Side: "me", When: at(h), Text: q, Ref: id})
 		case "answered":
-			id, sum, _ := strings.Cut(h.Detail, ": ")
+			id, sum := askOf(h)
 			m := Msg{Who: "Task agent", Side: "agent", When: at(h), Text: sum, Ref: id}
 			if c := all[id]; c != nil && c.Result != "" {
 				if lead := c.report("task").str("summary"); lead != "" {
@@ -143,9 +148,11 @@ func Conversation(t *Ticket, all map[string]*Ticket, root string, now time.Time)
 			}
 			v.Msgs = append(v.Msgs, m)
 		case "move":
-			_, rest, _ := strings.Cut(h.Detail, " -> ")
-			col, detail, _ := strings.Cut(rest, ": ")
-			if strings.Contains(detail, " asks: ") || detail == "answered the agent's question" || detail == "by human" {
+			m := moveOf(h)
+			col, detail := m.To, m.Text
+			// the question and its answer are in the thread already, and a hand move says nothing new
+			if m.is("agent_question", strings.Contains(detail, " asks: ")) ||
+				m.is("question_answered", detail == "answered the agent's question") || (m.Human && detail == "by human") {
 				continue
 			}
 			switch col {
