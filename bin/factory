@@ -1838,9 +1838,13 @@ def tick(cfg):
         watches(cfg)
     except Exception as e:
         log(f"watches: {str(e)[:300]}")
-    for _ in range(3):
+    for n in range(3):
         with contextlib.suppress(FileNotFoundError):
             os.remove(again)
+        if n:
+            # a deploy may have landed while the last pass ran (a new project, say): read the config again
+            with contextlib.suppress(OSError, tomllib.TOMLDecodeError):
+                cfg = load_config()
         tick_pass(cfg)
         if not os.path.exists(again):
             break
