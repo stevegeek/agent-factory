@@ -171,7 +171,8 @@ def load_ticket(tid):
 
 def save_ticket(t):
     t["updated"] = now()
-    tmp = ticket_path(t["id"]) + ".tmp"
+    os.makedirs(BOARD, exist_ok=True)
+    tmp = f"{ticket_path(t['id'])}.{os.getpid()}.tmp"
     with open(tmp, "w") as f:
         json.dump(t, f, indent=2)
     os.replace(tmp, ticket_path(t["id"]))
@@ -239,8 +240,23 @@ def all_tickets():
 
 
 def next_id():
-    nums = [int(re.sub(r"\D", "", os.path.basename(p))) for p in glob.glob(os.path.join(BOARD, "T*.json"))]
-    return f"T{(max(nums) + 1) if nums else 1:04d}"
+    """A ticket id no one else has or will get: allocated under a lock from a counter that only goes up (two
+    creators at once, say the tick and Foreman, used to be able to pick the same number and overwrite)."""
+    os.makedirs(BOARD, exist_ok=True)
+    with open(os.path.join(BOARD, ".id.lock"), "a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        nums = [int(re.sub(r"\D", "", os.path.basename(x))) for x in glob.glob(os.path.join(BOARD, "T*.json"))]
+        counter = os.path.join(BOARD, ".last-id")
+        try:
+            with open(counter) as f:
+                last = int(f.read().strip() or 0)
+        except (FileNotFoundError, ValueError):
+            last = 0
+        n = max([last, *nums]) + 1
+        with open(counter + ".tmp", "w") as f:
+            f.write(str(n))
+        os.replace(counter + ".tmp", counter)
+        return f"T{n:04d}"
 
 
 def event(t, kind, detail="", rule=None):
@@ -1602,6 +1618,10 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
     if mem:
         prompt += memory_prompt(t, mem["role"], MEMORY_MOUNT if host == LOCAL else "/job/memory")
     model = stage_model(cfg, t, stage, host)
+    # write-ahead: if this process dies between starting the agent and saving the ticket, the next tick
+    # still knows the agent (and finds it gone, or running) instead of an agent no ticket points at
+    t["agent"] = {"name": name, "stage": stage, "started": now(), "host": host, "starting": True}
+    save_ticket(t)
     if host == LOCAL:
         template = cfg.get("templates", {}).get(stage, TEMPLATES[stage])
         args = ["start", name, "-t", template, "--message-mode", "none"]
@@ -1617,9 +1637,14 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
         except Exception:
             if mem:
                 remove_copy(mem["dir"])
+            t["agent"] = None
             raise
     else:
-        start_remote(cfg, project, t, stage, name, prompt, host, model, memory=mem)
+        try:
+            start_remote(cfg, project, t, stage, name, prompt, host, model, memory=mem)
+        except Exception:
+            t["agent"] = None
+            raise
     t["agent"] = {"name": name, "stage": stage, "started": now(), "host": host}
     if mem:
         t["agent"]["memory"] = mem
@@ -1935,10 +1960,23 @@ def tick(cfg):
             break
 
 
+# columns a ticket sits in only while its agent runs (review/security/triage also wait in theirs, so not those)
+RUNNING_ONLY = ("working",)
+
+
+def reconcile(tickets):
+    """Tickets that lost their agent without a move (a crash, a kill at the wrong moment) go to your desk to
+    retry, instead of sitting in Working where nothing will ever pick them up."""
+    for t in each_locked(tickets, lambda t: t["column"] in RUNNING_ONLY and not t.get("agent")):
+        move(t, "needs_human", "it was left in Working with no agent (the factory stopped mid-step); retry it")
+        save_ticket(t)
+
+
 def tick_pass(cfg):
     max_agents = cfg.get("max_agents", 2)
     running = running_agents(cfg)
     tickets = all_tickets()
+    reconcile(tickets)
 
     for t in each_locked(tickets, lambda t: t.get("agent")):
         project, name = project_for(cfg, t), t["agent"]["name"]
@@ -1991,7 +2029,13 @@ def tick_pass(cfg):
             if not project or not project.get("github"):
                 continue
             try:
-                if t["column"] == "pr_open":
+                if t["column"] == "pr_open" and (t.get("pr") or {}).get("merge_requested"):
+                    req = t["pr"].pop("merge_requested")
+                    try:
+                        merge_pr(cfg, project, t)
+                    except RuntimeError as e:
+                        event(t, "pr", f"not merged (asked {req}): {str(e)[:250]}")
+                elif t["column"] == "pr_open":
                     check_pr(cfg, project, t)
                 elif t["column"] == "ready_for_pr" and (cfg["github"].get("open_prs") == "auto"
                                                         or (t.get("pr") or {}).get("number")):
@@ -2775,18 +2819,20 @@ def cmd_add(cfg, a):
 
 
 def cmd_merge(cfg, a):
+    """Your go-ahead for an eligible PR. The merge itself happens on the next tick (it may first re-run the
+    checks with main merged in, which can take minutes): this only records the request, and wakes the tick."""
     with changing(a.ticket) as t:
         project = cfg["projects"].get(t["project"]) or {}
         if not project.get("github"):
             sys.exit(f"{t['project']} has no GitHub repository")
-        try:
-            merge_pr(cfg, project, t)
-        except MainMoved as e:
-            save_ticket(t)   # it went back for a rework: keep that, then say why it didn't merge
-            sys.exit(str(e))
-        except RuntimeError as e:
-            sys.exit(str(e))
-    print(f"merged PR #{t['pr']['number']}")
+        if t["column"] != "pr_open" or not t.get("pr"):
+            sys.exit(f"{t['id']} has no open PR")
+        if not (t.get("gate") or {}).get("auto_eligible"):
+            sys.exit(f"{t['id']} is not auto-merge eligible; review and merge it on GitHub")
+        t["pr"]["merge_requested"] = now()
+        event(t, "pr", f"you asked the factory to merge PR #{t['pr']['number']}; it merges on the next tick")
+    wake()
+    print(f"PR #{t['pr']['number']} merges on the next tick (a minute or two; longer if main moved)")
 
 
 def cmd_ask(cfg, a):

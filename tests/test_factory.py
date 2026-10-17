@@ -100,6 +100,40 @@ class GitGuardTest(RepoCase):
         self.assertEqual(factory.guard_repo(project), [])
         self.assertEqual(open(os.path.join(gitdir, "config")).read(), before)
 
+class RobustnessTest(RepoCase):
+    def test_ticket_ids_never_collide_or_come_back(self):
+        import concurrent.futures
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), mock.patch.object(factory, "log"):
+            with concurrent.futures.ThreadPoolExecutor(8) as pool:
+                ids = list(pool.map(lambda i: factory.next_id(), range(40)))
+            self.assertEqual(len(set(ids)), 40)
+            t = factory.new_ticket("p", "x", "b", "human", "ready")
+            os.remove(factory.ticket_path(t["id"]))          # a deleted ticket's number is not handed out again
+            self.assertNotEqual(factory.new_ticket("p", "y", "b", "human", "ready")["id"], t["id"])
+
+    def test_a_ticket_left_working_without_an_agent_comes_to_your_desk(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), mock.patch.object(factory, "log"):
+            t = factory.new_ticket("p", "x", "b", "human", "working")
+            factory.reconcile([factory.load_ticket(t["id"])])
+            t = factory.load_ticket(t["id"])
+            self.assertEqual((t["column"], t["ask"]["kind"]), ("needs_human", "unstick"))
+            self.assertEqual(t["ask"]["retry_column"], "ready")
+
+    def test_an_agent_is_on_its_ticket_before_it_starts(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), mock.patch.object(factory, "log"):
+            t = factory.new_ticket("p", "x", "b", "human", "triage")
+            seen = {}
+
+            def start(project, *args, **kw):
+                seen["agent"] = factory.load_ticket(t["id"])["agent"]
+                raise RuntimeError("podman fell over")
+
+            with mock.patch.object(factory, "scion", side_effect=start), mock.patch.object(factory, "ensure_scion_project"):
+                with self.assertRaises(RuntimeError):
+                    factory.start_stage({}, self.project, t, "triage")
+            self.assertEqual(seen["agent"]["name"], "t0001-t1")      # recorded before the launch
+            self.assertIsNone(t["agent"])                            # and cleared when the launch failed
+
 class ClassifyTest(RepoCase):
     def test_docs_only_is_tier_0(self):
         self.branch_with("b", {"README.md": "hello world\n"})
@@ -1337,6 +1371,23 @@ class GithubOutTest(RepoCase):
                  mock.patch.object(factory, "log"), self.assertRaises(RuntimeError):
                 factory.merge_pr(self.cfg, self.project, t2)
             self.assertFalse(any(m == "PUT" for m, _, _ in calls))
+
+    def test_merge_it_only_asks_and_the_tick_merges(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root), mock.patch.object(factory, "log"):
+            t = {**self.pr_ticket(), "id": "T0001", "project": "gem"}
+            factory.save_ticket(t)
+            cfg = {**self.cfg, "projects": {"gem": self.project}}
+            with mock.patch.object(factory, "wake") as wake, mock.patch("sys.stdout"), \
+                 mock.patch.object(factory, "merge_pr") as merge:
+                factory.cmd_merge(cfg, mock.Mock(ticket="T0001"))
+                merge.assert_not_called()                  # Foreman's button returns at once
+            wake.assert_called_once()
+            self.assertTrue(factory.load_ticket("T0001")["pr"]["merge_requested"])
+            with mock.patch.object(factory, "merge_pr") as merge, mock.patch.object(factory, "tick_lock", return_value=object()), \
+                 mock.patch.object(factory, "running_agents", return_value=set()), mock.patch.object(factory, "check_pr"):
+                factory.tick(cfg)
+            merge.assert_called_once()
+            self.assertNotIn("merge_requested", factory.load_ticket("T0001")["pr"])
 
     def test_main_moved_since_the_gate_means_checks_again_with_it_merged_in(self):
         routes = {("GET", "/repos/o/gem/pulls/5"): {"state": "open", "draft": False, "head": {"sha": "a" * 40}},
