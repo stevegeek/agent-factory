@@ -34,6 +34,7 @@ type Server struct {
 	projects    []string    // what a new ticket may name, besides the board's own projects
 	fz          *fizz.Store // project boards; nil: none
 	fzAPI       *fizz.API
+	api         http.Handler // the ticket API (/api/v1); nil: off
 	pages       map[string]*template.Template
 	now         func() time.Time
 	assetV      string
@@ -89,6 +90,10 @@ func (s *Server) Handler() http.Handler {
 	if s.fzAPI != nil {
 		// the Fizzy-compatible API: bearer tokens, never the login session
 		mux.Handle(fizz.Mount+"/", s.fzAPI)
+	}
+	if s.api != nil {
+		// the ticket API: bearer tokens from the dispatcher's store, never the login session
+		mux.Handle(apiPrefix, s.api)
 	}
 	mux.HandleFunc("GET /login", s.loginPage)
 	mux.HandleFunc("POST /login", s.login)

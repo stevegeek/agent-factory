@@ -93,12 +93,14 @@ func TestHostAllowlist(t *testing.T) {
 	h := newHarness(t, false)
 	for host, ok := range map[string]bool{"127.0.0.1:8790": true, "[::1]:8790": true, "localhost:8790": true,
 		"192.0.2.7": true, "example.com": true, "EXAMPLE.com.": true, "rebound.example:8790": false} {
-		r := httptest.NewRequest("GET", "/healthz", nil)
-		r.Host = host
-		w := httptest.NewRecorder()
-		h.h.ServeHTTP(w, r)
-		if (w.Code != http.StatusMisdirectedRequest) != ok {
-			t.Errorf("Host %q: %d", host, w.Code)
+		for _, path := range []string{"/healthz", "/api/v1/me", "/fizzy/identity"} {
+			r := httptest.NewRequest("GET", path, nil)
+			r.Host = host
+			w := httptest.NewRecorder()
+			h.h.ServeHTTP(w, r)
+			if (w.Code != http.StatusMisdirectedRequest) != ok {
+				t.Errorf("Host %q %s: %d", host, path, w.Code)
+			}
 		}
 	}
 }

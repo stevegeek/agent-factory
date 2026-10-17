@@ -51,6 +51,9 @@ func main() {
 	flag.Var(&hosts, "host", "a host name to answer to besides IP addresses and localhost, e.g. the ts.net name (repeatable)")
 	revoke := flag.Bool("revoke-sessions", false, "log out every browser, then exit")
 	push := flag.Bool("push", true, "send Web Push notifications to subscribed devices (keys beside the secret)")
+	api := flag.Bool("api", true, "serve the ticket API at /api/v1 to tokens made with factory tokens add")
+	apiTokens := flag.String("api-tokens", "", "the dispatcher's API token store (default api-tokens.json beside --secret-file)")
+	apiConcurrency := flag.Int("api-concurrency", 2, "factory CLI processes the API may run at once")
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.LUTC)
 	if *revoke {
@@ -87,7 +90,9 @@ func main() {
 		auth.TrustTailscale(tsUsers...)
 		log.Printf("trusting Tailscale-User-Login %s from loopback: any local process can send it", tsUsers.String())
 	}
+	open := false
 	if h, _, err := net.SplitHostPort(*listen); err == nil && !isLoopback(h) && h != "localhost" {
+		open = true
 		log.Printf("WARNING: listening on %s over plain HTTP: the secret and the session cookie cross the network "+
 			"in the clear. Prefer loopback behind `tailscale serve` or another TLS proxy.", *listen)
 	}
@@ -95,6 +100,13 @@ func main() {
 	s := NewServer(board, auth, &Runner{Factory: *factory, Root: *root})
 	s.projects = projects
 	s.SetProjectBoards(fizz.Open(storeDir(*root)))
+	if *api {
+		if *apiTokens == "" {
+			*apiTokens = filepath.Join(filepath.Dir(*secretFile), "api-tokens.json")
+		}
+		s.api = NewAPI(NewGuard(NewAPITokens(*apiTokens), auth.hosts, open),
+			NewAPIRunner(*factory, *root, *apiTokens, *apiConcurrency))
+	}
 	if *push {
 		// the VAPID contact: the page's own address when known (push services want an https: or mailto: URL)
 		subject := "mailto:foreman@localhost"
