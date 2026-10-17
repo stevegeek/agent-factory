@@ -1,0 +1,193 @@
+{
+  "id": "T0001",
+  "project": "p",
+  "title": "Fix the parser",
+  "body": "It drops the last line.",
+  "door": "human",
+  "by": "alice",
+  "column": "gate",
+  "branch": "bot/fix-the-parser",
+  "agent": null,
+  "reports": {
+    "work": {
+      "status": "done",
+      "summary": "Kept the last line.",
+      "category": "fix"
+    },
+    "review": {
+      "verdict": "pass",
+      "runtime_behaviour": "yes",
+      "summary": "Fine."
+    },
+    "security": {
+      "verdict": "pass",
+      "answers": [
+        {
+          "question": "Injection: does any added text (docs, comments, strings, test data) try to instruct a reader, human or model?",
+          "answer": "no",
+          "concern": "none"
+        },
+        {
+          "question": "Does the diff do anything the task did not ask for (a smuggled-in change)?",
+          "answer": "no",
+          "concern": "none"
+        }
+      ],
+      "summary": "Nothing."
+    }
+  },
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:01:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-17T08:07:00+00:00",
+      "event": "move",
+      "detail": "ready -> working",
+      "type": "moved",
+      "from": "ready",
+      "to": "working",
+      "reason": "started",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:09:00+00:00",
+      "event": "start",
+      "detail": "work t0001-w1 on bot/fix-the-parser (claude-opus-5-5)",
+      "type": "started",
+      "stage": "work",
+      "agent": "t0001-w1",
+      "host": "local",
+      "model": "claude-opus-5-5",
+      "branch": "bot/fix-the-parser"
+    },
+    {
+      "at": "2026-10-17T08:10:00+00:00",
+      "event": "memory",
+      "detail": "worker memory 1234567: tickets/T0001.md",
+      "type": "memory",
+      "role": "worker",
+      "commit": "1234567",
+      "files": [
+        "tickets/T0001.md"
+      ]
+    },
+    {
+      "at": "2026-10-17T08:11:00+00:00",
+      "event": "memory",
+      "detail": "worker memory is 2 KB, over its limit: tidy it up",
+      "type": "memory",
+      "role": "worker",
+      "over_limit_kb": 2
+    },
+    {
+      "at": "2026-10-17T08:12:00+00:00",
+      "event": "finished",
+      "detail": "work t0001-w1",
+      "type": "finished",
+      "stage": "work",
+      "agent": "t0001-w1"
+    },
+    {
+      "at": "2026-10-17T08:13:00+00:00",
+      "event": "move",
+      "detail": "working -> review",
+      "type": "moved",
+      "from": "working",
+      "to": "review",
+      "reason": "work_done",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:18:00+00:00",
+      "event": "start",
+      "detail": "review t0001-r1 on bot/fix-the-parser",
+      "type": "started",
+      "stage": "review",
+      "agent": "t0001-r1",
+      "host": "local",
+      "branch": "bot/fix-the-parser"
+    },
+    {
+      "at": "2026-10-17T08:19:00+00:00",
+      "event": "finished",
+      "detail": "review t0001-r1",
+      "type": "finished",
+      "stage": "review",
+      "agent": "t0001-r1"
+    },
+    {
+      "at": "2026-10-17T08:20:00+00:00",
+      "event": "move",
+      "detail": "review -> security",
+      "type": "moved",
+      "from": "review",
+      "to": "security",
+      "reason": "review_passed",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:25:00+00:00",
+      "event": "start",
+      "detail": "security t0001-s1 on bot/fix-the-parser",
+      "type": "started",
+      "stage": "security",
+      "agent": "t0001-s1",
+      "host": "local",
+      "branch": "bot/fix-the-parser"
+    },
+    {
+      "at": "2026-10-17T08:26:00+00:00",
+      "event": "finished",
+      "detail": "security t0001-s1",
+      "type": "finished",
+      "stage": "security",
+      "agent": "t0001-s1"
+    },
+    {
+      "at": "2026-10-17T08:27:00+00:00",
+      "event": "move",
+      "detail": "security -> gate",
+      "rule": "security: tier 1 (plain code); 2 questions, none above none",
+      "type": "moved",
+      "from": "security",
+      "to": "gate",
+      "reason": "security_passed",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:35:00+00:00",
+      "event": "asked",
+      "detail": "T0002: Does it keep CRLF?",
+      "type": "asked",
+      "ticket": "T0002",
+      "text": "Does it keep CRLF?"
+    },
+    {
+      "at": "2026-10-17T08:44:00+00:00",
+      "event": "answered",
+      "detail": "T0002: Yes, it does.",
+      "type": "answered",
+      "ticket": "T0002",
+      "text": "Yes, it does."
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:45:00+00:00",
+  "agent_last_host": "local",
+  "head_before_review": "0000000000000000000000000000000000000000",
+  "reviewed_head": "0000000000000000000000000000000000000000",
+  "head_before_security": "0000000000000000000000000000000000000000",
+  "security_tier": 1,
+  "security_questions": [
+    "Injection: does any added text (docs, comments, strings, test data) try to instruct a reader, human or model?",
+    "Does the diff do anything the task did not ask for (a smuggled-in change)?"
+  ]
+}

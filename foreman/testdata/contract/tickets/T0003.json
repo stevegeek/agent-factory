@@ -1,0 +1,105 @@
+{
+  "id": "T0003",
+  "project": "p",
+  "title": "Which default?",
+  "body": "Pick one.",
+  "door": "human",
+  "by": "alice",
+  "column": "ready",
+  "branch": null,
+  "agent": null,
+  "reports": {
+    "task": {
+      "status": "question",
+      "question": "UTF-8 or Latin-1?",
+      "summary": "Stopped."
+    }
+  },
+  "created": "2026-10-17T08:49:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:50:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-17T08:56:00+00:00",
+      "event": "move",
+      "detail": "ready -> working",
+      "type": "moved",
+      "from": "ready",
+      "to": "working",
+      "reason": "started",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:58:00+00:00",
+      "event": "start",
+      "detail": "task t0003-k1 @helper (claude-sonnet-5-5)",
+      "type": "started",
+      "stage": "task",
+      "agent": "t0003-k1",
+      "host": "helper",
+      "model": "claude-sonnet-5-5"
+    },
+    {
+      "at": "2026-10-17T08:59:00+00:00",
+      "event": "finished",
+      "detail": "task t0003-k1",
+      "type": "finished",
+      "stage": "task",
+      "agent": "t0003-k1"
+    },
+    {
+      "at": "2026-10-17T09:01:00+00:00",
+      "event": "move",
+      "detail": "working -> needs_human: task asks: UTF-8 or Latin-1?",
+      "type": "moved",
+      "from": "working",
+      "to": "needs_human",
+      "reason": "agent_question",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:06:00+00:00",
+      "event": "note",
+      "detail": "Your question: \u201cUTF-8 or Latin-1?\u201d The maintainer's answer: UTF-8",
+      "type": "noted",
+      "by": "alice",
+      "note": 0,
+      "question": "UTF-8 or Latin-1?"
+    },
+    {
+      "at": "2026-10-17T09:07:00+00:00",
+      "event": "move",
+      "detail": "needs_human -> ready: answered the agent's question",
+      "type": "moved",
+      "from": "needs_human",
+      "to": "ready",
+      "reason": "question_answered",
+      "by": "alice"
+    }
+  ],
+  "kind": "task",
+  "ask": null,
+  "updated": "2026-10-17T09:09:00+00:00",
+  "agent_last_host": "helper",
+  "question": {
+    "text": "UTF-8 or Latin-1?",
+    "stage": "task",
+    "agent": "t0003-k1",
+    "at": "2026-10-17T09:00:00+00:00",
+    "answered": "2026-10-17T09:04:00+00:00"
+  },
+  "notes": [
+    {
+      "at": "2026-10-17T09:05:00+00:00",
+      "text": "Your question: \u201cUTF-8 or Latin-1?\u201d The maintainer's answer: UTF-8",
+      "question": "UTF-8 or Latin-1?"
+    }
+  ]
+}

@@ -32,7 +32,9 @@ def values(cfg):
     missing = [k for k, x in v.items() if not x]
     if missing:
         sys.exit(f"config.toml is missing: {', '.join(missing)} (see [identity] and [host])")
-    v["foreman_flags"] = foreman_flags(cfg.get("foreman", {}), cfg.get("projects", {}))
+    # Foreman's ＋ files pipeline tickets; a board project's tickets come through `factory ticket`
+    factory = {k: p for k, p in cfg.get("projects", {}).items() if p.get("mode", "factory") == "factory"}
+    v["foreman_flags"] = foreman_flags(cfg.get("foreman", {}), factory)
     return v
 
 

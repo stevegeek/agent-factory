@@ -11,6 +11,29 @@
     "decide",
     "notice"
   ],
+  "board_column_labels": {
+    "doing": "Doing",
+    "done": "Done",
+    "dropped": "Dropped",
+    "inbox": "Inbox",
+    "next": "Next",
+    "waiting": "Waiting"
+  },
+  "board_columns": [
+    "inbox",
+    "next",
+    "doing",
+    "waiting",
+    "done",
+    "dropped"
+  ],
+  "capabilities": [
+    "read",
+    "file",
+    "talk",
+    "work",
+    "plan"
+  ],
   "column_labels": {
     "done": "Done",
     "gate": "the gate",
@@ -38,6 +61,155 @@
     "needs_human",
     "done",
     "rejected"
+  ],
+  "event_types": {
+    "answered": [
+      "ticket",
+      "text"
+    ],
+    "asked": [
+      "ticket",
+      "text"
+    ],
+    "claimed": [
+      "by"
+    ],
+    "commented": [
+      "by",
+      "n"
+    ],
+    "created": [
+      "door",
+      "column",
+      "by"
+    ],
+    "edited": [
+      "by",
+      "fields"
+    ],
+    "finished": [
+      "stage",
+      "agent"
+    ],
+    "linked": [
+      "by",
+      "rel",
+      "ticket?",
+      "url?"
+    ],
+    "memory": [
+      "role",
+      "commit?",
+      "files?",
+      "over_limit_kb?",
+      "lost_on?"
+    ],
+    "moved": [
+      "from",
+      "to",
+      "reason",
+      "by"
+    ],
+    "noted": [
+      "by",
+      "note",
+      "question?"
+    ],
+    "question_answered": [
+      "by",
+      "n"
+    ],
+    "question_asked": [
+      "by",
+      "recipient",
+      "n"
+    ],
+    "sent_to_factory": [
+      "by",
+      "ticket"
+    ],
+    "split": [
+      "by",
+      "children"
+    ],
+    "started": [
+      "stage",
+      "agent",
+      "host",
+      "model?",
+      "branch?"
+    ]
+  },
+  "kinds": {
+    "board": [
+      "item",
+      "task"
+    ],
+    "factory": [
+      "change",
+      "task",
+      "intent",
+      "prospect",
+      "proposal",
+      "manage"
+    ]
+  },
+  "modes": [
+    "factory",
+    "board"
+  ],
+  "move_reasons": [
+    "usage_limit",
+    "timed_out",
+    "agent_lost",
+    "no_report",
+    "started",
+    "agent_question",
+    "answered_on",
+    "task_done",
+    "task_blocked",
+    "worker_blocked",
+    "no_commits",
+    "work_done",
+    "reviewer_committed",
+    "review_passed",
+    "review_exhausted",
+    "review_changes",
+    "security_passed",
+    "security_failed",
+    "designer_blocked",
+    "design_ready",
+    "manager_blocked",
+    "manager_drafted",
+    "manager_answered",
+    "prospect_empty",
+    "proposals_ready",
+    "panel_done",
+    "triage_rejected",
+    "triage_unsure",
+    "triage_accepted",
+    "gate_failed",
+    "gate_passed",
+    "dispatcher_error",
+    "pr_opened",
+    "main_moved",
+    "pr_merged",
+    "pr_closed",
+    "conflicts",
+    "changes_requested",
+    "replied",
+    "question_answered",
+    "proposal_approved",
+    "design_approved",
+    "redirected",
+    "by_human",
+    "claimed",
+    "parked",
+    "waiting",
+    "finished",
+    "dropped",
+    "reopened",
+    "question_asked"
   ],
   "running_column": {
     "design": "working",

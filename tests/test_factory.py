@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # the whole factory root is a scratch directory: nothing a test does lands in a real board, log or memory
 SCRATCH = tempfile.TemporaryDirectory()
 os.environ["FACTORY_ROOT"] = SCRATCH.name
+os.environ["FACTORY_API_TOKENS"] = os.path.join(SCRATCH.name, "api-tokens.json")   # never ~/.config
 loader = importlib.machinery.SourceFileLoader("factory", os.path.join(HERE, "..", "bin", "factory"))
 spec = importlib.util.spec_from_loader("factory", loader)
 factory = importlib.util.module_from_spec(spec)

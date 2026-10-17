@@ -75,6 +75,10 @@ listen = "127.0.0.1:8790"    # loopback; put `tailscale serve` in front to reach
 [triage.auto_accept]         # accepted triage goes straight to "ready" for these doors
 github = false               # otherwise it waits in needs_human
 clock = true
+# agent = false              # tickets an agent's token files (factory ticket create / send); untrusted
+
+[board]                      # tickets for projects the factory doesn't run (mode = "board" below)
+people = ["alice"]           # who tickets are assigned to and questions put to; the first is the maintainer
 
 # Helper hosts (optional), reached over an SSH key forced to bin/factory-remote
 # (host/allow-dispatcher.sh); they run Pi jobs. Stages run here first; a helper takes
@@ -119,6 +123,9 @@ test = "crystal spec"
 lint = "crystal tool format --check src spec && ameba src spec"
 notes = "Anything every agent on this project should know."
 # gate_memory = "1500m"               # overrides [gate] memory for this project
+
+# [projects.notes_app]
+# mode = "board"     # tickets only: people and their own agents do the work; no pipeline, no gate
 
 [[schedules]]                # the clock door
 name = "rails-release-check"
