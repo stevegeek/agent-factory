@@ -244,6 +244,32 @@ class TransitionTest(RepoCase):
         self.branch_with("b", {"README.md": "x\n"})
         self.assertEqual(self.finish(self.ticket("work", "working"), {"status": "blocked"}), "needs_human")
 
+    def test_review_files_pre_existing_bugs_and_a_rereview_converges(self):
+        self.branch_with("bot/r", {"lib/thing.rb": "def thing; 2; end\n"})
+        head = factory.branch_head(self.project, "bot/r")
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root):
+            t = factory.new_ticket("gem", "Return two", "Make thing return 2.", "human", "review")
+            t.update(branch="bot/r", head_before_review=head, agent={"name": "t0001-r1", "stage": "review",
+                                                                         "started": factory.now(), "host": "local"})
+            report = {"verdict": "changes", "runtime_behaviour": "yes",
+                      "findings": ["[important] lib/thing.rb:1: no test covers the new value"],
+                      "pre_existing": [{"title": "thing ignores its argument", "detail": "lib/thing.rb:1"}, "junk"]}
+            with mock.patch.object(factory, "remove_agent"), mock.patch.object(factory, "log"):
+                factory.finish_stage({}, self.project, t, report)
+            self.assertEqual(t["column"], "ready")
+            self.assertEqual(t["reviewed_head"], head)
+            filed = [x for x in factory.all_tickets() if x["id"] != t["id"]]
+            self.assertEqual([(x["title"], x["column"], x["door"], x["parent"]) for x in filed],
+                             [("thing ignores its argument", "triage", "peer", t["id"])])
+            prompt = factory.review_prompt(t, self.project)
+            self.assertIn("re-review after a rework", prompt)
+            self.assertIn("no test covers the new value", prompt)
+            self.assertIn(f"git diff {head}..HEAD", prompt)
+            self.assertNotIn("REVIEW.md", prompt)
+            self.write("REVIEW.md", "Docs failing means: it lies.\n")
+            self.commit("review guide")
+            self.assertIn("REVIEW.md", factory.review_prompt(t, self.project))
+
     def test_reviewer_that_commits_is_rejected(self):
         self.branch_with("b", {"README.md": "x\n"})
         t = self.ticket("review", "review")
@@ -1254,6 +1280,48 @@ class GithubOutTest(RepoCase):
                  mock.patch.object(factory, "log"), self.assertRaises(RuntimeError):
                 factory.merge_pr(self.cfg, self.project, t2)
             self.assertFalse(any(m == "PUT" for m, _, _ in calls))
+
+    def test_main_moved_since_the_gate_means_checks_again_with_it_merged_in(self):
+        routes = {("GET", "/repos/o/gem/pulls/5"): {"state": "open", "draft": False, "head": {"sha": "a" * 40}},
+                  ("PUT", "/repos/o/gem/pulls/5/merge"): {"merged": True},
+                  ("PATCH", "/repos/o/gem/pulls/5"): {}}
+        base = self.pr_ticket()
+        base["gate"]["base"] = "0" * 40          # main has moved on since
+        for ok, column in ((True, "done"), (False, "ready")):
+            t, calls = copy.deepcopy(base), []
+            with mock.patch.object(factory, "github_api", side_effect=self.routed(routes, calls)), \
+                 mock.patch.object(factory, "log"), mock.patch.object(factory, "refresh_base"), \
+                 mock.patch.object(factory, "hold_pr"), mock.patch.object(factory, "LOGS", self.repo + "-logs"), \
+                 mock.patch.object(factory, "checks_on_fresh_checkout", return_value=(ok, "1 failure")) as checks:
+                if ok:
+                    factory.merge_pr(self.cfg, self.project, t)
+                else:
+                    with self.assertRaises(factory.MainMoved):
+                        factory.merge_pr(self.cfg, self.project, t)
+            self.assertEqual(checks.call_args.kwargs["merge"], factory.branch_head(self.project, "main"))
+            self.assertEqual(t["column"], column)
+            self.assertEqual(any(m == "PUT" for m, _, _ in calls), ok)
+            if not ok:
+                self.assertIn("main had moved", t["notes"][-1]["text"])
+
+    def test_the_merge_check_reports_a_conflict_without_running_anything(self):
+        self.branch_with("bot/y", {"README.md": "mine\n"})
+        self.write("README.md", "theirs\n")
+        self.commit("main moves")
+        ok, out = factory.checks_on_fresh_checkout({"image": "x"}, self.project, {"id": "T0043", "branch": "bot/y"},
+                                                   merge=factory.branch_head(self.project, "main"))
+        self.assertFalse(ok)
+        self.assertIn("conflicts", out)
+
+    def test_the_pr_body_says_how_it_was_tested_its_risk_and_how_to_revert(self):
+        t = self.ready_ticket()
+        t["reports"]["work"].update(tests="pass", lint="pass")
+        t["gate"].update(changed_lines=4, files=["README.md"])
+        body = factory.pr_body(self.cfg, t)
+        for want in ("**Testing**", "ran the tests (pass) and lint (pass)", "**Risk**", "Text only (security tier 0)",
+                     "4 changed lines in 1 file(s)", "**How to revert**", "git revert -m 1"):
+            self.assertIn(want, body)
+        self.assertNotIn("T0042", body)
 
     def test_changes_requested_on_github_go_back_to_the_worker_once(self):
         t, calls = self.pr_ticket(auto=False), []

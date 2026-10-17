@@ -1290,9 +1290,21 @@ def ask_body(parent, question):
 
 
 def review_prompt(t, project):
-    return (f"Review the change on this branch against `{project['base']}` "
-            f"(`git diff {project['base']}...HEAD`, `git log {project['base']}..HEAD`).\n\n"
-            f"The change was meant to do this:\nTask: {t['title']}\n\n{t['body']}".rstrip() + untrusted_note(t))
+    p = (f"Review the change on this branch against `{project['base']}` "
+         f"(`git diff {project['base']}...HEAD`, `git log {project['base']}..HEAD`).\n\n"
+         f"The change was meant to do this:\nTask: {t['title']}\n\n{t['body']}".rstrip() + untrusted_note(t))
+    if run(["git", "-C", project["path"], "cat-file", "-e", f"{project['base']}:REVIEW.md"]).returncode == 0:
+        p += ("\n\nThis repository has a REVIEW.md written by its maintainer: read it first. It says what failure "
+              "looks like here and what to skip; follow it.")
+    last = t["reports"].get("review") or {}
+    if last.get("verdict") == "changes" and t.get("reviewed_head"):
+        found = "\n".join(f"- {f}" for f in last.get("findings", []))
+        p += (f"\n\nThis is a re-review after a rework. You asked for these changes last time (at {t['reviewed_head'][:12]}):\n"
+              f"{found}\n\nCheck that each is resolved, and that the new commits (`git diff {t['reviewed_head']}..HEAD`) "
+              "broke nothing. Raise a new finding only for a serious problem in code this branch changes; never repeat "
+              "a finding that has been resolved, and don't reopen points you didn't raise before. If the same kind of "
+              "problem remains in several places, name the class of bug once, with every place it occurs.")
+    return p
 
 
 def security_angles(tier):
@@ -1349,11 +1361,18 @@ def diff_size(project, branch):
     return total
 
 
-def checks_on_fresh_checkout(cfg, project, t, image=None, ref=None):
+def checks_on_fresh_checkout(cfg, project, t, image=None, ref=None, merge=None):
+    """merge: a commit to merge into the checkout first (the base as it is now: the merge queue's check)."""
     wt = os.path.join(GATE_DIR, t["id"])
     shutil.rmtree(wt, ignore_errors=True)
     run(["git", "clone", "-q", "--no-hardlinks", "--no-checkout", project["path"], wt], check=True)
     run(["git", "-C", wt, "checkout", "-q", "--detach", ref or branch_head(project, t["branch"])], check=True)
+    if merge:
+        r = run(["git", "-C", wt, "-c", "user.name=factory", "-c", "user.email=factory@localhost",
+                 "merge", "-q", "--no-edit", merge])
+        if r.returncode != 0:
+            shutil.rmtree(wt, ignore_errors=True)
+            return False, f"merging {merge[:12]} conflicts:\n{(r.stdout + r.stderr)[-1500:]}"
     # libraries often gitignore their lockfile; without it the package manager re-resolves over the network
     # (a directory too: a Crystal shard's installed lib/, since the gate has no network to fetch it)
     for f in project.get("pinned_untracked", []):
@@ -1391,7 +1410,8 @@ def gate(cfg, project, t):
     result = {"checks_pass": ok, "files": files, "changed_lines": size,
               "within_size": size <= g.get("max_changed_lines", 10),
               "outside_allowed_paths": outside, "runtime_behaviour": behaviour,
-              "reasoning_stated": reasoning, "head": branch_head(project, t["branch"])}
+              "reasoning_stated": reasoning, "head": branch_head(project, t["branch"]),
+              "base": branch_head(project, project["base"])}
     blockers = [why for why, failed in (
         ("tests or lint failed", not ok),
         (f"files outside the allowed paths: {', '.join(outside)}", bool(outside)),
@@ -1577,6 +1597,8 @@ def finish_stage(cfg, project, t, report, head=None):
     if (head or branch_head(project, branch)) != t.get("head_before_" + stage):
         return move(t, "needs_human", f"{stage} agent changed the branch; reviewers must not commit")
     if stage == "review":
+        file_pre_existing(t, report)
+        t["reviewed_head"] = head or branch_head(project, branch)
         if report.get("verdict") == "pass":
             return move(t, "security")
         if starts(t, "work") >= MAX_WORK_ATTEMPTS:
@@ -1621,6 +1643,24 @@ def security_outcome(t, report):
     if report.get("verdict") != "pass":
         return False, "reviewer did not pass it"
     return True, "pass"
+
+
+MAX_PRE_EXISTING = 3
+
+
+def file_pre_existing(t, report):
+    """Bugs a reviewer found that this change didn't introduce: their own tickets, through triage, instead of
+    a reason to send this change back."""
+    found = report.get("pre_existing") if isinstance(report.get("pre_existing"), list) else []
+    for f in found[:MAX_PRE_EXISTING]:
+        if not isinstance(f, dict) or not str(f.get("title") or "").strip():
+            continue
+        n = new_ticket(t["project"], clip(str(f["title"]).strip(), 150),
+                       f"Found while reviewing {t['id']} (not introduced by it).\n\n{clip(str(f.get('detail') or ''), 3000)}",
+                       "peer", "triage")
+        n["parent"] = t["id"]
+        save_ticket(n)
+        event(t, "filed", f"{n['id']}: pre-existing, found in review: {clip(str(f['title']), 120)}")
 
 
 def finish_design(t, report):
@@ -2033,14 +2073,21 @@ def pr_body(cfg, t):
     lines = [str(work.get("summary", "")).strip(), ""]
     if t.get("source", {}).get("issue"):
         lines += [f"Fixes #{t['source']['issue']}", ""]
-    lines += ["**How this was checked**", "",
-              "- Tests and lint pass on a fresh checkout with no network access.",
+    lines += ["**Testing**", "",
+              f"- The author ran the tests ({work.get('tests', '?')}) and lint ({work.get('lint', '?')}).",
+              "- Tests and lint pass again on a fresh checkout with no network access.",
               f"- Independent review: {review.get('verdict', '?')}; changes runtime behaviour for users: "
               f"{review.get('runtime_behaviour', '?')}.",
               f"- Security review (tier {t.get('security_tier', '?')}): {len(answers)} question{'' if len(answers) == 1 else 's'} answered, "
               "none above low concern.",
               "- Small, docs/tests/config-only change: eligible for automatic approval." if g["auto_eligible"] else
               "- Needs a maintainer's review: " + "; ".join(g.get("blockers", [])) + ".",
+              "", "**Risk**", "",
+              f"- {TIER_NAMES.get(t.get('security_tier'), 'unclassified').capitalize()} (security tier {t.get('security_tier', '?')}); "
+              f"{g.get('changed_lines', '?')} changed lines in {len(g.get('files', []))} file(s); changes behaviour for users: "
+              f"{review.get('runtime_behaviour', '?')}.",
+              "", "**How to revert**", "",
+              "- Revert the merge commit (`git revert -m 1 <merge commit>`); this change carries no data migration.",
               "", cfg.get("identity", {}).get("pr_footer", "")]
     return "\n".join(lines).strip() + "\n"
 
@@ -2115,10 +2162,47 @@ def merge_pr(cfg, project, t):
         raise RuntimeError(f"GitHub refused the merge of PR #{n}: {github_error(e)}")
 
 
+class MainMoved(RuntimeError):
+    pass
+
+
+def still_holds_on_main(cfg, project, t):
+    """The merge queue's check: when the base has moved since the gate, run the checks again on the base as it
+    is now with the change merged in. Two changes that pass alone can break main together."""
+    gated_base = (t.get("gate") or {}).get("base")
+    if not gated_base:
+        return True, ""   # gated before the base was recorded: merged as before
+    try:
+        refresh_base(project)
+    except (RuntimeError, subprocess.TimeoutExpired) as e:
+        log(f"merge check for {t['id']}: could not refresh {project['base']}, using the local one: {str(e)[:200]}")
+    now_base = branch_head(project, project["base"])
+    if now_base == gated_base:
+        return True, ""
+    ok, out = checks_on_fresh_checkout(cfg, project, t, ref=t["gate"]["head"], merge=now_base)
+    if ok:
+        t["gate"]["base"] = now_base
+        event(t, "gate", f"{project['base']} moved; the checks pass again with it merged in ({now_base[:7]})")
+    return ok, out
+
+
 def land_pr(cfg, project, t, head, detail, rule):
     """Merge the PR at exactly `head` (a merge commit), close the ticket, delete the bot branch. GitHub's own
-    rules still apply: a required check that is not green makes it refuse (HTTPError)."""
+    rules still apply: a required check that is not green makes it refuse (HTTPError). First, if the base
+    moved since the gate, the checks must still pass with it merged in; if not, it goes back for a rework."""
     repo, n = project["github"], t["pr"]["number"]
+    ok, out = still_holds_on_main(cfg, project, t)
+    if not ok:
+        os.makedirs(os.path.join(LOGS, t["id"]), exist_ok=True)
+        with open(os.path.join(LOGS, t["id"], "merge-check-output.txt"), "w") as f:
+            f.write(out)
+        add_note(t, f"Before merging PR #{n}, {project['base']} had moved, and with it merged in the tests or lint fail "
+                    f"(output: logs/{t['id']}/merge-check-output.txt, the end of it: {clip(out[-600:], 600)}). Rebase onto "
+                    f"{project['base']}, fix what broke, run the tests, and say what it was in your summary.")
+        move(t, "ready", f"not merged: {project['base']} moved and the checks fail with it",
+             rule=f"merge check: PR #{n} passes alone but not on {project['base']} as it is now")
+        hold_pr(cfg, t)
+        raise MainMoved(f"{project['base']} moved and the checks fail with it merged in; sent back for a rework")
     r = github_api(cfg, "PUT", f"/repos/{repo}/pulls/{n}/merge", {"sha": head, "merge_method": "merge"})
     if not r.get("merged"):
         raise RuntimeError(f"GitHub did not merge PR #{n}: {r.get('message', '?')}")
@@ -2606,6 +2690,9 @@ def cmd_merge(cfg, a):
             sys.exit(f"{t['project']} has no GitHub repository")
         try:
             merge_pr(cfg, project, t)
+        except MainMoved as e:
+            save_ticket(t)   # it went back for a rework: keep that, then say why it didn't merge
+            sys.exit(str(e))
         except RuntimeError as e:
             sys.exit(str(e))
     print(f"merged PR #{t['pr']['number']}")
