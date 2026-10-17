@@ -23,6 +23,8 @@ Agents: Claude Code via [Scion](https://github.com/GoogleCloudPlatform/scion) (l
 | `systemd/` | tick / sweep / clock timers |
 | `scion/patch_provision.py` | local-mode trust-path workaround for Scion's Claude harness |
 | `examples/config/` | starting config |
+| `examples/mcp/` | an agent's MCP config for Foreman's `/mcp` |
+| `skills/tickets/` | the skill that tells an agent how to work from the board |
 
 ## Setup
 
@@ -106,7 +108,17 @@ factory ticket list [--project P] | get T0042 | answer T0042 1 "en-GB"        # 
 echo '{"id": "T0042"}' | factory ticket get --as example-agent --json          # what Foreman's API runs
 ```
 
-`factory ticket VERB --json` (create, get, list, mine, note, move, claim, update, ask, answer, split, send, projects, whoami, reindex) takes one JSON object on stdin and answers one on stdout: exit 0 with `{"ok": true, …}`, or exit 1 with `{"ok": false, "error": {"code", "message"}}`. Every decision is made there: what the token sees (a ticket outside its projects is `not_found`), what it may do, the column rules, limits and idempotency keys. No verb approves, merges, opens a PR or changes config; on a factory project a token can only file a change into triage (door `agent`, untrusted) and comment. `board/index.json` beside the tickets is a cache, rebuilt from the files as they change (`factory ticket reindex`).
+`factory ticket VERB --json` (create, get, list, mine, note, move, claim, update, ask, answer, split, send, projects, whoami, reindex) takes one JSON object on stdin and answers one on stdout: exit 0 with `{"ok": true, …}`, or exit 1 with `{"ok": false, "error": {"code", "message"}}`. `"format": "md"` makes `get`, `list` and `mine` answer Markdown instead, and a write answer Markdown (after `note`, the conversation's last 5 lines) beside a slim `ticket` (`id`, `project`, `mode`, `column`, `column_label`, `assignee`): what MCP shows an agent. Every decision is made there: what the token sees (a ticket outside its projects is `not_found`), what it may do, the column rules, limits and idempotency keys. No verb approves, merges, opens a PR or changes config; on a factory project a token can only file a change into triage (door `agent`, untrusted) and comment. `board/index.json` beside the tickets is a cache, rebuilt from the files as they change (`factory ticket reindex`).
+
+### Tickets for other projects
+
+Agents in other projects, on any machine on the tailnet, work board tickets through Foreman's MCP server at `https://<host>.ts.net/mcp`, with a token each: `my_work`, `start_work`, `post_update`, `ask_person`, `finish_work`, `file_ticket` and the rest, named for the work. Give an agent a token (`factory tokens add`), the one-line MCP config, and the [`tickets` skill](skills/tickets/SKILL.md) (copy or symlink `skills/tickets` into its `~/.claude/skills/` or the project's `.claude/skills/`; `deploy.sh` doesn't ship it, since these agents run elsewhere):
+
+```sh
+claude mcp add --transport http factory https://<host>.ts.net/mcp --header "Authorization: Bearer $FACTORY_TOKEN"
+```
+
+Scripts use the same tickets over HTTP at `/api/v1`. Both are in `foreman/README.md` ([Ticket API](foreman/README.md#ticket-api), [MCP](foreman/README.md#mcp)). Until Foreman has a board view, a question an agent asks you shows in `factory ticket list` and is answered with `factory ticket answer`.
 
 ## Pipeline
 

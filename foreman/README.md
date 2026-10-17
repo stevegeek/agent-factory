@@ -36,9 +36,9 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o for
 | `--revoke-sessions` | | log out every browser and exit |
 | `--project` | | a project a new ticket may name (repeatable; deploy passes `[projects]`) |
 | `--push` | on | Web Push to subscribed devices; the VAPID key (`foreman-vapid.pem`) and the devices (`foreman-push.json`) live beside the secret |
-| `--api` | on | the ticket API at `/api/v1`; see [Ticket API](#ticket-api) |
+| `--api` | on | the ticket API at `/api/v1` and MCP at `/mcp`; see [Ticket API](#ticket-api) and [MCP](#mcp) |
 | `--api-tokens` | `api-tokens.json` beside `--secret-file` | the dispatcher's token store (`factory tokens`; `FACTORY_API_TOKENS` for the CLI) |
-| `--api-concurrency` | 2 | `factory ticket` processes the API runs at once |
+| `--api-concurrency` | 2 | `factory ticket` processes the API and MCP run at once, together |
 
 ## New tickets
 
@@ -128,6 +128,41 @@ Who may call, checked in this order before any body is read:
 5. **Body**: at most 256 KiB, `application/json` on POST and PATCH.
 
 At most `--api-concurrency` CLI processes run at once, apart from the answers' runner (which a ten-minute `pr` can hold); each gets Foreman's environment with `FACTORY_ROOT` and `FACTORY_API_TOKENS` set, and a client hanging up does not cut a write short. The Host allowlist and the security headers apply as everywhere.
+
+## MCP
+
+`/mcp` is the same tickets for agents, as an MCP server: the same tokens, the same checks in the same order, the same CLI calls and the same runner (its slots and each token's rate are shared with `/api/v1`). The tools are named for the work, and each runs one `factory ticket` verb; their answers are Markdown, written by the CLI (ticket text stays inside fences, so it cannot forge a section). The [`tickets` skill](../skills/tickets/SKILL.md) tells an agent the workflow.
+
+```sh
+claude mcp add --transport http factory https://<host>.ts.net/mcp --header "Authorization: Bearer $FACTORY_TOKEN"
+```
+
+or `.mcp.json` as in [`examples/mcp/mcp.json`](../examples/mcp/mcp.json).
+
+| Tool | Needs | Verb | Answers |
+| --- | --- | --- | --- |
+| `my_work` | read | `mine` | the groups, most urgent first: answered, asked of you, doing, next, unassigned, waiting |
+| `get_ticket` | read | `get` | the ticket: body, questions, conversation, links, what it waits on |
+| `search_tickets` | read | `list` | one line a ticket, then `More: cursor=…` when there is another page |
+| `file_ticket` | file | `create` | "Filed T0042." or "Already filed as T0042." (an `idempotency_key` replay), then the ticket |
+| `split_ticket` | plan | `split` | "Split T0042 into …", then the parent |
+| `update_ticket` | plan | `update` | the ticket |
+| `start_work` | work | `claim` | "You have T0042.", then the ticket; again by the holder is fine |
+| `post_update` | talk | `note` | "Posted on T0042.", then the last 5 lines of the conversation |
+| `finish_work` | work | `move` to `done`, or `waiting` with `waiting_reason` (the result is then a comment) | "T0042 is in Done.", then the ticket |
+| `drop_ticket` | work | `move` to `dropped` with `reason` | the same |
+| `ask_person` | talk | `ask` (`to` is the recipient) | "Asked alice (question 1). T0042 waits; …" |
+| `answer_question` | talk | `answer` (`question` is its number) | the ticket |
+| `send_to_factory` | work and file | `send` | "Sent: factory ticket T0051 in Triage on <project>; linked from T0042." |
+
+Resources: `project://<name>` for each of the token's projects (its open tickets, as `search_tickets` gives them) and `ticket://T0042` for each open ticket assigned to the caller, up to 50 (the same text as `get_ticket`); the template `ticket://{id}` reads any visible ticket.
+
+The protocol:
+
+- **Transport:** streamable HTTP without the stream. POST one JSON-RPC message; a request is answered 200 with `application/json`, and a notification or a client's response gets 202 and no body. An `Accept` that takes only `text/event-stream` gets 406. GET and DELETE get 405 (no server stream, no sessions): there is no `Mcp-Session-Id`, and one sent is ignored. Every request carries its own token.
+- **Versions:** `2025-06-18` (the latest), `2025-03-26` and `2024-11-05`. `initialize` echoes a version it knows and otherwise offers `2025-06-18`. Later requests name theirs in `MCP-Protocol-Version`; none means `2025-03-26`, and one it doesn't know gets 400 with `-32600`. Tool annotations (`readOnlyHint`, `destructiveHint: false`, `idempotentHint`) are left out for `2024-11-05`, and a top-level `title` is sent only from `2025-06-18`.
+- **Methods:** `initialize`, `ping`, `tools/list` (only the tools the token's capabilities allow), `tools/call`, `resources/list`, `resources/templates/list`, `resources/read`. Anything else is `-32601`. No prompts, logging, completions or server-to-client requests: an agent learns of an answer from `my_work` or `get_ticket`.
+- **Errors:** a body that is not JSON is 400 with `-32700`; a batch, or a message that is not a request, is 400 with `-32600`; `params` that are not an object, an unknown tool or arguments that don't fit the tool's schema are `-32602` (Foreman checks the schema it lists, then the CLI checks again); a resource that is malformed, missing or not visible is `-32002`; a failure of the factory's own is `-32603` with no detail. Everything the CLI refuses (a capability, a factory ticket, a hidden ticket, a conflict, a limit, busy) is a tool result with `isError: true` and text an agent can act on: `**Not done:** <why>` and what to do next. Auth, Origin, peer, rate and body size fail as HTTP, before JSON-RPC, as for `/api/v1`; a `tools/call` of a write tool also draws on the token's write rate.
 
 ## Project boards
 
