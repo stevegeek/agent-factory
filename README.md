@@ -90,7 +90,23 @@ factory tick                                           # one pass; the timer run
 factory github                                         # check the GitHub App installation
 factory pr T0001                                       # push bot/* + open the PR (draft unless auto-eligible)
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
+factory check                                          # config problems: project modes, [board] people, tokens
 ```
+
+### Board projects
+
+A project with `mode = "board"` has tickets but no pipeline: people and their own agents do the work, and the dispatcher never starts an agent, gate or schedule for it (`factory add`, `move`, `reply`, `ask`, `pr` and the rest refuse its tickets). Its columns are `inbox / next / doing / waiting / done / dropped`. Every ticket, on either kind of project, has a typed history (`type`, `from`, `to`, `reason`, `by`, … beside the old `detail` sentence).
+
+Agents reach tickets through a token each, which names its projects and what it may do there (`read`, `file`, `talk`, `work`, `plan`). Only the token's sha256 is kept, in `~/.config/factory/api-tokens.json` (mode 0600; `FACTORY_API_TOKENS` overrides the path):
+
+```sh
+factory tokens add example-agent --project notes_app --can read,file,talk,work   # prints the token once
+factory tokens list | revoke example-agent
+factory ticket list [--project P] | get T0042 | answer T0042 1 "en-GB"        # the maintainer's view, for now
+echo '{"id": "T0042"}' | factory ticket get --as example-agent --json          # what Foreman's API runs
+```
+
+`factory ticket VERB --json` (create, get, list, mine, note, move, claim, update, ask, answer, split, send, projects, whoami, reindex) takes one JSON object on stdin and answers one on stdout: exit 0 with `{"ok": true, …}`, or exit 1 with `{"ok": false, "error": {"code", "message"}}`. Every decision is made there: what the token sees (a ticket outside its projects is `not_found`), what it may do, the column rules, limits and idempotency keys. No verb approves, merges, opens a PR or changes config; on a factory project a token can only file a change into triage (door `agent`, untrusted) and comment. `board/index.json` beside the tickets is a cache, rebuilt from the files as they change (`factory ticket reindex`).
 
 ## Pipeline
 
@@ -125,7 +141,7 @@ A web app for the maintainer (`foreman/`, one static Go binary). The desk lists 
 
 ## Config
 
-`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]` (stage → model on every host), `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi`, `crystal`, `ameba` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`, `models`: one per voter, in turn), `[foreman]` (`listen`, `hosts`, `trust_tailscale`, `tailscale_users`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `language`, `install`, `test`, `lint`, `notes`, `gate_memory`, `pinned_untracked`, `tier3_paths`, `text_paths`; every agent on the project is told its `language`, commands and `notes`), `[[schedules]]` (`projects` limits one to some projects). `FACTORY_ROOT` overrides `~/factory`.
+`config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]` (stage → model on every host), `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi`, `crystal`, `ameba` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`, `models`: one per voter, in turn), `[foreman]` (`listen`, `hosts`, `trust_tailscale`, `tailscale_users`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[board]` (`people`: whom tickets are assigned to and questions put to, the maintainer first), `[projects.<name>]` (`mode`: `factory` or `board`; `path`, `github`, `base`, `language`, `install`, `test`, `lint`, `notes`, `gate_memory`, `pinned_untracked`, `tier3_paths`, `text_paths`; every agent on the project is told its `language`, commands and `notes`), `[[schedules]]` (`projects` limits one to some projects). `FACTORY_ROOT` overrides `~/factory`; `FACTORY_API_TOKENS` the token store.
 
 A config directory may also hold `context/<project>/` (an `INDEX.md` plus topic files): the maintainer's notes on that project. `deploy.sh` ships it to `~/factory/context/`; every role with memory on the project finds it read-only in `<memory>/context/` (at most 512 KB; what a run changes there is discarded).
 

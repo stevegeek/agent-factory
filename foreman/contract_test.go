@@ -177,4 +177,7 @@ func TestABoardTicketPageHasNoAnswerForms(t *testing.T) {
 	if w := h.do("GET", "/b/sandbox", nil, c); w.Code != http.StatusNotFound {
 		t.Errorf("/b/sandbox: %d", w.Code)
 	}
+	if strings.Contains(h.do("GET", "/new", nil, c).Body.String(), "sandbox") {
+		t.Errorf("＋ offers a board project")
+	}
 }

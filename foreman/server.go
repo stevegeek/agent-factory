@@ -848,7 +848,9 @@ func (s *Server) projectChoices(ts []*Ticket, u *User) []string {
 		}
 	}
 	for _, t := range ts {
-		add(t.Project)
+		if !t.board() { // `factory add` refuses a board project
+			add(t.Project)
+		}
 	}
 	if u != nil {
 		return out
