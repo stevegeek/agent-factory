@@ -431,6 +431,13 @@ def ensure_scion_project(project):
 MANAGER_DIR = os.path.join(ROOT, "manager")
 
 
+def project_enabled(cfg, key):
+    """`enabled = false` in [projects.X] pauses a project: no agents, gates, schedules or sweeps for it.
+    Agents already running finish their stage; open PRs are still followed (your approvals still land).
+    Only the config switches it, so only the maintainer can turn a project on."""
+    return (cfg["projects"].get(key) or {}).get("enabled", True) is not False
+
+
 def manager_project():
     """Where the manager runs: a small repository of its own on this host (Scion needs one). What it
     reads is mounted read-only by its template; nothing it writes here goes anywhere."""
@@ -1925,7 +1932,8 @@ def tick_pass(cfg):
         if t.get("agent") and host != LOCAL:
             busy[host] = busy.get(host, 0) + 1
     down = set(load_pauses())   # hosts paused after a usage limit
-    is_waiting = lambda t: not t.get("agent") and (t["column"] == "gate" or stage_for(t))
+    is_waiting = lambda t: (not t.get("agent") and (t["column"] == "gate" or stage_for(t))
+                            and project_enabled(cfg, t["project"]))
     waiting = [t for t in tickets if is_waiting(t)]
     for key in {t["project"] for t in waiting}:
         project = cfg["projects"].get(key)
@@ -2348,7 +2356,7 @@ def sweep(cfg):
     known = {(t["project"], t.get("source", {}).get("issue")) for t in all_tickets()}
     for key, project in cfg["projects"].items():
         repo = project.get("github")
-        if not repo or project.get("sweep", True) is False:
+        if not repo or project.get("sweep", True) is False or not project_enabled(cfg, key):
             continue
         try:
             issues = fetch_open_issues(repo)
@@ -2420,7 +2428,7 @@ def clock(cfg):
             continue
         # a schedule for "every project" skips those that opted out (`clock = false`, e.g. while onboarding)
         every = [k for k, p in cfg["projects"].items() if p.get("clock", True) is not False]
-        for key in job.get("projects", every):
+        for key in [k for k in job.get("projects", every) if k not in cfg["projects"] or project_enabled(cfg, k)]:
             # {github} names the project's repository, so one schedule serves every project
             body = job["body"].replace("{github}", cfg["projects"][key].get("github", "") if key in cfg["projects"] else "")
             if job.get("kind") in ("prospect", "task"):
@@ -2854,6 +2862,8 @@ def cmd_ls(cfg, a):
         if not a.all and t["column"] in ("done", "rejected"):
             continue
         agent = f"(@{t['host']})" if t.get("host") else ""
+        if t["project"] in cfg["projects"] and not project_enabled(cfg, t["project"]):
+            agent = "(paused)"
         if t.get("agent"):
             host = t["agent"].get("host", LOCAL)
             agent = t["agent"]["name"] + (f"@{host}" if host != LOCAL else "")
