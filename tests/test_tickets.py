@@ -754,6 +754,48 @@ Pick the locale.
 """)
 
 
+class WrittenMarkdownTest(TicketCase):
+    """What MCP asks of a write: `format: md` answers the ticket as Markdown beside the facts it words a reply from."""
+
+    def setUp(self):
+        super().setUp()
+        self.token("example-agent")
+
+    def test_a_write_answers_markdown_and_a_slim_ticket(self):
+        out = self.ok("create", {"project": "sandbox", "title": "Fix the date picker", "format": "md",
+                                 "idempotency_key": "k1"}, "example-agent")
+        self.assertTrue(out["created"])
+        self.assertTrue(out["markdown"].startswith(f"# {out['ticket']['id']} · Fix the date picker\n"))
+        self.assertEqual(set(out["ticket"]), {"id", "project", "mode", "column", "column_label", "assignee"})
+        # the format is not part of what the key remembers
+        again = self.ok("create", {"project": "sandbox", "title": "Fix the date picker", "idempotency_key": "k1"}, "example-agent")
+        self.assertFalse(again["created"])
+        tid = out["ticket"]["id"]
+        claimed = self.ok("claim", {"id": tid, "format": "md"}, "example-agent")
+        self.assertEqual(claimed["ticket"]["column"], "doing")
+        self.assertIn("**Doing**", claimed["markdown"])
+        for i in range(7):
+            self.ok("note", {"id": tid, "text": f"step {i}"}, "example-agent")
+        noted = self.ok("note", {"id": tid, "text": "step 7", "format": "md"}, "example-agent")["markdown"]
+        self.assertTrue(noted.startswith("## Conversation (last 5 of 8)\n"))
+        self.assertIn("· you · comment: step 7", noted)
+        self.assertNotIn("step 2", noted)
+        asked = self.ok("ask", {"id": tid, "question": "Which locale?", "format": "md"}, "example-agent")
+        self.assertEqual((asked["n"], asked["recipient"]), (1, "alice"))
+        self.assertEqual(self.refused("claim", {"id": tid, "format": "html"}, "example-agent"), "bad_request")
+        self.assertEqual(self.ok("get", {"id": tid, "format": "md"}, "example-agent").keys(), {"ok", "markdown"})
+
+    def test_a_result_with_a_move_to_waiting_is_a_comment(self):
+        t = self.board_ticket()
+        self.ok("claim", {"id": t["id"]}, "example-agent")
+        t = self.ok("move", {"id": t["id"], "to": "waiting", "reason": "on the API key", "result": "Half done: the form."},
+                    "example-agent")["ticket"]
+        self.assertEqual((t["column"], t["result"]), ("waiting", None))
+        self.assertEqual((t["conversation"][-1]["type"], t["conversation"][-1]["text"]), ("comment", "Half done: the form."))
+        self.assertEqual(self.refused("move", {"id": t["id"], "to": "dropped", "reason": "x", "result": "y"}, "example-agent"),
+                         "bad_request")
+
+
 class ContractFixture(base.RepoCase):
     """Tickets made by the dispatcher's real code paths, copied to foreman/testdata/contract for Foreman's tests: when
     the files a writer produces change, this fails until the copy is regenerated (FACTORY_WRITE_CONTRACT=1)."""

@@ -3576,13 +3576,8 @@ def ticket_markdown(view, caller, today=None):
                 if q.get("answer") is not None:
                     line += f"\n   Answer ({who(q.get('answered_by'), caller)}, {md_time(q.get('answered_at'), today)}):" + inline(q["answer"])
                 out.append(line)
-        conv = v["conversation"]
-        if conv:
-            shown = conv[-n_conv:] if n_conv else []
-            out += ["", f"## Conversation (last {len(shown)} of {len(conv)})" if len(shown) < len(conv) else "## Conversation"]
-            for c in shown:
-                what = c["type"] + (f" {c['n']}" if c["type"] in ("question", "answer") else "")
-                out.append(f"- {md_time(c.get('at'), today)} · {who(c.get('by'), caller)} · {what}:" + inline(c.get("text")))
+        if v["conversation"]:
+            out += ["", conversation_markdown(v["conversation"], caller, n_conv, today)]
         if v.get("result"):
             out += ["", "## Result", fenced(v["result"])]
         return "\n".join(out) + "\n"
@@ -3598,6 +3593,15 @@ def ticket_markdown(view, caller, today=None):
     elif n < LIMIT["conversation"] and len(view["conversation"]) > n:
         text += "\n(truncated: older conversation left out)\n"
     return text
+
+
+def conversation_markdown(conv, caller, n, today=None):
+    shown = conv[-n:] if n else []
+    out = [f"## Conversation (last {len(shown)} of {len(conv)})" if len(shown) < len(conv) else "## Conversation"]
+    for c in shown:
+        what = c["type"] + (f" {c['n']}" if c["type"] in ("question", "answer") else "")
+        out.append(f"- {md_time(c.get('at'), today)} · {who(c.get('by'), caller)} · {what}:" + inline(c.get("text")))
+    return "\n".join(out)
 
 
 def summary_line(s, caller):
@@ -3803,8 +3807,8 @@ def t_move(cfg, caller, req, wait):
         bad(f"a reason is at most {LIMIT['reason']} characters", "reason")
     if to in ("waiting", "dropped") and not why:
         bad(f"say why it goes to {column_label(to)}", "reason")
-    if result is not None and to != "done":
-        bad("a result goes with a move to done", "result")
+    if result is not None and to not in ("done", "waiting"):
+        bad("a result goes with a move to done or waiting", "result")
     writable()
     with changing(req["id"], wait) as t:
         may_act(caller, t)
@@ -3819,6 +3823,8 @@ def t_move(cfg, caller, req, wait):
             if to == "done" and result:
                 t["result"] = text_in(result, "result", LIMIT["result"])
                 add_comment(t, caller["name"], result, kind="result")
+            if to == "waiting" and result:
+                add_comment(t, caller["name"], text_in(result, "result", LIMIT["comment"]))
             move(t, to, why, reason="reopened" if old in CLOSED_BOARD else MOVE_CODES[to], by=caller["name"])
     return {"ticket": ticket_view(cfg, caller, t)}
 
@@ -3930,7 +3936,7 @@ def t_ask(cfg, caller, req, wait):
             move(t, "waiting", f"question {n} to {recipient}", reason="question_asked", by=me)
         else:
             t["ask"] = board_ask(t, now())
-    return {"ticket": ticket_view(cfg, caller, t), "n": n}
+    return {"ticket": ticket_view(cfg, caller, t), "n": n, "recipient": recipient}
 
 
 def t_answer(cfg, caller, req, wait):
@@ -4060,6 +4066,18 @@ TICKET_VERBS = {"create": t_create, "get": t_get, "list": t_list, "mine": t_mine
                 "projects": t_projects, "whoami": t_whoami, "reindex": t_reindex}
 
 
+def written_markdown(verb, caller, out):
+    """A write's answer for an agent (MCP): the ticket as Markdown, or after a note the conversation's tail, with
+    only the facts a caller words its reply from left in `ticket`."""
+    view = out["ticket"]
+    if verb == "note":
+        md = conversation_markdown(view["conversation"], caller, 5) + "\n"
+    else:
+        md = ticket_markdown(view, caller)
+    slim = {k: view.get(k) for k in ("id", "project", "mode", "column", "column_label", "assignee")}
+    return {**out, "ticket": slim, "markdown": md}
+
+
 def ticket_json(a):
     """`factory ticket VERB --json`: one JSON object in on stdin, one out on stdout. Exit 0 done, 1 refused
     (with the error's code); anything else is a failure of the factory's own."""
@@ -4073,7 +4091,14 @@ def ticket_json(a):
         except ValueError:
             bad("the request is not JSON")
         caller = caller_for(cfg, a.as_name)
+        fmt = "json"
+        if a.verb not in ("get", "list", "mine") and isinstance(req, dict) and "format" in req:
+            fmt = req.pop("format")
+            if fmt not in ("json", "md"):
+                bad("format is json or md", "format")
         out = TICKET_VERBS[a.verb](cfg, caller, req, a.wait)
+        if fmt == "md" and "ticket" in out:
+            out = written_markdown(a.verb, caller, out)
     except Refused as e:
         err = {"code": e.error, "message": e.message}
         if e.field:
