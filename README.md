@@ -127,6 +127,8 @@ A web app for the maintainer (`foreman/`, one static Go binary). The desk lists 
 
 `config.toml` keys: `image`, `max_agents`, `agent_timeout_minutes`, `[identity]` (commit identity, PR footer), `[host]` (factory user/uid/home), `[templates]` (stage → Scion template name), `template_flavour`, `[models]` (stage → model on every host), `[gate]` (`max_changed_lines`, `allowed_paths`, `memory`, `mounts`, `env`), `[triage.auto_accept]`, `[images]` (`claude`, `pi`, `crystal`, `ameba` versions), `[upkeep]` (`rebuild_at`), `[panel]` (`voters`, `models`: one per voter, in turn), `[foreman]` (`listen`, `hosts`, `trust_tailscale`, `tailscale_users`), `[hosts.<name>]` (`ssh`, `slots`, `stages`, `prefer`, `notes`, `model`, `key`), `[remote]` (`image`, `memory`, `mounts`, `env`; read on the helper), `[projects.<name>]` (`path`, `github`, `base`, `language`, `install`, `test`, `lint`, `notes`, `gate_memory`, `pinned_untracked`, `tier3_paths`, `text_paths`; every agent on the project is told its `language`, commands and `notes`), `[[schedules]]` (`projects` limits one to some projects). `FACTORY_ROOT` overrides `~/factory`.
 
+A config directory may also hold `context/<project>/` (an `INDEX.md` plus topic files): the maintainer's notes on that project. `deploy.sh` ships it to `~/factory/context/`; every role with memory on the project finds it read-only in `<memory>/context/` (at most 512 KB; what a run changes there is discarded).
+
 ## Tests
 
 ```sh
