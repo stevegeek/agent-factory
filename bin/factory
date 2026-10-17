@@ -13,6 +13,7 @@ host is full, as Pi jobs (bin/factory-remote). A ticket pinned to a host runs on
   factory host <ticket> auto|local|<name>
   factory ls [--all]
   factory show <ticket>
+  factory model       the board's model as JSON (columns, stages, asks); Foreman embeds it as foreman/model.json
   factory look <ticket> [--lines N]   the running agent's screen now (read-only)
   factory memory [<project> [<role>]] [--revert COMMIT]   what agents remembered (git log), or undo one change
   factory audit <ticket>   what happened and which gate decided (also logs/<ticket>/audit.md)
@@ -94,6 +95,14 @@ MAX_WORK_ATTEMPTS = 2
 NO_BRANCH_STAGES = ("triage", "task", "design", "prospect", "vote", "manage")
 SINGLE_STAGE_KINDS = {"task": "task", "intent": "design", "manage": "manage"}
 MAX_DRAFTS = 5
+# How people see the model (Foreman reads all of this from `factory model`, embedded as foreman/model.json).
+STAGE_LABELS = {"triage": "Triage", "work": "Worker", "review": "Reviewer", "security": "Security", "task": "Task agent",
+                "design": "Designer", "prospect": "Prospector", "vote": "Voter", "manage": "Manager"}
+COLUMN_LABELS = {"triage": "Triage", "ready": "Ready", "working": "Working", "voting": "Voting", "review": "Review",
+                 "security": "Security", "gate": "the gate", "ready_for_pr": "Ready for PR", "pr_open": "PR open",
+                 "needs_human": "Needs you", "done": "Done", "rejected": "Closed"}
+# every kind of ask ask_for can put to a person, in desk order
+ASK_KINDS = ("question", "unstick", "review", "open", "draft", "start", "design", "proposal", "decide", "notice")
 MAX_PROPOSED_TICKETS = 6
 # stages that may stop to ask the maintainer a question; the answer starts the stage again
 QUESTION_STAGES = ("work", "task", "design", "triage", "manage")
@@ -3045,6 +3054,16 @@ def cmd_look(cfg, a):
     print(text)
 
 
+def model():
+    """The board's model, one definition for the dispatcher and Foreman (`factory model > foreman/model.json`)."""
+    return {"columns": COLUMNS, "column_labels": COLUMN_LABELS, "stages": list(TEMPLATES), "stage_labels": STAGE_LABELS,
+            "stage_for_column": STAGE_FOR_COLUMN, "running_column": RUNNING_COLUMN, "ask_kinds": list(ASK_KINDS)}
+
+
+def cmd_model(cfg, a):
+    print(json.dumps(model(), indent=2, sort_keys=True))
+
+
 def cmd_show(cfg, a):
     print(json.dumps(load_ticket(a.ticket), indent=2))
 
@@ -3302,6 +3321,7 @@ def main():
     sub.add_parser("ls").add_argument("--all", action="store_true")
     sub.add_parser("recipes").add_argument("--json", action="store_true")
     sub.add_parser("show").add_argument("ticket")
+    sub.add_parser("model")
     p = sub.add_parser("look")
     p.add_argument("ticket")
     p.add_argument("--lines", type=int, default=120)
@@ -3336,8 +3356,8 @@ def main():
     sub.add_parser("rebuild")
     sub.add_parser("versions")
     a = ap.parse_args()
-    cfg = load_config()
-    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "recipes": cmd_recipes, "show": cmd_show, "look": cmd_look, "audit": cmd_audit, "memory": cmd_memory, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "gate-workflow": cmd_gate_workflow, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "reply": cmd_reply, "wake": lambda c, _: wake(), "merge": cmd_merge,
+    cfg = {} if a.cmd == "model" else load_config()
+    {"add": cmd_add, "result": cmd_result, "approve": cmd_approve, "redirect": cmd_redirect, "host": cmd_host, "ls": cmd_ls, "recipes": cmd_recipes, "show": cmd_show, "model": cmd_model, "look": cmd_look, "audit": cmd_audit, "memory": cmd_memory, "proposals": cmd_proposals, "pr": cmd_pr, "github": cmd_github, "gate-workflow": cmd_gate_workflow, "move": cmd_move, "note": cmd_note, "ask": cmd_ask, "reply": cmd_reply, "wake": lambda c, _: wake(), "merge": cmd_merge,
      "migrate": lambda c, _: migrate(),
      "tick": lambda c, _: tick(c), "sweep": lambda c, _: sweep(c),
      "clock": lambda c, _: clock(c), "rebuild": lambda c, _: rebuild(c),

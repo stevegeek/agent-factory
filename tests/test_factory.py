@@ -134,6 +134,15 @@ class RobustnessTest(RepoCase):
             self.assertEqual(seen["agent"]["name"], "t0001-t1")      # recorded before the launch
             self.assertIsNone(t["agent"])                            # and cleared when the launch failed
 
+class ModelTest(unittest.TestCase):
+    def test_foremans_copy_of_the_model_is_current(self):
+        with open(os.path.join(HERE, "..", "foreman", "model.json")) as f:
+            self.assertEqual(json.load(f), json.loads(json.dumps(factory.model())),
+                             "run `bin/factory model > foreman/model.json`")
+        # and every ask kind the dispatcher can raise is in the model
+        raised = set(re.findall(r'a\("([a-z]+)"', open(os.path.join(HERE, "..", "bin", "factory")).read()))
+        self.assertEqual(raised, set(factory.ASK_KINDS))
+
 class ClassifyTest(RepoCase):
     def test_docs_only_is_tier_0(self):
         self.branch_with("b", {"README.md": "hello world\n"})

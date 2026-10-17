@@ -29,12 +29,8 @@ type Story struct {
 	Caveat string
 }
 
-var roles = map[string]string{"triage": "Triage", "work": "Worker", "review": "Reviewer", "security": "Security",
-	"task": "Task agent", "design": "Designer", "prospect": "Prospector", "vote": "Voter", "manage": "Manager"}
-
-var columnLabels = map[string]string{"triage": "Triage", "ready": "Ready", "working": "Working", "voting": "Voting",
-	"review": "Review", "security": "Security", "gate": "the gate", "ready_for_pr": "Ready for PR", "pr_open": "PR open",
-	"needs_human": "Needs you", "done": "Done", "rejected": "Closed"}
+// roles (stage -> who) and columnLabels: the dispatcher's, from model.json (see model.go)
+var roles, columnLabels map[string]string
 
 // ticketColumnLabel: a proposal the panel or the maintainer turned down reads as dropped.
 func ticketColumnLabel(t *Ticket) string {

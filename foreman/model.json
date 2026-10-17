@@ -1,0 +1,81 @@
+{
+  "ask_kinds": [
+    "question",
+    "unstick",
+    "review",
+    "open",
+    "draft",
+    "start",
+    "design",
+    "proposal",
+    "decide",
+    "notice"
+  ],
+  "column_labels": {
+    "done": "Done",
+    "gate": "the gate",
+    "needs_human": "Needs you",
+    "pr_open": "PR open",
+    "ready": "Ready",
+    "ready_for_pr": "Ready for PR",
+    "rejected": "Closed",
+    "review": "Review",
+    "security": "Security",
+    "triage": "Triage",
+    "voting": "Voting",
+    "working": "Working"
+  },
+  "columns": [
+    "triage",
+    "ready",
+    "working",
+    "voting",
+    "review",
+    "security",
+    "gate",
+    "ready_for_pr",
+    "pr_open",
+    "needs_human",
+    "done",
+    "rejected"
+  ],
+  "running_column": {
+    "design": "working",
+    "manage": "working",
+    "prospect": "working",
+    "review": "review",
+    "security": "security",
+    "task": "working",
+    "triage": "triage",
+    "vote": "voting",
+    "work": "working"
+  },
+  "stage_for_column": {
+    "ready": "work",
+    "review": "review",
+    "security": "security",
+    "triage": "triage"
+  },
+  "stage_labels": {
+    "design": "Designer",
+    "manage": "Manager",
+    "prospect": "Prospector",
+    "review": "Reviewer",
+    "security": "Security",
+    "task": "Task agent",
+    "triage": "Triage",
+    "vote": "Voter",
+    "work": "Worker"
+  },
+  "stages": [
+    "triage",
+    "work",
+    "review",
+    "security",
+    "task",
+    "design",
+    "prospect",
+    "vote",
+    "manage"
+  ]
+}

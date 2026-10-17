@@ -235,8 +235,8 @@ func Plan(t *Ticket, a *Ask, answer, note string, picks []int) ([][]string, erro
 	return cmds, nil
 }
 
-var columns = []string{"triage", "ready", "working", "voting", "review", "security", "gate",
-	"ready_for_pr", "pr_open", "needs_human", "done", "rejected"}
+// columns: the dispatcher's, from model.json (see model.go)
+var columns []string
 
 func validColumn(c string) bool {
 	for _, x := range columns {
