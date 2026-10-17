@@ -352,14 +352,87 @@ def run(cmd, cwd=None, env=None, check=False, timeout=None):
     return r
 
 
+# ---------------------------------------------------------------- git on the host, in repositories agents can write
+#
+# An agent's container mounts its project's .git read-write (its worktree lives there). Anything git on the
+# host reads from that .git could have been planted: hooks, and config that makes git run programs (fsmonitor,
+# filters, external diff, textconv, url rewrites, signing, includes). So every git the factory (and Scion)
+# runs on the host gets hooks and fsmonitor switched off through the environment, which outranks the repo's
+# config, and before each use the repo's .git/config is checked against what a plain clone has; anything
+# else is removed and reported.
+
+SAFE_GIT_CONFIG = (("core.hooksPath", "/dev/null"), ("core.fsmonitor", "false"), ("protocol.ext.allow", "never"))
+REPO_CONFIG_OK = re.compile(r"^(core\.(repositoryformatversion|filemode|bare|logallrefupdates)|remote\.origin\.fetch|"
+                            r"remote\.origin\.url|branch\..+\.(remote|merge)|extensions\.relativeworktrees)$")
+_repo_checked = {}
+
+
+def safe_git_env(base=None):
+    env = dict(os.environ if base is None else base)
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_CONFIG_COUNT"] = str(len(SAFE_GIT_CONFIG))
+    for i, (k, v) in enumerate(SAFE_GIT_CONFIG):
+        env[f"GIT_CONFIG_KEY_{i}"], env[f"GIT_CONFIG_VALUE_{i}"] = k, v
+    return env
+
+
+def guard_repo(project):
+    """Strip a project's .git/config back to what a plain clone has. Returns what was removed ([] = clean)."""
+    gitdir = os.path.join(project["path"], ".git")
+    cfg_file = os.path.join(gitdir, "config")
+    if not os.path.isdir(gitdir) or os.path.islink(gitdir):
+        return []
+    try:
+        st = os.lstat(cfg_file)
+    except FileNotFoundError:
+        return []
+    key = (st.st_ino, st.st_mtime_ns, st.st_size)
+    if _repo_checked.get(cfg_file) == key and not stat.S_ISLNK(st.st_mode):
+        return []
+    removed, kept = [], []
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode):
+        removed.append(".git/config was not a plain file")
+        entries = []
+    else:
+        r = subprocess.run(["git", "config", "--file", cfg_file, "--no-includes", "--list", "-z"],
+                           capture_output=True, env=safe_git_env(), cwd="/")
+        entries = [e.split(b"\n", 1) for e in r.stdout.split(b"\0") if e]
+    want_url = f"https://github.com/{project['github']}.git" if project.get("github") else None
+    for e in entries:
+        k = e[0].decode(errors="replace")
+        v = e[1].decode(errors="replace") if len(e) > 1 else ""
+        if REPO_CONFIG_OK.match(k.lower()) and not (k.lower() == "remote.origin.url" and want_url and v != want_url):
+            kept.append((k, v))
+        else:
+            removed.append(k)
+    if removed:
+        tmp = cfg_file + ".factory-new"
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(tmp)
+        open(tmp, "w").close()
+        for k, v in kept or [("core.repositoryformatversion", "0")]:
+            subprocess.run(["git", "config", "--file", tmp, "--add", k, v], check=True, capture_output=True,
+                           env=safe_git_env(), cwd="/")
+        with contextlib.suppress(FileNotFoundError, IsADirectoryError):
+            os.remove(cfg_file)
+        os.replace(tmp, cfg_file)
+        log(f"{project['path']}: removed from .git/config (an agent can write it): {', '.join(removed[:8])}")
+        st = os.lstat(cfg_file)
+        key = (st.st_ino, st.st_mtime_ns, st.st_size)
+    _repo_checked[cfg_file] = key
+    return removed
+
+
 def git(project, *args):
-    return run(["git", "-C", project["path"], *args], check=True).stdout.strip()
+    guard_repo(project)
+    return run(["git", "-C", project["path"], *args], check=True, env=safe_git_env()).stdout.strip()
 
 
 def refresh_base(project):
     """Fast-forward the clone's base branch to origin's, so new agents start from what has been merged."""
     base = project["base"]
-    run(["git", "-C", project["path"], "fetch", "-q", "origin", base], check=True, timeout=120)
+    guard_repo(project)
+    run(["git", "-C", project["path"], "fetch", "-q", "origin", base], check=True, timeout=120, env=safe_git_env())
     if git(project, "branch", "--show-current") == base:
         git(project, "merge", "-q", "--ff-only", f"origin/{base}")
     else:
@@ -367,7 +440,9 @@ def refresh_base(project):
 
 
 def branch_exists(project, branch):
-    return run(["git", "-C", project["path"], "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]).returncode == 0
+    guard_repo(project)
+    return run(["git", "-C", project["path"], "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
+               env=safe_git_env()).returncode == 0
 
 
 def branch_head(project, branch):
@@ -448,7 +523,7 @@ def manager_project():
         with open(os.path.join(MANAGER_DIR, "README.md"), "w") as f:
             f.write("The factory manager's scratch workspace. Nothing here is used by anything else.\n")
         git(project, "add", "README.md")
-        git(project, "-c", "user.name=factory", "-c", "user.email=factory@localhost", "commit", "-q", "-m", "workspace")
+        git(project, "-c", "user.name=factory", "-c", "user.email=factory@localhost", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "workspace")
     return project
 
 
@@ -461,7 +536,9 @@ def project_for(cfg, t):
 
 
 def scion(project, *args, check=True):
-    return run([SCION, *args], cwd=project["path"], env=scion_env(), check=check, timeout=600)
+    # Scion runs git in the project on the host too (worktrees): same hooks-off environment, same config check
+    guard_repo(project)
+    return run([SCION, *args], cwd=project["path"], env=safe_git_env(scion_env()), check=check, timeout=600)
 
 
 def running_agents(cfg):
@@ -1300,7 +1377,7 @@ def review_prompt(t, project):
     p = (f"Review the change on this branch against `{project['base']}` "
          f"(`git diff {project['base']}...HEAD`, `git log {project['base']}..HEAD`).\n\n"
          f"The change was meant to do this:\nTask: {t['title']}\n\n{t['body']}".rstrip() + untrusted_note(t))
-    if run(["git", "-C", project["path"], "cat-file", "-e", f"{project['base']}:REVIEW.md"]).returncode == 0:
+    if run(["git", "-C", project["path"], "cat-file", "-e", f"{project['base']}:REVIEW.md"], env=safe_git_env()).returncode == 0:
         p += ("\n\nThis repository has a REVIEW.md written by its maintainer: read it first. It says what failure "
               "looks like here and what to skip; follow it.")
     last = t["reports"].get("review") or {}
@@ -1372,11 +1449,12 @@ def checks_on_fresh_checkout(cfg, project, t, image=None, ref=None, merge=None):
     """merge: a commit to merge into the checkout first (the base as it is now: the merge queue's check)."""
     wt = os.path.join(GATE_DIR, t["id"])
     shutil.rmtree(wt, ignore_errors=True)
-    run(["git", "clone", "-q", "--no-hardlinks", "--no-checkout", project["path"], wt], check=True)
-    run(["git", "-C", wt, "checkout", "-q", "--detach", ref or branch_head(project, t["branch"])], check=True)
+    guard_repo(project)
+    run(["git", "clone", "-q", "--no-hardlinks", "--no-checkout", project["path"], wt], check=True, env=safe_git_env())
+    run(["git", "-C", wt, "checkout", "-q", "--detach", ref or branch_head(project, t["branch"])], check=True, env=safe_git_env())
     if merge:
         r = run(["git", "-C", wt, "-c", "user.name=factory", "-c", "user.email=factory@localhost",
-                 "merge", "-q", "--no-edit", merge])
+                 "merge", "-q", "--no-edit", merge], env=safe_git_env())
         if r.returncode != 0:
             shutil.rmtree(wt, ignore_errors=True)
             return False, f"merging {merge[:12]} conflicts:\n{(r.stdout + r.stderr)[-1500:]}"
@@ -2069,7 +2147,8 @@ def github_api(cfg, method, path, body=None):
 def push_branch(cfg, project, branch):
     if not branch.startswith("bot/"):
         raise RuntimeError(f"refusing to push {branch}: the factory only pushes bot/* branches")
-    env = dict(os.environ, FACTORY_GH_TOKEN=installation_token(cfg), GIT_TERMINAL_PROMPT="0")
+    guard_repo(project)
+    env = safe_git_env(dict(os.environ, FACTORY_GH_TOKEN=installation_token(cfg), GIT_TERMINAL_PROMPT="0"))
     # the token reaches git through the environment, never argv or the remote URL
     helper = '!f() { echo username=x-access-token; echo "password=$FACTORY_GH_TOKEN"; }; f'
     run(["git", "-C", project["path"], "-c", "credential.helper=", "-c", f"credential.helper={helper}",

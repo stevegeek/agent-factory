@@ -61,6 +61,44 @@ class RepoCase(unittest.TestCase):
         sh(self.repo, "git", "checkout", "-q", "main")
 
 
+class GitGuardTest(RepoCase):
+    def test_nothing_an_agent_plants_in_dot_git_runs_on_the_host(self):
+        marker = os.path.join(self.tmp.name, "pwned")
+        gitdir = os.path.join(self.repo, ".git")
+        for hook in ("pre-push", "post-checkout", "reference-transaction", "pre-commit", "post-merge"):
+            path = os.path.join(gitdir, "hooks", hook)
+            with open(path, "w") as f:
+                f.write(f"#!/bin/sh\ntouch {marker}\n")
+            os.chmod(path, 0o755)
+        planted = {"core.fsmonitor": f"touch {marker}; false", "url.https://evil.example/.insteadOf": "https://github.com/",
+                   "filter.x.smudge": f"touch {marker}", "include.path": "/tmp/elsewhere", "alias.st": "!touch x",
+                   "remote.origin.url": "https://evil.example/stevegeek/gem.git"}
+        for k, v in planted.items():
+            sh(self.repo, "git", "config", k, v)
+        project = {**self.project, "github": "o/gem"}
+        factory._repo_checked.clear()
+        with mock.patch.object(factory, "log"):
+            factory.branch_head(project, "main")                   # any host git: config checked first
+            # the factory's own git: hooks (post-checkout, pre-commit, reference-transaction…) would fire here
+            factory.git(project, "checkout", "-q", "-b", "bot/z")
+            self.write("README.md", "z\n")
+            factory.git(project, "add", "-A")
+            factory.git(project, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+                        "commit", "-q", "-m", "z")
+            factory.git(project, "checkout", "-q", "main")
+            factory.git(project, "branch", "-D", "bot/z")
+            self.assertFalse(os.path.exists(marker))
+        cfg = subprocess.run(["git", "config", "--file", os.path.join(gitdir, "config"), "--list"],
+                             capture_output=True, text=True).stdout
+        for k in ("fsmonitor", "insteadof", "filter.x", "include.path", "alias.st", "evil.example"):
+            self.assertNotIn(k, cfg.lower())
+        self.assertIn("core.repositoryformatversion", cfg)
+        # a clean config is left exactly as it is
+        before = open(os.path.join(gitdir, "config")).read()
+        factory._repo_checked.clear()
+        self.assertEqual(factory.guard_repo(project), [])
+        self.assertEqual(open(os.path.join(gitdir, "config")).read(), before)
+
 class ClassifyTest(RepoCase):
     def test_docs_only_is_tier_0(self):
         self.branch_with("b", {"README.md": "hello world\n"})
