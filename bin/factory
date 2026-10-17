@@ -67,6 +67,7 @@ RUN_DIR = os.path.join(ROOT, "run")
 CONFIG = os.path.join(ROOT, "config.toml")
 STATE = os.path.join(ROOT, "state.json")
 WATCH_STATE = os.path.join(ROOT, "watches.json")
+PAUSES = os.path.join(ROOT, "pauses.json")   # host -> until when it gets no new agents (a usage limit)
 TOKEN_FILE = os.path.join(HOME, ".config", "factory", "claude-oauth-token")
 SCION = os.path.join(HOME, ".local", "bin", "scion")
 AGENT_HOMES = os.path.join(HOME, ".scion", "project-configs", "*", ".scion", "agents", "{name}", "home")
@@ -507,12 +508,83 @@ def archive_agent(t, name):
             shutil.copy2(os.path.join(home, f), dest)
 
 
+def keep_screen(project, t, name):
+    """The agent's last screen, beside its log: what it was doing (or stuck on) when it stopped."""
+    r = scion(project, "look", name, "--plain", "-n", "200", check=False)
+    if r.returncode == 0 and r.stdout.strip():
+        dest = os.path.join(LOGS, t["id"], name)
+        os.makedirs(dest, exist_ok=True)
+        with open(os.path.join(dest, "screen.txt"), "w") as f:
+            f.write(screen_text(r.stdout, 200)[-MAX_ARCHIVED_BYTES:])
+        return r.stdout
+    return ""
+
+
 def remove_agent(project, t, name, keep_branch=True):
+    keep_screen(project, t, name)
     archive_agent(t, name)
     with contextlib.suppress(FileNotFoundError):
         os.remove(os.path.join(RUN_DIR, f"{name}.yaml"))
     scion(project, "stop", name, check=False)
     scion(project, "delete", name, *(["-b"] if keep_branch else []), "-y", check=False)
+
+
+# ---------------------------------------------------------------- usage limits: stop, requeue, pause the host
+
+# what Claude Code and Pi print when the account is out of usage or credit (checked on the agent's screen)
+LIMIT_TEXT = re.compile(r"(usage limit reached|limit reached\W+resets?\b|your limit will reset|you've hit your (usage )?limit|"
+                        r"out of extra usage|credit balance is too low|Claude AI usage limit|"
+                        r"(weekly|5-hour|session) limit reached)", re.I)
+QUIET_MINUTES = 4   # an agent is only checked for a limit after its activity log has been quiet this long
+LIMIT_PAUSE_MINUTES = 30
+# the column a stage's ticket waits in before it starts: a stopped run goes back there
+RETRY_FOR_STAGE = {"triage": "triage", "work": "ready", "task": "ready", "design": "ready", "prospect": "ready",
+                   "manage": "ready", "review": "review", "security": "security", "vote": "voting"}
+
+
+def hit_limit(text, lines=15):
+    """The limit message at the end of an agent's output (where it stops), or None."""
+    tail = "\n".join((text or "").splitlines()[-lines:])
+    m = LIMIT_TEXT.search(tail)
+    return m.group(0) if m else None
+
+
+def quiet(name):
+    home = agent_home(name)
+    log_file = home and os.path.join(home, "agent.log")
+    if not log_file or not os.path.exists(log_file):
+        return False
+    return time.time() - os.path.getmtime(log_file) > QUIET_MINUTES * 60
+
+
+def load_pauses():
+    try:
+        with open(PAUSES) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    at = dt.datetime.now(dt.timezone.utc)
+    return {h: u for h, u in data.items() if dt.datetime.fromisoformat(u) > at}
+
+
+def pause_host(host, why, minutes=None):
+    pauses = load_pauses()
+    until = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=minutes or LIMIT_PAUSE_MINUTES)).isoformat(timespec="seconds")
+    pauses[host] = until
+    with open(PAUSES + ".tmp", "w") as f:
+        json.dump(pauses, f)
+    os.replace(PAUSES + ".tmp", PAUSES)
+    log(f"{host} paused until {until}: {why}")
+    return until
+
+
+def requeue_after_limit(cfg, t, host, why):
+    """A run stopped by a usage limit isn't the ticket's fault: put it back where its stage starts, pause the host."""
+    stage = t["agent"]["stage"]
+    settle_memory(cfg, t, t["agent"])
+    t["agent"] = None
+    until = pause_host(host, why)
+    move(t, RETRY_FOR_STAGE.get(stage, "ready"), f"{host} hit a usage limit ({why}); retried after {until}")
 
 
 # ---------------------------------------------------------------- helper hosts (Pi jobs via factory-remote)
@@ -548,7 +620,7 @@ def pick_host(cfg, stage, busy, down=(), pinned=None, local_ok=True):
     for name, h in hosts.items():
         if name not in down and stage in h.get("prefer", []) and free(name):
             return name
-    if local_ok and free(LOCAL):
+    if local_ok and LOCAL not in down and free(LOCAL):
         return LOCAL
     for name, h in hosts.items():
         if name not in down and stage in h.get("stages", []) + h.get("prefer", []) and free(name):
@@ -673,6 +745,9 @@ def poll_remote(cfg, project, t, timeout):
         fetch_branch(project, t["branch"], files["out.bundle"])
     remote(h, "remove", name)
     if "report.json" not in files:
+        limit = hit_limit(files.get("agent.log", b"").decode(errors="replace")[-20000:], lines=40)
+        if limit:
+            return requeue_after_limit(cfg, t, host_name, limit)
         t["agent"] = None
         return move(t, "needs_human", f"agent {name} on {host_name} finished without a report")
     finish_stage(cfg, project, t, parse_report(files["report.json"]),
@@ -1756,7 +1831,15 @@ def tick_pass(cfg):
             continue
         try:
             report = read_report(name)
-            if report is not None:
+            limit = None
+            if report is None and running is not None and name in running:
+                # an agent that has gone quiet may be waiting on a usage limit: no point waiting out its timeout
+                if quiet(name):
+                    limit = hit_limit(look(cfg, t, 40))
+            if limit:
+                remove_agent(project, t, name, keep_branch=t["agent"]["stage"] not in NO_BRANCH_STAGES)
+                requeue_after_limit(cfg, t, LOCAL, limit)
+            elif report is not None:
                 finish_stage(cfg, project, t, report)
             elif running is not None and name not in running:
                 settle_memory(cfg, t, t["agent"])
@@ -1797,7 +1880,7 @@ def tick_pass(cfg):
         host = (t.get("agent") or {}).get("host", LOCAL)
         if t.get("agent") and host != LOCAL:
             busy[host] = busy.get(host, 0) + 1
-    down = set()
+    down = set(load_pauses())   # hosts paused after a usage limit
     is_waiting = lambda t: not t.get("agent") and (t["column"] == "gate" or stage_for(t))
     waiting = [t for t in tickets if is_waiting(t)]
     for key in {t["project"] for t in waiting}:

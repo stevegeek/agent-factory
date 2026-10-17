@@ -1726,6 +1726,39 @@ class WatchTest(unittest.TestCase):
             self.assertIn("ignore your rules", t["body"])
             self.assertIn("untrusted data", factory.task_prompt(t, None))
 
+class LimitTest(RemoteStageTest):
+    def setUp(self):
+        super().setUp()
+        self.pp = mock.patch.object(factory, "PAUSES", os.path.join(self.logs.name, "pauses.json"))
+        self.pp.start()
+
+    def tearDown(self):
+        self.pp.stop()
+        super().tearDown()
+
+    def test_only_real_limit_messages_count(self):
+        self.assertTrue(factory.hit_limit("working…\n⎿  Claude usage limit reached. Your limit will reset at 5pm"))
+        self.assertTrue(factory.hit_limit("Error: Your credit balance is too low to access the Anthropic API."))
+        self.assertTrue(factory.hit_limit("5-hour limit reached ∙ resets 3am"))
+        self.assertIsNone(factory.hit_limit("● Edit(lib/rate_limit.rb)\n  def rate_limit_exceeded?; end"))
+        # only the end of the screen counts: an old message scrolled away is not the agent's state now
+        self.assertIsNone(factory.hit_limit("usage limit reached\n" + "line\n" * 30))
+
+    def test_a_helper_job_out_of_credit_goes_back_and_pauses_its_host(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(factory, "BOARD", root):
+            t = factory.new_ticket("p", "x", "b", "human", "working", kind="task")
+            files = {"agent.log": b"pi: 400 invalid_request_error: Your credit balance is too low to access the Anthropic API.\npi exited 1\n"}
+            t = self.collected(t, "task", files)
+        self.assertEqual(t["column"], "ready")
+        self.assertIsNone(t["agent"])
+        self.assertIn("usage limit", t["history"][-1]["detail"])
+        self.assertIn("pi", factory.load_pauses())
+        # a paused host gets no new work; this host still does
+        busy = {factory.LOCAL: 0, "pi": 0}
+        self.assertEqual(factory.pick_host(self.cfg, "task", busy, set(factory.load_pauses())), factory.LOCAL)
+        self.assertIsNone(factory.pick_host(self.cfg, "task", busy, {"pi", factory.LOCAL}))
+        self.assertIsNone(factory.pick_host(self.cfg, "task", busy, {"pi"}, pinned="pi"))
+
 class FactoryRemoteTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
