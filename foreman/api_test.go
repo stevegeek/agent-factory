@@ -68,6 +68,7 @@ func (h *apiHarness) serve(factory string, open bool) {
 	h.guard.all, h.guard.writes = bucketSpec{perMin: 6000, burst: 1000}, bucketSpec{perMin: 6000, burst: 1000}
 	h.runner = NewAPIRunner(factory, h.root, h.store, 2)
 	s.api = NewAPI(h.guard, h.runner)
+	s.mcp = NewMCP(h.guard, h.runner, "test")
 	h.h = s.Handler()
 }
 

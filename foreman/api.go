@@ -225,66 +225,34 @@ func readAll(r *http.Request) ([]byte, error) {
 // answer runs the verb and relays what the CLI says.
 func (a *API) answer(w http.ResponseWriter, route apiRoute, name string, in map[string]json.RawMessage) {
 	input, _ := json.Marshal(in)
-	res, err := a.runner.Run(route.verb, name, input)
-	if errors.Is(err, errAPIBusy) {
+	out, refusal, err := a.runner.Call(route.verb, name, input)
+	switch {
+	case errors.Is(err, errAPIBusy):
 		w.Header().Set("Retry-After", "5")
 		apiError(w, http.StatusServiceUnavailable, "busy", "the factory is busy; try again in a few seconds", "")
-		return
-	}
-	if err != nil {
-		log.Printf("api %s as %s: %v", route.verb, name, err)
+	case err != nil:
 		apiInternal(w)
-		return
-	}
-	var out map[string]json.RawMessage
-	if json.Unmarshal(res.stdout, &out) != nil || out == nil {
-		log.Printf("api %s as %s: exit %d with no JSON answer: %s", route.verb, name, res.exit, tail(string(res.stderr), 500))
-		apiInternal(w)
-		return
-	}
-	ok := string(out["ok"])
-	switch {
-	case res.exit == 0 && ok == "true":
-		delete(out, "ok")
-		status := route.status
-		if route.created {
-			if string(out["created"]) == "true" {
-				status = http.StatusCreated
-				var t struct {
-					ID string `json:"id"`
-				}
-				if json.Unmarshal(out["ticket"], &t) == nil && apiTicketID.MatchString(t.ID) {
-					w.Header().Set("Location", apiPrefix+"tickets/"+t.ID)
-				}
-			}
-		}
-		apiJSON(w, status, out)
-	case res.exit == 1 && ok == "false":
-		var e struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-			Field   string `json:"field"`
-		}
-		status, known := 0, false
-		if json.Unmarshal(out["error"], &e) == nil {
-			status, known = apiStatus[e.Code]
-		}
-		if !known {
-			log.Printf("api %s as %s: a refusal this Foreman does not know: %s", route.verb, name, tail(string(out["error"]), 300))
-			apiInternal(w)
-			return
-		}
-		switch e.Code {
+	case refusal != nil:
+		switch refusal.Code {
 		case "busy":
 			w.Header().Set("Retry-After", "30")
 		case "unauthorized":
 			// revoked or expired since Foreman last read the store
 			w.Header().Set("WWW-Authenticate", `Bearer realm="factory"`)
 		}
-		apiError(w, status, e.Code, e.Message, e.Field)
+		apiError(w, apiStatus[refusal.Code], refusal.Code, refusal.Message, refusal.Field)
 	default:
-		log.Printf("api %s as %s: exit %d: %s", route.verb, name, res.exit, tail(string(res.stderr), 500))
-		apiInternal(w)
+		status := route.status
+		if route.created && string(out["created"]) == "true" {
+			status = http.StatusCreated
+			var t struct {
+				ID string `json:"id"`
+			}
+			if json.Unmarshal(out["ticket"], &t) == nil && apiTicketID.MatchString(t.ID) {
+				w.Header().Set("Location", apiPrefix+"tickets/"+t.ID)
+			}
+		}
+		apiJSON(w, status, out)
 	}
 }
 
@@ -316,7 +284,53 @@ func apiInternal(w http.ResponseWriter) {
 
 // ---------------------------------------------------------------- the CLI, for the API
 
-var errAPIBusy = errors.New("no free slot for the factory CLI")
+var (
+	errAPIBusy = errors.New("no free slot for the factory CLI")
+	errCLI     = errors.New("the factory CLI failed; it is logged")
+)
+
+// cliRefusal: a verb's refusal, as the CLI words it. Its code is one of apiStatus's.
+type cliRefusal struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Field   string `json:"field"`
+}
+
+// Call runs a verb and sorts its answer: what it said (without "ok"), or its refusal. An error means there
+// is nothing to relay: errAPIBusy, or errCLI for a failure of the factory's own, logged here. A refusal
+// code this Foreman does not know is such a failure, so drift between the two shows.
+func (ar *APIRunner) Call(verb, name string, input []byte) (map[string]json.RawMessage, *cliRefusal, error) {
+	res, err := ar.Run(verb, name, input)
+	if errors.Is(err, errAPIBusy) {
+		return nil, nil, err
+	}
+	if err != nil {
+		log.Printf("api %s as %s: %v", verb, name, err)
+		return nil, nil, errCLI
+	}
+	var out map[string]json.RawMessage
+	if json.Unmarshal(res.stdout, &out) != nil || out == nil {
+		log.Printf("api %s as %s: exit %d with no JSON answer: %s", verb, name, res.exit, tail(string(res.stderr), 500))
+		return nil, nil, errCLI
+	}
+	ok := string(out["ok"])
+	switch {
+	case res.exit == 0 && ok == "true":
+		delete(out, "ok")
+		return out, nil, nil
+	case res.exit == 1 && ok == "false":
+		var e cliRefusal
+		if json.Unmarshal(out["error"], &e) == nil {
+			if _, known := apiStatus[e.Code]; known {
+				return nil, &e, nil
+			}
+		}
+		log.Printf("api %s as %s: a refusal this Foreman does not know: %s", verb, name, tail(string(out["error"]), 300))
+	default:
+		log.Printf("api %s as %s: exit %d: %s", verb, name, res.exit, tail(string(res.stderr), 500))
+	}
+	return nil, nil, errCLI
+}
 
 // APIRunner runs `factory ticket` for the API: a few at a time, apart from Runner, whose one lock can be
 // held by a ten-minute `pr`.

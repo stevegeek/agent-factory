@@ -51,9 +51,9 @@ func main() {
 	flag.Var(&hosts, "host", "a host name to answer to besides IP addresses and localhost, e.g. the ts.net name (repeatable)")
 	revoke := flag.Bool("revoke-sessions", false, "log out every browser, then exit")
 	push := flag.Bool("push", true, "send Web Push notifications to subscribed devices (keys beside the secret)")
-	api := flag.Bool("api", true, "serve the ticket API at /api/v1 to tokens made with factory tokens add")
+	api := flag.Bool("api", true, "serve the ticket API at /api/v1, and MCP at /mcp, to tokens made with factory tokens add")
 	apiTokens := flag.String("api-tokens", "", "the dispatcher's API token store (default api-tokens.json beside --secret-file)")
-	apiConcurrency := flag.Int("api-concurrency", 2, "factory CLI processes the API may run at once")
+	apiConcurrency := flag.Int("api-concurrency", 2, "factory CLI processes the API and MCP may run at once")
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.LUTC)
 	if *revoke {
@@ -104,8 +104,11 @@ func main() {
 		if *apiTokens == "" {
 			*apiTokens = filepath.Join(filepath.Dir(*secretFile), "api-tokens.json")
 		}
-		s.api = NewAPI(NewGuard(NewAPITokens(*apiTokens), auth.hosts, open),
-			NewAPIRunner(*factory, *root, *apiTokens, *apiConcurrency))
+		// one guard and one runner: a token's rate and the CLI's slots are shared by /api/v1 and /mcp
+		guard := NewGuard(NewAPITokens(*apiTokens), auth.hosts, open)
+		runner := NewAPIRunner(*factory, *root, *apiTokens, *apiConcurrency)
+		s.api = NewAPI(guard, runner)
+		s.mcp = NewMCP(guard, runner, buildVersion())
 	}
 	if *push {
 		// the VAPID contact: the page's own address when known (push services want an https: or mailto: URL)

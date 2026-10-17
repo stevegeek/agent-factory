@@ -41,7 +41,7 @@ func onTailnet(ip string) bool {
 	return false
 }
 
-// Guard admits a request to the token APIs (/api/v1 and, later, /mcp): the peer, the Origin, the bearer
+// Guard admits a request to the token APIs (/api/v1 and /mcp): the peer, the Origin, the bearer
 // token, the caller's rate and the body's size and type, in that order and before any body is read.
 type Guard struct {
 	tokens *APITokens
@@ -200,15 +200,33 @@ func (b *bucket) fill(s bucketSpec, now time.Time) time.Duration {
 	return time.Duration((1 - b.level) / s.perMin * float64(time.Minute))
 }
 
-// take: 0 when the call may go, else how long to wait. A refused call draws nothing.
-func (g *Guard) take(name string, write bool) time.Duration {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+func (g *Guard) rate(name string) *apiRate {
 	rt := g.rates[name]
 	if rt == nil {
 		rt = &apiRate{}
 		g.rates[name] = rt
 	}
+	return rt
+}
+
+// takeWrite: the write bucket alone, for a call admitted as a read whose body then shows it writes (MCP's
+// tools/call). 0 when it may go, else how long to wait.
+func (g *Guard) takeWrite(name string) time.Duration {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	rt := g.rate(name)
+	if wait := rt.writes.fill(g.writes, g.now()); wait > 0 {
+		return wait
+	}
+	rt.writes.level--
+	return 0
+}
+
+// take: 0 when the call may go, else how long to wait. A refused call draws nothing.
+func (g *Guard) take(name string, write bool) time.Duration {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	rt := g.rate(name)
 	now := g.now()
 	wait := rt.all.fill(g.all, now)
 	if write {

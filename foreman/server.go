@@ -35,6 +35,7 @@ type Server struct {
 	fz          *fizz.Store // project boards; nil: none
 	fzAPI       *fizz.API
 	api         http.Handler // the ticket API (/api/v1); nil: off
+	mcp         http.Handler // MCP over the same tokens (/mcp); nil: off
 	pages       map[string]*template.Template
 	now         func() time.Time
 	assetV      string
@@ -94,6 +95,10 @@ func (s *Server) Handler() http.Handler {
 	if s.api != nil {
 		// the ticket API: bearer tokens from the dispatcher's store, never the login session
 		mux.Handle(apiPrefix, s.api)
+	}
+	if s.mcp != nil {
+		// MCP for agents: the same tokens, guard and CLI as the ticket API
+		mux.Handle(mcpPath, s.mcp)
 	}
 	mux.HandleFunc("GET /login", s.loginPage)
 	mux.HandleFunc("POST /login", s.login)
