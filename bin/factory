@@ -3020,16 +3020,21 @@ on:
     branches: [{base}]
 permissions:
   contents: read
-  pull-requests: write
 jobs:
+  # runs the PR's code: read-only, and no token that could approve anything
   gate:
     name: factory gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      eligible: ${{{{ steps.scope.outputs.eligible }}}}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 {setup}
       - name: Install
         run: {install}
@@ -3055,18 +3060,27 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"eligible={{'true' if eligible else 'false'}}\\n")
           PY
+  # holds the approving token and runs nothing from the PR (no checkout)
+  approve:
+    name: factory gate approval
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    if: >-
+      needs.gate.outputs.eligible == 'true' &&
+      github.event.pull_request.user.login == '{bot}' &&
+      startsWith(github.head_ref, 'bot/') &&
+      !github.event.pull_request.draft &&
+      contains(github.event.pull_request.body, 'eligible for automatic approval.')
+    steps:
       - name: Approve a small change the factory's gate passed
-        if: >-
-          steps.scope.outputs.eligible == 'true' &&
-          github.event.pull_request.user.login == '{bot}' &&
-          startsWith(github.head_ref, 'bot/') &&
-          !github.event.pull_request.draft &&
-          contains(github.event.pull_request.body, 'eligible for automatic approval.')
         env:
           GH_TOKEN: ${{{{ github.token }}}}
           PR: ${{{{ github.event.pull_request.number }}}}
+          REPO: ${{{{ github.repository }}}}
         run: |
-          gh pr review "$PR" --approve --body "factory gate: tests, lint, size and paths pass on GitHub's own run."
+          gh pr review "$PR" --repo "$REPO" --approve --body "factory gate: tests, lint, size and paths pass on GitHub's own run."
 """
 GATE_SETUP = {
     "ruby": """      - uses: ruby/setup-ruby@v1

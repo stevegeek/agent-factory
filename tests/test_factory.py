@@ -1822,6 +1822,13 @@ class GateWorkflowTest(unittest.TestCase):
         for want in ('run: "bundle exec rake test"', "lines <= 7", '["*.md", "test/*"]', "'acme-factory[bot]'",
                      "startsWith(github.head_ref, 'bot/')", "eligible for automatic approval.", "name: factory gate"):
             self.assertIn(want, wf)
+        # the job that runs the PR's code holds no approving token; the one that approves runs none of it
+        test_job, approve_job = wf.split("\n  approve:\n")
+        self.assertNotIn("pull-requests: write", test_job)
+        self.assertIn("persist-credentials: false", test_job)
+        self.assertIn("pull-requests: write", approve_job)
+        self.assertIn("needs: gate", approve_job)
+        self.assertNotIn("checkout", approve_job)
         cr = factory.gate_workflow(cfg, "shard")
         self.assertIn("crystal-lang/install-crystal", cr)
         self.assertIn('run: "true"', cr)
