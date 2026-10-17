@@ -51,7 +51,9 @@ func columnLabel(c string) string {
 	return c
 }
 
-var startDetail = regexp.MustCompile(`^(\w+) (\S+)(?: on \S+)?(?: @(\S+))?$`)
+var memoryDetail = regexp.MustCompile(`^(\w+) memory [0-9a-f]{7,40}: (.+)$`)
+
+var startDetail = regexp.MustCompile(`^(\w+) (\S+)(?: on \S+)?(?: @(\S+))?(?: \(([^)]*)\))?$`)
 
 func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 	var s Story
@@ -123,11 +125,9 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 			st = &Step{At: parseTime(e.At), Who: "You", What: "Note: " + clip(e.Detail, 400)}
 		case "memory":
 			// "worker memory 1a2b3c4: knowledge/x.md, tickets/T0042.md": what the agent will remember next time
-			role, files, _ := strings.Cut(e.Detail, ": ")
-			role, _, _ = strings.Cut(role, " ")
-			st = &Step{At: parseTime(e.At), Who: "Memory", What: capFirst(role) + " remembered: " + files + "."}
-			if files == "" {
-				st.What = sentence(e.Detail)
+			st = &Step{At: parseTime(e.At), Who: "Memory", What: sentence(e.Detail)}
+			if m := memoryDetail.FindStringSubmatch(e.Detail); m != nil {
+				st.What = capFirst(m[1]) + " remembered: " + m[2] + "."
 			}
 			if e.Rule != "" {
 				st.What += " " + sentence(e.Rule)

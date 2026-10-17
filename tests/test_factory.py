@@ -15,13 +15,14 @@ import urllib.error
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# the whole factory root is a scratch directory: nothing a test does lands in a real board, log or memory
+SCRATCH = tempfile.TemporaryDirectory()
+os.environ["FACTORY_ROOT"] = SCRATCH.name
 loader = importlib.machinery.SourceFileLoader("factory", os.path.join(HERE, "..", "bin", "factory"))
 spec = importlib.util.spec_from_loader("factory", loader)
 factory = importlib.util.module_from_spec(spec)
 loader.exec_module(factory)
-# memory stores and per-run files never land in the real factory root
-SCRATCH = tempfile.TemporaryDirectory()
-factory.MEMORY_GIT, factory.RUN_DIR = (os.path.join(SCRATCH.name, d) for d in ("memory", "run"))
+assert factory.ROOT == SCRATCH.name and factory.LOGS.startswith(SCRATCH.name)
 
 
 def sh(cwd, *cmd):

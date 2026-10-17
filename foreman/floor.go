@@ -243,6 +243,8 @@ func floorOutcome(t *Ticket, i int) (cls, label, detail string) {
 			return "kept", "Approved", strings.SplitN(d, "; ", 2)[len(strings.SplitN(d, "; ", 2))-1]
 		case strings.HasPrefix(d, "prospecting found nothing"):
 			return "info", "Nothing found", "the prospector found nothing worth proposing"
+		case strings.HasPrefix(d, "answered on "):
+			return "info", "Answered", "the answer went back to " + strings.TrimPrefix(d, "answered on ")
 		}
 		return "info", "Done", "closed by you"
 	case human && to == "ready":
