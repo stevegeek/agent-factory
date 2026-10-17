@@ -23,3 +23,4 @@ volumes:
   - type: local
     source: {{factory_root}}/cache/bundle
     target: /home/scion/.bundle-cache
+    read_only: true      # one project's agent must not change the gems another project's gate trusts
