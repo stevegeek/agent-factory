@@ -48,6 +48,11 @@ scp -q "$r/patch_provision.py" "$host":factory/patch_provision.py
 ssh "$host" 'chmod 755 ~/factory/bin/*; ln -sf ~/factory/bin/factory ~/.local/bin/factory; ln -sf ~/factory/bin/pi-run ~/.local/bin/pi-run'
 ssh "$host" 'test -e ~/factory/config.toml && cp ~/factory/config.toml ~/factory/config.toml.prev || true'
 scp -q "$r/config.toml" "$host":factory/config.toml
+# per-project context (config/context/<project>/): replaced as a whole, so a removed file goes too
+if [[ -d $config/context ]]; then
+  tar -C "$config/context" -cf - . | ssh "$host" 'rm -rf ~/factory/context.new && mkdir ~/factory/context.new &&
+    tar -C ~/factory/context.new --no-same-owner --no-same-permissions -xf - && rm -rf ~/factory/context && mv ~/factory/context.new ~/factory/context'
+fi
 for t in "$r"/scion-templates/*/; do
   name=$(basename "$t")
   ssh "$host" "mkdir -p ~/.scion/templates/$name"

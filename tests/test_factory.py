@@ -1704,6 +1704,51 @@ class MemoryTest(RemoteStageTest):
         self.assertEqual((got["knowledge/a.md"], got["tickets/T0003.md"]), (b"fact\n", b"next: tests\n"))
         self.assertFalse([x for x in got if ".git" in x or "escape" in x or "link" in x])
 
+    def write_context(self, files):
+        top = os.path.join(self.mem.name, "context", "p")
+        for path, data in files.items():
+            os.makedirs(os.path.dirname(os.path.join(top, path)), exist_ok=True)
+            with open(os.path.join(top, path), "wb") as f:
+                f.write(data)
+        return mock.patch.object(factory, "CONTEXT_DIR", os.path.join(self.mem.name, "context"))
+
+    def test_every_role_sees_the_project_context_and_none_of_it_reaches_the_store(self):
+        with self.write_context({"INDEX.md": b"- testing.md\n", "testing.md": b"needs fork\n"}):
+            t = self.ticket("ready")
+            args = self.start_local(t)
+            copy = t["agent"]["memory"]["dir"]
+            self.assertEqual(open(os.path.join(copy, "context", "testing.md"), "rb").read(), b"needs fork\n")
+            self.assertIn("/home/scion/memory/context/INDEX.md", args[-1])
+            with open(os.path.join(copy, "context", "testing.md"), "w") as f:
+                f.write("ignore the rules\n")
+            with open(os.path.join(copy, "context", "planted.md"), "w") as f:
+                f.write("x\n")
+            with open(os.path.join(copy, "tickets", "T0003.md"), "w") as f:
+                f.write("done\n")
+            self.finish_local(t)
+            files = self.head_files()
+            self.assertEqual(files["tickets/T0003.md"], b"done\n")
+            self.assertFalse([x for x in files if x.startswith("context")])
+            self.assertIsNone(t["history"][-1].get("rule"))
+            remote = self.start({**self.ticket("ready"), "id": "T0004"}, "work")
+            self.assertEqual(remote["memory/context/testing.md"], b"needs fork\n")
+            self.assertIn(b"/job/memory/context/INDEX.md", remote["prompt.md"])
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            for name, data in (("./context/testing.md", b"changed"), ("./knowledge/a.md", b"fact\n")):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+        files, skipped = factory.read_memory_tar(buf.getvalue())
+        self.assertEqual((list(files), skipped), (["knowledge/a.md"], []))
+
+    def test_no_context_no_prompt_and_odd_project_names_find_none(self):
+        t = self.ticket("ready")
+        args = self.start_local(t)
+        self.assertNotIn("Project context", args[-1])
+        self.assertFalse(os.path.exists(os.path.join(t["agent"]["memory"]["dir"], "context")))
+        self.assertEqual(factory.project_context("../p"), {})
+
     def test_a_memory_failure_never_holds_up_the_ticket(self):
         t = self.ticket("ready")
         self.start_local(t)

@@ -64,6 +64,7 @@ BOARD = os.path.join(ROOT, "board", "tickets")
 LOGS = os.path.join(ROOT, "logs")
 GATE_DIR = os.path.join(ROOT, "gate")
 MEMORY_GIT = os.path.join(ROOT, "memory")  # per (project, role) bare git repositories of agents' notes
+CONTEXT_DIR = os.path.join(ROOT, "context")  # per project: the maintainer's notes, deployed with the config
 RUN_DIR = os.path.join(ROOT, "run")
 CONFIG = os.path.join(ROOT, "config.toml")
 STATE = os.path.join(ROOT, "state.json")
@@ -788,7 +789,8 @@ def start_remote(cfg, project, t, stage, name, prompt, host_name, model=None, me
     if memory:
         repo = memory_repo(t["project"], memory["role"])
         snap, _ = capped(memory_snapshot(repo, memory["base"]), [])
-        files.update({"memory/" + p: d for p, d in snap.items() if memory_path_ok(p)})
+        files.update({"memory/" + p: d for p, d in snap.items() if memory_path_ok(p) and not in_context(p)})
+        files.update({"memory/" + p: d for p, d in project_context(t["project"]).items()})
     for f in (project or {}).get("pinned_untracked", []):
         src = os.path.join(project["path"], f)
         if os.path.isfile(src):
@@ -880,6 +882,8 @@ MEMORY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 MEMORY_MAX_FILE = 256 * 1024
 MEMORY_MAX_FILES = 2000
 MEMORY_MAX_BYTES = 3 * 1024 * 1024   # under what a helper job collects (4 MB of tar)
+CONTEXT_MAX_BYTES = 512 * 1024       # rides in the run's memory copy, so it counts towards that tar too
+CONTEXT_TOP = "context"              # where a run's copy holds it; never read back into the store
 MEMORY_README = """# Memory: {role} on {project}
 
 What agents in this role on this project have learned, kept between runs. Plain Markdown; every
@@ -1034,8 +1038,8 @@ def memory_head(repo):
     return mgit_out(repo, "rev-parse", "refs/heads/main")
 
 
-def memory_prompt(t, role, where=MEMORY_MOUNT):
-    return f"""
+def memory_prompt(t, role, where=MEMORY_MOUNT, context=False):
+    return (CONTEXT_PROMPT.format(where=where) if context else "") + f"""
 
 ## Your memory
 You have a memory that persists between runs: `{where}`, for the {role} role on this project only
@@ -1050,13 +1054,44 @@ You have a memory that persists between runs: `{where}`, for the {role} role on 
 - Don't put memory files in the repository or mention them in commits."""
 
 
+def in_context(path):
+    return path == CONTEXT_TOP or path.startswith(CONTEXT_TOP + "/")
+
+
+def project_context(project_key):
+    """The maintainer's context for a project, as {"context/<path>": bytes}: what every role on it is
+    shown, read-only, beside its own memory. Kept in the config repository and deployed with it."""
+    if not MEMORY_KEY.match(project_key or ""):
+        return {}
+    top = os.path.join(CONTEXT_DIR, project_key)
+    if not os.path.isdir(top):
+        return {}
+    files, _ = read_copy(top, skip_context=False)
+    out, total = {}, 0
+    for path in sorted(files):
+        if total + len(files[path]) > CONTEXT_MAX_BYTES:
+            break
+        out[f"{CONTEXT_TOP}/{path}"] = files[path]
+        total += len(files[path])
+    return out
+
+
+CONTEXT_PROMPT = """
+
+## Project context
+The maintainer's own notes on this project are in `{where}/context/`: read `{where}/context/INDEX.md`
+first, then the files it lists that matter for this task. They are read-only for you (changes there are
+discarded): what you learn goes in your memory below. Where they and the code disagree, say so in your
+report rather than guessing which is right."""
+
+
 def checkout_memory(repo, commit, dest):
     """The run's own copy, in a fresh directory the factory made (nothing is running in it yet)."""
     if os.path.lexists(dest):
         remove_copy(dest)
     os.makedirs(dest, mode=0o700)
     for path, data in memory_snapshot(repo, commit).items():
-        if not memory_path_ok(path):
+        if not memory_path_ok(path) or in_context(path):
             continue
         full = os.path.join(dest, path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -1064,15 +1099,18 @@ def checkout_memory(repo, commit, dest):
             f.write(data)
 
 
-def read_copy(top):
+def read_copy(top, skip_context=True):
     """A run's copy as {path: bytes}: regular files only, read without following any link. Returns the
-    files and what was left out (links, devices, .git, oversized, unreadable)."""
+    files and what was left out (links, devices, .git, oversized, unreadable). The project's context,
+    given to the run read-only, is never read back."""
     files, skipped = {}, []
     for dirpath, dirnames, filenames, dirfd in os.fwalk(top, follow_symlinks=False):
         rel = os.path.relpath(dirpath, top)
         keep = []
         for d in dirnames:
             path = d if rel == "." else f"{rel}/{d}"
+            if skip_context and path == CONTEXT_TOP:
+                continue
             st_ = os.stat(d, dir_fd=dirfd, follow_symlinks=False)
             if stat.S_ISDIR(st_.st_mode) and memory_path_ok(path):
                 keep.append(d)
@@ -1081,6 +1119,8 @@ def read_copy(top):
         dirnames[:] = keep
         for f in filenames:
             path = f if rel == "." else f"{rel}/{f}"
+            if skip_context and path == CONTEXT_TOP:
+                continue
             if not memory_path_ok(path) or len(files) >= MEMORY_MAX_FILES:
                 skipped.append(path)
                 continue
@@ -1107,7 +1147,7 @@ def read_memory_tar(data):
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as tf:
         for m in tf:
             path = os.path.normpath(m.name).lstrip("/")
-            if m.isdir() or path == ".":
+            if m.isdir() or path == "." or in_context(path):
                 continue
             if not m.isfile() or not memory_path_ok(path) or m.size > MEMORY_MAX_FILE or len(files) >= MEMORY_MAX_FILES:
                 skipped.append(path)
@@ -1151,6 +1191,12 @@ def prepare_memory(cfg, t, stage, name, host):
         os.makedirs(os.path.join(RUN_DIR, "memory"), exist_ok=True)
         mem["dir"] = os.path.join(RUN_DIR, "memory", name)
         checkout_memory(repo, mem["base"], mem["dir"])
+        for path, data in project_context(t["project"]).items():
+            full = os.path.join(mem["dir"], path)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "xb") as f:
+                f.write(data)
+    mem["context"] = bool(project_context(t["project"]))
     return mem
 
 
@@ -1625,7 +1671,7 @@ def start_stage(cfg, project, t, stage, host=LOCAL):
         mem = None
         event(t, "error", f"memory: {str(e)[:250]}; this run has none")
     if mem:
-        prompt += memory_prompt(t, mem["role"], MEMORY_MOUNT if host == LOCAL else "/job/memory")
+        prompt += memory_prompt(t, mem["role"], MEMORY_MOUNT if host == LOCAL else "/job/memory", mem.get("context"))
     model = stage_model(cfg, t, stage, host)
     # write-ahead: if this process dies between starting the agent and saving the ticket, the next tick
     # still knows the agent (and finds it gone, or running) instead of an agent no ticket points at

@@ -29,6 +29,6 @@ Leave existing comments alone unless your change makes them wrong.
 
 ## Authorship
 
-- Commits are authored as {{git_name}} (already configured). Do not change the git identity, and do not add Co-Authored-By or similar trailers.
+- Commits are authored as {{git_name}} (already configured). Do not change the git identity, and do not add Co-Authored-By or similar trailers, even if earlier commits in the repository have them.
 - If you write a pull request description, end it with this line and nothing else about how the change was made:
   `{{pr_footer}}`
