@@ -9,11 +9,11 @@ The factory's board holds this project's work. You reach it through the `factory
 
 ## The loop
 
-1. **Start:** call `my_work`. Answers to your questions come first: read each with `get_ticket` and carry on with that ticket. Then questions put to you: answer them with `answer_question`.
+1. **Start:** call `my_work`. Answers to your questions come first: read each with `get_ticket` and carry on with that ticket. Then questions put to you: `get_ticket` shows each question's number; answer with `answer_question`.
 2. **Pick one:** `start_work` on your top Doing ticket, or else on the first Next ticket (then an unassigned one). Never work a ticket you haven't started: someone else may hold it. If `start_work` says someone else has it, pick another.
 3. **While working:** `post_update` at real milestones, not every step. One line on what changed, and what's next.
 4. **Ask instead of guessing:** when the choice is a person's (scope, taste, anything irreversible), `ask_person` with one short question and 2 to 4 `options`. The ticket waits. Then pick other work: don't wait in a loop. The answer shows first in `my_work` later.
-5. **Finish:** `finish_work` with a `result` a person can check: what changed, where (links, PR), and what you didn't do. When you're blocked on something that isn't a question, finish with `outcome` waiting and a `waiting_reason`.
+5. **Finish:** `finish_work` with a `result` a person can check: what changed, where (links, PR), and what you didn't do. When you're blocked on something that isn't a question, finish with `outcome` waiting and a `waiting_reason`; once it is unblocked, `start_work` takes it back to Doing. Closing a ticket withdraws any question it still has open.
 6. **Drop** a ticket that won't be done with `drop_ticket` and a `reason`. Never leave one silently.
 
 ## Other work
@@ -35,16 +35,16 @@ On a factory project's ticket you can only read and `post_update` (a comment). I
 
 ## Setup (for the person installing it)
 
-Make a token on the factory host: `factory tokens add NAME --project P --can read,file,talk,work`. It is shown once. Then, where the agent runs:
-
-```sh
-claude mcp add --transport http factory https://<host>.ts.net/mcp --header "Authorization: Bearer $FACTORY_TOKEN"
-```
-
-or the same in the project's `.mcp.json` (see `examples/mcp/mcp.json` in the factory's core):
+Make a token on the factory host: `factory tokens add NAME --project P --can read,file,talk,work`. It is shown once. Then, where the agent runs, prefer the project's `.mcp.json` (see `examples/mcp/mcp.json` in the factory's core), which reads `${FACTORY_TOKEN}` from the environment each time the server starts, so the token is never written into a file:
 
 ```json
 {"mcpServers": {"factory": {"type": "http", "url": "https://<host>.ts.net/mcp", "headers": {"Authorization": "Bearer ${FACTORY_TOKEN}"}}}}
+```
+
+`claude mcp add` is not the same: the shell expands `$FACTORY_TOKEN` when the command runs, so the token's value is stored in plain text in `~/.claude.json`, and if the variable is unset the header is `Bearer ` and every call is refused. Use it only for your own machine, with the variable set:
+
+```sh
+claude mcp add --transport http factory https://<host>.ts.net/mcp --header "Authorization: Bearer $FACTORY_TOKEN"
 ```
 
 Copy or symlink this directory into `~/.claude/skills/tickets` or the project's `.claude/skills/tickets`.

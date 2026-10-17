@@ -364,8 +364,11 @@ func toolResult(text string, isError bool) map[string]any {
 // notDone: a refusal as the agent reads it: what the CLI said, and what to do next.
 func notDone(tool *mcpTool, r *cliRefusal) string {
 	text := "**Not done:** " + strings.TrimSpace(r.Message)
-	if r.Field != "" {
-		text += " (" + r.Field + ")"
+	if field := r.Field; field != "" {
+		if arg, ok := tool.args[field]; ok {
+			field = arg
+		}
+		text += " (" + field + ")"
 	}
 	hint := tool.hints[r.Code]
 	if hint == "" {
@@ -417,7 +420,7 @@ func (m *MCP) resourcesList(name string) (any, *rpcError) {
 	}
 	json.Unmarshal(out["tickets"], &tickets)
 	for _, t := range tickets {
-		res = append(res, map[string]any{"uri": "ticket://" + t.ID, "name": t.ID, "description": t.Title,
+		res = append(res, map[string]any{"uri": "ticket://" + t.ID, "name": t.ID, "description": strings.Join(strings.Fields(t.Title), " "),
 			"mimeType": "text/markdown"})
 	}
 	return map[string]any{"resources": res}, nil
@@ -705,6 +708,7 @@ type mcpTool struct {
 	input func(args map[string]any) (map[string]any, string)
 	reply func(out map[string]json.RawMessage) string
 	hints map[string]string // by refusal code, over refusalHints
+	args  map[string]string // the verb's field -> the tool's argument, where input renames one
 }
 
 func (t *mcpTool) allowed(can []string) bool {
@@ -868,13 +872,13 @@ var (
 			}, "id"),
 			input: copyArgs(nil), reply: mdOf},
 		{name: "start_work", title: "Start work", can: []string{"work"}, write: true, idempotent: true, verb: "claim", md: true,
-			desc:   "Claim a board ticket in Inbox or Next: it becomes yours and moves to Doing. Calling it again on your own ticket is fine.",
+			desc:   "Claim a board ticket in Inbox or Next: it becomes yours and moves to Doing. It also takes your ticket back to Doing from Waiting, when it waits on something other than a question. Calling it again on your own ticket is fine.",
 			schema: sObj(map[string]*jschema{"id": sID("The ticket")}, "id"),
 			input:  copyArgs(nil),
 			reply:  headed(func(out map[string]json.RawMessage) string { return "You have " + outTicket(out, "ticket").ID + "." }),
-			hints:  map[string]string{"conflict": "Someone else has it, or it is not in Inbox or Next; pick another with my_work."}},
+			hints:  map[string]string{"conflict": "get_ticket to see who has it and where it is; if it is not yours to take, pick another with my_work."}},
 		{name: "post_update", title: "Post an update", can: []string{"talk"}, write: true, verb: "note", md: true,
-			desc:   "Post a comment on a ticket: at real milestones, one line on what changed and what is next. On a factory ticket this is the only way to say something.",
+			desc:   "Post a comment on a ticket: at real milestones, one line on what changed and what is next. On a factory ticket this is the only way to say something; the maintainer reads it on the ticket's page.",
 			schema: sObj(map[string]*jschema{"id": sID("The ticket"), "text": sStr(16*1024, "Markdown")}, "id", "text"),
 			input:  copyArgs(nil),
 			reply:  headed(func(out map[string]json.RawMessage) string { return "Posted on " + outTicket(out, "ticket").ID + "." })},
@@ -892,14 +896,19 @@ var (
 					to = "done"
 				}
 				in := map[string]any{"id": args["id"], "to": to, "result": args["result"]}
-				if r, ok := args["waiting_reason"]; ok {
-					if to != "waiting" {
-						return nil, "waiting_reason goes with outcome waiting"
-					}
+				r, ok := args["waiting_reason"]
+				switch {
+				case ok && to != "waiting":
+					return nil, "waiting_reason goes with outcome waiting"
+				case !ok && to == "waiting":
+					return nil, "waiting_reason is needed with outcome waiting"
+				case ok:
 					in["reason"] = r
 				}
 				return in, ""
 			},
+			args:  map[string]string{"reason": "waiting_reason", "to": "outcome"},
+			hints: map[string]string{"conflict": "get_ticket to see where it stands now. To add to a result already given, post_update."},
 			reply: headed(movedTo)},
 		{name: "drop_ticket", title: "Drop a ticket", can: []string{"work"}, write: true, idempotent: true, verb: "move", md: true,
 			desc:   "Drop a board ticket that won't be done, saying why.",
@@ -917,6 +926,7 @@ var (
 				"to":       sStr(64, "A person or an agent on the project (default: the maintainer)"),
 			}, "id", "question"),
 			input: copyArgs(map[string]string{"to": "recipient"}),
+			args:  map[string]string{"recipient": "to"},
 			reply: func(out map[string]json.RawMessage) string {
 				var n int
 				json.Unmarshal(out["n"], &n)
@@ -925,13 +935,14 @@ var (
 					outString(out, "recipient"), n, id)
 			}},
 		{name: "answer_question", title: "Answer a question", can: []string{"talk"}, write: true, verb: "answer", md: true,
-			desc: "Answer a question put to you (my_work lists them under Asked of you).",
+			desc: "Answer a question put to you (my_work lists them under Asked of you; get_ticket shows each question's number).",
 			schema: sObj(map[string]*jschema{
 				"id":       sID("The ticket"),
 				"question": sInt(1, 1000, "The question's number"),
 				"answer":   sStr(16*1024, "Markdown"),
 			}, "id", "question", "answer"),
 			input: copyArgs(map[string]string{"question": "n"}),
+			args:  map[string]string{"n": "question"},
 			reply: headed(func(out map[string]json.RawMessage) string { return "Answered on " + outTicket(out, "ticket").ID + "." })},
 		{name: "send_to_factory", title: "Send to the factory", can: []string{"work", "file"}, write: true, verb: "send",
 			desc: "Hand a board ticket's change to a factory project's pipeline: it is filed there as a change in triage, a person approves it, and the two tickets are linked. The board ticket stays where it is.",

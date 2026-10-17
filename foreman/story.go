@@ -119,6 +119,8 @@ func BuildStory(t *Ticket, all map[string]*Ticket) Story {
 			}
 		case "note":
 			st = &Step{At: parseTime(e.At), Who: "You", What: "Note: " + clip(e.Detail, 400)}
+		case "comment":
+			st = &Step{At: parseTime(e.At), Who: firstNonEmpty(e.By, "Agent"), What: "Comment: " + clip(commentText(t, e), 400)}
 		case "memory":
 			st = memoryStep(e)
 			if e.Rule != "" {

@@ -55,3 +55,25 @@ func TestConversationOrder(t *testing.T) {
 		t.Errorf("thread:\n%s", strings.Join(got, "\n"))
 	}
 }
+
+func TestAnAgentsCommentOnAFactoryTicketShows(t *testing.T) {
+	tk := &Ticket{ID: "T0051", Project: "p", Title: "Tune it", Door: "human", Column: "ready",
+		Comments: []Comment{{N: 1, At: "2026-10-16T10:02:00Z", By: "example-agent", Type: "comment", Text: "Seen on staging too."}},
+		History: []Hist{
+			{At: "2026-10-16T10:00:00Z", Event: "created"},
+			{At: "2026-10-16T10:02:00Z", Event: "comment", Type: "commented", By: "example-agent", N: 1, Detail: "example-agent: Seen on staging"},
+		}}
+	all := map[string]*Ticket{"T0051": tk}
+	v := Conversation(tk, all, "", time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC))
+	if m := v.Msgs[len(v.Msgs)-1]; m.Who != "example-agent" || m.Side != "agent" || m.Text != "Seen on staging too." {
+		t.Errorf("conversation: %+v", m)
+	}
+	steps := BuildStory(tk, all).Steps
+	found := false
+	for _, st := range steps {
+		found = found || (st.Who == "example-agent" && st.What == "Comment: Seen on staging too.")
+	}
+	if !found {
+		t.Errorf("the story leaves the comment out: %+v", steps)
+	}
+}

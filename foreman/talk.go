@@ -132,6 +132,9 @@ func Conversation(t *Ticket, all map[string]*Ticket, root string, now time.Time)
 			}
 			note++
 			v.Msgs = append(v.Msgs, Msg{Who: "You", Side: "me", When: at(h), Text: text})
+		case "comment":
+			// an agent's text: shown as theirs, never as the factory's or yours
+			v.Msgs = append(v.Msgs, Msg{Who: firstNonEmpty(h.By, "Agent"), Side: "agent", When: at(h), Text: commentText(t, h)})
 		case "asked":
 			id, q := askOf(h)
 			v.Msgs = append(v.Msgs, Msg{Who: "You", Side: "me", When: at(h), Text: q, Ref: id})
@@ -188,6 +191,16 @@ func Conversation(t *Ticket, all map[string]*Ticket, root string, now time.Time)
 		v.Waiting = roles[t.Agent.Stage] + " is working on it now."
 	}
 	return v
+}
+
+// commentText: the comment a "comment" event is about, or the event's own clipped line for older files.
+func commentText(t *Ticket, h Hist) string {
+	for _, c := range t.Comments {
+		if h.N > 0 && c.N == h.N {
+			return c.Text
+		}
+	}
+	return h.Detail
 }
 
 // reportText: what an agent's report says, as a message: its lead, the whole text when there is more.

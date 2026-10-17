@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -339,11 +340,14 @@ type APIRunner struct {
 	slots                 chan struct{}
 	slotWait, timeout     time.Duration
 	maxOut                int
+
+	mu      sync.Mutex
+	holding map[string]chan struct{} // one slot per token at a time, so one token can't hold them all
 }
 
 func NewAPIRunner(factory, root, tokens string, concurrency int) *APIRunner {
 	return &APIRunner{Factory: factory, Root: root, Tokens: tokens, slots: make(chan struct{}, max(concurrency, 1)),
-		slotWait: 10 * time.Second, timeout: 30 * time.Second, maxOut: 1 << 20}
+		slotWait: 10 * time.Second, timeout: 30 * time.Second, maxOut: 1 << 20, holding: map[string]chan struct{}{}}
 }
 
 type cliResult struct {
@@ -373,9 +377,16 @@ func (c *capped) Write(p []byte) (int, error) {
 // timeout, too much output, or the CLI would not start).
 func (ar *APIRunner) Run(verb, name string, input []byte) (cliResult, error) {
 	timer := time.NewTimer(ar.slotWait)
+	defer timer.Stop()
+	mine := ar.tokenSlot(name)
+	select {
+	case mine <- struct{}{}:
+	case <-timer.C:
+		return cliResult{}, errAPIBusy
+	}
+	defer func() { <-mine }()
 	select {
 	case ar.slots <- struct{}{}:
-		timer.Stop()
 	case <-timer.C:
 		return cliResult{}, errAPIBusy
 	}
@@ -404,6 +415,20 @@ func (ar *APIRunner) Run(verb, name string, input []byte) (cliResult, error) {
 		return res, err
 	}
 	return res, nil
+}
+
+func (ar *APIRunner) tokenSlot(name string) chan struct{} {
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	if ar.holding == nil {
+		ar.holding = map[string]chan struct{}{}
+	}
+	c := ar.holding[name]
+	if c == nil {
+		c = make(chan struct{}, 1)
+		ar.holding[name] = c
+	}
+	return c
 }
 
 // apiEnv: Foreman's own environment without the two settings the runner sets itself.

@@ -419,10 +419,17 @@ def ask_for(t, old, detail, since=None, reason=None):
              else "This needs you: what should happen next?", why, retry)
 
 
+def is_open(q):
+    """A board question nobody has answered, on a ticket not closed since (closing withdraws it)."""
+    return q.get("answer") is None and not q.get("withdrawn")
+
+
 def board_ask(t, since):
     """A board ticket asks a person only through a question put to them; its options become the answers."""
+    if t.get("column") in ("done", "dropped"):
+        return None
     for q in t.get("questions") or []:
-        if q.get("answer") is None and q.get("to_person"):
+        if is_open(q) and q.get("to_person"):
             return {"kind": "question", "question": q["text"], "why": sentence(f"{q['by']} asks {q['recipient']}"),
                     "since": q.get("at") or since, "retry_column": None, "options": list(q.get("options") or []),
                     "n": q["n"]}
@@ -2077,7 +2084,7 @@ def finish_triage(cfg, t, report):
                     rule="triage accepted it without writing a task" if decision == "accept" else "triage could not decide",
                     reason="triage_unsure")
     t["original"] = {"title": t["title"], "body": t["body"]}
-    t["title"] = str(report.get("title") or t["title"])[:120]
+    t["title"] = " ".join(str(report.get("title") or t["title"]).split())[:120] or t["title"]
     t["body"] = str(report["task"])
     door = DOOR_NAMES.get(t["door"], f"{t['door']} tickets")
     if cfg.get("triage", {}).get("auto_accept", {}).get(t["door"], False):
@@ -2221,8 +2228,9 @@ def tick_pass(cfg):
         if t.get("agent") and host != LOCAL:
             busy[host] = busy.get(host, 0) + 1
     down = set(load_pauses())   # hosts paused after a usage limit
+    # a board project never gets agents, whatever a ticket file on it says its mode is
     is_waiting = lambda t: (not t.get("agent") and (t["column"] == "gate" or stage_for(t))
-                            and project_enabled(cfg, t["project"]))
+                            and project_enabled(cfg, t["project"]) and project_mode(cfg, t["project"]) != "board")
     waiting = [t for t in tickets if is_waiting(t)]
     for key in {t["project"] for t in waiting}:
         project = cfg["projects"].get(key)
@@ -2708,6 +2716,10 @@ def watches(cfg):
         changed = out and digest != last.get("hash")
         # the first run only learns what is there now, unless the watch says otherwise
         if changed and ("hash" in last or job.get("file_first", False)):
+            if project_mode(cfg, job["project"]) == "board":
+                log(f"watch {job['name']} names {job['project']}, a board project; skipped")
+                last["hash"] = digest
+                continue
             t = new_ticket(job["project"], job["title"], job["body"].replace("{output}", clip(out, 6000)), "watch",
                            job.get("column", "ready"))
             if job.get("kind", "task") in ("task", "intent", "manage"):
@@ -3030,6 +3042,14 @@ def config_problems(cfg):
             unused = [k for k in ("path", "github", "base", "install", "test", "lint", "language") if k in p]
             if unused:
                 warnings.append(f"[projects.{key}] is a board project; {', '.join(unused)} are not used")
+    board = board_projects(cfg)
+    for what, jobs in (("watches", cfg.get("watches") or []), ("schedules", cfg.get("schedules") or []),
+                       ("recipes", cfg.get("recipes") or [])):
+        for job in jobs if isinstance(jobs, list) else []:
+            named = [job.get("project")] if what == "watches" else list(job.get("projects") or [])
+            for key in named:
+                if key in board:
+                    warnings.append(f"[[{what}]] {job.get('name')} names {key}, a board project: the pipeline never works on one")
     ppl = cfg.get("board", {}).get("people", DEFAULT_PEOPLE)
     if not isinstance(ppl, list) or not ppl:
         problems.append("[board] people: a list of names, the maintainer first")
@@ -3069,7 +3089,7 @@ def cmd_check(cfg, a):
 # ticket files and re-reads only those whose (inode, mtime, size) changed, so any writer, a hand edit or a
 # restore is picked up on the next read.
 
-INDEX_VERSION = 1
+INDEX_VERSION = 2
 
 
 def index_path():
@@ -3079,14 +3099,30 @@ def index_path():
 def index_entry(t, st=None):
     mode = t.get("mode", "factory")
     qs = [q for q in t.get("questions") or [] if isinstance(q, dict)]
-    open_qs = [q for q in qs if q.get("answer") is None]
+    open_qs = [q for q in qs if is_open(q)]
     idem = t.get("idempotency") if isinstance(t.get("idempotency"), dict) else None
+    # what each writer has put in it, roughly in bytes: a token's quota is counted over these
+    wrote = {}
+
+    def add(name, n):
+        if isinstance(name, str) and n:
+            wrote[name] = wrote.get(name, 0) + n
+    add(t.get("by"), len(str(t.get("title") or "")) + len(str(t.get("body") or "")))
+    for c in t.get("comments") or []:
+        if isinstance(c, dict):
+            add(c.get("by"), len(str(c.get("text") or "")) + 64)
+    for q in qs:
+        add(q.get("by"), len(str(q.get("text") or "")) + 128)
+        add(q.get("answered_by"), len(str(q.get("answer") or "")))
+    for h in t.get("history") or []:
+        if isinstance(h, dict):
+            add(h.get("by"), len(str(h.get("detail") or "")) + 128)
     e = {"project": t.get("project"), "mode": mode, "kind": t.get("kind") or ("item" if mode == "board" else "change"),
          "column": t.get("column"), "assignee": t.get("assignee"), "labels": t.get("labels") or [],
          "parent": t.get("parent"), "title": t.get("title") or "", "created": t.get("created"), "updated": t.get("updated"),
          "by": t.get("by"), "idem": [idem.get("by"), idem.get("key"), idem.get("digest")] if idem else None,
          "open_for": sorted({str(q.get("recipient")) for q in open_qs}), "open_questions": len(open_qs),
-         "answers_for": sorted({str(q.get("by")) for q in qs if q.get("answer") is not None}),
+         "answers_for": sorted({str(q.get("by")) for q in qs if q.get("answer") is not None}), "wrote": wrote,
          "waiting_reason": (t.get("waiting") or {}).get("reason") if isinstance(t.get("waiting"), dict) else None}
     if st is not None:
         e.update({"ino": st.st_ino, "mtime_ns": st.st_mtime_ns, "size": st.st_size})
@@ -3153,7 +3189,8 @@ LIMIT = {"title": 300, "body": 64 * 1024, "labels": 20, "links": 50, "url": 2048
          "comment": 16 * 1024, "comments": 1000, "result": 64 * 1024, "question": 4 * 1024, "options": 6, "option": 100,
          "open_questions": 3, "answer": 16 * 1024, "reason": 500, "children": 20, "depth": 20, "note": 4 * 1024,
          "project_tickets": 10_000, "creates_per_day": 200, "store": 200 * 1024 * 1024, "request": 1024 * 1024,
-         "markdown": 256 * 1024, "history": 50, "conversation": 50}
+         "markdown": 256 * 1024, "history": 50, "conversation": 50, "token_store": 20 * 1024 * 1024,
+         "comment_bytes": 1024 * 1024, "ticket_history": 2000, "search_bytes": 16 * 1024 * 1024, "search_files": 2000}
 CLOSED_BOARD = ("done", "dropped")
 
 
@@ -3164,7 +3201,8 @@ def caller_for(cfg, name=None):
         return {"name": maintainer(cfg), "person": True, "projects": known, "can": list(CAPABILITIES),
                 "tickets": None, "expires": None}
     rec = token_record(name)
-    if rec is None:
+    # a person added to [board] people after their name went to a token: the token would answer as them
+    if rec is None or name in RESERVED_NAMES or name in people(cfg):
         raise Refused("unauthorized", "no such token, or it has expired")
     return {"name": name, "person": False, "projects": [p for p in rec.get("projects") or [] if p in known],
             "can": [c for c in rec.get("can") or [] if c in CAPABILITIES], "tickets": rec.get("tickets"),
@@ -3330,11 +3368,26 @@ def clean_fields(cfg, caller, project, fields, creating, tid=None):
     return out
 
 
-def writable(index=None):
+def writable(caller, index=None):
+    """The index, once the store and the caller's share of it have room. A person writes past a full store:
+    the cap is there to stop tokens."""
     index = ticket_index() if index is None else index
+    if caller["person"]:
+        return index
     if sum(e.get("size", 0) for e in index.values()) > LIMIT["store"]:
         raise Refused("storage_full", "the ticket store is full; nothing more can be written until it is tidied")
+    if sum((e.get("wrote") or {}).get(caller["name"], 0) for e in index.values()) > LIMIT["token_store"]:
+        raise Refused("too_many", f"this token has written {LIMIT['token_store'] >> 20} MiB of tickets, the most one token "
+                                  "writes; the maintainer can tidy them")
     return index
+
+
+def roomy(caller, t):
+    """A ticket's history only grows; past its cap only a person adds to it."""
+    if not caller["person"] and len(t.get("history") or []) >= LIMIT["ticket_history"]:
+        raise Refused("too_many", f"{t['id']} has {LIMIT['ticket_history']} events, the most a token adds to; "
+                                  "file a new ticket to go on")
+    return t
 
 
 def check_creates(cfg, caller, project, n, index):
@@ -3379,6 +3432,8 @@ def add_comment(t, by, text, kind="comment"):
     if len(comments) >= LIMIT["comments"]:
         raise Refused("too_many", f"{t['id']} has {LIMIT['comments']} comments, the most a ticket holds")
     text_in(text, "text" if kind == "comment" else "result", LIMIT["comment"] if kind == "comment" else LIMIT["result"])
+    if sum(len(str(c.get("text") or "").encode()) for c in comments) + len(text.encode()) > LIMIT["comment_bytes"]:
+        raise Refused("too_many", f"{t['id']} holds {LIMIT['comment_bytes'] >> 20} MiB of comments, the most a ticket holds")
     n = max((c.get("n", 0) for c in comments), default=0) + 1
     comments.append({"n": n, "at": now(), "by": by, "type": kind, "text": text})
     event(t, "comment", f"{by}: {clip(text, 200)}", type="commented", by=by, n=n)
@@ -3401,12 +3456,12 @@ def file_ticket(cfg, caller, project, fields, key=None, digest=None):
     return new_ticket(project, f["title"], f.get("body", ""), door, "triage", by=caller["name"], **extra)
 
 
-def adopt(parent_id, child_ids, by, wait):
-    with held([parent_id], wait):
-        p = load_ticket(parent_id)
-        p["children"] = list(dict.fromkeys((p.get("children") or []) + child_ids))
-        event(p, "edit", f"{', '.join(child_ids)} filed under it", type="edited", by=by, fields=["children"])
-        save_ticket(p)
+def adopt(parent_id, child_ids, by):
+    """Under the parent's lock, which the caller took before filing the children."""
+    p = load_ticket(parent_id)
+    p["children"] = list(dict.fromkeys((p.get("children") or []) + child_ids))
+    event(p, "edit", f"{', '.join(child_ids)} filed under it", type="edited", by=by, fields=["children"])
+    save_ticket(p)
 
 
 def column_label(column):
@@ -3501,15 +3556,23 @@ def fenced(text, info="text"):
     return f"{'`' * n}{info}\n{text}\n{'`' * n}"
 
 
+# what Markdown (or a renderer an agent's client uses) may take for a line ending: a lone CR is one in CommonMark
+LINE_BREAK = re.compile("[\r\n\x0b\x0c\x85\u2028\u2029]")
+
+
+def one_line(text):
+    return " ".join(str(text or "").split())   # str.split takes every LINE_BREAK as whitespace
+
+
 def inline(text):
     """Text on a line of its own label. One line with no backticks stays as it is (it can't start a line, so it
     can't forge a heading); anything else goes in a fence below."""
     text = str(text or "")
-    return " " + text if "\n" not in text and "`" not in text else "\n" + fenced(text)
+    return " " + text if not LINE_BREAK.search(text) and "`" not in text else "\n" + fenced(text)
 
 
 def code(text):
-    text = str(text)
+    text = one_line(text)
     n = max([0] + [len(x) for x in re.findall(r"`+", text)]) + 1
     pad = " " if text.startswith("`") or text.endswith("`") else ""
     return f"{'`' * n}{pad}{text}{pad}{'`' * n}"
@@ -3531,7 +3594,7 @@ def who(name, caller):
 def ticket_markdown(view, caller, today=None):
     def render(n_conv):
         v = view
-        out = [f"# {v['id']} · {v['title']}"]
+        out = [f"# {v['id']} · {one_line(v['title'])}"]
         facts = [v["project"], v["kind"], f"**{v['column_label']}**"]
         facts.append(f"assigned to {who(v['assignee'], caller)}" if v.get("assignee") else "unassigned" if v["mode"] == "board" else None)
         if v["labels"]:
@@ -3569,7 +3632,7 @@ def ticket_markdown(view, caller, today=None):
         if v["questions"]:
             out += ["", "## Questions"]
             for q in v["questions"]:
-                state = "Answered" if q.get("answer") is not None else "Open"
+                state = "Answered" if q.get("answer") is not None else "Withdrawn" if q.get("withdrawn") else "Open"
                 line = f"{q['n']}. **{state}** ({who(q.get('by'), caller)} → {who(q.get('recipient'), caller)}, {md_time(q.get('at'), today)}):" + inline(q.get("text"))
                 if q.get("options"):
                     line += "\n   Options: " + ", ".join(code(o) for o in q["options"])
@@ -3613,7 +3676,7 @@ def summary_line(s, caller):
     if s.get("open_questions"):
         bits.append(plural(s["open_questions"], "open question"))
     labels = f" · {','.join(s['labels'])}" if s.get("labels") else ""
-    return f"- {s['id']} · {column_label(s['column'])}{labels} · {s['title']}" + (f" ({'; '.join(bits)})" if bits else "")
+    return f"- {s['id']} · {column_label(s['column'])}{labels} · {one_line(s['title'])}" + (f" ({'; '.join(bits)})" if bits else "")
 
 
 def plural(n, word):
@@ -3633,8 +3696,10 @@ def t_create(cfg, caller, req, wait):
     if key is not None and not IDEM_KEY.fullmatch(key):
         bad("an idempotency key is 1 to 128 of A-Z a-z 0-9 . _ : -", "idempotency_key")
     digest = request_digest(req)
-    with create_lock():
-        index = writable()
+    # the parent is held before anything is filed: a busy parent refuses with nothing written
+    pid = req.get("parent")
+    with create_lock(), held([pid] if pid and TICKET_ID.fullmatch(pid) else [], wait):
+        index = writable(caller)
         if key:
             found = find_idem(index, caller["name"], key)
             if found:
@@ -3643,8 +3708,8 @@ def t_create(cfg, caller, req, wait):
                 return {"created": False, "ticket": ticket_view(cfg, caller, load_ticket(found[0]))}
         check_creates(cfg, caller, project, 1, index)
         t = file_ticket(cfg, caller, project, req, key, digest)
-    if t.get("parent"):
-        adopt(t["parent"], [t["id"]], caller["name"], wait)
+        if t.get("parent"):
+            adopt(t["parent"], [t["id"]], caller["name"])
     return {"created": True, "ticket": ticket_view(cfg, caller, t)}
 
 
@@ -3703,20 +3768,32 @@ def t_list(cfg, caller, req, wait):
     if req.get("cursor"):
         rows = [r for r in rows if int(r[0][1:]) < int(req["cursor"][1:])]
     words = str(req.get("text") or "").lower().split()
-    page = []
+    # a text search reads ticket files; one call reads only so many, then hands back a cursor where it stopped
+    page, spent, files, last, cut = [], 0, 0, None, False
     for tid, e in rows:
-        if words:
-            t = try_load(tid)
-            hay = f"{e.get('title', '')}\n{(t or {}).get('body', '')}".lower()
-            if not all(w in hay for w in words):
-                continue
         if len(page) == limit:
             break
+        if words:
+            if files and (files >= LIMIT["search_files"] or spent >= LIMIT["search_bytes"]):
+                cut = True
+                break
+            files, spent = files + 1, spent + e.get("size", 0)
+            t = try_load(tid)
+            hay = f"{e.get('title', '')}\n{(t or {}).get('body', '')}".lower()
+            last = tid
+            if not all(w in hay for w in words):
+                continue
+        last = tid
         page.append(summary(tid, e))
-    more = len(page) == limit and any(int(r[0][1:]) < int(page[-1]["id"][1:]) for r in rows)
-    nxt = page[-1]["id"] if more else None
+    if cut:
+        nxt = last
+    else:
+        more = len(page) == limit and any(int(r[0][1:]) < int(page[-1]["id"][1:]) for r in rows)
+        nxt = page[-1]["id"] if more else None
     if req.get("format") == "md":
-        lines = [summary_line(s, caller) for s in page] or ["No tickets."]
+        lines = [summary_line(s, caller) for s in page] or ["No match among these." if cut else "No tickets."]
+        if cut:
+            lines.append(f"\n(searched {files} tickets, the most one call reads; older ones are on the next page)")
         return {"markdown": "\n".join(lines) + (f"\n\nMore: cursor={nxt}" if nxt else "") + "\n"}
     return {"tickets": page, "next": nxt}
 
@@ -3780,9 +3857,9 @@ def t_note(cfg, caller, req, wait):
     take(req, {"id": "str", "text": "str"}, ("id", "text"))
     visible_ticket(caller, req["id"])
     need(caller, "talk")
-    writable()
+    writable(caller)
     with changing(req["id"], wait) as t:
-        add_comment(t, caller["name"], req["text"])
+        add_comment(roomy(caller, t), caller["name"], req["text"])
     return {"ticket": ticket_view(cfg, caller, t)}
 
 
@@ -3809,10 +3886,14 @@ def t_move(cfg, caller, req, wait):
         bad(f"say why it goes to {column_label(to)}", "reason")
     if result is not None and to not in ("done", "waiting"):
         bad("a result goes with a move to done or waiting", "result")
-    writable()
+    writable(caller)
     with changing(req["id"], wait) as t:
         may_act(caller, t)
+        roomy(caller, t)
         old = t["column"]
+        if to == old and result is not None and result != said_last(t, caller["name"], to):
+            # a retry is fine; a different result would be dropped without a word
+            raise Refused("conflict", f"{t['id']} is in {column_label(to)} already; post_update to add to it")
         if to != old:
             if old == "waiting":
                 t["waiting"] = None
@@ -3825,23 +3906,44 @@ def t_move(cfg, caller, req, wait):
                 add_comment(t, caller["name"], result, kind="result")
             if to == "waiting" and result:
                 add_comment(t, caller["name"], text_in(result, "result", LIMIT["comment"]))
-            move(t, to, why, reason="reopened" if old in CLOSED_BOARD else MOVE_CODES[to], by=caller["name"])
+            if to in CLOSED_BOARD:
+                # closing withdraws what it still asks: a Done ticket must not wait on anyone
+                for q in t.get("questions") or []:
+                    if is_open(q):
+                        q["withdrawn"] = now()
+            reopened = old in CLOSED_BOARD and to not in CLOSED_BOARD
+            move(t, to, why, reason="reopened" if reopened else MOVE_CODES[to], by=caller["name"])
     return {"ticket": ticket_view(cfg, caller, t)}
+
+
+def said_last(t, me, column):
+    """What a move to column last left as its result: the ticket's result, or my latest comment."""
+    if column == "done":
+        return t.get("result")
+    mine = [c for c in t.get("comments") or [] if c.get("by") == me]
+    return mine[-1].get("text") if mine else None
 
 
 def t_claim(cfg, caller, req, wait):
     take(req, {"id": "str"}, ("id",))
     board_only(visible_ticket(caller, req["id"]))
     need(caller, "work")
-    writable()
+    writable(caller)
     with changing(req["id"], wait) as t:
         me = caller["name"]
+        roomy(caller, t)
         if t["column"] == "doing" and t.get("assignee") == me:
             pass   # a retry by the holder
         elif t.get("assignee") not in (None, me):
             raise Refused("conflict", f"{t['id']} is assigned to {t['assignee']}")
+        elif t["column"] == "waiting" and (t.get("waiting") or {}).get("reason") == "other":
+            # back from Waiting on something that was not a question (a question comes back with its answer)
+            t["assignee"], t["waiting"] = me, None
+            move(t, "doing", f"resumed by {me}", reason="started", by=me)
+        elif t["column"] == "waiting":
+            raise Refused("conflict", f"{t['id']} waits on a question; it comes back to Doing when that is answered")
         elif t["column"] not in ("inbox", "next"):
-            raise Refused("conflict", f"{t['id']} is in {column_label(t['column'])}, not Inbox or Next")
+            raise Refused("conflict", f"{t['id']} is in {column_label(t['column'])}, not Inbox, Next or Waiting")
         else:
             t["assignee"] = me
             event(t, "claim", f"claimed by {me}", type="claimed", by=me)
@@ -3858,9 +3960,9 @@ def t_update(cfg, caller, req, wait):
     if "parent" in req and req["parent"] is not None and not TICKET_ID.fullmatch(req["parent"]):
         bad(f"no ticket {req['parent']}", "parent")
     ids = [first["id"]] + ([x for x in (first.get("parent"), req.get("parent")) if x] if "parent" in req else [])
-    writable()
+    writable(caller)
     with held(ids, wait):
-        t = load_ticket(first["id"])
+        t = roomy(caller, load_ticket(first["id"]))
         if "parent" in req and t.get("parent") != first.get("parent"):
             raise Refused("conflict", f"{t['id']} changed meanwhile; try again")
         f = clean_fields(cfg, caller, t["project"], {k: req[k] for k in ("title", "body", "labels", "assignee", "parent", "links")
@@ -3920,11 +4022,12 @@ def t_ask(cfg, caller, req, wait):
     options = req.get("options") or []
     if len(options) > LIMIT["options"] or any(not 1 <= len(o) <= LIMIT["option"] for o in options):
         bad(f"at most {LIMIT['options']} options, each 1 to {LIMIT['option']} characters", "options")
-    writable()
+    writable(caller)
     with changing(req["id"], wait) as t:
+        roomy(caller, t)
         recipient, person = recipient_of(cfg, t["project"], req.get("recipient") or maintainer(cfg))
         qs = t.setdefault("questions", [])
-        if sum(1 for q in qs if q.get("answer") is None) >= LIMIT["open_questions"]:
+        if sum(1 for q in qs if is_open(q)) >= LIMIT["open_questions"]:
             raise Refused("too_many", f"{t['id']} has {LIMIT['open_questions']} open questions; wait for an answer")
         n, me = len(qs) + 1, caller["name"]
         qs.append({"n": n, "by": me, "recipient": recipient, "to_person": person, "text": text, "options": options,
@@ -3946,7 +4049,7 @@ def t_answer(cfg, caller, req, wait):
         raise Refused("forbidden", f"{first['id']} is a factory ticket: its agents' questions are the maintainer's to answer")
     need(caller, "talk")
     answer = text_in(req["answer"], "answer", LIMIT["answer"])
-    writable()
+    writable(caller)
     with changing(req["id"], wait) as t:
         q = next((q for q in t.get("questions") or [] if q.get("n") == req["n"]), None)
         if q is None:
@@ -3956,10 +4059,13 @@ def t_answer(cfg, caller, req, wait):
             raise Refused("forbidden", f"question {q['n']} was put to {q.get('recipient')}")
         if q.get("answer") is not None:
             raise Refused("conflict", f"question {q['n']} is answered already")
+        if q.get("withdrawn"):
+            raise Refused("conflict", f"question {q['n']} was withdrawn when {t['id']} closed")
+        roomy(caller, t)
         q.update(answer=answer, answered_by=me, answered_at=now())
         event(t, "answer", f"{me} answered question {q['n']}: {clip(answer, 200)}", type="question_answered", by=me, n=q["n"])
         w = t.get("waiting") or {}
-        still = [x for x in t["questions"] if x.get("answer") is None]
+        still = [x for x in t["questions"] if is_open(x)]
         if w.get("reason") == "question" and w.get("question") == q["n"]:
             if still:
                 w.update(question=still[0]["n"], text=still[0]["text"])
@@ -3986,8 +4092,10 @@ def t_split(cfg, caller, req, wait):
         bad("an idempotency key for a split is 1 to 120 of A-Z a-z 0-9 . _ : -", "idempotency_key")
     filed, made, me = [], [], caller["name"]
     with create_lock(), held([first["id"]], wait):
-        index = writable()
-        t = load_ticket(first["id"])
+        index = writable(caller)
+        t = roomy(caller, load_ticket(first["id"]))
+        for c in kids:   # every child checked before any is filed
+            clean_fields(cfg, caller, t["project"], {**c, "parent": t["id"]}, creating=True)
         todo = []
         for i, c in enumerate(kids, 1):
             ckey = f"{key}#{i}" if key else None
@@ -4024,9 +4132,9 @@ def t_send(cfg, caller, req, wait):
     note = text_in(req.get("note") or "", "note", LIMIT["note"], 0)
     me = caller["name"]
     with create_lock(), held([req["id"]], wait):
-        index = writable()
+        index = writable(caller)
         check_creates(cfg, caller, target, 1, index)
-        t = load_ticket(req["id"])
+        t = roomy(caller, load_ticket(req["id"]))
         body = f"Sent from {t['id']} on {t['project']} by {me}.\n\n{t.get('body') or ''}".rstrip()
         if note:
             body += f"\n\nNote from {me}: {note}"
@@ -4164,6 +4272,8 @@ def cmd_recipes(cfg, a):
 
 
 def cmd_add(cfg, a):
+    if a.project in board_projects(cfg):
+        sys.exit(f"{a.project} is a board project: use `factory ticket create`")
     if a.recipe:
         r = {x["name"]: x for x in recipes(cfg)}.get(a.recipe)
         if not r:
@@ -4176,6 +4286,8 @@ def cmd_add(cfg, a):
         a.task = a.task or r["kind"] == "task"
         a.intent = a.intent or r["kind"] == "intent"
         if r["kind"] == "prospect":
+            if a.project not in factory_projects(cfg):
+                sys.exit(f"unknown project {a.project}; known: {', '.join(factory_projects(cfg))}")
             t = new_ticket(a.project, a.title, a.body, a.door, "ready", by=maintainer(cfg))
             t["kind"] = "prospect"
             save_ticket(t)
@@ -4183,8 +4295,6 @@ def cmd_add(cfg, a):
             return
     if not a.title:
         sys.exit("a title is needed (or --recipe)")
-    if a.project in board_projects(cfg):
-        sys.exit(f"{a.project} is a board project: use `factory ticket create`")
     known = list(factory_projects(cfg)) + ([NOTICE_PROJECT] if a.task or a.manage else [])
     if a.project not in known:
         sys.exit(f"unknown project {a.project}; known: {', '.join(known)}"

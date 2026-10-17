@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -548,6 +549,7 @@ func TestAPIStorePermissions(t *testing.T) {
 type fakeAPI struct {
 	*apiHarness
 	dir, token string
+	others     []string // more tokens, one per agent
 }
 
 const fakeFactory = `#!/bin/sh
@@ -579,12 +581,21 @@ func newFakeAPI(t *testing.T) *fakeAPI {
 	store := filepath.Join(cfg, "api-tokens.json")
 	token := "fct_fake-token-for-tests"
 	sum := sha256.Sum256([]byte(token))
-	data, _ := json.Marshal(map[string]any{"version": 1, "tokens": []map[string]any{{"name": "example-agent",
-		"sha256": hex.EncodeToString(sum[:]), "projects": []string{"sandbox"}, "can": []string{"read"}, "expires": nil}}})
+	recs := []map[string]any{{"name": "example-agent",
+		"sha256": hex.EncodeToString(sum[:]), "projects": []string{"sandbox"}, "can": []string{"read"}, "expires": nil}}
+	var others []string
+	for i := 2; i <= 3; i++ {
+		tok := fmt.Sprintf("fct_fake-token-for-tests-%d", i)
+		sum := sha256.Sum256([]byte(tok))
+		recs = append(recs, map[string]any{"name": fmt.Sprintf("example-agent-%d", i), "sha256": hex.EncodeToString(sum[:]),
+			"projects": []string{"sandbox"}, "can": []string{"read"}, "expires": nil})
+		others = append(others, tok)
+	}
+	data, _ := json.Marshal(map[string]any{"version": 1, "tokens": recs})
 	os.WriteFile(store, data, 0o600)
 	h := &apiHarness{t: t, root: t.TempDir(), store: store, factory: script}
 	h.serve(script, false)
-	f := &fakeAPI{apiHarness: h, dir: dir, token: token}
+	f := &fakeAPI{apiHarness: h, dir: dir, token: token, others: others}
 	f.mode("ok")
 	return f
 }
@@ -700,6 +711,7 @@ func TestAPIConcurrency(t *testing.T) {
 	f := newFakeAPI(t)
 	f.mode("slow")
 	f.runner.slotWait = 300 * time.Millisecond
+	tokens := append([]string{f.token}, f.others...)
 	codes := make([]int, 3)
 	retry := make([]string, 3)
 	var wg sync.WaitGroup
@@ -710,7 +722,7 @@ func TestAPIConcurrency(t *testing.T) {
 			if i == 2 {
 				time.Sleep(100 * time.Millisecond) // the first two hold both slots
 			}
-			w := f.call("GET", "/api/v1/me", f.token, nil)
+			w := f.call("GET", "/api/v1/me", tokens[i], nil)
 			codes[i], retry[i] = w.Code, w.Header().Get("Retry-After")
 		}(i)
 	}
@@ -730,5 +742,21 @@ func TestAPIConcurrency(t *testing.T) {
 	wg.Wait()
 	if codes[0] != 200 || codes[1] != 200 || codes[2] != 200 {
 		t.Errorf("within the wait, all go through: %v", codes)
+	}
+	// one token holds one slot at a time: its second call waits, and another token's goes straight through
+	f.runner.slotWait = 300 * time.Millisecond
+	for i, tok := range []string{f.token, f.token, f.others[0]} {
+		wg.Add(1)
+		go func(i int, tok string) {
+			defer wg.Done()
+			if i > 0 {
+				time.Sleep(100 * time.Millisecond)
+			}
+			codes[i] = f.call("GET", "/api/v1/me", tok, nil).Code
+		}(i, tok)
+	}
+	wg.Wait()
+	if codes[0] != 200 || codes[1] != 503 || codes[2] != 200 {
+		t.Errorf("a token's second call waits for its first, others don't: %v", codes)
 	}
 }

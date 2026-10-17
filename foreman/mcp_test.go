@@ -604,11 +604,59 @@ func TestMCPRealRefusals(t *testing.T) {
 	if text := h.toolRefused(reader, "start_work", map[string]any{"id": id}); !strings.Contains(text, "may not") {
 		t.Errorf("start_work as a reader: %s", text)
 	}
-	if text := h.toolRefused(agent, "answer_question", map[string]any{"id": id, "question": 9, "answer": "x"}); !strings.Contains(text, "no question 9") {
-		t.Errorf("answer_question with no such question: %s", text)
+	if text := h.toolRefused(agent, "answer_question", map[string]any{"id": id, "question": 9, "answer": "x"}); !strings.Contains(text, "no question 9 (question)") {
+		t.Errorf("answer_question with no such question names its own argument: %s", text)
+	}
+	if text := h.toolRefused(agent, "ask_person", map[string]any{"id": id, "question": "x?", "to": "nobody"}); !strings.Contains(text, "(to)") {
+		t.Errorf("ask_person to nobody names its own argument: %s", text)
 	}
 	if text := h.toolRefused(agent, "file_ticket", map[string]any{"project": "other", "title": "x"}); !strings.Contains(text, "no project other") {
 		t.Errorf("file_ticket on a hidden project: %s", text)
+	}
+}
+
+func TestMCPWaitingAndClosing(t *testing.T) {
+	h := newAPIHarness(t)
+	agent := h.mint("example-agent", "read,file,talk,work", "sandbox")
+	var made struct {
+		Ticket struct {
+			ID string `json:"id"`
+		} `json:"ticket"`
+	}
+	json.Unmarshal([]byte(h.cli(`{"project": "sandbox", "title": "Board work"}`, "ticket", "create", "--json")), &made)
+	id := made.Ticket.ID
+
+	// out of Waiting and back to Doing, by the holder
+	h.toolOK(agent, "start_work", map[string]any{"id": id})
+	h.toolOK(agent, "finish_work", map[string]any{"id": id, "result": "Half.", "outcome": "waiting", "waiting_reason": "CI is red"})
+	if text := h.toolOK(agent, "start_work", map[string]any{"id": id}); !strings.Contains(text, "**Doing**") {
+		t.Errorf("start_work from Waiting: %s", text)
+	}
+
+	// closing withdraws an open question, and the person is no longer asked
+	h.toolOK(agent, "ask_person", map[string]any{"id": id, "question": "Which?"})
+	h.toolOK(agent, "finish_work", map[string]any{"id": id, "result": "Done it"})
+	text := h.toolOK(agent, "get_ticket", map[string]any{"id": id})
+	if !strings.Contains(text, "1. **Withdrawn**") {
+		t.Errorf("a closed ticket's question is withdrawn: %s", text)
+	}
+	var tk map[string]any
+	data, _ := os.ReadFile(h.root + "/board/tickets/" + id + ".json")
+	json.Unmarshal(data, &tk)
+	if tk["ask"] != nil {
+		t.Errorf("a Done ticket asks nobody: %v", tk["ask"])
+	}
+
+	// a retry is fine; a different result is not dropped silently
+	h.toolOK(agent, "finish_work", map[string]any{"id": id, "result": "Done it"})
+	if text := h.toolRefused(agent, "finish_work", map[string]any{"id": id, "result": "Done it again, differently"}); !strings.Contains(text, "post_update") {
+		t.Errorf("a second, different result: %s", text)
+	}
+	h.toolOK(agent, "drop_ticket", map[string]any{"id": id, "reason": "not needed after all"})
+	json.Unmarshal([]byte(h.cli(`{"id": "`+id+`"}`, "ticket", "get", "--json")), &tk)
+	hist := tk["ticket"].(map[string]any)["history"].([]any)
+	if last := hist[len(hist)-1].(map[string]any); last["reason"] != "dropped" {
+		t.Errorf("Done to Dropped is not a reopening: %v", last)
 	}
 }
 
@@ -644,6 +692,7 @@ func TestMCPBadArguments(t *testing.T) {
 		{"update_ticket", map[string]any{"id": "T0001", "parent": "nope"}},
 		{"finish_work", map[string]any{"id": "T0001", "result": "x", "outcome": "later"}},
 		{"finish_work", map[string]any{"id": "T0001", "result": "x", "waiting_reason": "y"}},
+		{"finish_work", map[string]any{"id": "T0001", "result": "x", "outcome": "waiting"}},
 		{"ask_person", map[string]any{"id": "T0001", "question": "x", "options": []any{"a", "b", "c", "d", "e", "f", "g"}}},
 		{"answer_question", map[string]any{"id": "T0001", "question": 0, "answer": "x"}},
 		{"post_update", map[string]any{"id": "T0001", "text": strings.Repeat("a", 16*1024+1)}},

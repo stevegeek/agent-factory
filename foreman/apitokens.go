@@ -94,21 +94,40 @@ func storePerms(path string, info os.FileInfo) error {
 
 // Name: whose token this is, or "" when it matches none, or only a record past its expiry.
 func (s *APITokens) Name(token string) string {
+	found := ""
+	s.match(token, func(r apiToken) {
+		if !s.expired(r) {
+			found = r.Name
+		}
+	})
+	return found
+}
+
+// Stale: the token is one this store issued whose record has expired.
+func (s *APITokens) Stale(token string) bool {
+	stale := false
+	s.match(token, func(r apiToken) {
+		if s.expired(r) {
+			stale = true
+		}
+	})
+	return stale
+}
+
+func (s *APITokens) match(token string, each func(apiToken)) {
 	if token == "" {
-		return ""
+		return
 	}
 	sum := sha256.Sum256([]byte(token))
 	s.mu.Lock()
 	recs := s.load()
 	s.mu.Unlock()
-	found := ""
 	for _, r := range recs {
 		want, err := hex.DecodeString(r.SHA256)
-		if err == nil && len(want) == len(sum) && subtle.ConstantTimeCompare(sum[:], want) == 1 && !s.expired(r) {
-			found = r.Name
+		if err == nil && len(want) == len(sum) && subtle.ConstantTimeCompare(sum[:], want) == 1 {
+			each(r)
 		}
 	}
-	return found
 }
 
 // expired as the CLI reads it: a time that does not parse has expired.

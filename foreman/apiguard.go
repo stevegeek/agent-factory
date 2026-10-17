@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"math"
 	"mime"
 	"net"
@@ -71,17 +73,18 @@ func (g *Guard) Admit(w http.ResponseWriter, r *http.Request, write bool) string
 		apiError(w, http.StatusForbidden, "forbidden", "requests from web pages on other sites are refused", "")
 		return ""
 	}
-	ip := clientIP(r)
-	if !g.allowed(ip) {
+	token, presented := bearer(r)
+	key := failKey(clientIP(r), token)
+	if !g.allowed(key) {
 		w.Header().Set("Retry-After", strconv.Itoa(int(apiFailWindow.Seconds())))
 		apiError(w, http.StatusTooManyRequests, "too_many", "too many bad tokens from this address; wait a while", "")
 		return ""
 	}
-	token, presented := bearer(r)
 	name := ""
 	if presented {
-		if name = g.tokens.Name(token); name == "" {
-			g.failed(ip)
+		// a token past its expiry is stale, not a guess: it doesn't count towards the lockout
+		if name = g.tokens.Name(token); name == "" && !g.tokens.Stale(token) {
+			g.failed(key)
 		}
 	}
 	if name == "" {
@@ -101,6 +104,17 @@ func (g *Guard) Admit(w http.ResponseWriter, r *http.Request, write bool) string
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, apiBody)
 	return name
+}
+
+// failKey: whose bad tokens count together. Every caller on this host shares loopback, so there one stale
+// credential would lock out every local agent: count them by the token presented instead. Tokens are random
+// 256-bit values, so guessing them gains nothing from that.
+func failKey(ip, token string) string {
+	if !isLoopback(ip) {
+		return ip
+	}
+	sum := sha256.Sum256([]byte(token))
+	return "token " + hex.EncodeToString(sum[:8])
 }
 
 func unauthorized(w http.ResponseWriter) {
