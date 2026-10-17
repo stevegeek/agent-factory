@@ -36,6 +36,9 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o for
 | `--revoke-sessions` | | log out every browser and exit |
 | `--project` | | a project a new ticket may name (repeatable; deploy passes `[projects]`) |
 | `--push` | on | Web Push to subscribed devices; the VAPID key (`foreman-vapid.pem`) and the devices (`foreman-push.json`) live beside the secret |
+| `--api` | on | the ticket API at `/api/v1`; see [Ticket API](#ticket-api) |
+| `--api-tokens` | `api-tokens.json` beside `--secret-file` | the dispatcher's token store (`factory tokens`; `FACTORY_API_TOKENS` for the CLI) |
+| `--api-concurrency` | 2 | `factory ticket` processes the API runs at once |
 
 ## New tickets
 
@@ -56,6 +59,75 @@ Listening on anything but loopback sends the secret and cookie over plain HTTP; 
 With `--trust-tailscale`, a request from loopback whose `Tailscale-User-Login` (set by `tailscale serve`) is one of the `--tailscale-user` logins counts as logged in. Every process on the host that can reach the port can send that header, agents included; use it only where that is acceptable.
 
 Ticket text is untrusted: everything is escaped, only http(s) links render, and the CSP allows nothing off the box. Agent-written fields of an unexpected type are ignored rather than hiding the ticket.
+
+## Ticket API
+
+`/api/v1` lets scripts and agents work tickets with a token from the dispatcher, on board projects (`mode = "board"`) and, more narrowly, on factory projects. Foreman checks who is calling, then runs `factory ticket VERB --as NAME --wait 10 --json` with the request as JSON on stdin (an argv, never a shell) and relays the answer. The CLI decides everything else, on every call: which projects and tickets the token sees, its capabilities, column rules, limits and idempotency. Foreman never writes a ticket or the token store.
+
+```sh
+factory tokens add example-agent --project sandbox --can read,file,talk,work   # prints fct_… once
+curl -s https://<host>.ts.net/api/v1/work -H "Authorization: Bearer $TOKEN"
+curl -s https://<host>.ts.net/api/v1/tickets -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: run-42-bug' \
+  -d '{"project": "sandbox", "title": "Fix the date picker", "body": "It shows the wrong month."}'
+```
+
+| Method and path | Verb | Success |
+| --- | --- | --- |
+| `GET /api/v1/me` | `whoami` | 200 `{name, projects, can, expires}` |
+| `GET /api/v1/projects` | `projects` | 200 `{projects}`: the token's own, with columns, kinds and capabilities |
+| `GET /api/v1/work?project=&limit=` | `mine` | 200 `{groups}`: answered, asked of me, doing, next, unassigned, waiting |
+| `GET /api/v1/tickets?project=&column=&assignee=&label=&kind=&q=&updated_since=&include_closed=&limit=&cursor=` | `list` | 200 `{tickets, next}`, newest first; `next` is the cursor for the next page |
+| `POST /api/v1/tickets` | `create` | 201 with `Location` when filed; 200 when the idempotency key filed it already |
+| `GET /api/v1/tickets/{id}` | `get` | 200 `{ticket}` |
+| `PATCH /api/v1/tickets/{id}` | `update` | 200 `{ticket}` |
+| `POST /api/v1/tickets/{id}/notes` | `note` | 201 `{ticket}` |
+| `POST /api/v1/tickets/{id}/move` | `move` | 200 `{ticket}`; `{"to": "done", "result": …}` finishes, `{"to": "dropped", "reason": …}` drops |
+| `POST /api/v1/tickets/{id}/claim` | `claim` | 200 `{ticket}` |
+| `POST /api/v1/tickets/{id}/ask` | `ask` | 201 `{ticket, n}` |
+| `POST /api/v1/tickets/{id}/answer` | `answer` | 200 `{ticket}` |
+| `POST /api/v1/tickets/{id}/split` | `split` | 201 `{ticket, children}` |
+| `POST /api/v1/tickets/{id}/send` | `send` | 201 `{ticket, factory_ticket}` |
+
+Bodies (unknown keys are refused):
+
+- create: `project`, `title`, and optionally `body` (Markdown), `kind` (`item` or `task` on a board project; only `change` on a factory project, which lands in triage), `labels`, `parent`, `links`, `idempotency_key`;
+- update: any of `title`, `body`, `labels`, `add_labels`, `remove_labels`, `parent` (null clears), `assignee`, `links` (added);
+- notes: `text`; move: `to`, and `reason` (needed for `waiting` and `dropped`) or `result`; claim: `{}`;
+- ask: `question`, and optionally `options` (up to 6) and `recipient` (a person, or a token on this project; the first person by default);
+- answer: `n`, `answer`; split: `children` (1 to 20 of `{title, body?, labels?, kind?}`), `idempotency_key`?; send: `project` (a factory project), `note`?.
+
+The ticket is named by the path only: a body or query that names `id` is refused. On `POST /tickets` an `Idempotency-Key` header wins over `idempotency_key` in the body. Query values are checked for type here (`limit` an integer, `include_closed` a boolean, `updated_since` RFC 3339), an empty one is left out, `q` searches title and body, and `get`, `list` and `work` take `format=md` for the Markdown agents read. Ids are `T` and 4 to 6 digits; anything else is 404 without a call. Every answer is JSON with `Cache-Control: no-store`; an unknown path is 404 and a wrong method 405 with `Allow`.
+
+Errors are `{"error": {"code", "message", "field"?}}`:
+
+| Status | Code | When |
+| --- | --- | --- |
+| 400 | `bad_request` | malformed JSON, an unknown key or query parameter, a wrong type or value (`field` names it) |
+| 401 | `unauthorized` | no token, a wrong, revoked or expired one (with `WWW-Authenticate: Bearer realm="factory"`) |
+| 403 | `forbidden` | a capability the token lacks, a peer off the tailnet, a foreign `Origin` |
+| 403 | `factory_ticket`, `not_on_factory_ticket` | an action only the pipeline takes on a factory ticket; `ask` there |
+| 404 | `not_found` | no such ticket or endpoint, or a ticket in a project the token does not name: never "forbidden", so nothing says it exists |
+| 409 | `conflict` | claimed by someone else, the wrong column, already answered |
+| 413 | `too_large` | a body over 256 KiB |
+| 415 | `bad_request` | a POST or PATCH body that is not `application/json` |
+| 422 | `idempotency_mismatch` | the same key with a different request |
+| 429 | `too_many` | the token's rate, the daily create cap or a ticket's comment or question cap; ten bad tokens from one address in 15 minutes (`Retry-After`) |
+| 503 | `busy` | the tick holds the ticket (`Retry-After: 30`), or every CLI slot stayed taken for 10 s (`Retry-After: 5`) |
+| 507 | `storage_full` | the store's size cap |
+| 500 | `internal` | the CLI failed, timed out (30 s) or answered more than 1 MiB; stderr goes to Foreman's log, not the caller |
+
+What a token may do (`read`, `file`, `talk`, `work`, `plan`) is in `core/README.md`. No endpoint approves, merges, opens a PR, moves a factory ticket through its pipeline, edits config or makes tokens.
+
+Who may call, checked in this order before any body is read:
+
+1. **Peer.** Loopback (`tailscale serve`), or, only when `--listen` is beyond loopback, a tailnet address (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`). Through `tailscale serve`, a request marked `Tailscale-Funnel-Request` or whose `X-Forwarded-For` names a client off the tailnet came from the internet and gets 403. Never turn Funnel on for Foreman; this is a second line.
+2. **Origin.** None (curl, agents), or `https://` and a `--host` name. A web page elsewhere gets 403.
+3. **Token.** Exactly one `Authorization: Bearer fct_…`. The store is re-read when it changes, compared as sha256 in constant time, and refused whole while others can read it or write its directory. The login session is never accepted here, and a token is no login for the app.
+4. **Rate**, per token: 120 calls a minute (bursts of 30), of which 30 writes (bursts of 10).
+5. **Body**: at most 256 KiB, `application/json` on POST and PATCH.
+
+At most `--api-concurrency` CLI processes run at once, apart from the answers' runner (which a ten-minute `pr` can hold); each gets Foreman's environment with `FACTORY_ROOT` and `FACTORY_API_TOKENS` set, and a client hanging up does not cut a write short. The Host allowlist and the security headers apply as everywhere.
 
 ## Project boards
 
