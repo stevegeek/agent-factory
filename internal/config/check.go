@@ -3,6 +3,8 @@ package config
 import (
 	"cmp"
 	"fmt"
+	"net/netip"
+	"net/url"
 	"path"
 	"regexp"
 	"slices"
@@ -156,7 +158,8 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 	if a := c.Findings.AutoFile; a != AutoFileNone && a != AutoFileConfirmedSafe {
 		problems = append(problems, fmt.Sprintf("[findings] auto_file = %q: it is %q or %q", a, AutoFileNone, AutoFileConfirmedSafe))
 	}
-	remotes := append([]RemoteHost{{Agent: c.Remote.Agent, Auth: c.Remote.Auth, Image: c.Remote.Image}}, c.Remote.Hosts...)
+	remotes := append([]RemoteHost{{Agent: c.Remote.Agent, Auth: c.Remote.Auth, Image: c.Remote.Image,
+		Watchdog: c.Remote.Watchdog, WatchdogIP: c.Remote.WatchdogIP}}, c.Remote.Hosts...)
 	for i, h := range remotes {
 		label, agent, auth, image := "[remote]", h.Agent, h.Auth, h.Image
 		if i > 0 {
@@ -170,6 +173,7 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 				problems = append(problems, fmt.Sprintf("%s never applies: a helper reads the table named by its lowercased short hostname", label))
 			}
 		}
+		problems = append(problems, watchdogProblems(label, h, c.Remote, i > 0)...)
 		if agent == "claude" && image == "localhost/factory-pi:dev" {
 			problems = append(problems, fmt.Sprintf("%s agent = \"claude\" needs image = the Claude Code image, not the Pi image %s", label, image))
 		}
@@ -259,6 +263,37 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 		warnings = append(warnings, "[github] app_slug is not set: gate-workflow needs the App's slug")
 	}
 	return problems, warnings
+}
+
+// watchdogProblems checks one [remote] table's watchdog keys, each as set
+// there (over [remote] for a helper's table): watchdog is the master's
+// https:// /healthz URL, and watchdog_ip an IP literal that needs one. A
+// helper merges [remote.<name>] over [remote], so watchdog_ip in [remote]
+// is fine when [remote] or any helper's table sets watchdog.
+func watchdogProblems(label string, h RemoteHost, base Remote, helper bool) []string {
+	var problems []string
+	if h.Watchdog != "" {
+		u, err := url.Parse(h.Watchdog)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "/healthz" || u.RawQuery != "" || u.Fragment != "" {
+			problems = append(problems, fmt.Sprintf("%s watchdog = %q: it is an https:// URL whose path is /healthz", label, h.Watchdog))
+		}
+	}
+	if h.WatchdogIP != "" {
+		watchdog := h.Watchdog
+		if helper {
+			watchdog = cmp.Or(watchdog, base.Watchdog)
+		} else {
+			for _, o := range base.Hosts {
+				watchdog = cmp.Or(watchdog, o.Watchdog)
+			}
+		}
+		if _, err := netip.ParseAddr(h.WatchdogIP); err != nil {
+			problems = append(problems, fmt.Sprintf("%s watchdog_ip = %q: it is an IP address", label, h.WatchdogIP))
+		} else if watchdog == "" {
+			problems = append(problems, label+" watchdog_ip needs watchdog")
+		}
+	}
+	return problems
 }
 
 // HostProblems are the checks that depend on the machine the config is

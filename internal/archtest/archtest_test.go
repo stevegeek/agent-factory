@@ -152,7 +152,7 @@ func TestTableMatchesThePlan(t *testing.T) {
 		"internal/podman", "internal/present", "internal/prflow", "internal/pull", "internal/push", "internal/render",
 		"internal/scion", "internal/scionread", "internal/screens", "internal/security", "internal/sshjobs", "internal/stage",
 		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/ticket", "internal/ticketapi", "internal/tiers",
-		"internal/tokens", "internal/toml", "internal/upkeep", "internal/vitals", "internal/wake", "internal/web",
+		"internal/tokens", "internal/toml", "internal/upkeep", "internal/vitals", "internal/wake", "internal/web", "internal/webpush",
 	}
 	if !slices.Equal(names, want) {
 		t.Errorf("table rows:\n got %v\nwant %v", names, want)
@@ -218,6 +218,18 @@ func TestTableMatchesThePlan(t *testing.T) {
 	for p := range reach {
 		if p != "cmd/factory-remote" && !allowed[p] {
 			t.Errorf("the table lets cmd/factory-remote reach %s", p)
+		}
+	}
+	// The helper's watchdog pushes through webpush, and webpush leads to
+	// no board: its whole closure is inside the helper's.
+	if !reach["internal/webpush"] || !tab["internal/push"]["internal/webpush"] {
+		t.Errorf("webpush is not in the helper's and push's reach")
+	}
+	reach = map[string]bool{}
+	walk("internal/webpush")
+	for p := range reach {
+		if !allowed[p] {
+			t.Errorf("webpush reaches %s, outside the helper's closure", p)
 		}
 	}
 }

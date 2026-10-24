@@ -54,6 +54,10 @@ type Remote struct {
 	Build bool
 	// BuildMemory is a build container's --memory ("2g").
 	BuildMemory string
+	// Watchdog is the master's /healthz URL that `factory-remote watchdog`
+	// checks ("" for none), and WatchdogIP the address it dials for it
+	// ("" for the URL's host); TLS still checks the URL's host.
+	Watchdog, WatchdogIP string
 }
 
 // The agents a helper runs, and the credentials it gives them.
@@ -191,7 +195,8 @@ func (r *Remote) decode(t *toml.Table, label string) error {
 	for _, f := range []struct {
 		key string
 		dst *string
-	}{{"image", &r.Image}, {"memory", &r.Memory}, {"agent", &r.Agent}, {"auth", &r.Auth}, {"build_memory", &r.BuildMemory}} {
+	}{{"image", &r.Image}, {"memory", &r.Memory}, {"agent", &r.Agent}, {"auth", &r.Auth}, {"build_memory", &r.BuildMemory},
+		{"watchdog", &r.Watchdog}, {"watchdog_ip", &r.WatchdogIP}} {
 		if v, ok := t.Get(f.key); ok {
 			s, ok := v.(string)
 			if !ok {
@@ -260,7 +265,7 @@ func (r *Remote) decode(t *toml.Table, label string) error {
 
 // remoteKeys are the keys of a [remote] table; no host is named after one.
 func remoteKeys() []string {
-	return []string{"image", "memory", "mounts", "env", "max_jobs", "cpus", "agent", "auth", "deps", "build", "build_memory"}
+	return []string{"image", "memory", "mounts", "env", "max_jobs", "cpus", "agent", "auth", "deps", "build", "build_memory", "watchdog", "watchdog_ip"}
 }
 
 // table is cfg.get(key, {}) where the value must be a table.

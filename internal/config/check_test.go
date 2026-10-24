@@ -382,6 +382,48 @@ func TestRemoteHosts(t *testing.T) {
 	}
 }
 
+// A helper's watchdog is the master's /healthz over https, and its
+// watchdog_ip an IP literal for it.
+func TestWatchdogKeysCheck(t *testing.T) {
+	for conf, want := range map[string]string{
+		"[remote.helpera]\nwatchdog = \"https://foreman.example.ts.net/healthz\"\nwatchdog_ip = \"100.64.0.1\"\n":             "",
+		"[remote.helpera]\nwatchdog = \"https://foreman.example.ts.net:8443/healthz\"\nwatchdog_ip = \"fd7a:115c:a1e0::1\"\n": "",
+		"[remote]\nwatchdog = \"https://foreman.example.ts.net/healthz\"\n[remote.helpera]\nwatchdog_ip = \"100.64.0.1\"\n":   "",
+		"[remote.helpera]\nwatchdog = \"http://foreman.example.ts.net/healthz\"\n":                                            `[remote.helpera] watchdog = "http://foreman.example.ts.net/healthz": it is an https:// URL whose path is /healthz`,
+		"[remote.helpera]\nwatchdog = \"https://foreman.example.ts.net/\"\n":                                                  `[remote.helpera] watchdog = "https://foreman.example.ts.net/": it is an https:// URL whose path is /healthz`,
+		"[remote.helpera]\nwatchdog = \"https://foreman.example.ts.net/healthz?x=1\"\n":                                       `[remote.helpera] watchdog = "https://foreman.example.ts.net/healthz?x=1": it is an https:// URL whose path is /healthz`,
+		"[remote.helpera]\nwatchdog = \"https://u@foreman.example.ts.net/healthz\"\n":                                         `[remote.helpera] watchdog = "https://u@foreman.example.ts.net/healthz": it is an https:// URL whose path is /healthz`,
+		"[remote.helpera]\nwatchdog = \"https://foreman.example.ts.net/healthz\"\nwatchdog_ip = \"foreman\"\n":                `[remote.helpera] watchdog_ip = "foreman": it is an IP address`,
+		"[remote.helpera]\nwatchdog_ip = \"100.64.0.1\"\n":                                                                    `[remote.helpera] watchdog_ip needs watchdog`,
+		"[remote]\nwatchdog_ip = \"192.0.2.1\"\n[remote.helpera]\nwatchdog = \"https://foreman.example.ts.net/healthz\"\n":    "",
+		"[remote]\nwatchdog_ip = \"192.0.2.1\"\n[remote.helpera]\nmemory = \"1g\"\n":                                          `[remote] watchdog_ip needs watchdog`,
+		"[remote]\nwatchdog = \"https://foreman.example.ts.net\"\n":                                                           `[remote] watchdog = "https://foreman.example.ts.net": it is an https:// URL whose path is /healthz`,
+	} {
+		c := mustParse(t, conf)
+		problems, warnings := c.Problems(nil)
+		var got []string
+		for _, p := range problems {
+			if strings.Contains(p, "watchdog") {
+				got = append(got, p)
+			}
+		}
+		if want == "" && len(got) != 0 || want != "" && !reflect.DeepEqual(got, []string{want}) {
+			t.Errorf("%q: problems %q, want %q", conf, got, want)
+		}
+		if len(c.Unknown) != 0 {
+			t.Errorf("%q: unknown %q (warnings %q)", conf, c.Unknown, warnings)
+		}
+	}
+	if c := mustParse(t, "[remote.watchdog]\nmemory = \"1g\"\n"); !slices.Contains(mustProblems(c), `[remote.watchdog] is not a helper's table: watchdog is a [remote] key`) {
+		t.Errorf("a helper named watchdog: %q", mustProblems(c))
+	}
+}
+
+func mustProblems(c *Config) []string {
+	p, _ := c.Problems(nil)
+	return p
+}
+
 // [build] host names an ssh helper in [hosts].
 func TestBuildHost(t *testing.T) {
 	hosts := "[hosts.helpera]\nssh = \"factory@helpera\"\n\n[hosts.desk]\ntransport = \"pull\"\n"

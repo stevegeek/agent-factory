@@ -267,21 +267,27 @@ type Remote struct {
 	// Agent and Auth are what [remote] sets ("" for the helper's
 	// defaults: pi, and the API key; claude defaults to the subscription).
 	Agent, Auth string
+	// Watchdog and WatchdogIP are what [remote] sets of a helper's outside
+	// check of the master: its /healthz URL, and the address dialled for
+	// it ("" for none, and for the URL's host).
+	Watchdog, WatchdogIP string
 	// Hosts are the [remote.<name>] tables, each read only on the helper
 	// whose short hostname is name, over [remote].
 	Hosts []RemoteHost
 }
 
 // RemoteHost is what one [remote.<name>] sets of the agent, its
-// credential and its image ("" when it leaves them to [remote]).
+// credential, its image and its watchdog ("" when it leaves them to
+// [remote]).
 type RemoteHost struct {
 	Name, Agent, Auth, Image string
+	Watchdog, WatchdogIP     string
 }
 
 // RemoteKeys are the keys of a [remote] table; no helper is named after
 // one.
 func RemoteKeys() []string {
-	return []string{"image", "memory", "mounts", "env", "max_jobs", "cpus", "agent", "auth", "deps", "build", "build_memory"}
+	return []string{"image", "memory", "mounts", "env", "max_jobs", "cpus", "agent", "auth", "deps", "build", "build_memory", "watchdog", "watchdog_ip"}
 }
 
 // HostJobs is the host kind of a [hosts.<name>] that names none: a helper

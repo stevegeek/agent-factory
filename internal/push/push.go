@@ -1,8 +1,8 @@
 // Package push is Foreman's Web Push: it watches the board and tells
 // people's devices when something needs them or settles without them.
-// Standard library only: VAPID (RFC 8292) signs each request, and the
-// payload is encrypted for the device (RFC 8291, aes128gcm), so the push
-// service sees nothing.
+// Each message goes out through internal/webpush (VAPID-signed, encrypted
+// for the device, so the push service sees nothing); this package keeps
+// the devices, the news and who may hear what.
 //
 // Its files live in one directory (beside the login secret): the VAPID key
 // foreman-vapid.pem, the subscriptions foreman-push.json and what the
@@ -10,96 +10,38 @@
 package push
 
 import (
-	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/hkdf"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/fsx"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/webpush"
 )
 
 // Maintainer is the user name a subscription of the maintainer's may carry
 // (auth.Maintainer); an empty user is the maintainer too.
-const Maintainer = "maintainer"
+const Maintainer = webpush.Maintainer
 
-const (
-	maxDevices  = 20
-	sendTimeout = 20 * time.Second
-)
-
-func b64() *base64.Encoding { return base64.RawURLEncoding }
-
-// pushHosts are the push services a subscription may point at. Anything
-// else is refused, so a subscription can never make Foreman send requests
-// somewhere else (an SSRF guard).
-func pushHosts() []string {
-	return []string{".push.apple.com", "fcm.googleapis.com", ".push.services.mozilla.com", ".notify.windows.com"}
-}
-
-// HostOK reports an endpoint on a known push service: https, no userinfo,
-// port 443 or none.
-func HostOK(endpoint string) bool {
-	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme != "https" || u.User != nil || (u.Port() != "" && u.Port() != "443") {
-		return false
-	}
-	h := strings.ToLower(u.Hostname())
-	for _, p := range pushHosts() {
-		if h == p || (strings.HasPrefix(p, ".") && strings.HasSuffix(h, p)) {
-			return true
-		}
-	}
-	return false
-}
+const maxDevices = 20
 
 // Subscription is one device's subscription, as the browser gives it.
-type Subscription struct {
-	Endpoint string `json:"endpoint"`
-	Keys     struct {
-		P256dh string `json:"p256dh"`
-		Auth   string `json:"auth"`
-	} `json:"keys"`
-	Added string `json:"added,omitempty"`
-	User  string `json:"user,omitempty"` // who subscribed it; empty: the maintainer
-}
+type Subscription = webpush.Subscription
 
-func (s *Subscription) valid() error {
-	if !HostOK(s.Endpoint) {
-		return errors.New("not a known push service")
-	}
-	if k, err := b64().DecodeString(s.Keys.P256dh); err != nil || len(k) != 65 {
-		return errors.New("bad p256dh key")
-	}
-	if a, err := b64().DecodeString(s.Keys.Auth); err != nil || len(a) != 16 {
-		return errors.New("bad auth secret")
-	}
-	return nil
-}
-
-func isMaintainer(user string) bool { return user == "" || user == Maintainer }
+func isMaintainer(user string) bool { return webpush.ForMaintainer(Subscription{User: user}) }
 
 // Audience says whether a person other than the maintainer still exists and
 // may see a project (auth.Users).
@@ -154,17 +96,11 @@ func New(dir, subject string, opt Options) (*Pusher, error) {
 		p.clock = clock.System{}
 	}
 	if p.client == nil {
-		p.client = &http.Client{Timeout: sendTimeout,
+		p.client = &http.Client{Timeout: webpush.SendTimeout,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
-	switch data, err := os.ReadFile(p.subsFile()); {
-	case errors.Is(err, fs.ErrNotExist):
-	case err != nil:
+	if p.subs, err = webpush.ReadSubscriptions(p.subsFile()); err != nil {
 		return nil, fmt.Errorf("push: %w", err)
-	default:
-		if err := json.Unmarshal(data, &p.subs); err != nil {
-			return nil, fmt.Errorf("push: %s: %w", p.subsFile(), err)
-		}
 	}
 	return p, nil
 }
@@ -178,21 +114,12 @@ func (p *Pusher) logf(format string, args ...any) {
 	}
 }
 
+// loadVAPID is webpush.LoadVAPID, and when there is no key yet, a new one
+// written once (O_EXCL) at 0600. Only Foreman makes the key.
 func loadVAPID(path string) (*ecdsa.PrivateKey, error) {
-	data, err := os.ReadFile(path)
-	if err == nil {
-		blk, _ := pem.Decode(data)
-		if blk == nil {
-			return nil, fmt.Errorf("%s: not PEM", path)
-		}
-		k, err := x509.ParseECPrivateKey(blk.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", path, err)
-		}
-		return k, nil
-	}
+	k, err := webpush.LoadVAPID(path)
 	if !errors.Is(err, fs.ErrNotExist) {
-		return nil, err
+		return k, err
 	}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -217,13 +144,7 @@ func loadVAPID(path string) (*ecdsa.PrivateKey, error) {
 }
 
 // PublicKey is the applicationServerKey a browser subscribes with.
-func (p *Pusher) PublicKey() string {
-	pub, err := p.key.PublicKey.ECDH()
-	if err != nil {
-		return ""
-	}
-	return b64().EncodeToString(pub.Bytes())
-}
+func (p *Pusher) PublicKey() string { return webpush.PublicKey(p.key) }
 
 // Count is the number of devices of everyone.
 func (p *Pusher) Count() int {
@@ -256,7 +177,7 @@ func sameUser(a, b string) bool {
 // Add stores a device's subscription. Re-subscribing an endpoint replaces
 // it; at most 20 devices in all.
 func (p *Pusher) Add(s Subscription) error {
-	if err := s.valid(); err != nil {
+	if err := webpush.Valid(s, nil); err != nil {
 		return err
 	}
 	p.mu.Lock()
@@ -402,134 +323,8 @@ func (p *Pusher) maintainerName() string {
 
 // HostOf is an endpoint's host, for log lines (never the whole capability
 // URL).
-func HostOf(endpoint string) string {
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return "?"
-	}
-	return u.Host
-}
+func HostOf(endpoint string) string { return webpush.HostOf(endpoint) }
 
 func (p *Pusher) send(ctx context.Context, s Subscription, payload []byte) (int, error) {
-	if err := s.valid(); err != nil {
-		return 0, err
-	}
-	body, err := encrypt(s, payload)
-	if err != nil {
-		return 0, err
-	}
-	jwt, err := p.vapid(s.Endpoint)
-	if err != nil {
-		return 0, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, sendTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Endpoint, bytes.NewReader(body))
-	if err != nil {
-		return 0, err
-	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Content-Encoding", "aes128gcm")
-	req.Header.Set("TTL", "86400")
-	req.Header.Set("Urgency", "normal")
-	req.Header.Set("Authorization", "vapid t="+jwt+", k="+p.PublicKey())
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("send to %s: %w", HostOf(s.Endpoint), err)
-	}
-	resp.Body.Close()
-	return resp.StatusCode, nil
-}
-
-// vapid is an ES256 JWT for the push service's origin, valid 12 hours.
-func (p *Pusher) vapid(endpoint string) (string, error) {
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return "", err
-	}
-	head := b64().EncodeToString([]byte(`{"typ":"JWT","alg":"ES256"}`))
-	claims, err := json.Marshal(map[string]any{"aud": u.Scheme + "://" + u.Host, "exp": p.clock.Now().Add(12 * time.Hour).Unix(), "sub": p.subject})
-	if err != nil {
-		return "", err
-	}
-	signing := head + "." + b64().EncodeToString(claims)
-	sum := sha256.Sum256([]byte(signing))
-	r, s, err := ecdsa.Sign(rand.Reader, p.key, sum[:])
-	if err != nil {
-		return "", err
-	}
-	sig := make([]byte, 64)
-	r.FillBytes(sig[:32])
-	s.FillBytes(sig[32:])
-	return signing + "." + b64().EncodeToString(sig), nil
-}
-
-// encrypt is RFC 8291 for one record. An ephemeral key agrees a secret with
-// the device's key, mixed with the device's auth secret; the header carries
-// the salt and the ephemeral public key.
-func encrypt(s Subscription, plaintext []byte) ([]byte, error) {
-	uaBytes, err := b64().DecodeString(s.Keys.P256dh)
-	if err != nil {
-		return nil, err
-	}
-	authSecret, err := b64().DecodeString(s.Keys.Auth)
-	if err != nil {
-		return nil, err
-	}
-	uaPub, err := ecdh.P256().NewPublicKey(uaBytes)
-	if err != nil {
-		return nil, err
-	}
-	asPriv, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	shared, err := asPriv.ECDH(uaPub)
-	if err != nil {
-		return nil, err
-	}
-	asPub := asPriv.PublicKey().Bytes()
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return nil, err
-	}
-	cek, nonce, err := deriveKeys(shared, authSecret, salt, uaBytes, asPub)
-	if err != nil {
-		return nil, err
-	}
-	block, err := aes.NewCipher(cek)
-	if err != nil {
-		return nil, err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-	sealed := gcm.Seal(nil, nonce, append(append([]byte{}, plaintext...), 0x02), nil) // 0x02: the last record
-	head := make([]byte, 0, 21+len(asPub))
-	head = append(head, salt...)
-	head = binary.BigEndian.AppendUint32(head, 4096)
-	head = append(head, byte(len(asPub)))
-	head = append(head, asPub...)
-	return append(head, sealed...), nil
-}
-
-func deriveKeys(shared, authSecret, salt, uaPub, asPub []byte) (cek, nonce []byte, err error) {
-	prkKey, err := hkdf.Extract(sha256.New, shared, authSecret)
-	if err != nil {
-		return nil, nil, err
-	}
-	ikm, err := hkdf.Expand(sha256.New, prkKey, "WebPush: info\x00"+string(uaPub)+string(asPub), 32)
-	if err != nil {
-		return nil, nil, err
-	}
-	prk, err := hkdf.Extract(sha256.New, ikm, salt)
-	if err != nil {
-		return nil, nil, err
-	}
-	if cek, err = hkdf.Expand(sha256.New, prk, "Content-Encoding: aes128gcm\x00", 16); err != nil {
-		return nil, nil, err
-	}
-	nonce, err = hkdf.Expand(sha256.New, prk, "Content-Encoding: nonce\x00", 12)
-	return cek, nonce, err
+	return webpush.Sender{Key: p.key, Subject: p.subject, HTTP: p.client, Clock: p.clock}.Send(ctx, s, payload)
 }

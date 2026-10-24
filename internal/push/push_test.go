@@ -2,13 +2,11 @@ package push
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"math/big"
@@ -25,6 +23,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/testkit"
 	"github.com/stevegeek/agent-factory/internal/ticket"
+	"github.com/stevegeek/agent-factory/internal/webpush"
 )
 
 func TestMain(m *testing.M) {
@@ -92,47 +91,48 @@ func device(t *testing.T) (Subscription, *ecdh.PrivateKey, []byte) {
 	return s, priv, auth
 }
 
-func TestEncryptionDecryptsOnTheDevice(t *testing.T) {
-	s, priv, auth := device(t)
-	msg := []byte(`{"title":"Review: Review and merge PR #23?"}`)
-	body, err := encrypt(s, msg)
-	if err != nil {
-		t.Fatal(err)
+// push.New still makes the key when there is none, once, at 0600, and
+// keeps it across starts: webpush only ever reads one.
+func TestNewStillCreatesAMissingKey(t *testing.T) {
+	dir := t.TempDir()
+	p := newPusher(t, dir, nil)
+	if p.PublicKey() == "" {
+		t.Fatal("no public key")
 	}
-	// the receiving side of RFC 8291
-	salt, rs, idlen := body[:16], binary.BigEndian.Uint32(body[16:20]), int(body[20])
-	asPub := body[21 : 21+idlen]
-	if rs != 4096 || idlen != 65 {
-		t.Fatalf("header rs=%d idlen=%d", rs, idlen)
+	info, err := os.Stat(filepath.Join(dir, "foreman-vapid.pem"))
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("key file %v %v", info, err)
 	}
-	pub, err := ecdh.P256().NewPublicKey(asPub)
-	if err != nil {
-		t.Fatal(err)
+	k, err := webpush.LoadVAPID(filepath.Join(dir, "foreman-vapid.pem"))
+	if err != nil || !k.Equal(p.key) {
+		t.Errorf("the key on disk is not the one in use: %v", err)
 	}
-	shared, _ := priv.ECDH(pub)
-	cek, nonce, err := deriveKeys(shared, auth, salt, priv.PublicKey().Bytes(), asPub)
-	if err != nil {
-		t.Fatal(err)
-	}
-	block, _ := aes.NewCipher(cek)
-	gcm, _ := cipher.NewGCM(block)
-	plain, err := gcm.Open(nil, nonce, body[21+idlen:], nil)
-	if err != nil {
-		t.Fatalf("the device cannot decrypt: %v", err)
-	}
-	if string(plain[:len(plain)-1]) != string(msg) || plain[len(plain)-1] != 0x02 {
-		t.Errorf("plaintext %q", plain)
+	again := newPusher(t, dir, nil)
+	if again.PublicKey() != p.PublicKey() {
+		t.Errorf("the key must persist")
 	}
 }
 
-func TestVAPIDSignsForThePushServiceOrigin(t *testing.T) {
-	dir := t.TempDir()
-	p := newPusher(t, dir, nil)
-	jwt, err := p.vapid("https://web.push.apple.com/abc")
-	if err != nil {
+// A Pusher delivers through webpush.Sender exactly as before: encrypted for
+// the device and signed for the push service's origin, with Foreman's
+// origin as the VAPID contact.
+func TestPusherStillDelivers(t *testing.T) {
+	p := newPusher(t, t.TempDir(), nil)
+	s, priv, auth := device(t)
+	if err := p.Add(s); err != nil {
 		t.Fatal(err)
 	}
+	fake := &fakePush{code: 201}
+	p.client.Transport = fake
+	if n := p.Send(context.Background(), Message{Title: "hi", URL: "/t/T0001"}); n != 1 {
+		t.Fatalf("sent %d", n)
+	}
+	r := fake.got[0]
+	jwt := strings.TrimPrefix(strings.Split(r.Header.Get("Authorization"), ",")[0], "vapid t=")
 	parts := strings.Split(jwt, ".")
+	if len(parts) != 3 {
+		t.Fatalf("authorization %q", r.Header.Get("Authorization"))
+	}
 	claims, _ := b64().DecodeString(parts[1])
 	var c map[string]any
 	json.Unmarshal(claims, &c)
@@ -147,35 +147,14 @@ func TestVAPIDSignsForThePushServiceOrigin(t *testing.T) {
 	if !ecdsa.Verify(&p.key.PublicKey, sum[:], new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:])) {
 		t.Errorf("signature does not verify")
 	}
-	again := newPusher(t, dir, nil)
-	if again.PublicKey() != p.PublicKey() {
-		t.Errorf("the key must persist")
-	}
-	if info, _ := os.Stat(filepath.Join(dir, "foreman-vapid.pem")); info.Mode().Perm() != 0o600 {
-		t.Errorf("key mode %v", info.Mode())
+	body, _ := io.ReadAll(r.Body)
+	var m map[string]any
+	if err := json.Unmarshal(decrypt(t, body, priv, auth), &m); err != nil || m["title"] != "hi" || m["url"] != "/t/T0001" {
+		t.Errorf("payload %v %v", m, err)
 	}
 }
 
 func TestOnlyPushServicesAreAccepted(t *testing.T) {
-	for u, ok := range map[string]bool{
-		"https://web.push.apple.com/abc":            true,
-		"https://fcm.googleapis.com/fcm/send/x":     true,
-		"https://updates.push.services.mozilla.com": true,
-		"https://wns2-par02p.notify.windows.com/w":  true,
-		"http://web.push.apple.com/abc":             false,
-		"https://evil.example/web.push.apple.com":   false,
-		"https://push.apple.com.evil.example/x":     false,
-		"https://web.push.apple.com:8443/x":         false,
-		"https://web.push.apple.com:443/x":          true,
-		"https://user@web.push.apple.com/x":         false,
-		"https://127.0.0.1/x":                       false,
-		"https://fcm.googleapis.com.evil/x":         false,
-		"::not a url":                               false,
-	} {
-		if HostOK(u) != ok {
-			t.Errorf("%s: want %v", u, ok)
-		}
-	}
 	p := newPusher(t, t.TempDir(), nil)
 	s, _, _ := device(t)
 	s.Endpoint = "https://169.254.169.254/latest"
@@ -390,19 +369,10 @@ func TestOtherPeoplesDevicesGetNoBadge(t *testing.T) {
 
 func decrypt(t *testing.T, body []byte, priv *ecdh.PrivateKey, auth []byte) []byte {
 	t.Helper()
-	salt, idlen := body[:16], int(body[20])
-	asPub := body[21 : 21+idlen]
-	pub, _ := ecdh.P256().NewPublicKey(asPub)
-	shared, _ := priv.ECDH(pub)
-	cek, nonce, _ := deriveKeys(shared, auth, salt, priv.PublicKey().Bytes(), asPub)
-	block, _ := aes.NewCipher(cek)
-	gcm, _ := cipher.NewGCM(block)
-	plain, err := gcm.Open(nil, nonce, body[21+idlen:], nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return plain[:len(plain)-1]
+	return testkit.PushDevice{Priv: priv, Secret: auth}.Open(t, body)
 }
+
+func b64() *base64.Encoding { return base64.RawURLEncoding }
 
 func snapsOf(ts ...*ticket.Ticket) map[string]Snap {
 	m := map[string]Snap{}

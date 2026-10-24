@@ -129,6 +129,12 @@
     "systemd/factory-wake.service": {
       "mode": "0o644"
     },
+    "systemd/factory-watchdog.service": {
+      "mode": "0o644"
+    },
+    "systemd/factory-watchdog.timer": {
+      "mode": "0o644"
+    },
     "systemd/factory@.service": {
       "mode": "0o644"
     },

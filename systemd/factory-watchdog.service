@@ -1,0 +1,15 @@
+[Unit]
+Description=Agent factory: outside check of the master's /healthz (notifies only, never takes over)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{factory_user}}
+Group={{factory_user}}
+WorkingDirectory={{factory_home}}
+ExecStart={{factory_root}}/bin/factory-remote watchdog
+# one /healthz check (10 s) and a push to each of the maintainer's devices
+TimeoutStartSec=2min
+NoNewPrivileges=yes
+PrivateTmp=yes

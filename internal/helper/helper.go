@@ -4,9 +4,10 @@
 // SSH_ORIGINAL_COMMAND, are all it can do on a helper host: the job verbs;
 // `vitals`, the host's own load, memory, disks, temperature, containers
 // (vitals.Collect) and images.json; `build` on a builder host; and
-// `install` on a host whose maintainer opted it in. Two more verbs
+// `install` on a host whose maintainer opted it in. Three more verbs
 // come only from the local argv, never over SSH: `run <job>` (the job's
-// systemd unit) and `rebuild` (the weekly image rebuild). Invoked as
+// systemd unit), `rebuild` (the weekly image rebuild) and `watchdog`
+// (an outside check of the master, which only notifies). Invoked as
 // `factory` (the helper's bin/factory symlink, which the root-installed
 // rebuild unit runs), it takes only `rebuild` and `version`.
 //
@@ -24,10 +25,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/stevegeek/agent-factory/internal/buildinfo"
 	"github.com/stevegeek/agent-factory/internal/clock"
@@ -69,7 +72,12 @@ environment, never argv. A job can read its credential, so whoever holds the
 dispatcher key can spend it, or send it away, through a job's prompt: give this host
 its own API key with a spend limit, above all if its jobs take untrusted input. A
 subscription token is the maintainer's own and long-lived (revoke it in claude.ai's
-settings, make a new one with claude setup-token).`
+settings, make a new one with claude setup-token).
+
+Locally (never over ssh), factory-remote watchdog checks the master's /healthz
+([remote.<this host>] watchdog) and pushes to the maintainer's devices when it is
+down, with a copy of Foreman's key and devices in ~/.config/factory/watchdog. It
+never takes over.`
 
 // factoryUsage is what the helper's bin/factory symlink says to anything
 // but its two verbs.
@@ -104,6 +112,14 @@ type Server struct {
 	Stdin    io.Reader
 	Stdout   io.Writer
 	Stderr   io.Writer
+	// HTTP is the watchdog's client: its checks dial through a copy of its
+	// transport, and its pushes use it as it is; nil is the default
+	// transport. PushAllow decides which push endpoints it may send to
+	// (nil: webpush.HostOK). Tests point both at their own servers.
+	HTTP      *http.Client
+	PushAllow func(endpoint string) bool
+	// WatchTimeout bounds the watchdog's whole /healthz request (0: 10 s).
+	WatchTimeout time.Duration
 	// Latest is an npm package's latest release, for the rebuild's automatic
 	// updates; nil asks the registry (FACTORY_NPM_REGISTRY, else
 	// registry.npmjs.org).
@@ -211,6 +227,8 @@ func (s *Server) serve(ctx context.Context, argv []string) error {
 			return s.run(ctx, args[1])
 		case args[0] == "rebuild" && len(args) == 1:
 			return s.rebuild(ctx)
+		case args[0] == "watchdog" && len(args) == 1:
+			return s.watchdog(ctx)
 		case args[0] == "version" && len(args) == 1:
 			_, err := fmt.Fprintln(s.Stdout, buildinfo.String())
 			return err

@@ -174,6 +174,99 @@ bash "$1/install-units.sh" --enable >/dev/null || { echo "run failed"; exit 1; }
 	}
 }
 
+// A helper opts in to the watchdog with --watchdog: --enable arms its
+// timer next to the rebuild's. A later --helper run without it disarms and
+// removes the watchdog (as does a dispatcher run), and --watchdog without
+// --helper is refused before anything is installed.
+// A routine re-run without --watchdog says it removed the watch; a refused run
+// leaves an armed watchdog alone; arming twice changes nothing; a bundle that
+// lacks a unit file stops before anything is installed.
+func TestInstallUnitsWatchdogEdges(t *testing.T) {
+	src := unitsDir(t)
+	out, code := asRoot(t, map[string]string{"systemctl": fakeSystemctl}, []string{"/etc/systemd/system"}, `
+src=$1
+bash "$src/install-units.sh" --helper --watchdog --enable >/dev/null || { echo "opt-in failed"; exit 1; }
+bash "$src/install-units.sh" --helper --watchdog --enable >/dev/null || { echo "re-arm failed"; exit 1; }
+`+unitState+`
+echo ---
+bash "$src/install-units.sh" --watchdog --enable >/dev/null 2>&1; echo "refused $?"
+`+unitState+`
+echo ---
+bash "$src/install-units.sh" --helper --enable 2>&1 >/dev/null | grep -c "removed the watchdog"
+bash "$src/install-units.sh" --helper --enable 2>&1 >/dev/null | grep -c "removed the watchdog"
+echo ---
+mv "$src/factory-watchdog.timer" "$src/gone"
+bash "$src/install-units.sh" --helper --watchdog --enable 2>&1 >/dev/null; echo "missing $?"
+`+unitState, src)
+	if code != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	parts := strings.Split(out, "---\n")
+	if len(parts) != 4 {
+		t.Fatalf("output:\n%s", out)
+	}
+	armed := []string{"unit factory-rebuild.service", "unit factory-rebuild.timer", "unit factory-watchdog.service", "unit factory-watchdog.timer",
+		"wants factory-rebuild.timer", "wants factory-watchdog.timer", "active factory-rebuild.timer", "active factory-watchdog.timer"}
+	if got := stateLines(parts[0]); !slices.Equal(got, armed) {
+		t.Errorf("armed twice:\n%s\nwant %q", strings.Join(got, "\n"), armed)
+	}
+	if !strings.HasPrefix(parts[1], "refused 2\n") || !slices.Equal(stateLines(strings.TrimPrefix(parts[1], "refused 2\n")), armed) {
+		t.Errorf("a refused run changed the armed watchdog:\n%s", parts[1])
+	}
+	if parts[2] != "1\n0\n" {
+		t.Errorf("removal notice (first run says it, second has nothing to remove): %q", parts[2])
+	}
+	if !strings.Contains(parts[3], "factory-watchdog.timer: missing or not a plain file here; deploy this host first") ||
+		!strings.Contains(parts[3], "missing 1\n") || strings.Contains(parts[3], "watchdog.service") {
+		t.Errorf("a bundle without the timer:\n%s", parts[3])
+	}
+}
+
+func TestInstallUnitsWatchdog(t *testing.T) {
+	src := unitsDir(t)
+	out, code := asRoot(t, map[string]string{"systemctl": fakeSystemctl}, []string{"/etc/systemd/system"}, `
+src=$1
+bash "$src/install-units.sh" --watchdog --enable >/dev/null 2>&1 && { echo "--watchdog without --helper ran"; exit 1; }
+`+unitState+`
+echo ---
+bash "$src/install-units.sh" --helper --watchdog --enable >/dev/null || { echo "opt-in failed"; exit 1; }
+`+unitState+`
+echo ---
+bash "$src/install-units.sh" --helper --enable >/dev/null || { echo "opt-out failed"; exit 1; }
+`+unitState+`
+echo ---
+bash "$src/install-units.sh" --helper --watchdog >/dev/null || { echo "install without enable failed"; exit 1; }
+`+unitState+`
+echo ---
+bash "$src/install-units.sh" --enable >/dev/null || { echo "dispatcher failed"; exit 1; }
+`+unitState, src)
+	if code != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	parts := strings.Split(out, "---\n")
+	if len(parts) != 5 {
+		t.Fatalf("output:\n%s", out)
+	}
+	rebuild := []string{"unit factory-rebuild.service", "unit factory-rebuild.timer", "wants factory-rebuild.timer", "active factory-rebuild.timer"}
+	for i, want := range [][]string{
+		nil,
+		{"unit factory-rebuild.service", "unit factory-rebuild.timer", "unit factory-watchdog.service", "unit factory-watchdog.timer",
+			"wants factory-rebuild.timer", "wants factory-watchdog.timer", "active factory-rebuild.timer", "active factory-watchdog.timer"},
+		rebuild,
+		{"unit factory-rebuild.service", "unit factory-rebuild.timer", "unit factory-watchdog.service", "unit factory-watchdog.timer",
+			"wants factory-rebuild.timer", "active factory-rebuild.timer"},
+	} {
+		if got := stateLines(parts[i]); !slices.Equal(got, want) {
+			t.Errorf("step %d:\n%s\nwant %q", i+1, strings.Join(got, "\n"), want)
+		}
+	}
+	for _, l := range stateLines(parts[4]) {
+		if strings.Contains(l, "watchdog") {
+			t.Errorf("the dispatcher kept the watchdog: %s", l)
+		}
+	}
+}
+
 // The fakes allow-puller.sh meets: a factory user whose home is $FAKE/home,
 // an sshd that reads <user>.pullers (unless $FAKE/old-sshd exists), and a
 // chmod that fails while $FAKE/fail-chmod exists.

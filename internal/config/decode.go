@@ -144,6 +144,7 @@ func decode(raw *toml.Table) *Config {
 	s.truthy("deps")
 	s.truthy("build")
 	s.str("build_memory", "")
+	c.Remote.Watchdog, c.Remote.WatchdogIP = s.str("watchdog", ""), s.str("watchdog_ip", "")
 	// [remote.<name>]: a helper's own settings, read on that helper
 	for _, name := range s.t.Keys() {
 		v, _ := s.t.Get(name)
@@ -161,7 +162,8 @@ func decode(raw *toml.Table) *Config {
 		h.truthy("deps")
 		h.truthy("build")
 		h.str("build_memory", "")
-		c.Remote.Hosts = append(c.Remote.Hosts, RemoteHost{Name: name, Agent: h.str("agent", ""), Auth: h.str("auth", ""), Image: h.str("image", "")})
+		c.Remote.Hosts = append(c.Remote.Hosts, RemoteHost{Name: name, Agent: h.str("agent", ""), Auth: h.str("auth", ""), Image: h.str("image", ""),
+			Watchdog: h.str("watchdog", ""), WatchdogIP: h.str("watchdog_ip", "")})
 		h.done()
 	}
 	s.done()
