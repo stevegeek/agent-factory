@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/textx"
 	"github.com/stevegeek/agent-factory/internal/toml"
 )
 
@@ -231,8 +232,11 @@ const (
 // HygieneCfg is [hygiene]: the terms a public repo's changes must never
 // carry (host names, addresses, account ids), checked on every project
 // with `hygiene = true`. The terms are private: only config holds them.
+// Allow are names public review may see published: a project, host or
+// kind name that is a plain word, or a term a project may name.
 type HygieneCfg struct {
-	Deny []string
+	Deny  []string
+	Allow []string
 
 	denyBad bool // deny is there but not a list of strings
 }
@@ -676,4 +680,73 @@ func (c *Config) Recipe(name string) (Recipe, bool) {
 		}
 	}
 	return Recipe{}, false
+}
+
+// PrivateNames are the names public review tells a project's agent never
+// to publish: the [hygiene] deny terms; the names of the other
+// [projects.*] and their GitHub repositories (owner/repo, and each half);
+// the [hosts.*] and the hosts their ssh reaches; the [remote.<name>]
+// tables; the kinds only config has; and the people config names
+// ([board] people when set, [github] reviewers, [foreman] tailscale_users).
+// Each is listed once (without regard to case), less [hygiene] allow, the
+// project's own name and its own repository's owner and name. The
+// pipeline drops the ones the project already names at its base.
+func (c *Config) PrivateNames(project string) []string {
+	skip := map[string]bool{textx.Lower(project): true}
+	if own, ok := c.Project(project); ok && own.GitHub != "" {
+		owner, repo, _ := strings.Cut(own.GitHub, "/")
+		for _, n := range []string{own.GitHub, owner, repo} {
+			skip[textx.Lower(n)] = true
+		}
+	}
+	for _, a := range c.Hygiene.Allow {
+		skip[textx.Lower(strings.TrimSpace(a))] = true
+	}
+	var out []string
+	add := func(names ...string) {
+		for _, name := range names {
+			name = strings.TrimSpace(name)
+			if k := textx.Lower(name); name != "" && !skip[k] {
+				skip[k] = true
+				out = append(out, name)
+			}
+		}
+	}
+	add(c.Hygiene.Deny...)
+	for _, p := range c.Projects {
+		add(p.Key)
+		if p.GitHub != "" {
+			owner, repo, _ := strings.Cut(p.GitHub, "/")
+			add(p.GitHub, owner, repo)
+		}
+	}
+	for _, h := range c.Hosts {
+		add(h.Name, sshHost(h.SSH))
+	}
+	for _, r := range c.Remote.Hosts {
+		add(r.Name)
+	}
+	for _, k := range c.Kinds() {
+		if _, builtin := builtinKind(k.Name); !builtin {
+			add(k.Name)
+		}
+	}
+	if v, _ := c.board.Get("people"); toml.Truthy(v) {
+		add(c.People()...)
+	}
+	add(c.GitHub.Reviewers...)
+	add(c.Foreman.TailscaleUsers...)
+	return out
+}
+
+// sshHost is the host an ssh destination reaches: "user@host:port" and
+// "ssh://user@host:port" give host.
+func sshHost(dest string) string {
+	dest = strings.TrimPrefix(dest, "ssh://")
+	if i := strings.LastIndex(dest, "@"); i >= 0 {
+		dest = dest[i+1:]
+	}
+	host, _, _ := strings.Cut(dest, ":")
+	host, _, _ = strings.Cut(host, "/")
+	return host
 }

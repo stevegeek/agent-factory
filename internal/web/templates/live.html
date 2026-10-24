@@ -10,7 +10,7 @@
       {{range .InFlight.Running}}
       <div class="fl-row">
         <a class="fl-t" href="{{if $.Live.Screens}}#{{.T.ID}}{{else}}/t/{{.T.ID}}{{end}}"><span class="mono">{{.T.ID}}</span> {{.T.Title}}</a>
-        <span class="fl-m">{{.T.Project}} · {{or .Role "Agent"}}{{with .Host}} on {{.}}{{end}}{{with .Elapsed}} · {{.}}{{end}}</span>
+        <span class="fl-m">{{.T.Project}} · {{or .Role "Agent"}}{{with .Doing}}, {{.}}{{end}}{{with .Host}} on {{.}}{{end}}{{with .Elapsed}} · {{.}}{{end}}</span>
       </div>
       {{else}}<p class="quiet">No agent is running.</p>
       {{end}}

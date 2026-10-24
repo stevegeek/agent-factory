@@ -104,6 +104,7 @@ func decode(raw *toml.Table) *Config {
 
 	s = top.sub("hygiene")
 	c.Hygiene.Deny, c.Hygiene.denyBad = s.strictStrList("deny")
+	c.Hygiene.Allow = s.strList("allow")
 	s.done()
 
 	s = top.sub("foreman")

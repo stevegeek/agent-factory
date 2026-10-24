@@ -233,6 +233,27 @@ models = ["claude-opus-5-5", "claude-sonnet-5-5"]
 	}
 }
 
+// Public review takes [models] public, else the security stage's model,
+// else a helper's own.
+func TestPublicReviewDefaultsToTheSecurityModel(t *testing.T) {
+	tk := ticketOf(t, `{"id": "T0001", "history": []}`)
+	for _, tc := range []struct{ config, host, want string }{
+		{"[models]\npublic = \"p\"\nsecurity = \"s\"\n", local, "p"},
+		{"[models]\nsecurity = \"s\"\n[hosts.helper]\nmodel = \"h\"\n", "helper", "s"},
+		{"[models]\npublic = \"\"\nsecurity = \"s\"\n", local, "s"},
+		{"[hosts.helper]\nmodel = \"h\"\n", "helper", "h"},
+		{"[hosts.helper]\nmodel = \"h\"\n", local, ""},
+	} {
+		if got := Model(cfgOf(t, tc.config), tk, string(model.StagePublic), tc.host); got != tc.want {
+			t.Errorf("%q@%s: %q, want %q", tc.config, tc.host, got, tc.want)
+		}
+	}
+	// the fallback is public review's alone
+	if got := Model(cfgOf(t, "[models]\nsecurity = \"s\"\n"), tk, "review", local); got != "" {
+		t.Errorf("review took security's model: %q", got)
+	}
+}
+
 // port: TF LimitTest.test_only_real_limit_messages_count
 func TestOnlyRealLimitMessagesCount(t *testing.T) {
 	for _, tc := range []struct {

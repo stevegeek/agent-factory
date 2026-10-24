@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stevegeek/agent-factory/internal/jsonx"
+	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/testkit"
 )
 
@@ -215,7 +216,69 @@ func TestBoardCallsMatchPython(t *testing.T) {
 				want = append(want, m)
 			}
 		}
-		sameJSON(t, what, want.Value(), got)
+		sameJSON(t, what, want.Value(), withoutPublicColumn(got))
+	}
+}
+
+// withoutPublicColumn takes the public review column, which Python's board
+// never had, out of every list in v that is exactly Go's column list, so
+// that Go's answers compare with Python's. Any other list is left as it is.
+func withoutPublicColumn(v jsonx.Value) jsonx.Value {
+	if a, ok := v.Array(); ok {
+		if isColumnList(a) {
+			var out []jsonx.Value
+			for _, x := range a {
+				if s, _ := x.Str(); s != string(model.ColPublic) {
+					out = append(out, x)
+				}
+			}
+			return jsonx.ArrayOf(out...)
+		}
+		var out []jsonx.Value
+		for _, x := range a {
+			out = append(out, withoutPublicColumn(x))
+		}
+		return jsonx.ArrayOf(out...)
+	}
+	if o, ok := v.Object(); ok {
+		var out jsonx.Object
+		for _, m := range o {
+			out = append(out, jsonx.Member{Key: m.Key, Value: withoutPublicColumn(m.Value)})
+		}
+		return out.Value()
+	}
+	return v
+}
+
+// isColumnList reports a list that is model.Columns' names, in order.
+func isColumnList(a []jsonx.Value) bool {
+	cols := model.Columns()
+	if len(a) != len(cols) {
+		return false
+	}
+	for i, x := range a {
+		if s, ok := x.Str(); !ok || s != string(cols[i].Name) {
+			return false
+		}
+	}
+	return true
+}
+
+// Only Go's column list loses the public column: a list that holds
+// "public" beside "security" but is not that list keeps it.
+func TestWithoutPublicColumnTouchesOnlyTheColumnList(t *testing.T) {
+	var cols, py []jsonx.Value
+	for _, c := range model.Columns() {
+		cols = append(cols, jsonx.String(string(c.Name)))
+		if c.Name != model.ColPublic {
+			py = append(py, jsonx.String(string(c.Name)))
+		}
+	}
+	other := jsonx.ArrayOf(jsonx.String("security"), jsonx.String("public"))
+	in := jsonx.ObjectOf(jsonx.Member{Key: "columns", Value: jsonx.ArrayOf(cols...)}, jsonx.Member{Key: "stages", Value: other})
+	want := jsonx.ObjectOf(jsonx.Member{Key: "columns", Value: jsonx.ArrayOf(py...)}, jsonx.Member{Key: "stages", Value: other})
+	if got := withoutPublicColumn(in); string(jsonx.Canonical(got)) != string(jsonx.Canonical(want)) {
+		t.Errorf("withoutPublicColumn = %s, want %s", jsonx.Canonical(got), jsonx.Canonical(want))
 	}
 }
 

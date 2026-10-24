@@ -303,6 +303,9 @@ func stageWhat(t *ticket.Ticket, stage string) string {
 		return strings.TrimSpace(v + " " + Clip(r.str("summary"), 300))
 	case model.StageSecurity:
 		return SecurityLine(t)
+	case model.StagePublic:
+		// the last run's own report, and the head that run read
+		return publicRun(r, t.HeadBeforePublic.Or(""))
 	case model.StageTask:
 		if r.str("status") != "done" {
 			return strings.TrimSpace("Blocked. " + Clip(r.str("summary"), 300))
@@ -380,6 +383,13 @@ func (r *reader) moveStep(t *ticket.Ticket, e ticket.Entry) *Step {
 		st.Who, st.What = "Gate", sentence("Tests and lint pass. Needs a maintainer: "+why)
 	case m.Is(model.ReasonReviewChanges, detail == "review asked for changes"):
 		st.Who, st.What = "Reviewer", "Asked for changes; back to the worker."
+	case m.Is(model.ReasonPublicChanges, false):
+		st.Who, st.What = "Public review", "Found text this public project must not publish; back to the worker to rewrite its commits."
+		if by := byOf(e); by != "factory" {
+			st.Who, st.What = "You", "Sent it back to the worker with public review's findings."
+		}
+	case m.Is(model.ReasonPublicPassed, false) && byOf(e) != "factory":
+		st.Who, st.What = "You", sentence(Clip(detail, 300))
 	case m.Is(model.ReasonRedirected, strings.HasPrefix(detail, "redirected: ")):
 		st.Who, st.What = "You", "Sent the design back: "+strings.TrimPrefix(detail, "redirected: ")
 	case m.Is(model.ReasonDesignApproved, strings.HasPrefix(detail, "design approved; filed ")):
@@ -740,6 +750,10 @@ func WaitingWhat(t *ticket.Ticket, a *ticket.Ask) string {
 		return "Close it when you have read it."
 	case model.AskDeploy:
 		return "Deploy it now, or not now: the next merge asks again."
+	case model.AskUnstick:
+		if ticket.PublicBlocked(t) {
+			return "Send it back to the worker with a note, say it is safe to publish at the commit public review read, or drop it."
+		}
 	}
 	return "Retry it, retry with a note, or drop it."
 }

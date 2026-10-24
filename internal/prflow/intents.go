@@ -60,7 +60,7 @@ func (f *Flow) Pass(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrUnread) { // an unread commit's move says why
 			githubError(t, err, f.now())
 		}
 		return f.Board.Save(t)

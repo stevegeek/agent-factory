@@ -308,6 +308,10 @@ func (d Deps) finish(ctx context.Context, cfg *config.Config, proj *config.Proje
 		}
 	}
 	in := stage.FinishIn{Ticket: ticket.Clone(t), Report: report, Facts: facts, Config: cfg, Parent: parent, Now: d.now()}
+	if s == model.StagePublic && proj != nil {
+		// what the review was shown: nothing it reads changes while it runs
+		in.Public = &stage.PublicIn{Texts: publicTexts(cfg, *proj, t)}
+	}
 	out, err := d.finishWith(ctx, in)
 	if err != nil {
 		return err
@@ -356,7 +360,8 @@ func (d Deps) finishWith(ctx context.Context, in stage.FinishIn) (stage.Outcome,
 
 // facts reads what the finisher needs of the branch after the run: for a
 // worker that says it is done, whether the branch exists and its commits
-// ahead of the base; for review and security, where the branch is now.
+// ahead of the base; for review, security and public review, where the
+// branch is now.
 func (d Deps) facts(ctx context.Context, proj *config.Project, t *ticket.Ticket, s model.Stage, report jsonx.Value, head string) (stage.Facts, error) {
 	branch := t.Branch.Or("")
 	switch s {
@@ -377,7 +382,7 @@ func (d Deps) facts(ctx context.Context, proj *config.Project, t *ticket.Ticket,
 			return stage.Facts{}, err
 		}
 		return stage.Facts{BranchExists: true, CommitsAhead: n}, nil
-	case model.StageReview, model.StageSecurity:
+	case model.StageReview, model.StageSecurity, model.StagePublic:
 		if head != "" {
 			return stage.Facts{Head: head}, nil
 		}

@@ -20,7 +20,8 @@ import (
 // ticket to pr_open.
 //
 // The ticket must be in ready_for_pr with a gate, and its branch must still
-// be at the commit the gate checked. The branch is pushed, then the PR is
+// be at the commit the gate checked; on a hygiene project public review
+// must have passed that commit and the texts the PR carries. The branch is pushed, then the PR is
 // created (a draft unless the gate called it eligible for automatic
 // approval) or its title, body and draft state follow the new gate. A 422
 // on create means the branch has an open PR already, which is adopted. A
@@ -28,8 +29,10 @@ import (
 // summary, and the configured reviewers are asked for a review; neither
 // failing stops the PR.
 //
-// t is changed only once GitHub has the PR; an error leaves the pushed
-// branch and possibly the PR on GitHub, and the ticket as it was.
+// t is changed only once GitHub has the PR, or when public review has not
+// passed the commit, which moves it to the gate (the error wraps
+// ErrUnread); any other error leaves the pushed branch and possibly the PR
+// on GitHub, and the ticket as it was.
 func (f *Flow) OpenPR(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) (ticket.PR, error) {
 	g, hasGate := t.Gate.Get()
 	if t.Column != string(model.ColReadyForPR) || !hasGate {
@@ -46,7 +49,14 @@ func (f *Flow) OpenPR(ctx context.Context, cfg *config.Config, p config.Project,
 	if head != g.Head {
 		return ticket.PR{}, refusef("the branch moved after Gate 1 checked it; send it through the gate again")
 	}
-	title, body := prTitle(cfg, p, t), PRBody(cfg, t)
+	if p.Hygiene && !PublicPassed(cfg, p, t, g.Head) {
+		// nothing reaches GitHub unread, whatever brought the ticket here:
+		// it goes back to the gate, which has public review read it first
+		ticket.Move(t, string(model.ColGate), model.ReasonPublicUnread,
+			"public review has not passed the commit Gate 1 checked; it reads it first", "", "", f.now())
+		return ticket.PR{}, &Refusal{Message: "public review has not passed the commit Gate 1 checked; sent to public review", err: ErrUnread}
+	}
+	title, body := PRTitle(cfg, p, t), PRBody(cfg, t)
 	if p.Hygiene {
 		// the last look at exactly what is published; the hits name terms,
 		// so the refusal only counts them
@@ -137,12 +147,12 @@ func (f *Flow) OpenPR(ctx context.Context, cfg *config.Config, p config.Project,
 // prTitleMax is the longest PR title made from a summary, in code points.
 const prTitleMax = 72
 
-// prTitle is the PR's title: the ticket's, unless the project is a hygiene
+// PRTitle is the PR's title: the ticket's, unless the project is a hygiene
 // project and the title has a deny term (tickets cannot be renamed); then
 // it is the first sentence of the work summary, clipped to prTitleMax, or
 // a neutral one when there is no summary. A summary with a term has
 // failed Gate 1 already.
-func prTitle(cfg *config.Config, p config.Project, t *ticket.Ticket) string {
+func PRTitle(cfg *config.Config, p config.Project, t *ticket.Ticket) string {
 	if !p.Hygiene || !denied(cfg.Hygiene.Deny, t.Title) {
 		return t.Title
 	}

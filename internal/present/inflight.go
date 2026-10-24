@@ -51,6 +51,9 @@ type PlanProject struct {
 	// with GateMemory and HeavyMemory for the words.
 	HeavyGate               bool
 	GateMemory, HeavyMemory string
+	// Hygiene: its repository is public, so its changes are read by public
+	// review before the gate checks them.
+	Hygiene bool
 }
 
 // PlanHost is one [hosts] host as routing reads it (hosts.Pick).
@@ -119,7 +122,7 @@ func BuildInFlight(ts []*ticket.Ticket, p Plan, sees func(project string) bool, 
 				f.Running = append(f.Running, runningOf(t, a, now))
 			}
 		} else {
-			what, waits = waitsFor(t)
+			what, waits = waitsFor(t, p)
 		}
 		if waits {
 			queue = append(queue, t)
@@ -161,8 +164,13 @@ func BuildInFlight(ts []*ticket.Ticket, p Plan, sees func(project string) bool, 
 
 // waitsFor is what a ticket with no agent waits for the tick to start, as
 // the start loop's is_waiting reads it: its next stage (model.NextStage),
-// or the gate. A closed ticket waits for nothing.
-func waitsFor(t *ticket.Ticket) (string, bool) {
+// or the gate, which a public project's change never reached public
+// review for goes to public review first. A closed ticket waits for
+// nothing.
+func waitsFor(t *ticket.Ticket, p Plan) (string, bool) {
+	if publicFirst(t, p) {
+		return RoleLabel(string(model.StagePublic)), true
+	}
 	if t.Column == string(model.ColGate) {
 		return "the gate", true
 	}
@@ -178,6 +186,9 @@ func runningOf(t *ticket.Ticket, a ticket.Agent, now time.Time) Running {
 		role = "Gate"
 	}
 	run := Running{T: t, Role: role, Host: localAsEmpty(a.Host), started: ParseTime(a.Started)}
+	if a.Stage == string(model.StagePublic) {
+		run.Doing = PublicDoing
+	}
 	if a.Starting.Or(false) {
 		run.Elapsed = "starting"
 	} else if !run.started.IsZero() {
@@ -267,7 +278,7 @@ func (p Plan) reasons(queue []*ticket.Ticket, busy map[string]int, tell func(t *
 			tell(t, "the project is "+proj.Paused, true)
 			continue
 		}
-		if t.Column == string(model.ColGate) {
+		if t.Column == string(model.ColGate) && !publicFirst(t, p) {
 			why, held, hold := p.gate(t, proj, busy, heldFor)
 			if hold {
 				heldFor = t.ID
@@ -276,6 +287,9 @@ func (p Plan) reasons(queue []*ticket.Ticket, busy map[string]int, tell func(t *
 			continue
 		}
 		s, _ := model.NextStage(t.KindName(), t.Column)
+		if publicFirst(t, p) {
+			s = model.StagePublic
+		}
 		localOK := known || t.KindName() == string(model.KindManage)
 		why, held := p.pick(t, string(s), localOK, busy, heldFor)
 		tell(t, why, held)
@@ -439,4 +453,12 @@ func (p Plan) localSlots(busy map[string]int, heldFor ticket.ID) string {
 		return "held for " + string(heldFor) + "'s heavy gate"
 	}
 	return fmt.Sprintf("%d of %d busy", busy[model.LocalHost], p.MaxAgents)
+}
+
+// publicFirst reports a public project's change in the gate column that
+// public review has passed no commit of: the tick reads it before it gates
+// it. (A pass of an older commit is read again too, which the board alone
+// cannot tell.)
+func publicFirst(t *ticket.Ticket, p Plan) bool {
+	return t.Column == string(model.ColGate) && p.Projects[t.Project].Hygiene && t.PublicHead.Or("") == ""
 }

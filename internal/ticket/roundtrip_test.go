@@ -200,3 +200,29 @@ func TestPRRoundTripOldTicket(t *testing.T) {
 		t.Errorf("merge commit not written:\n%s", got)
 	}
 }
+
+// Public review's heads are new keys: a ticket saved before them is
+// unchanged, and once set they are written and read back.
+func TestPublicHeadsRoundTrip(t *testing.T) {
+	data, err := os.ReadFile("testdata/legacy/board/T0001.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tk, _, err := Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := Encode(tk); !bytes.Equal(got, data) || tk.HeadBeforePublic.Set || tk.PublicHead.Set || tk.TextsBeforePublic.Set {
+		t.Fatalf("an old ticket gained public heads:\n%s", got)
+	}
+	tk.HeadBeforePublic = Some("abc")
+	tk.PublicHead = Some("def")
+	tk.TextsBeforePublic = Some("0a1b")
+	back, _, err := Decode(Encode(tk))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.HeadBeforePublic.Or("") != "abc" || back.PublicHead.Or("") != "def" || back.TextsBeforePublic.Or("") != "0a1b" {
+		t.Errorf("heads read back as %v %v", back.HeadBeforePublic, back.PublicHead)
+	}
+}

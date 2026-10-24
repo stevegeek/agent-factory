@@ -9,6 +9,7 @@ const (
 	StageWork     Stage = "work"
 	StageReview   Stage = "review"
 	StageSecurity Stage = "security"
+	StagePublic   Stage = "public"
 	StageTask     Stage = "task"
 	StageDesign   Stage = "design"
 	StageProspect Stage = "prospect"
@@ -22,7 +23,7 @@ const (
 type StageInfo struct {
 	Name          Stage
 	Template      string // the default Scion template; [templates] overrides it (TEMPLATES)
-	Role          string // the memory role; "" for voters and the verifier, who start blind (MEMORY_ROLES)
+	Role          string // the memory role; "" for voters, the verifier and public review, who start blind (MEMORY_ROLES)
 	Suffix        byte   // the letter in agent names: 'w' in t0042-w1 (AGENT_SUFFIX)
 	WaitColumn    Column // where it waits to run (STAGE_FOR_COLUMN); "" when its kind decides
 	RunningColumn Column // where the ticket sits while it runs (RUNNING_COLUMN)
@@ -39,6 +40,9 @@ func Stages() []StageInfo {
 		{StageWork, "worker", "worker", 'w', ColReady, ColWorking, ColReady, true, true, "Worker"},
 		{StageReview, "reviewer", "reviewer", 'r', ColReview, ColReview, ColReview, true, false, "Reviewer"},
 		{StageSecurity, "security", "security", 's', ColSecurity, ColSecurity, ColSecurity, true, false, "Security"},
+		// public review reads what a change would publish with no memory: a
+		// memory would carry other projects' private values from run to run
+		{StagePublic, "public", "", 'o', ColPublic, ColPublic, ColPublic, true, false, "Public review"},
 		{StageTask, "task", "task", 'k', "", ColWorking, ColReady, false, true, "Task agent"},
 		{StageDesign, "designer", "designer", 'd', "", ColWorking, ColReady, false, true, "Designer"},
 		{StageProspect, "prospector", "prospector", 'p', "", ColWorking, ColReady, false, false, "Prospector"},
@@ -113,6 +117,8 @@ func StageOfColumn(c Column) (Stage, bool) {
 		return StageReview, true
 	case ColSecurity:
 		return StageSecurity, true
+	case ColPublic:
+		return StagePublic, true
 	case ColTriage:
 		return StageTriage, true
 	case ColVoting:

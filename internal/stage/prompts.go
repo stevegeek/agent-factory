@@ -39,6 +39,9 @@ type PromptIn struct {
 	// them. KnownNote says why the GitHub ones are missing, if they are.
 	Known     []KnownItem
 	KnownNote string
+	// Public: public review only, the texts the PR would carry and the
+	// private values, as the pipeline gathered them.
+	Public *PublicIn
 }
 
 // QuestionNote is QUESTION_NOTE: how a stage that may ask stops to
@@ -151,7 +154,7 @@ func workPrompt(in PromptIn) string {
 		p += "\n\nA reviewer looked at the previous attempt on this branch and asked for changes. " +
 			"Address them, then commit:\n" + findings(r)
 	}
-	return p
+	return p + publicRework(t)
 }
 
 func base(in PromptIn) string {

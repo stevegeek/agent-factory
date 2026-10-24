@@ -96,8 +96,10 @@ func (f *fixture) run(stdin string, argv ...string) (int, string, string) {
 
 // Every read-only command on the board Python's goldens ran on.
 func TestReadOnlyCommandsMatchPython(t *testing.T) {
-	// audit and gate-workflow are the inspect group's commands.
-	notMine := map[string]bool{"audit": true, "gate-workflow": true}
+	// audit and gate-workflow are the inspect group's commands; model's
+	// output has Go's own public review column, so TestModelNeedsNoConfig
+	// compares it with internal/model's golden instead.
+	notMine := map[string]bool{"audit": true, "gate-workflow": true, "model": true}
 	f := goldenRoot(t)
 	for _, c := range readGolden(t, "commands.json").Commands {
 		if notMine[c.Argv[0]] {
@@ -144,8 +146,8 @@ func dropAddedWarnings(t *testing.T, out string) string {
 }
 
 // port: TF ModelTest.test_foremans_copy_of_the_model_is_current
-// Ported here: `factory model` prints the old Foreman's model.json (frozen in
-// internal/model/testdata at the cutover), with no config.
+// `factory model` prints the model's regression golden,
+// internal/model/testdata/model.json, with no config.
 func TestModelNeedsNoConfig(t *testing.T) {
 	f := newFixture(t) // no config.toml
 	code, out, errs := f.run("", "model")

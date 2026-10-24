@@ -271,10 +271,11 @@ func TestVotersStayBlindAndMemoryCanBeOff(t *testing.T) {
 	if got := Roles(f.cfg); !reflect.DeepEqual(got, []string{"worker", "reviewer", "security", "task", "designer", "triage", "prospector", "manager"}) {
 		t.Errorf("default roles %v", got)
 	}
-	// every stage's memory role is its default template name, except the voter's and the verifier's
+	// every stage's memory role is its default template name, except the
+	// voter's, the verifier's and public review's
 	for _, s := range model.Stages() {
 		want := s.Template
-		if s.Name == model.StageVote || s.Name == model.StageVerify {
+		if s.Name == model.StageVote || s.Name == model.StageVerify || s.Name == model.StagePublic {
 			want = ""
 		}
 		if got := Role(f.cfg, s.Name); got != want || got != s.Role {

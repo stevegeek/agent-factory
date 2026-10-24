@@ -104,6 +104,28 @@ func TestAuditPrintsValuesAsPython(t *testing.T) {
 	}
 }
 
+// Public review's verdict is in the audit: the commit a pass names and
+// each finding as where and why. A report that is not an object is left out.
+func TestAuditRecordsPublicReview(t *testing.T) {
+	tk := decodeText(t, `{"id": "T0003", "title": "Pub", "door": "human", "project": "gem", "public_head": "abc123",
+		"reports": {"public": {"verdict": "block", "findings": [{"where": "summary", "why": "names a host"}, "x"], "summary": "one finding"}},
+		"history": []}`)
+	got, err := AuditText(tk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "# T0003: Pub\n\n- Door: human; project: gem\n" +
+		"- Public review: block; passed at abc123. one finding\n  - finding: summary: names a host\n" +
+		"\n## History\n\n"
+	if got != want {
+		t.Errorf("audit (-want +got):\n%s", testkit.Diff(want, got))
+	}
+	tk = decodeText(t, `{"id": "T0003", "title": "Pub", "door": "human", "project": "gem", "reports": {"public": "pass"}, "history": []}`)
+	if got, err := AuditText(tk); err != nil || strings.Contains(got, "Public review") {
+		t.Errorf("a public report that is not an object: %v\n%s", err, got)
+	}
+}
+
 // Where Python's audit_text raises (a missing title, a report that is not
 // an object), AuditText is an error, not a made-up line.
 func TestAuditRefusesWhatPythonCannotRead(t *testing.T) {

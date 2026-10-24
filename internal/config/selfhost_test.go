@@ -31,12 +31,12 @@ func selfHostProblems(t *testing.T, text string) (problems, warnings []string) {
 const selfHostProject = "[projects.core]\npath = \"/p/core\"\ngithub = \"example/core\"\ninstall = \"i\"\ntest = \"t\"\nlint = \"l\"\n"
 
 func TestSelfHostKeysDecode(t *testing.T) {
-	c := mustParse(t, "[hygiene]\ndeny = [\"hostx\", \"10.9.8.7\"]\n\n"+selfHostProject+
+	c := mustParse(t, "[hygiene]\ndeny = [\"hostx\", \"192.0.2.7\"]\n\n"+selfHostProject+
 		"walls = [\"internal/gate/*\", \"deploy.sh\"]\nhygiene = true\nself_deploy = \"core\"\n\n[projects.gem]\npath = \"/p/gem\"\n")
 	if len(c.Unknown) != 0 || len(c.Mistyped) != 0 {
 		t.Fatalf("unknown %q, mistyped %q", c.Unknown, c.Mistyped)
 	}
-	if !reflect.DeepEqual(c.Hygiene.Deny, []string{"hostx", "10.9.8.7"}) {
+	if !reflect.DeepEqual(c.Hygiene.Deny, []string{"hostx", "192.0.2.7"}) {
 		t.Errorf("[hygiene] deny = %q", c.Hygiene.Deny)
 	}
 	core, gem := c.Projects[0], c.Projects[1]
@@ -140,5 +140,32 @@ func TestSelfDeployProject(t *testing.T) {
 	// a board project never merges, so it is not the one
 	if _, ok := mustParse(t, "[projects.conf]\nmode = \"board\"\ngithub = \"example/conf\"\nself_deploy = \"config\"\n").SelfDeployProject(SelfDeployConfig); ok {
 		t.Error("a board project")
+	}
+}
+
+// Public review's private values: the deny terms and every other name
+// config holds, once each, never the project's own name, a built-in kind
+// or what [hygiene] allow names.
+func TestPrivateNames(t *testing.T) {
+	c := mustParse(t, "[hygiene]\ndeny = [\"hosty\", \"HOSTY\"]\nallow = [\" Gadgets \", \"bob\"]\n\n"+
+		"[board]\npeople = [\"alice\", \"bob\"]\n\n[github]\nreviewers = [\"alice-gh\"]\n\n[foreman]\ntailscale_users = [\"carol@example.com\"]\n\n"+
+		"[projects.gem]\npath = \"/p/gem\"\ngithub = \"acme/gem\"\nhygiene = true\n\n"+
+		"[projects.widgets]\npath = \"/p/w\"\ngithub = \"acme/widgets-app\"\n\n[projects.gadgets]\npath = \"/p/g\"\n\n"+
+		"[hosts.hostz]\nssh = \"factory@hostz\"\n\n[hosts.hostw]\nssh = \"factory@hostw.example:2222\"\n\n[remote.hostq]\nagent = \"pi\"\n\n"+
+		"[kinds.ruby-gem]\nlint = \"rubocop\"\n\n[kinds.web-shard]\nfrom = \"crystal-shard\"\n")
+	// the project's own repository, owner and name are not private; the
+	// other project's are
+	want := []string{"hosty", "widgets", "acme/widgets-app", "widgets-app", "hostz", "hostw", "hostw.example", "hostq", "web-shard",
+		"alice", "alice-gh", "carol@example.com"}
+	if got := c.PrivateNames("gem"); !slices.Equal(got, want) {
+		t.Errorf("PrivateNames(gem) = %q, want %q", got, want)
+	}
+	if got := c.PrivateNames("widgets"); !slices.Contains(got, "gem") || !slices.Contains(got, "acme/gem") || slices.Contains(got, "widgets") ||
+		slices.Contains(got, "widgets-app") || slices.Contains(got, "acme") {
+		t.Errorf("PrivateNames(widgets) = %q", got)
+	}
+	// with no [board] people, the default name is a plain word, not a person
+	if got := mustParse(t, "[projects.gem]\npath = \"/p/gem\"\n").PrivateNames("gem"); slices.Contains(got, DefaultPerson) {
+		t.Errorf("the default person is private: %q", got)
 	}
 }

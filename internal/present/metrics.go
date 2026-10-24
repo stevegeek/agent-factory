@@ -23,13 +23,13 @@ type MetricWeek struct {
 	ByKind   map[model.AskKind]int
 	Waits    []time.Duration
 	// send-backs
-	Reworks, ChangesRequested, Redirects, SentBack int
+	Reworks, PublicReworks, ChangesRequested, Redirects, SentBack int
 	// outcomes
 	Merged, ClosedUnmerged, Dropped, TriageRejected int
 }
 
 func (w *MetricWeek) any() bool {
-	return w.Answered+w.Reworks+w.ChangesRequested+w.Redirects+w.SentBack+
+	return w.Answered+w.Reworks+w.PublicReworks+w.ChangesRequested+w.Redirects+w.SentBack+
 		w.Merged+w.ClosedUnmerged+w.Dropped+w.TriageRejected > 0
 }
 
@@ -64,6 +64,7 @@ func (w *MetricWeek) add(o *MetricWeek) {
 	}
 	w.Waits = append(w.Waits, o.Waits...)
 	w.Reworks += o.Reworks
+	w.PublicReworks += o.PublicReworks
 	w.ChangesRequested += o.ChangesRequested
 	w.Redirects += o.Redirects
 	w.SentBack += o.SentBack
@@ -218,6 +219,12 @@ func (r *reader) countMove(w *MetricWeek, m MoveFacts, open *openAsk) {
 	switch {
 	case m.Is(model.ReasonReviewChanges, d == "review asked for changes"):
 		w.Reworks++
+	case m.Is(model.ReasonPublicChanges, false) && open != nil:
+		// the desk's "Send back with a note" on a change public review
+		// blocked; public review's own send-back closes no ask
+		w.SentBack++
+	case m.Is(model.ReasonPublicChanges, false):
+		w.PublicReworks++
 	case m.Is(model.ReasonChangesRequested, strings.HasPrefix(d, "changes requested")):
 		w.ChangesRequested++
 	case m.Is(model.ReasonRedirected, strings.HasPrefix(d, "redirected")):
@@ -456,6 +463,7 @@ func metricTable(name string, weeks *[MetricWeeks]MetricWeek, v Viewer) MetricTa
 		row("Longest wait", func(w *MetricWeek) string { return waitText(w, w.Longest()) }))
 	sendBacks := MetricGroup{Title: "Send-backs", Note: "work that came back for another round", Rows: []MetricRow{
 		count("Reviewer reworks", func(w *MetricWeek) int { return w.Reworks }),
+		count("Public review reworks", func(w *MetricWeek) int { return w.PublicReworks }),
 		count("Changes requested on GitHub", func(w *MetricWeek) int { return w.ChangesRequested }),
 		count("Designs redirected", func(w *MetricWeek) int { return w.Redirects }),
 		count("Sent back from the desk", func(w *MetricWeek) int { return w.SentBack }),

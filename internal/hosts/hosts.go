@@ -93,13 +93,17 @@ func contains(xs []string, s string) bool {
 
 // Model is stage_model: [panel] models gives each voter its own
 // model in turn (by the ticket's vote starts so far); otherwise [models]
-// per stage on any host, then a helper's own model. "" is the harness's
-// default. An unknown helper has no model (Python would raise).
+// per stage on any host, then a helper's own model. Public review without
+// a [models] entry of its own takes the security stage's. "" is the
+// harness's default. An unknown helper has no model (Python would raise).
 func Model(cfg *config.Config, t *ticket.Ticket, stage, host string) string {
 	if voters := cfg.Panel.Models; stage == string(model.StageVote) && len(voters) > 0 {
 		return voters[ticket.Starts(t, model.StageVote)%len(voters)]
 	}
 	m := cfg.Model(stage)
+	if m == "" && stage == string(model.StagePublic) {
+		m = cfg.Model(string(model.StageSecurity))
+	}
 	if m == "" && host != Local {
 		if h, ok := cfg.HostNamed(host); ok {
 			m = h.Model

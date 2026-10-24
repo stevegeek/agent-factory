@@ -98,6 +98,26 @@ func TestCatFileExistsReadsTheBaseNotTheBranch(t *testing.T) {
 	}
 }
 
+// Absent reads the base's tree, paths and bytes, without regard to case:
+// what a branch adds is not already published.
+func TestAbsentReadsTheTreeAtRev(t *testing.T) {
+	f := newFixture(t)
+	ctx := ctxT(t)
+	f.repo.Write("docs/Widgets.md", "Runs on HostX.\n")
+	f.repo.Commit("docs")
+	f.repo.BranchWith("bot/x", map[string]string{"lib/x.rb": "# gadgets\n"})
+	got, err := f.r.Absent(ctx, "main", []string{"widgets", "hostx", "gadgets", "-e", "nowhere"})
+	if err != nil || !slices.Equal(got, []string{"gadgets", "-e", "nowhere"}) {
+		t.Errorf("Absent = %q, %v", got, err)
+	}
+	if got, err := f.r.Absent(ctx, "main", nil); err != nil || got != nil {
+		t.Errorf("no terms: %q, %v", got, err)
+	}
+	if _, err := f.r.Absent(ctx, "no-such-rev", []string{"x"}); err == nil {
+		t.Error("a missing rev is an error")
+	}
+}
+
 // The argv of every read, as Python runs it.
 func TestReadArgvMatchPython(t *testing.T) {
 	var got [][]string
@@ -174,6 +194,7 @@ func TestEveryReadIsGuarded(t *testing.T) {
 		"PublishedLines": func() error { _, err := r.PublishedLines(ctx, "b"); return err },
 		"Messages":       func() error { _, err := r.Messages(ctx, "b"); return err },
 		"CatFileExists":  func() error { _, err := r.CatFileExists(ctx, "main", "f"); return err },
+		"Absent":         func() error { _, err := r.Absent(ctx, "main", []string{"x"}); return err },
 		"CurrentBranch":  func() error { _, err := r.CurrentBranch(ctx); return err },
 		"Checked":        func() error { return r.Checked(ctx) },
 	}

@@ -30,6 +30,7 @@ type FloorDay struct {
 type Running struct {
 	T       *ticket.Ticket
 	Role    string
+	Doing   string // what the run is doing, when its role does not say
 	Host    string
 	Elapsed string
 	started time.Time // In flight's order

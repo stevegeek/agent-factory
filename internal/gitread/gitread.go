@@ -297,6 +297,38 @@ func addedLines(patch []string) []string {
 	return added
 }
 
+// Absent are the terms the tree at rev holds nowhere, in a path or in a
+// file's bytes, without regard to case: public review's private values are
+// the names a project does not already publish.
+func (r *Repo) Absent(ctx context.Context, rev string, terms []string) ([]string, error) {
+	if len(terms) == 0 {
+		return nil, nil
+	}
+	paths, err := r.git(ctx, "ls-tree", "-r", "--name-only", "-z", rev)
+	if err != nil {
+		return nil, err
+	}
+	lower := strings.ToLower(paths)
+	var out []string
+	for _, term := range terms {
+		if strings.Contains(lower, strings.ToLower(term)) {
+			continue
+		}
+		res, err := r.run(ctx, "grep", "-q", "-i", "-F", "--no-textconv", "-e", term, rev, "--")
+		if err != nil {
+			return nil, err
+		}
+		switch res.Code {
+		case 0:
+		case 1:
+			out = append(out, term)
+		default:
+			return nil, execx.CheckErr(res)
+		}
+	}
+	return out, nil
+}
+
 // CatFileExists is cat-file -e <rev>:<file>: whether the file is in that
 // commit (review_prompt reads the base's REVIEW.md, never the branch's).
 // Python skipped the guard here; the port guards it like every other git.

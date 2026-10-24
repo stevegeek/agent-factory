@@ -23,7 +23,8 @@ import (
 
 // start is start_stage: what the stage records before it runs
 // (a worker's branch, a reviewer's starting head, the security tier and
-// questions), the prompt, the run's memory, the write-ahead save, the
+// questions), the prompt (for public review, with the texts the PR would
+// carry and the private values), the run's memory, the write-ahead save, the
 // launch here or on a helper, and the start's move and event.
 //
 // On a failed launch the agent is cleared and the launch's error returned
@@ -50,6 +51,7 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 	reviewMD := false
 	var known []stage.KnownItem
 	knownNote := ""
+	var public *stage.PublicIn
 	switch s {
 	case model.StageVerify:
 		var err error
@@ -67,7 +69,7 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 			}
 			begin.Branch = b
 		}
-	case model.StageReview, model.StageSecurity:
+	case model.StageReview, model.StageSecurity, model.StagePublic:
 		if err := needRepo(); err != nil {
 			return err
 		}
@@ -76,7 +78,12 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 			return err
 		}
 		begin.Head = h
-		if s == model.StageSecurity {
+		if s == model.StagePublic {
+			if public, err = publicIn(ctx, cfg, *proj, repo, t); err != nil {
+				return err
+			}
+			begin.Texts = prflow.PublicDigest(prflow.PublicTexts(cfg, *proj, t))
+		} else if s == model.StageSecurity {
 			if begin.Tier, err = gate.ClassifyBranch(ctx, repo, t.Branch.Or(""), *proj); err != nil {
 				return err
 			}
@@ -99,7 +106,7 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 		return err
 	}
 	prompt := stage.For(s).Prompt(stage.PromptIn{Ticket: t, Project: proj, ReviewMD: reviewMD, Memory: ref, Local: local,
-		Known: known, KnownNote: knownNote})
+		Known: known, KnownNote: knownNote, Public: public})
 	mdl := hosts.Model(cfg, t, string(s), host)
 
 	// write-ahead: if this process dies between starting the agent and
@@ -133,6 +140,29 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 	}
 	ticket.RecordStart(t, ticket.StartIn{Stage: s, Agent: name, Host: host, Model: mdl, Branch: branch}, now)
 	return nil
+}
+
+// publicIn is what public review reads beside the commits: every free
+// text the PR would carry, as OpenPR would send it (prflow.PublicTexts),
+// and the private values: the names config holds that the project does not
+// already publish at its base.
+func publicIn(ctx context.Context, cfg *config.Config, proj config.Project, repo *gitread.Repo, t *ticket.Ticket) (*stage.PublicIn, error) {
+	in := &stage.PublicIn{Texts: publicTexts(cfg, proj, t)}
+	private, err := repo.Absent(ctx, proj.Base, cfg.PrivateNames(t.Project))
+	if err != nil {
+		return nil, err
+	}
+	in.Private = private
+	return in, nil
+}
+
+// publicTexts are prflow.PublicTexts as the stage reads them.
+func publicTexts(cfg *config.Config, proj config.Project, t *ticket.Ticket) []stage.PublicText {
+	var out []stage.PublicText
+	for _, x := range prflow.PublicTexts(cfg, proj, t) {
+		out = append(out, stage.PublicText{Name: x.Name, Text: x.Text, Fixed: x.Fixed})
+	}
+	return out
 }
 
 // maxKnownTickets bounds the open tickets a verifier is shown.

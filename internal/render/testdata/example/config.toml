@@ -38,7 +38,7 @@ rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name t
 # paths, added lines, commit messages, branch or PR text contain one of these terms
 # (case-insensitive; 3 characters or more). Keep the real list in your private config.
 # [hygiene]
-# deny = ["hostx", "10.9.8.7", "example.ts.net"]
+# deny = ["hosty", "192.0.2.7", "example.ts.net"]
 
 # The daily encrypted backup to R2 (`factory backup`). Archives are named
 # factory-<name>-<stamp>; retention and the Sunday restore check keep to that one line.
@@ -66,6 +66,7 @@ triage = "gem-triage"
 work = "gem-worker"
 review = "gem-reviewer"
 security = "gem-security"
+public = "gem-public"
 task = "gem-task"
 design = "gem-designer"
 prospect = "gem-prospector"
@@ -77,6 +78,7 @@ triage = ""
 work = ""
 review = ""
 security = ""
+public = ""                  # empty = the security stage's model
 
 # Gate 1: deterministic, no model. All must hold for auto-merge eligibility.
 [gate]

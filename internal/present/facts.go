@@ -127,6 +127,7 @@ func (r *reader) facts(t *ticket.Ticket, a *ticket.Ask, all map[ticket.ID]*ticke
 	if reportOf(t, "security") != nil {
 		f = append(f, Fact{Label: "Security", Value: strings.TrimSuffix(SecurityLine(t), ".")})
 	}
+	f = append(f, publicFacts(t)...)
 	if kind == "" && len(f) == 0 {
 		f = append(f, Fact{Label: "Column", Value: TicketColumnLabel(t)})
 	}

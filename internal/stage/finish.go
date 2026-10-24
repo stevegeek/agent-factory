@@ -39,8 +39,9 @@ var (
 // Facts are what the pipeline read of the branch after the run.
 type Facts struct {
 	// Head is where the branch is now: the head a helper job reported, or
-	// the local branch's. Review and security compare it with the head they
-	// started from; review records it as reviewed.
+	// the local branch's. Review, security and public review compare it
+	// with the head they started from; review records it as reviewed, and
+	// a public review's pass as read.
 	Head string
 	// BranchExists and CommitsAhead: work, the branch and its commits ahead
 	// of the base.
@@ -57,6 +58,9 @@ type FinishIn struct {
 	Report jsonx.Value
 	Facts  Facts
 	Config *config.Config
+	// Public is, for public review, the texts the PR would carry, as the
+	// review was shown them: a finding's where names one of them.
+	Public *PublicIn
 	// Parent is, for a task, the ticket its parent names (nil when it has
 	// none, or the id names no ticket): an Ask's answer goes back to it.
 	Parent *ticket.Ticket
@@ -204,6 +208,8 @@ func (f *finisher) run(s model.Stage) (Outcome, error) {
 		err = f.review(r)
 	case model.StageSecurity:
 		f.security(r)
+	case model.StagePublic:
+		f.public(r)
 	case model.StageVerify:
 		err = f.verify(r)
 	default:
@@ -642,12 +648,15 @@ func (f *finisher) work(r Report) {
 	f.move(model.ColReview, model.ReasonWorkDone, "", "")
 }
 
-// committed reports a reviewer that moved the branch: review and security
-// must leave the head where it was when they started.
+// committed reports a reviewer that moved the branch: review, security
+// and public review must leave the head where it was when they started.
 func (f *finisher) committed(s model.Stage) bool {
 	before := f.Ticket.HeadBeforeReview
-	if s == model.StageSecurity {
+	switch s {
+	case model.StageSecurity:
 		before = f.Ticket.HeadBeforeSecurity
+	case model.StagePublic:
+		before = f.Ticket.HeadBeforePublic
 	}
 	h, ok := before.Get()
 	if ok && h == f.Facts.Head {
@@ -719,7 +728,8 @@ func (f *finisher) filePreExisting(r Report) error {
 }
 
 // security is decided from the answers, not the agent's verdict
-// (security_outcome).
+// (security_outcome). A pass goes to public review on a hygiene project,
+// else to the gate.
 func (f *finisher) security(r Report) {
 	t := f.Ticket
 	if f.committed(model.StageSecurity) {
@@ -744,8 +754,20 @@ func (f *finisher) security(r Report) {
 	}
 	res := security.Outcome(t.SecurityTier.Or(4), t.SecurityQuestions, sr)
 	if res.Pass {
-		f.move(model.ColGate, model.ReasonSecurityPassed, "", res.Rule)
+		// a public project's change is read for what it would publish
+		// before the gate
+		next := model.ColGate
+		if f.Config != nil && hygiene(f.Config, t.Project) {
+			next = model.ColPublic
+		}
+		f.move(next, model.ReasonSecurityPassed, "", res.Rule)
 		return
 	}
 	f.move(model.ColNeedsHuman, model.ReasonSecurityFailed, res.Detail, res.Rule)
+}
+
+// hygiene reports a project whose repository is public (`hygiene = true`).
+func hygiene(c *config.Config, project string) bool {
+	p, ok := c.Project(project)
+	return ok && p.Hygiene
 }

@@ -216,6 +216,9 @@ func (r *reader) conversation(t *ticket.Ticket, all map[ticket.ID]*ticket.Ticket
 		}
 	} else if ag, ok := agentOf(t); ok {
 		v.Waiting = roleOf(ag.Stage) + " is working on it now."
+		if ag.Stage == string(model.StagePublic) {
+			v.Waiting = roleOf(ag.Stage) + " is " + PublicDoing + " now."
+		}
 	}
 	return v
 }
@@ -239,6 +242,14 @@ func reportText(t *ticket.Ticket, stage string, r *report, latest bool) (text, m
 		if vd := r.str("verdict"); vd != "" {
 			text = "**" + CapFirst(vd) + ".** " + text
 		}
+	case model.StagePublic:
+		// this run's own report; the head it read is known only for the
+		// latest run, while no later one has started
+		head := ""
+		if a, running := agentOf(t); latest && (!running || a.Stage != string(model.StagePublic)) {
+			head = t.HeadBeforePublic.Or("")
+		}
+		text = strings.TrimSpace(publicRun(r, head) + " " + text)
 	case model.StageTask:
 		res := r.str("result")
 		if res == "" && latest {

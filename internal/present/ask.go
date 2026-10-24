@@ -197,6 +197,9 @@ func Action(t *ticket.Ticket, a *ticket.Ask) string {
 		}
 		return "Deploy main?"
 	case model.AskUnstick:
+		if ticket.PublicBlocked(t) {
+			return "Public review blocked it"
+		}
 		return "Stuck: retry or drop?"
 	}
 	return KindLabel(a.Kind)

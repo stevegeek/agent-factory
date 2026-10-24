@@ -20,6 +20,7 @@ const (
 	ColVerifying  Column = "verifying"
 	ColReview     Column = "review"
 	ColSecurity   Column = "security"
+	ColPublic     Column = "public"
 	ColGate       Column = "gate"
 	ColReadyForPR Column = "ready_for_pr"
 	ColPROpen     Column = "pr_open"
@@ -113,7 +114,7 @@ type BoardColumnInfo struct {
 func Columns() []ColumnInfo {
 	return []ColumnInfo{
 		{ColTriage, "Triage"}, {ColReady, "Ready"}, {ColWorking, "Working"}, {ColVoting, "Voting"},
-		{ColVerifying, "Verifying"}, {ColReview, "Review"}, {ColSecurity, "Security"}, {ColGate, "the gate"}, {ColReadyForPR, "Ready for PR"},
+		{ColVerifying, "Verifying"}, {ColReview, "Review"}, {ColSecurity, "Security"}, {ColPublic, "Public review"}, {ColGate, "the gate"}, {ColReadyForPR, "Ready for PR"},
 		{ColPROpen, "PR open"}, {ColNeedsHuman, "Needs you"}, {ColDone, "Done"}, {ColRejected, "Closed"},
 	}
 }
@@ -187,6 +188,8 @@ func StepName(column string) (string, bool) {
 		return "review", true
 	case ColSecurity:
 		return "security check", true
+	case ColPublic:
+		return "public review", true
 	case ColGate:
 		return "gate checks", true
 	case ColReadyForPR, ColPROpen:

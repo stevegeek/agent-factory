@@ -82,6 +82,23 @@ func audit(t node) (_ string, err error) {
 			}
 		}
 	}
+	if p, ok := r.get("public"); ok && p.isDict() {
+		// public review (Go's own stage, never in Python's audits): its
+		// verdict, the commit that passed it, and each finding as where and
+		// why; the audit stays in the factory's logs
+		line := "- Public review: " + get(p, "verdict", "?")
+		if h, _ := t.get("public_head"); h.truthy() {
+			line += "; passed at " + h.str()
+		}
+		add(textx.RStrip(line + ". " + get(p, "summary", "")))
+		if list := must(p.dictGet("findings", node{})); list.isList() {
+			for _, f := range list.items() {
+				if f.isDict() {
+					add(fmt.Sprintf("  - finding: %s: %s", get(f, "where", "?"), get(f, "why", "")))
+				}
+			}
+		}
+	}
 	if g, _ := t.get("gate"); g.truthy() {
 		line, e := gateLine(g)
 		must(node{}, e)

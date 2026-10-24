@@ -32,11 +32,15 @@ func encodeLikePython(t *testing.T, m Model) []byte {
 	return b.Bytes()
 }
 
-// testdata/model.json is the old Foreman's model.json, frozen when the
-// cutover deleted core/foreman; `factory model` still prints it.
+// testdata/model.json is what `factory model` prints: a regression golden,
+// written from Export and checked in. It began as the old Foreman's
+// model.json, but the public review column is Go's own, so it no longer
+// shows parity with Python's; a change to the model updates it in the
+// same commit. The Python test checked that a checked-in copy of the model
+// is current, which is all this one does now.
 //
 // port: TF ModelTest.test_foremans_copy_of_the_model_is_current
-func TestExportIsForemansModel(t *testing.T) {
+func TestExportIsTheModelGolden(t *testing.T) {
 	want, err := os.ReadFile(filepath.Join("testdata", "model.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -61,8 +65,8 @@ func TestTablesAreComplete(t *testing.T) {
 			t.Errorf("column %q: IsColumn/ColumnLabel disagree with the table", c.Name)
 		}
 	}
-	if len(cols) != 13 {
-		t.Errorf("%d factory columns, want 13", len(cols))
+	if len(cols) != 14 {
+		t.Errorf("%d factory columns, want 14", len(cols))
 	}
 	for _, c := range BoardColumns() {
 		if c.Label == "" || ColumnLabel(string(c.Name)) != c.Label {
@@ -90,11 +94,11 @@ func TestTablesAreComplete(t *testing.T) {
 		if got, ok := StageInfoOf(s.Name); !ok || got.Name != s.Name {
 			t.Errorf("StageInfoOf(%q) = %v, %v", s.Name, got, ok)
 		}
-		if s.Role == "voter" || s.Role == "verifier" || (s.Name == StageVote || s.Name == StageVerify) != (s.Role == "") {
-			t.Errorf("stage %q has memory role %q: only voters and the verifier start blind", s.Name, s.Role)
+		if s.Role == "voter" || s.Role == "verifier" || (s.Name == StageVote || s.Name == StageVerify || s.Name == StagePublic) != (s.Role == "") {
+			t.Errorf("stage %q has memory role %q: only voters, the verifier and public review start blind", s.Name, s.Role)
 		}
 	}
-	for c, s := range map[Column]Stage{ColWorking: StageWork, ColReview: StageReview, ColSecurity: StageSecurity, ColTriage: StageTriage, ColVoting: StageVote, ColVerifying: StageVerify} {
+	for c, s := range map[Column]Stage{ColWorking: StageWork, ColReview: StageReview, ColSecurity: StageSecurity, ColPublic: StagePublic, ColTriage: StageTriage, ColVoting: StageVote, ColVerifying: StageVerify} {
 		if got, ok := StageOfColumn(c); !ok || got != s {
 			t.Errorf("StageOfColumn(%q) = %q, %v; want %q", c, got, ok, s)
 		}
@@ -125,8 +129,8 @@ func TestTablesAreComplete(t *testing.T) {
 			t.Errorf("IsReason(%q) is false", r.Reason)
 		}
 	}
-	if len(reasons) != 62 {
-		t.Errorf("%d reasons, want 62", len(reasons))
+	if len(reasons) != 66 {
+		t.Errorf("%d reasons, want 66", len(reasons))
 	}
 	if IsReason("") || IsReason("nonsense") {
 		t.Error("IsReason accepts a reason that is not one")
@@ -199,7 +203,7 @@ func TestTablesAreFreshCopies(t *testing.T) {
 
 func TestStepNamesAndRetry(t *testing.T) {
 	want := map[string]string{"triage": "triage", "ready": "work", "working": "work", "voting": "panel vote", "verifying": "verify", "review": "review",
-		"security": "security check", "gate": "gate checks", "ready_for_pr": "PR", "pr_open": "PR"}
+		"security": "security check", "public": "public review", "gate": "gate checks", "ready_for_pr": "PR", "pr_open": "PR"}
 	for c, n := range want {
 		if got, ok := StepName(c); !ok || got != n {
 			t.Errorf("StepName(%q) = %q, %v; want %q", c, got, ok, n)

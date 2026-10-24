@@ -489,7 +489,7 @@ func TestMCPToolsListMatchesTools(t *testing.T) {
 	}
 	// the column enum: board columns first, then the factory's, each once
 	cols := allColumns()
-	if cols[0] != "inbox" || len(cols) != 18 {
+	if cols[0] != "inbox" || len(cols) != 19 {
 		t.Errorf("columns: %v", cols)
 	}
 }

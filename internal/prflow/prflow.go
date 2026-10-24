@@ -148,10 +148,16 @@ type Refusal struct {
 
 func (r *Refusal) Error() string { return r.Message }
 
-// Unwrap gives the cause, when there is one (ErrMainMoved, ErrNeedsApproval).
+// Unwrap gives the cause, when there is one (ErrMainMoved, ErrNeedsApproval,
+// ErrUnread).
 func (r *Refusal) Unwrap() error { return r.err }
 
 func refusef(msg string) *Refusal { return &Refusal{Message: msg} }
+
+// ErrUnread is a hygiene project's commit OpenPR would not push because
+// public review has not passed it: the ticket went back to the gate, which
+// has it read first. It is wrapped in a *Refusal.
+var ErrUnread = errors.New("public review has not passed the commit")
 
 // ErrMainMoved is a merge the merge check stopped: the base moved and the
 // checks fail with it merged in, so the ticket went back for a rework. It is

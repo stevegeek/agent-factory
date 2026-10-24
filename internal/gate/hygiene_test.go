@@ -25,7 +25,7 @@ func TestHygieneFindsEachPlace(t *testing.T) {
 		Branch:   "bot/fix-hostx",
 		Texts:    map[string]string{"the work summary": "Tested on hOsTx.", "the work lint": "ok"},
 	}
-	got := Hygiene([]string{"HostX", "10.9.8.7"}, in)
+	got := Hygiene([]string{"HostX", "192.0.2.7"}, in)
 	want := []string{
 		`a path: "HostX" in "docs/HOSTX.md"`,
 		`an added line: "HostX" in "ssh to hostx.lan first"`,
@@ -43,13 +43,13 @@ func TestHygieneFindsEachPlace(t *testing.T) {
 		t.Errorf("blank terms match: %q", got)
 	}
 	// A long line is shown as 80 code points around the hit.
-	long := strings.Repeat("é", 200) + "10.9.8.7" + strings.Repeat("ü", 200)
-	hits := Hygiene([]string{"10.9.8.7"}, HygieneIn{Added: []string{long}})
+	long := strings.Repeat("é", 200) + "192.0.2.7" + strings.Repeat("ü", 200)
+	hits := Hygiene([]string{"192.0.2.7"}, HygieneIn{Added: []string{long}})
 	if len(hits) != 1 {
 		t.Fatalf("hits %q", hits)
 	}
 	snippet := hits[0][strings.Index(hits[0], " in ")+5 : len(hits[0])-1]
-	if utf8.RuneCountInString(snippet) != 80 || !strings.Contains(snippet, "10.9.8.7") {
+	if utf8.RuneCountInString(snippet) != 80 || !strings.Contains(snippet, "192.0.2.7") {
 		t.Errorf("snippet %q (%d code points)", snippet, utf8.RuneCountInString(snippet))
 	}
 }
@@ -155,8 +155,11 @@ func TestRunScansWhatThePRPublishes(t *testing.T) {
 
 // The report fields PRBody prints, under the names the hits give.
 func TestPublicTexts(t *testing.T) {
+	// public review's findings stay on the board: they say where private
+	// text is
 	tk := gateTicket(t, `{"work": {"summary": "S", "tests": "T", "lint": "L", "category": "c", "files": ["x"]},
-		"review": {"verdict": "V", "runtime_behaviour": false, "summary": "private"}}`)
+		"review": {"verdict": "V", "runtime_behaviour": false, "summary": "private"},
+		"public": {"verdict": "block", "findings": [{"where": "summary", "why": "private"}], "summary": "private"}}`)
 	got := PublicTexts(tk)
 	want := map[string]string{"the work summary": "S", "the work tests": "T", "the work lint": "L",
 		"the review verdict": "V", "the review runtime_behaviour": "False"}
@@ -209,7 +212,7 @@ func TestEvaluateWallsBlock(t *testing.T) {
 func TestEvaluateHygieneBlocks(t *testing.T) {
 	cfg := mustConfig(t, "[gate]\nallowed_paths = [\"*.md\"]\n")
 	tk := gateTicket(t, `{"work": {"category": "docs", "summary": "s"}, "review": {"runtime_behaviour": "no"}}`)
-	hits := []string{`an added line: "hostx" in "hostx"`, `the branch name: "10.9.8.7" in "bot/10.9.8.7"`}
+	hits := []string{`an added line: "hostx" in "hostx"`, `the branch name: "192.0.2.7" in "bot/192.0.2.7"`}
 	g, err := Evaluate(GateIn{Config: cfg, Ticket: tk, Files: []string{"a.md"}, Size: 1, ChecksPass: true, Hygiene: hits})
 	if err != nil {
 		t.Fatal(err)
@@ -219,7 +222,7 @@ func TestEvaluateHygieneBlocks(t *testing.T) {
 	}
 	tk.Gate = ticket.Some(g)
 	saved := string(ticket.Encode(tk))
-	if strings.Contains(saved, "hostx") || strings.Contains(saved, "10.9.8.7") || strings.Contains(saved, `"walls"`) {
+	if strings.Contains(saved, "hostx") || strings.Contains(saved, "192.0.2.7") || strings.Contains(saved, `"walls"`) {
 		t.Errorf("the saved gate carries a term or walls:\n%s", saved)
 	}
 }

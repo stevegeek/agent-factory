@@ -82,7 +82,7 @@ func (s *Server) flightPlan(now time.Time) (p present.Plan, stalled string) {
 	p = present.Plan{Known: true, MaxAgents: cfg.MaxAgents, Projects: map[string]present.PlanProject{}, LocalDown: paused[model.LocalHost]}
 	for _, pr := range cfg.Projects {
 		pp := present.PlanProject{Board: pr.Mode == string(model.ModeBoard), HeavyGate: cfg.HeavyGate(pr),
-			GateMemory: cfg.GateMemory(pr), HeavyMemory: cfg.Gate.HeavyMemory}
+			GateMemory: cfg.GateMemory(pr), HeavyMemory: cfg.Gate.HeavyMemory, Hygiene: pr.Hygiene}
 		switch {
 		case pr.Enabled:
 		case pr.Switch != nil:

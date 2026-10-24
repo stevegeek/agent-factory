@@ -14,6 +14,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/hostrun"
 	"github.com/stevegeek/agent-factory/internal/hosts"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/prflow"
 	"github.com/stevegeek/agent-factory/internal/stage"
 	"github.com/stevegeek/agent-factory/internal/sysinfo"
 	"github.com/stevegeek/agent-factory/internal/textx"
@@ -231,10 +232,20 @@ func (d Deps) startStep(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 	if proj == nil && t.KindName() != "task" {
 		return false, fmt.Errorf("unknown project %s", t.Project)
 	}
-	if t.Column == string(model.ColGate) {
-		return d.runGate(ctx, cfg, proj, t, busy, down)
-	}
 	s, _ := stage.ForTicket(t)
+	if t.Column == string(model.ColGate) {
+		read, err := d.publicRead(ctx, cfg, proj, t)
+		if err != nil {
+			return false, err
+		}
+		if read {
+			return d.runGate(ctx, cfg, proj, t, busy, down)
+		}
+		// a public project's change is gated only once public review has
+		// read its head: one moved here by hand, or by a run that left
+		// before public review existed, is read first (the start moves it)
+		s = model.StagePublic
+	}
 	localOK := proj != nil
 	host, ok := hosts.Pick(cfg, string(s), busy, down, t.Host.Or(""), localOK)
 	for ok {
@@ -252,6 +263,24 @@ func (d Deps) startStep(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 		host, ok = hosts.Pick(cfg, string(s), busy, down, t.Host.Or(""), localOK)
 	}
 	return false, nil
+}
+
+// publicRead reports a ticket the gate may check: any ticket of a project
+// whose repository is not public, and on a hygiene project one whose
+// branch is still at the head public review passed, with the PR texts it
+// read beside the commits.
+func (d Deps) publicRead(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket) (bool, error) {
+	if proj == nil || !proj.Hygiene {
+		return true, nil
+	}
+	if t.PublicHead.Or("") == "" {
+		return false, nil
+	}
+	h, err := d.Git.Repo(*proj).Head(ctx, t.Branch.Or(""))
+	if err != nil {
+		return false, err
+	}
+	return prflow.PublicPassed(cfg, *proj, t, h), nil
 }
 
 // runGate is Gate 1 in the tick: as a gate job on a pull host

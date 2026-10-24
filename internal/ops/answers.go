@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/textx"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
@@ -111,6 +112,9 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		return []Answer{{Value: "file", Label: "File it", Sub: "becomes a change ticket in Ready", Primary: true},
 			{Value: "drop", Label: "Drop", Sub: "the proposal closes; nothing is filed", Danger: true}}
 	case model.AskUnstick:
+		if ticket.PublicBlocked(t) {
+			return publicAnswers(t)
+		}
 		var out []Answer
 		if rc := a.RetryColumn.Or(""); rc != "" {
 			out = append(out, Answer{Value: "retry", Label: "Retry", Sub: "back to " + model.ColumnLabel(rc), Primary: true},
@@ -141,6 +145,20 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		return draftAnswers(t)
 	}
 	return nil
+}
+
+// publicAnswers are the answers to a public review that blocked a change:
+// back to work with a note (the worker sees the findings too, and a second
+// block comes back here), a person's pass of the head public review read,
+// or drop.
+func publicAnswers(t *ticket.Ticket) []Answer {
+	out := []Answer{{Value: "send_back", Label: "Send back with a note", Primary: true, NeedsNote: true, NoteFor: "to send it back",
+		Sub: "a worker rewrites its commits with the findings and your note; public review reads it again"}}
+	if h := t.HeadBeforePublic.Or(""); h != "" {
+		out = append(out, Answer{Value: "publish", Label: "Safe to publish at " + textx.Prefix(h, 12),
+			Sub: "you read it all: your word stands for public review's pass of this commit only, and the gate checks it next"})
+	}
+	return append(out, Answer{Value: "drop", Label: "Drop", Sub: "the ticket closes; nothing is published", Danger: true})
 }
 
 // draftAnswers are the answers to a manager's drafts and actions:
@@ -341,6 +359,10 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 		// the maintainer's tap waits for the tick: only the maintainer
 		// takes it back (a note is anyone's)
 		return refuse(Conflict, "only the maintainer drops or sends back a change they asked the factory to apply")
+	case a.Kind == string(model.AskUnstick) && value == "publish" && c.as != "":
+		// a person's pass sends the change to GitHub, where it cannot be
+		// taken back: the maintainer's word only (a note is anyone's)
+		return refuse(Conflict, "only the maintainer says a blocked change is safe to publish")
 	case a.Kind == string(model.AskDeploy) && c.as != "":
 		// Foreman lets anyone who sees the ticket answer it; deploying the
 		// factory, or saying not now, is the maintainer's (a note is anyone's)
@@ -358,6 +380,15 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 			url, err := c.openPR(ctx, t)
 			c.printNonEmpty(url)
 			return err
+		case "unstick:send_back", "unstick:publish":
+			if !ticket.PublicBlocked(t) {
+				return refuse(BadRequest, "%q is not an answer to this ask", value)
+			}
+			if value == "send_back" {
+				need, act = true, func() error { return c.publicBack(t) }
+			} else {
+				act = func() error { return c.publicPass(t) }
+			}
 		case "review:send_back", "open:send_back", "draft:send_back":
 			need, act = true, move(string(model.ColReady))
 		case "start:start", "decide:start":
@@ -480,4 +511,32 @@ func (c *call) printNonEmpty(s string) {
 	if s != "" {
 		c.print(s)
 	}
+}
+
+// publicBack sends a change public review blocked back to work, as public
+// review's own first block does: the worker is told the findings beside
+// the note, and a block after it comes back to a person.
+func (c *call) publicBack(t *ticket.Ticket) error {
+	if a, ok := t.Agent.Get(); ok {
+		return refuse(Conflict, "%s has a running agent (%s); wait for it first", t.ID, a.Name)
+	}
+	ticket.Move(t, string(model.ColReady), model.ReasonPublicChanges, "sent back to work after public review by "+c.by(), "", c.by(), c.now)
+	return nil
+}
+
+// publicPass is a person's word that the head public review read is safe
+// to publish: it is recorded as public review's pass of that head, with
+// who said so, and the gate checks the change next. A branch that has
+// moved since is read again before the gate (the pass names one commit).
+func (c *call) publicPass(t *ticket.Ticket) error {
+	if a, ok := t.Agent.Get(); ok {
+		return refuse(Conflict, "%s has a running agent (%s); wait for it first", t.ID, a.Name)
+	}
+	h := t.HeadBeforePublic.Or("")
+	if h == "" {
+		return refuse(Conflict, "public review has not read a commit of this change; send it back instead")
+	}
+	t.PublicHead = ticket.Some(h)
+	ticket.Move(t, string(model.ColGate), model.ReasonPublicPassed, "safe to publish at "+textx.Prefix(h, 12)+", said by "+c.by(), "", c.by(), c.now)
+	return nil
 }

@@ -80,6 +80,9 @@ type Ticket struct {
 	HeadBeforeSecurity Opt[string]      `json:"head_before_security"`
 	SecurityTier       Opt[int]         `json:"security_tier"`
 	SecurityQuestions  []string         `json:"security_questions"`
+	HeadBeforePublic   Opt[string]      `json:"head_before_public"`  // where public review started
+	PublicHead         Opt[string]      `json:"public_head"`         // the head that passed public review (the stage's or a person's)
+	TextsBeforePublic  Opt[string]      `json:"texts_before_public"` // a digest of the PR texts public review last read beside the commits
 	Gate               Opt[Gate]        `json:"gate"`
 	PR                 Opt[PR]          `json:"pr"`
 	Notes              []Note           `json:"notes"`

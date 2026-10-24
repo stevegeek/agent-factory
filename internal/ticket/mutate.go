@@ -137,6 +137,38 @@ func WorkRounds(t *Ticket) int {
 	return n
 }
 
+// PublicRounds counts the times public review sent the change back to work
+// (typed moves with reason public_changes) since its PR last opened or
+// updated: a second block goes to a person. A passed review does not reset
+// it, since every rework passes review again.
+func PublicRounds(t *Ticket) int {
+	n := 0
+	for _, e := range t.History {
+		m, ok := e.Data.(Moved)
+		switch {
+		case ok && m.Reason == model.ReasonPROpened:
+			n = 0
+		case ok && m.Reason == model.ReasonPublicChanges:
+			n++
+		}
+	}
+	return n
+}
+
+// PublicBlocked reports a ticket waiting for a person because public review
+// blocked it: in needs_human, and its last move's reason public_blocked.
+func PublicBlocked(t *Ticket) bool {
+	if t.Column != string(model.ColNeedsHuman) {
+		return false
+	}
+	for i := len(t.History) - 1; i >= 0; i-- {
+		if m, ok := t.History[i].Data.(Moved); ok {
+			return m.Reason == model.ReasonPublicBlocked
+		}
+	}
+	return false
+}
+
 // startOf reports an entry that is a start of stage.
 func startOf(e Entry, stage model.Stage) bool {
 	if e.Event != "start" {

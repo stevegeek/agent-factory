@@ -42,7 +42,7 @@ umask 077
 dest="$(realpath -m -- "$1")"
 here="$(cd "$(dirname "$0")/.." && pwd -P)"
 case "$dest/" in
-"$here"/*) echo "$0: $dest is inside $here, a public repository; capture into the private config repository" >&2; exit 2 ;;
+"$here"/*) echo "$0: $dest is inside $here, a public repository; capture into a directory outside it" >&2; exit 2 ;;
 esac
 mkdir -p "$dest"
 

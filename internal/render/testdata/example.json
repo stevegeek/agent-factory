@@ -1,5 +1,5 @@
 {
-  "about": "bin/render examples/config OUT: every file it writes under example/ (bin/ and patch_provision.py left out), with its mode; stdout is the out directory",
+  "about": "factory render examples/config OUT: every file it writes under example/, with its mode; stdout is the out directory. Written by bin/render first, kept by hand since the example gained what bin/render never had",
   "config": "examples/config",
   "stdout": "<out>\n",
   "files": {
@@ -34,6 +34,12 @@
       "mode": "0o644"
     },
     "scion-templates/gem-prospector/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-public/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-public/scion-agent.yaml": {
       "mode": "0o644"
     },
     "scion-templates/gem-reviewer/agents.md": {

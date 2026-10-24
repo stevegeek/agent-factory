@@ -80,7 +80,7 @@ func TestPublishedLinesReadsEachCommitAsText(t *testing.T) {
 	f := newFixture(t)
 	f.repo.Git("checkout", "-q", "-b", "bot/b")
 	f.repo.Write(".gitattributes", "* -diff\n")
-	f.repo.Write("a.txt", "keep\n10.9.8.7\n++ hostx\nok\rhostx\n")
+	f.repo.Write("a.txt", "keep\n192.0.2.7\n++ hostx\nok\rhostx\n")
 	f.repo.Write("blob.dat", "bin\x00hostx\n")
 	f.repo.Commit("add")
 	f.repo.Write("a.txt", "keep\n")
@@ -90,7 +90,7 @@ func TestPublishedLinesReadsEachCommitAsText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"* -diff", "keep", "10.9.8.7", "++ hostx", "ok\rhostx", "bin\x00hostx"} {
+	for _, want := range []string{"* -diff", "keep", "192.0.2.7", "++ hostx", "ok\rhostx", "bin\x00hostx"} {
 		if !slices.Contains(got, want) {
 			t.Errorf("PublishedLines = %q; lacks %q", got, want)
 		}

@@ -100,7 +100,9 @@ func TestPromptsMatchPython(t *testing.T) {
 		})
 	}
 	for _, info := range model.Stages() {
-		if !seen[info.Name] {
+		// public review is Go's own, with no Python golden: public_test.go
+		// tests its prompt
+		if !seen[info.Name] && info.Name != model.StagePublic {
 			t.Errorf("stage %s has no golden prompt", info.Name)
 		}
 	}

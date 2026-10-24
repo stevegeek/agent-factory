@@ -572,6 +572,11 @@ func (p prActions) Open(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 		return "", Refuse("unknown project %s", t.Project)
 	}
 	pr, err := p.flow.OpenPR(ctx, cfg, *proj, t)
+	if errors.Is(err, prflow.ErrUnread) {
+		// public review has not passed the commit: the ticket went back to
+		// the gate, which has it read first, and that move is saved
+		return "", nil
+	}
 	if err != nil {
 		return "", err
 	}

@@ -45,6 +45,8 @@ func For(s model.Stage) Behaviour {
 		p = reviewPrompt
 	case model.StageSecurity:
 		p = securityPrompt
+	case model.StagePublic:
+		p = publicPrompt
 	case model.StageTask:
 		p = taskPrompt
 	case model.StageDesign:
@@ -94,14 +96,17 @@ func KeepBranch(s model.Stage) bool {
 // BeginIn is what the pipeline found out before a stage starts.
 type BeginIn struct {
 	Branch string // work: the branch to use when the ticket has none yet (pick_branch)
-	Head   string // review and security: where the branch is now
+	Head   string // review, security and public review: where the branch is now
+	Texts  string // public review: a digest of the PR texts it reads beside the commits
 	Tier   int    // security: the tier the classifier gave the change
 }
 
 // Begin records on t what start_stage records before it builds the prompt:
-// a worker's branch; for review and security the head they start
-// from, which a reviewer must leave where it is; for security the tier and
-// the questions asked, frozen so that the answers are judged against them.
+// a worker's branch; for review, security and public review the head they
+// start from, which a reviewer must leave where it is; for security the
+// tier and the questions asked, frozen so that the answers are judged
+// against them; for public review the texts it reads, and no pass yet: a
+// pass belongs to the read that made it.
 func Begin(t *ticket.Ticket, s model.Stage, in BeginIn) {
 	switch s {
 	case model.StageWork:
@@ -114,5 +119,9 @@ func Begin(t *ticket.Ticket, s model.Stage, in BeginIn) {
 		t.HeadBeforeSecurity = ticket.Some(in.Head)
 		t.SecurityTier = ticket.Some(in.Tier)
 		t.SecurityQuestions = security.Angles(in.Tier)
+	case model.StagePublic:
+		t.HeadBeforePublic = ticket.Some(in.Head)
+		t.TextsBeforePublic = ticket.Some(in.Texts)
+		t.PublicHead = ticket.Nil[string]()
 	}
 }

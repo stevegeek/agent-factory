@@ -57,10 +57,15 @@ func TestPRBodySaysHowItWasTestedItsRiskAndHowToRevert(t *testing.T) {
 		"source": {"issue": 7},
 		"reports": {"work": {"summary": "Clarify the install steps.", "tests": "pass", "lint": "pass"},
 		            "review": {"verdict": "pass", "runtime_behaviour": "no"},
-		            "security": {"answers": [{"concern": "none"}]}},
+		            "security": {"answers": [{"concern": "none"}]},
+		            "public": {"verdict": "pass", "findings": [{"where": "commit abc message", "why": "names hosty"}], "summary": "read it"}},
 		"security_tier": 0,
 		"gate": {"auto_eligible": true, "blockers": [], "head": "abc", "changed_lines": 4, "files": ["README.md"]}}`)
 	body := PRBody(parseConfig(t, testConfig), tk)
+	// public review's report stays on the board
+	if strings.Contains(body, "hosty") || strings.Contains(body, "read it") {
+		t.Errorf("body carries public review's report:\n%s", body)
+	}
 	for _, want := range []string{"**Testing**", "ran the tests (pass) and lint (pass)", "**Risk**",
 		"Text only (security tier 0)", "4 changed lines in 1 file(s)", "**How to revert**", "git revert -m 1",
 		"Small, docs/tests/config-only change: eligible for automatic approval.", "Fixes #7", "Opened by a bot."} {

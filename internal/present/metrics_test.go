@@ -200,7 +200,7 @@ func TestMetricsLayout(t *testing.T) {
 		}
 	}
 	want := []string{"Asks answered", "Review", "Start", "Design", "Proposal", "Median wait", "Longest wait",
-		"Reviewer reworks", "Changes requested on GitHub", "Designs redirected", "Sent back from the desk",
+		"Reviewer reworks", "Public review reworks", "Changes requested on GitHub", "Designs redirected", "Sent back from the desk",
 		"PRs merged", "PRs closed unmerged", "Dropped by a person", "Closed by triage", "Reverts"}
 	if !reflect.DeepEqual(labels, want) {
 		t.Errorf("rows\n got %v\nwant %v", labels, want)
@@ -251,5 +251,19 @@ func TestMetricsTapAndTheTicksSettle(t *testing.T) {
 	}
 	if !reflect.DeepEqual(w.Waits, []time.Duration{2 * time.Hour, time.Hour}) {
 		t.Errorf("waits %v", w.Waits)
+	}
+}
+
+// Public review's own send-back is a rework round; a person's send-back of
+// a change it blocked is sent back from the desk.
+func TestMetricsCountPublicReviewSendBacks(t *testing.T) {
+	x := metricTicket(t, "T0120", "widgets", "change", "public", day(10, 12, 7, 0))
+	ticket.Move(x, "ready", model.ReasonPublicChanges, "public review found 1 finding(s); back to the worker", "", "", day(10, 12, 8, 0))
+	ticket.Move(x, "public", model.ReasonSecurityPassed, "", "", "", day(10, 12, 9, 0))
+	ticket.Move(x, "needs_human", model.ReasonPublicBlocked, "public review blocked it again after a rework: 1 finding(s)", "", "", day(10, 12, 10, 0))
+	ticket.Move(x, "ready", model.ReasonPublicChanges, "sent back to work after public review by maintainer", "", "maintainer", day(10, 12, 11, 0))
+	w := CountMetrics([]*ticket.Ticket{x}, metricsNow, you).Total[0]
+	if w.PublicReworks != 1 || w.SentBack != 1 || w.Reworks != 0 {
+		t.Errorf("%+v", w)
 	}
 }

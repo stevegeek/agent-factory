@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/github"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
@@ -327,7 +328,7 @@ func TestThroughTheGateAsksToOpenThePR(t *testing.T) {
 // hygieneConfig is testConfig with gem a hygiene project and a deny list
 // of made-up terms.
 func hygieneConfig() string {
-	return "[hygiene]\ndeny = [\"hostx\", \"10.9.8.7\"]\n" +
+	return "[hygiene]\ndeny = [\"hostx\", \"192.0.2.7\"]\n" +
 		strings.Replace(testConfig, `github = "o/gem"`, "github = \"o/gem\"\nhygiene = true", 1)
 }
 
@@ -337,18 +338,18 @@ func TestPRTitleAvoidsDeniedTerms(t *testing.T) {
 	cfg := parseConfig(t, hygieneConfig())
 	gem, local := project(t, cfg, "gem"), project(t, cfg, "local")
 	tk := readyTicket(t, false, sha('a'))
-	if got := prTitle(cfg, gem, tk); got != "Tidy README" {
+	if got := PRTitle(cfg, gem, tk); got != "Tidy README" {
 		t.Errorf("clean title = %q", got)
 	}
 	tk.Title = "Tidy README on hostx"
-	if got := prTitle(cfg, gem, tk); got != "Clarify the install steps." {
+	if got := PRTitle(cfg, gem, tk); got != "Clarify the install steps." {
 		t.Errorf("hit = %q", got)
 	}
-	if got := prTitle(cfg, local, tk); got != tk.Title {
+	if got := PRTitle(cfg, local, tk); got != tk.Title {
 		t.Errorf("ordinary project = %q", got)
 	}
 	tk = decode(t, `{"id": "T1", "title": "Tidy README on hostx", "reports": {"work": {"summary": "`+strings.Repeat("word ", 30)+`and more. Second."}}}`)
-	if got := prTitle(cfg, gem, tk); []rune(got)[len([]rune(got))-1] != '…' || len([]rune(got)) != 72 {
+	if got := PRTitle(cfg, gem, tk); []rune(got)[len([]rune(got))-1] != '…' || len([]rune(got)) != 72 {
 		t.Errorf("long summary = %q", got)
 	}
 }
@@ -358,12 +359,13 @@ func TestPRTitleAvoidsDeniedTerms(t *testing.T) {
 // only the count.
 func TestOpenPRRefusesDeniedText(t *testing.T) {
 	h := newHarness(t)
-	cfg := parseConfig(t, strings.Replace(hygieneConfig(), `pr_footer = "Opened by a bot."`, `pr_footer = "Opened by a bot on 10.9.8.7."`, 1))
+	cfg := parseConfig(t, strings.Replace(hygieneConfig(), `pr_footer = "Opened by a bot."`, `pr_footer = "Opened by a bot on 192.0.2.7."`, 1))
 	tk := readyTicket(t, false, sha('a'))
+	passPublic(cfg, project(t, cfg, "gem"), tk, sha('a'))
 	h.setHead("bot/x", sha('a'))
 	_, err := h.flow.OpenPR(context.Background(), cfg, project(t, cfg, "gem"), tk)
 	var r *Refusal
-	if !errors.As(err, &r) || !strings.Contains(err.Error(), "1 finding(s)") || strings.Contains(err.Error(), "10.9.8.7") {
+	if !errors.As(err, &r) || !strings.Contains(err.Error(), "1 finding(s)") || strings.Contains(err.Error(), "192.0.2.7") {
 		t.Fatalf("err = %v", err)
 	}
 	if len(h.git.pushes) != 0 || len(h.gh.calls()) != 0 || h.token.n != 0 || tk.Column != "ready_for_pr" {
@@ -371,8 +373,148 @@ func TestOpenPRRefusesDeniedText(t *testing.T) {
 	}
 	// the same text on an ordinary project opens
 	h.routes(at("POST", "/repos/o/gem/pulls", ok(map[string]any{"number": 5, "html_url": "https://github.com/o/gem/pull/5", "draft": true})))
-	cfg = parseConfig(t, strings.Replace(testConfig, `pr_footer = "Opened by a bot."`, `pr_footer = "Opened by a bot on 10.9.8.7."`, 1))
+	cfg = parseConfig(t, strings.Replace(testConfig, `pr_footer = "Opened by a bot."`, `pr_footer = "Opened by a bot on 192.0.2.7."`, 1))
 	if _, err := h.flow.OpenPR(context.Background(), cfg, project(t, cfg, "gem"), tk); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// On a hygiene project OpenPR pushes only a commit public review passed:
+// a ticket that reached ready_for_pr with no pass, or with a pass of
+// another head, is refused before anything is pushed, and goes back to the
+// gate, which has public review read it first.
+func TestOpenPRRefusesAHygieneCommitPublicReviewDidNotPass(t *testing.T) {
+	cfg := parseConfig(t, hygieneConfig())
+	for _, passed := range []string{"", sha('b')} {
+		h := newHarness(t)
+		tk := readyTicket(t, false, sha('a'))
+		if passed != "" {
+			passPublic(cfg, project(t, cfg, "gem"), tk, passed)
+		}
+		h.setHead("bot/x", sha('a'))
+		_, err := h.flow.OpenPR(context.Background(), cfg, project(t, cfg, "gem"), tk)
+		var r *Refusal
+		if !errors.As(err, &r) || !errors.Is(err, ErrUnread) || !strings.Contains(err.Error(), "public review") {
+			t.Fatalf("passed %q: err = %v", passed, err)
+		}
+		if len(h.git.pushes) != 0 || len(h.gh.calls()) != 0 {
+			t.Fatalf("passed %q: pushed %v, asked GitHub %v", passed, h.git.pushes, h.gh.calls())
+		}
+		if m, _ := lastEntry(tk).Data.(ticket.Moved); tk.Column != "gate" || m.Reason != model.ReasonPublicUnread {
+			t.Fatalf("passed %q: %s %+v", passed, tk.Column, lastEntry(tk))
+		}
+	}
+	h := newHarness(t)
+	h.routes(at("POST", "/repos/o/gem/pulls", ok(map[string]any{"number": 5, "html_url": "https://github.com/o/gem/pull/5", "draft": true})))
+	tk := readyTicket(t, false, sha('a'))
+	passPublic(cfg, project(t, cfg, "gem"), tk, sha('a'))
+	h.setHead("bot/x", sha('a'))
+	if _, err := h.flow.OpenPR(context.Background(), cfg, project(t, cfg, "gem"), tk); err != nil || tk.Column != "pr_open" {
+		t.Fatalf("a passed commit: %v %s", err, tk.Column)
+	}
+	// a project without hygiene has no public review: no pass is needed
+	plain := parseConfig(t, testConfig)
+	h = newHarness(t)
+	h.routes(at("POST", "/repos/o/gem/pulls", ok(map[string]any{"number": 5, "html_url": "https://github.com/o/gem/pull/5", "draft": true})))
+	tk = readyTicket(t, false, sha('a'))
+	h.setHead("bot/x", sha('a'))
+	if tk.PublicHead.Set || project(t, plain, "gem").Hygiene {
+		t.Fatal("the fixture has a pass or hygiene")
+	}
+	if _, err := h.flow.OpenPR(context.Background(), plain, project(t, plain, "gem"), tk); err != nil || tk.Column != "pr_open" || len(h.git.pushes) != 1 {
+		t.Fatalf("a project without hygiene: %v %s %v", err, tk.Column, h.git.pushes)
+	}
+}
+
+// A hygiene ticket in ready_for_pr that public review never passed (moved
+// there by hand, or there before public review existed) is not refused
+// tick after tick: the GitHub pass sends it back to the gate once, with no
+// error event, and pushes nothing.
+func TestTheGitHubPassSendsAnUnreadHygieneTicketToTheGate(t *testing.T) {
+	cfgText := strings.Replace(hygieneConfig(), "[github]\n", "[github]\nopen_prs = \"auto\"\n", 1)
+	if !strings.Contains(cfgText, `open_prs = "auto"`) {
+		t.Fatal("the config has no [github] table")
+	}
+	h := newHarness(t)
+	tk := readyTicket(t, false, sha('a'))
+	h.board.put(t, tk)
+	h.setHead("bot/x", sha('a'))
+	h.pass(context.Background(), cfgText)
+	got := h.board.load(t, tk.ID)
+	if m, _ := lastEntry(got).Data.(ticket.Moved); got.Column != "gate" || m.Reason != model.ReasonPublicUnread {
+		t.Fatalf("%s %+v", got.Column, lastEntry(got))
+	}
+	for _, e := range got.History {
+		if e.Event == "error" {
+			t.Errorf("an error event: %+v", e)
+		}
+	}
+	if len(h.git.pushes) != 0 || len(h.gh.calls()) != 0 {
+		t.Errorf("pushed %v, asked GitHub %v", h.git.pushes, h.gh.calls())
+	}
+	// the next pass leaves it alone: it is in the gate now
+	saves := len(h.board.saves)
+	h.pass(context.Background(), cfgText)
+	if len(h.board.saves) != saves {
+		t.Error("the next pass saved it again")
+	}
+}
+
+// passPublic records public review's pass of head, with the texts the PR
+// would carry now.
+func passPublic(cfg *config.Config, p config.Project, tk *ticket.Ticket, head string) {
+	tk.PublicHead = ticket.Some(head)
+	tk.TextsBeforePublic = ticket.Some(PublicDigest(PublicTexts(cfg, p, tk)))
+}
+
+// A pass is of the commit and of the texts public review read: a text
+// that changed with no new commit (a rerun's summary) is not pushed.
+func TestOpenPRRefusesAPassWhoseTextsChanged(t *testing.T) {
+	cfg := parseConfig(t, hygieneConfig())
+	gem := project(t, cfg, "gem")
+	h := newHarness(t)
+	tk := readyTicket(t, false, sha('a'))
+	passPublic(cfg, gem, tk, sha('a'))
+	if !PublicPassed(cfg, gem, tk, sha('a')) || PublicPassed(cfg, gem, tk, sha('b')) {
+		t.Fatal("a pass of this head and these texts")
+	}
+	tk.Reports.Set("work", jsonx.ObjectOf(jsonx.Member{Key: "summary", Value: jsonx.String("Clarify the install steps again.")}))
+	if PublicPassed(cfg, gem, tk, sha('a')) {
+		t.Fatal("a changed summary still passes")
+	}
+	h.setHead("bot/x", sha('a'))
+	_, err := h.flow.OpenPR(context.Background(), cfg, gem, tk)
+	if !errors.Is(err, ErrUnread) || len(h.git.pushes) != 0 || tk.Column != "gate" {
+		t.Fatalf("err %v, pushed %v, column %s", err, h.git.pushes, tk.Column)
+	}
+}
+
+// The texts public review reads are what OpenPR sends; the PR title is
+// fixed (a finding there goes to a person) only when it is the ticket's
+// own, not when it is made from the worker's summary.
+func TestPublicTextsAndWhichTheWorkerCanChange(t *testing.T) {
+	cfg := parseConfig(t, hygieneConfig())
+	gem := project(t, cfg, "gem")
+	tk := readyTicket(t, false, sha('a'))
+	fixed := map[string]bool{}
+	for _, x := range PublicTexts(cfg, gem, tk) {
+		fixed[x.Name+": "+x.Text] = x.Fixed
+	}
+	want := map[string]bool{"branch: bot/x": true, "pr-title: Tidy README": true, "ticket: Fixes #7": true,
+		"summary: Clarify the install steps.": false, "review: verdict: pass\nchanges runtime behaviour for users: no": false,
+		"footer: Opened by a bot.": true}
+	if len(fixed) != len(want) {
+		t.Errorf("texts %v", fixed)
+	}
+	for k, v := range want {
+		if got, ok := fixed[k]; !ok || got != v {
+			t.Errorf("%q: fixed %v, %v; want %v", k, got, ok, v)
+		}
+	}
+	tk.Title = "Tidy README on hostx"
+	for _, x := range PublicTexts(cfg, gem, tk) {
+		if x.Name == TextTitle && (x.Text != "Clarify the install steps." || x.Fixed) {
+			t.Errorf("a title from the summary: %+v", x)
+		}
 	}
 }

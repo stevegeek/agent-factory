@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/ops"
 	"github.com/stevegeek/agent-factory/internal/testkit"
 	"github.com/stevegeek/agent-factory/internal/testkit/pyticket"
@@ -148,7 +149,7 @@ func TestParityWithPython(t *testing.T) {
 			}
 			out, err := sc.run(t, w.svc)
 			if sc.Error != nil {
-				if err == nil || err.Error() != *sc.Error {
+				if err == nil || pythonColumns(err.Error()) != *sc.Error {
 					t.Errorf("error %v, want %q", err, *sc.Error)
 				}
 			} else if err != nil {
@@ -173,5 +174,41 @@ func TestParityWithPython(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// pythonColumns takes the public review column, which Python's board never
+// had, out of Move's refusal that lists the columns, so that Go's list
+// compares with the scenario's. Any other message is left as it is.
+func pythonColumns(msg string) string {
+	const prefix = "column must be one of: "
+	if msg != prefix+columnNames(true) {
+		return msg
+	}
+	return prefix + columnNames(false)
+}
+
+// columnNames are the factory's columns, joined as Move lists them, with or
+// without the public review column.
+func columnNames(public bool) string {
+	var names []string
+	for _, c := range model.Columns() {
+		if public || c.Name != model.ColPublic {
+			names = append(names, string(c.Name))
+		}
+	}
+	return strings.Join(names, ", ")
+}
+
+// Only the refusal's column list loses the public column.
+func TestPythonColumnsTouchesOnlyTheColumnList(t *testing.T) {
+	for msg, want := range map[string]string{
+		"column must be one of: " + columnNames(true):   "column must be one of: " + columnNames(false),
+		"stage is one of: security, public, gate":       "stage is one of: security, public, gate",
+		"column must be one of: security, public, gate": "column must be one of: security, public, gate",
+	} {
+		if got := pythonColumns(msg); got != want {
+			t.Errorf("pythonColumns(%q) = %q, want %q", msg, got, want)
+		}
 	}
 }

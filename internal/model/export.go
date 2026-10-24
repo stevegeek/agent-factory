@@ -1,8 +1,8 @@
 package model
 
 // Model is the JSON shape `factory model` prints (model()), built
-// from the tables only. Printed with sorted keys and indent 2, it is byte
-// for byte the old Foreman's model.json (internal/model/testdata).
+// from the tables only, printed with sorted keys and indent 2
+// (internal/model/testdata/model.json).
 type Model struct {
 	Columns           []string            `json:"columns"`
 	ColumnLabels      map[string]string   `json:"column_labels"`

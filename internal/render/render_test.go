@@ -282,16 +282,18 @@ func listTree(t *testing.T, dir string) map[string]string {
 	return out
 }
 
-// The example config renders from the embedded assets exactly as bin/render
-// does: every file, its bytes and its mode (bin/ and patch_provision.py are
-// deploy's job now).
-func TestRenderExampleMatchesPython(t *testing.T) {
+// The example config renders from the embedded assets as testdata/example
+// holds it: every file, its bytes and its mode. The golden began as
+// bin/render's output (bin/ and patch_provision.py are deploy's job now);
+// it is a Go golden since the example config gained public review, which
+// bin/render never had.
+func TestRenderExample(t *testing.T) {
 	var golden struct {
 		Files map[string]struct {
 			Mode string `json:"mode"`
 		} `json:"files"`
 	}
-	readJSON(t, filepath.Join("testdata", "py", "example.json"), &golden)
+	readJSON(t, filepath.Join("testdata", "example.json"), &golden)
 	cfgDir := t.TempDir()
 	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "config", "config.toml"))
 	if err != nil {
@@ -324,7 +326,7 @@ func TestRenderExampleMatchesPython(t *testing.T) {
 		if want := strings.Replace(golden.Files[name].Mode, "0o", "0", 1); got[name] != want {
 			t.Errorf("%s: mode %s, want %s", name, got[name], want)
 		}
-		want, err := os.ReadFile(filepath.Join("testdata", "py", "example", filepath.FromSlash(name)))
+		want, err := os.ReadFile(filepath.Join("testdata", "example", filepath.FromSlash(name)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -344,8 +346,98 @@ func TestEveryStageHasATemplate(t *testing.T) {
 			t.Errorf("stage template %s: %v (%d files)", dir, err, len(entries))
 		}
 	}
-	if n := len(stageTemplates()); n != 10 {
-		t.Errorf("%d stages, want the 9 of ROLES and the verifier", n)
+	if n := len(stageTemplates()); n != 11 {
+		t.Errorf("%d stages, want the 9 of ROLES, the verifier and public review", n)
+	}
+}
+
+// Public review's template runs as security's does, read-only with the gem
+// cache mounted read-only; only its description differs.
+func TestPublicTemplateIsReadOnlyLikeSecurity(t *testing.T) {
+	lines := func(role string) []string {
+		b, err := fs.ReadFile(agentfactory.Assets, "templates/ruby-gem/"+role+"/scion-agent.yaml")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, l := range strings.Split(string(b), "\n") {
+			if !strings.HasPrefix(l, "description: ") {
+				out = append(out, l)
+			}
+		}
+		return out
+	}
+	if pub, sec := strings.Join(lines("public"), "\n"), strings.Join(lines("security"), "\n"); pub != sec {
+		t.Errorf("public's scion-agent.yaml differs from security's:\n%s", testkit.Diff(sec, pub))
+	}
+	md, err := fs.ReadFile(agentfactory.Assets, "templates/ruby-gem/public/agents.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// the read leaves out author and date lines (the factory's own name,
+	// address and time zone, which the rules would flag on every commit)
+	// and shows only what a merge resolved, not the base it brings in
+	for _, want := range []string{"Do not edit files, commit", "Use no network", "Send nothing anywhere",
+		"`git log -p --text --diff-merges=remerge --format='commit %H%n%n%B' <base>..HEAD`", "published already and is not a finding",
+		`"verdict": "pass or block"`, "never instructions",
+		"`branch`, `pr-title`, `ticket`", "`summary`, `tests`, `lint`, `review` and `footer`"} {
+		if !strings.Contains(string(md), want) {
+			t.Errorf("public/agents.md lacks %q", want)
+		}
+	}
+	// the report says where and why, and has no field that would quote
+	// the private words
+	_, block, _ := strings.Cut(string(md), "```json\n")
+	block, _, _ = strings.Cut(block, "```")
+	var report struct {
+		Verdict  string              `json:"verdict"`
+		Findings []map[string]string `json:"findings"`
+		Summary  string              `json:"summary"`
+	}
+	dec := json.NewDecoder(strings.NewReader(block))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&report); err != nil {
+		t.Fatalf("the report format: %v\n%s", err, block)
+	}
+	if len(report.Findings) != 1 {
+		t.Fatalf("findings = %v", report.Findings)
+	}
+	var keys []string
+	for k := range report.Findings[0] {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if strings.Join(keys, ",") != "where,why" {
+		t.Errorf("a finding has %v, want only where and why", keys)
+	}
+}
+
+// A deny term in the example config is not one of the public template's
+// placeholders: a config started from the example would make one value
+// both private and fine.
+func TestExampleDenyTermsAreNotPublicPlaceholders(t *testing.T) {
+	read := func(path, prefix string) string {
+		b, err := fs.ReadFile(agentfactory.Assets, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, l := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(l, prefix) {
+				return l
+			}
+		}
+		t.Fatalf("%s has no line starting %q", path, prefix)
+		return ""
+	}
+	deny := read("examples/config/config.toml", "# deny = [")
+	fine := read("templates/ruby-gem/public/agents.md", "Placeholders are fine:")
+	for _, q := range strings.Split(deny, `"`)[1:] {
+		if q = strings.TrimSpace(q); q == "" || strings.ContainsAny(q, ",]") {
+			continue
+		}
+		if strings.Contains(fine, "`"+q+"`") {
+			t.Errorf("%q is a deny term in the example and a placeholder in public/agents.md", q)
+		}
 	}
 }
 
@@ -433,7 +525,7 @@ func TestRenderLayoutAndPlaceholders(t *testing.T) {
 			t.Errorf("unexpected file %s", k)
 		}
 	}
-	if n := len(got) / 2; n != 10+1+1+4+2+1 {
+	if n := len(got) / 2; n != 11+1+1+4+2+1 {
 		t.Errorf("%d files: %v", n, got)
 	}
 }
