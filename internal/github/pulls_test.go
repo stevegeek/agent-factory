@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -250,7 +251,7 @@ func TestGraphQLWithEmptyErrorsIsFine(t *testing.T) {
 
 func TestReposListsTheInstallationsRepositories(t *testing.T) {
 	f := newFake(t)
-	f.on("GET", "/installation/repositories", 200,
+	f.on("GET", "/installation/repositories?per_page=100&page=1", 200,
 		`{"total_count": 2, "repositories": [{"full_name": "o/a", "private": true}, {"full_name": "o/b", "private": false}]}`)
 	rs, err := f.client().Repos(context.Background())
 	if err != nil {
@@ -262,21 +263,52 @@ func TestReposListsTheInstallationsRepositories(t *testing.T) {
 	checkAPIHeaders(t, f.last())
 }
 
+// installationPages answers the listing with 101 repositories over two
+// pages, o/r0 .. o/r100, with "o/late" the last of them.
+func installationPages(f *fakeGitHub) {
+	var first []string
+	for i := range 100 {
+		first = append(first, fmt.Sprintf(`{"full_name": "o/r%d"}`, i))
+	}
+	f.on("GET", "/installation/repositories?per_page=100&page=1", 200,
+		`{"total_count": 101, "repositories": [`+strings.Join(first, ", ")+`]}`)
+	f.on("GET", "/installation/repositories?per_page=100&page=2", 200,
+		`{"total_count": 101, "repositories": [{"full_name": "o/late"}]}`)
+}
+
+func TestReposReadsEveryPage(t *testing.T) {
+	f := newFake(t)
+	installationPages(f)
+	rs, err := f.client().Repos(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 101 || rs[100].FullName != "o/late" {
+		t.Errorf("%d repos, last %+v", len(rs), rs[len(rs)-1])
+	}
+}
+
+// CanReach is the installation's grant: a repository on a later page is
+// reached, and one the installation does not list is not, even though a
+// public repository answers a plain read (an installed App is what can push).
 func TestCanReach(t *testing.T) {
 	f := newFake(t)
-	f.on("GET", "/repos/o/r", 200, `{"full_name": "o/r"}`)
-	f.on("GET", "/repos/o/gone", 404, `{"message": "Not Found"}`)
-	f.on("GET", "/repos/o/down", 500, `{}`)
+	installationPages(f)
+	f.on("GET", "/repos/o/public", 200, `{"full_name": "o/public", "private": false}`)
 	c := f.client()
-	if ok, err := c.CanReach(context.Background(), "o/r"); !ok || err != nil {
-		t.Errorf("200: %v, %v", ok, err)
+	if ok, err := c.CanReach(context.Background(), "o/late"); !ok || err != nil {
+		t.Errorf("on the second page: %v, %v", ok, err)
 	}
-	checkAPIHeaders(t, f.last())
-	if ok, err := c.CanReach(context.Background(), "o/gone"); ok || err != nil {
-		t.Errorf("404: %v, %v (want false and no error)", ok, err)
+	if ok, err := c.CanReach(context.Background(), "O/R7"); !ok || err != nil {
+		t.Errorf("case differs: %v, %v", ok, err)
 	}
+	if ok, err := c.CanReach(context.Background(), "o/public"); ok || err != nil {
+		t.Errorf("a public repo not in the installation: %v, %v (want false)", ok, err)
+	}
+	down := newFake(t)
+	down.on("GET", "/installation/repositories?per_page=100&page=1", 500, `{}`)
 	var he *HTTPError
-	if ok, err := c.CanReach(context.Background(), "o/down"); ok || !errors.As(err, &he) || he.Code != 500 {
+	if ok, err := down.client().CanReach(context.Background(), "o/r"); ok || !errors.As(err, &he) || he.Code != 500 {
 		t.Errorf("500: %v, %v (want the error)", ok, err)
 	}
 }

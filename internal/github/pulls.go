@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 )
@@ -299,42 +299,60 @@ type Repo struct {
 	Raw      jsonx.Value
 }
 
-// Repos is cmd_github's GET /installation/repositories (one page, GitHub's
-// default size, as Python asks).
+// reposPage and reposPages bound the installation listing: 100 a page
+// (GitHub's most), at most 50 pages.
+const (
+	reposPage  = 100
+	reposPages = 50
+)
+
+// Repos is GET /installation/repositories, every page: the repositories the
+// App's installation is granted, in GitHub's order.
 func (c *Client) Repos(ctx context.Context) ([]Repo, error) {
-	resp, err := c.Do(ctx, "GET", "/installation/repositories", jsonx.Null())
-	if err != nil {
-		return nil, err
-	}
-	if err := object("GET /installation/repositories", resp.Value); err != nil {
-		return nil, err
-	}
-	rv := resp.Value.Get("repositories")
-	if rv.IsNull() {
-		return nil, nil
-	}
-	items, err := objects("GET /installation/repositories", rv)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Repo, len(items))
-	for i, v := range items {
-		out[i] = Repo{FullName: str(v, "full_name"), Private: jsonx.Truthy(v.Get("private")), Raw: v}
+	var out []Repo
+	for page := 1; page <= reposPages; page++ {
+		path := "/installation/repositories?per_page=" + strconv.Itoa(reposPage) + "&page=" + strconv.Itoa(page)
+		resp, err := c.Do(ctx, "GET", path, jsonx.Null())
+		if err != nil {
+			return nil, err
+		}
+		if err := object("GET /installation/repositories", resp.Value); err != nil {
+			return nil, err
+		}
+		rv := resp.Value.Get("repositories")
+		if rv.IsNull() {
+			break
+		}
+		items, err := objects("GET /installation/repositories", rv)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range items {
+			out = append(out, Repo{FullName: str(v, "full_name"), Private: jsonx.Truthy(v.Get("private")), Raw: v})
+		}
+		total, _ := resp.Value.Get("total_count").Int64()
+		if len(items) < reposPage || (total > 0 && int64(len(out)) >= total) {
+			break
+		}
 	}
 	return out, nil
 }
 
-// CanReach is GET /repos/<repo> with the installation token: true on a
-// 2xx, false on a 404 (the App is not granted the repository, or it does
-// not exist), and any other failure as the error. It asks for the one
-// repository rather than reading Repos, which sees only the first page.
+// CanReach is whether the App's installation is granted repo: it is in
+// Repos (every page). Reading the repository itself is not enough: a public
+// one answers anyone, installed or not, and only an installed one takes
+// the App's pushes.
 func (c *Client) CanReach(ctx context.Context, repo string) (bool, error) {
-	_, err := c.Do(ctx, "GET", "/repos/"+repo, jsonx.Null())
-	var he *HTTPError
-	if errors.As(err, &he) && he.Code == http.StatusNotFound {
-		return false, nil
+	repos, err := c.Repos(ctx)
+	if err != nil {
+		return false, err
 	}
-	return err == nil, err
+	for _, r := range repos {
+		if strings.EqualFold(r.FullName, repo) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // BranchRules is GET /repos/<repo>/rules/branches/<branch> (the branch

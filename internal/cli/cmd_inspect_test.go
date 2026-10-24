@@ -225,7 +225,7 @@ func TestMemoryListsAndUndoes(t *testing.T) {
 func TestGitHubListsTheReposAndThePermissions(t *testing.T) {
 	f := githubRoot(t)
 	gh := &fakeGitHub{answer: func(method, path, body string) (int, string) {
-		if method == "GET" && path == "/installation/repositories" {
+		if method == "GET" && path == "/installation/repositories?per_page=100&page=1" {
 			return 200, `{"total_count":2,"repositories":[{"full_name":"example/gem","private":true},{"full_name":"example/pub","private":false}]}`
 		}
 		return 404, `{"message":"Not Found"}`
@@ -236,7 +236,7 @@ func TestGitHubListsTheReposAndThePermissions(t *testing.T) {
 		t.Fatalf("exit %d, stderr %q\n%s", code, errs, testkit.Diff(want, out))
 	}
 	calls := gh.seen()
-	wantCalls := []string{"POST /app/installations/1/access_tokens", "GET /installation/repositories", "POST /app/installations/1/access_tokens"}
+	wantCalls := []string{"POST /app/installations/1/access_tokens", "GET /installation/repositories?per_page=100&page=1", "POST /app/installations/1/access_tokens"}
 	if !slices.Equal(calls, wantCalls) {
 		t.Fatalf("calls %q, want %q", calls, wantCalls)
 	}
