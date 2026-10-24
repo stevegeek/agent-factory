@@ -384,6 +384,12 @@ meter.gauge:-moz-meter-sub-sub-optimum::-moz-meter-bar { background: var(--stop)
 .system .muted { color: var(--muted); }
 .system .busy { color: var(--go); font-weight: 500; }
 .sys-worker { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.machines { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.machine { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 10px; border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 6px; font-size: 14px; }
+.machine b { flex-basis: 100%; overflow-wrap: anywhere; }
+.machine.online { border-left-color: var(--go); }
+.machine.offline { border-left-color: var(--stop); }
+.machine .muted { color: var(--muted); font-size: 12.5px; }
 .sys-problems summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
 
 /* Markdown from agents */

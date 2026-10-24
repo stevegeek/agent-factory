@@ -40,6 +40,7 @@ type SystemView struct {
 	Temp       string
 	TempLvl    string
 	Bars       []Bar
+	Machines   []Machine // the summary at the top: every configured host
 	Hosts      []HostRow
 	Workers    []WorkerView // the worker hosts' vitals, one block each
 	Containers []string
@@ -174,6 +175,15 @@ type Bar struct {
 type HostRow struct {
 	Name, Agents, Paused string
 	Busy                 bool
+}
+
+// Machine is one host in the summary: whether it reports and whether it
+// runs agents.
+type Machine struct {
+	Name   string
+	State  string // "online", "offline" or "unknown" (no report yet)
+	Work   string // "working", "paused" or "idle"
+	Agents string // "1 of 2 agents"
 }
 
 // WorkerView is one worker host's vitals on the System card.
@@ -312,6 +322,7 @@ func fillSnapshot(v *SystemView, s sysinfo.Snapshot, now time.Time, root string)
 		}
 	}
 	v.Bars = append(v.Bars, diskBars(s.Disks, root)...)
+	v.Machines = machines(s, !v.Stale, now)
 	v.Hosts = hostRows(s, now)
 	v.Workers = workerViews(s.Hosts, now)
 	v.Containers, v.Podman = s.Containers, s.Containers != nil
@@ -430,6 +441,36 @@ func workerViews(hosts []sysinfo.Host, now time.Time) []WorkerView {
 			w.Problems = v.Problems
 		}
 		out = append(out, w)
+	}
+	return out
+}
+
+// machines are the configured hosts in config order. The dispatcher is
+// online while its snapshot is fresh; a worker host while its vitals are
+// fresh and it answered this pass.
+func machines(s sysinfo.Snapshot, fresh bool, now time.Time) []Machine {
+	var out []Machine
+	for _, h := range s.Hosts {
+		m := Machine{Name: h.Name, State: "offline", Work: "idle", Agents: fmt.Sprintf("%d of %d agents", h.Agents, h.Slots)}
+		switch {
+		case h.Name == model.LocalHost:
+			if fresh {
+				m.State = "online"
+			}
+		case h.Vitals != nil:
+			if h.VitalsError == "" && now.Sub(h.Vitals.Taken) <= StaleAfter {
+				m.State = "online"
+			}
+		case h.VitalsError == "":
+			m.State = "unknown"
+		}
+		switch {
+		case h.Agents > 0:
+			m.Work = "working"
+		case h.PausedUntil != nil && h.PausedUntil.After(now):
+			m.Work = "paused"
+		}
+		out = append(out, m)
 	}
 	return out
 }
