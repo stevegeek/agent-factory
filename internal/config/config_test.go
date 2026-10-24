@@ -82,7 +82,7 @@ func TestExampleConfig(t *testing.T) {
 	if c.Image != "localhost/factory-agent:scion" || c.MaxAgents != 2 || c.AgentTimeoutMinutes != 45 {
 		t.Errorf("top level: %q %d %d", c.Image, c.MaxAgents, c.AgentTimeoutMinutes)
 	}
-	if c.Images["claude"] != "2.1.296" || c.Images["pi"] != "1.2.0" {
+	if c.Images["claude"] != "2.1.296" || c.Images["pi"] != "1.4.0" {
 		t.Errorf("images: %v", c.Images)
 	}
 	if c.Identity.GitName != "Your Name" || c.Identity.PRFooter == "" {

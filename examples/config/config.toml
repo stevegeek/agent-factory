@@ -10,7 +10,7 @@ agent_timeout_minutes = 45
 # a needs_human notice when a newer release exists.
 [images]
 claude = "2.1.296"
-pi = "1.2.0"
+pi = "1.4.0"
 
 [upkeep]
 rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name to pin it
