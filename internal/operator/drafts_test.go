@@ -53,8 +53,10 @@ func TestAutoDraftLandsAndOffersOnce(t *testing.T) {
 	if left := f.workLeft(); len(left) > 0 {
 		t.Errorf("work dirs left: %v", left)
 	}
-	// the commit carries the identity and the message
-	msg := f.git(f.clone, "log", "-1", "--format=%an <%ae>%n%B", "origin/bot/operator-"+itemName(tk, 0))
+	// the commit carries the identity and the message: read it on the bare
+	// origin it was sent to (whether the clone's origin/* refs follow a send
+	// by URL differs between git versions)
+	msg := gitOut(f.bare, "log", "-1", "--format=%an <%ae>%n%B", "refs/heads/bot/operator-"+itemName(tk, 0))
 	if !strings.HasPrefix(msg, "Factory Bot <bot@example.com>\nLower the poll interval\n\nbecause Lower the poll interval\n\nOperator draft from "+string(tk.ID)+", applies by itself.") {
 		t.Errorf("commit:\n%s", msg)
 	}
