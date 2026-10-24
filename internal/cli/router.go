@@ -1,8 +1,8 @@
-// Package cli is the factory command line (ARCHITECTURE.md §7): an
-// in-house router with the argparse behaviours the callers rely on, the
-// command table, and one file per command group with its output formats.
+// Package cli is the factory command line: an in-house router with the
+// argparse behaviours the callers rely on, the command table, and one file
+// per command group with its output formats.
 //
-// Every command is Go (§15): there is no Python delegation.
+// Every command is Go: there is no Python delegation.
 package cli
 
 import (
@@ -166,7 +166,7 @@ func Usage(format string, args ...any) error {
 }
 
 // Main runs the factory command line: args is os.Args (args[0] is the
-// program). It returns the exit code (§7.2).
+// program). It returns the exit code.
 func Main(args []string, env Env) int {
 	e := &env
 	e.init()
@@ -209,9 +209,10 @@ func Main(args []string, env Env) int {
 	}
 }
 
-// signalsFor is §5.4: every command is cancelled by SIGINT and SIGTERM;
-// the long-running ones (the timers' tick, clock, sweep, rebuild and
-// backup) ignore SIGHUP, and any other command is cancelled by it too.
+// signalsFor is the signal policy: every command is cancelled by SIGINT
+// and SIGTERM; the long-running ones (the timers' tick, clock, sweep,
+// rebuild and backup) ignore SIGHUP, and any other command is cancelled by
+// it too.
 func signalsFor(args []string) (catch []os.Signal, ignoreHUP bool) {
 	name := ""
 	if len(args) > 1 {
@@ -270,7 +271,7 @@ func dispatch(ctx context.Context, e *Env, cmds []Command, argv []string) int {
 	return report(e, cmd, cmd.Run(ctx, e, a))
 }
 
-// report turns a command's error into its exit code and stderr (§7.2).
+// report turns a command's error into its exit code and stderr.
 func report(e *Env, cmd *Command, err error) int {
 	var (
 		code ExitCode
@@ -339,7 +340,7 @@ func isNegativeNumber(s string) bool {
 
 // parse reads a command's arguments the argparse way: options anywhere,
 // --flag value and --flag=value, -- ends options, -h/--help. Prefix
-// abbreviations are not accepted (§7.1).
+// abbreviations are not accepted.
 func parse(cmd *Command, argv []string) (Args, bool, error) {
 	a := Args{pos: map[string]string{}, flags: map[string][]string{}, defs: map[string]string{}}
 	byName := map[string]*Flag{}
@@ -571,7 +572,7 @@ type Env struct {
 	Stderr io.Writer
 	// Environ is the process environment as a map: paths.FromEnv reads
 	// FACTORY_ROOT, HOME and FACTORY_API_TOKENS from it, and
-	// FACTORY_TEST_NOW (seam 3) fixes the clock.
+	// FACTORY_TEST_NOW fixes the clock.
 	Environ map[string]string
 	Exec    execx.Execer // nil: execx.OS
 	Rand    io.Reader    // nil: crypto/rand
@@ -655,7 +656,7 @@ func (e *Env) ConfigSource() *config.Source {
 	return &config.Source{Path: e.paths.Config, Switches: e.paths.ProjectSwitches(), Log: e.Log()}
 }
 
-// Git refuses a git older than gitread.MinVersion (§4.8), once per
+// Git refuses a git older than gitread.MinVersion, once per
 // invocation: every command that runs git calls it before its first git
 // call, so an old git is refused up front instead of failing later inside
 // merge-tree --write-tree.

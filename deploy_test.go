@@ -1,10 +1,9 @@
 package agentfactory
 
-// The deploy tests (slice S24, ARCHITECTURE.md §9.5, §6.2, §15.2): deploy.sh
-// runs into temporary homes on this machine (a HOST of the form local:DIR),
-// with binaries built here, and the tests check the installed file list and
-// what a deploy must never touch. No ssh, no systemctl: deploy prints what
-// it would run there.
+// The deploy tests: deploy.sh runs into temporary homes on this machine (a
+// HOST of the form local:DIR), with binaries built here, and the tests check
+// the installed file list and what a deploy must never touch. No ssh, no
+// systemctl: deploy prints what it would run there.
 
 import (
 	"bufio"
@@ -234,7 +233,7 @@ func TestDeploy(t *testing.T) {
 		}
 	})
 
-	// §11: the new factory's check --board --asks runs on the live root
+	// the new factory's check --board --asks runs on the live root
 	// before anything is installed.
 	t.Run("a live board the new factory cannot read cleanly installs nothing", func(t *testing.T) {
 		host := pythonHost(t)
@@ -338,7 +337,7 @@ func TestDeploy(t *testing.T) {
 		}
 	})
 
-	// D18: a user manager that cannot apply the whole sandbox still keeps
+	// a user manager that cannot apply the whole sandbox still keeps
 	// the credentials and itself out of Foreman's reach with what it can
 	// apply: InaccessiblePaths with PrivateUsers, then InaccessiblePaths alone.
 	t.Run("a user manager that applies only part of the sandbox gets that part", func(t *testing.T) {
@@ -406,7 +405,7 @@ func TestDeploy(t *testing.T) {
 		mentions(t, out, "deploy.sh: self: ")
 	})
 
-	// deploys/config-commit is what P3's stale-checkout guard reads
+	// deploys/config-commit is what the stale-checkout guard reads
 	t.Run("a deploy from a config checkout records its commit; one from a plain directory forgets it", func(t *testing.T) {
 		host := pythonHost(t)
 		repo := t.TempDir()
@@ -634,7 +633,7 @@ func TestDeploy(t *testing.T) {
 	})
 }
 
-// The Foreman unit holds the §6.2 sandbox between markers deploy.sh reads,
+// The Foreman unit holds the sandbox between markers deploy.sh reads,
 // with optional paths marked "-" so a missing key never stops Foreman.
 func TestForemanUnitSandbox(t *testing.T) {
 	b, err := os.ReadFile("systemd/foreman.service")
@@ -673,7 +672,7 @@ func TestForemanUnitSandbox(t *testing.T) {
 	}
 }
 
-// Foreman's wake (§5.5, §6.2): a path unit on foreman-state/wake starts a
+// Foreman's wake: a path unit on foreman-state/wake starts a
 // user-unit tick, outside Foreman's sandbox.
 func TestWakeUnits(t *testing.T) {
 	for name, want := range map[string][]string{
@@ -725,7 +724,7 @@ func TestScreensUnits(t *testing.T) {
 	}
 }
 
-// The backup timers (§15.2) are user units that run the factory binary.
+// The backup timers are user units that run the factory binary.
 func TestBackupUnits(t *testing.T) {
 	for name, want := range map[string][]string{
 		"systemd/factory-backup.service":        {"Type=oneshot", "ExecStart=%h/factory/bin/factory backup\n"},

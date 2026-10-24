@@ -56,7 +56,7 @@ func TestDefaults(t *testing.T) {
 		{"model", c.Model("work"), ""},
 		{"projects", len(c.Projects), 0},
 		{"recipes", len(c.Recipes()), 0},
-		// §15.1, §15.2: new in the port
+		// new in the port
 		{"images.auto_update", c.AutoUpdate, []string{"claude", "pi"}},
 		{"backup", c.Backup, Backup{Region: "auto", IncludePushKey: true, Daily: 7, Weekly: 4, Monthly: 6}},
 	}
@@ -253,8 +253,8 @@ file_first = 1
 }
 
 // Installation id 0 or "" is no GitHub, as Python's truth test says.
-// [images] auto_update is a list beside the pins (§15.1); [backup] holds
-// the R2 target (§15.2).
+// [images] auto_update is a list beside the pins; [backup] holds
+// the R2 target.
 func TestImagesAutoUpdateAndBackup(t *testing.T) {
 	c := mustParse(t, `[images]
 claude = "2.1.296"
@@ -537,7 +537,7 @@ func TestDeployKeysAreKnown(t *testing.T) {
 	}
 }
 
-// P6: [backup] name names the archive line, so it survives a change of
+// [backup] name names the archive line, so it survives a change of
 // machine; "" is the machine's host name.
 func TestBackupNameDecodes(t *testing.T) {
 	if c := mustParse(t, "[backup]\nname = \"master\"\n"); c.Backup.Name != "master" || len(c.Unknown) != 0 {
@@ -548,7 +548,7 @@ func TestBackupNameDecodes(t *testing.T) {
 	}
 }
 
-// P5 phase B: [upkeep] latest_every_days is the latest-toolchain trial's
+// [upkeep] latest_every_days is the latest-toolchain trial's
 // cadence, 30 by default and 0 for off; the key is known.
 func TestUpkeepLatestEveryDays(t *testing.T) {
 	if c := mustParse(t, ""); c.Upkeep.LatestEveryDays != 30 {

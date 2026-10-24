@@ -12,8 +12,8 @@ import (
 	"testing"
 )
 
-// fakeTokens stands in for the token store (S5 owns it): the records, or
-// the error message load_tokens raised in the golden's case.
+// fakeTokens stands in for the token store (package tokens owns it): the
+// records, or the error message load_tokens raised in the golden's case.
 type fakeTokens struct {
 	records []TokenRecord
 	err     error
@@ -53,9 +53,8 @@ func tokensFrom(t *testing.T, path string) TokenRecords {
 	return fakeTokens{records: rs}
 }
 
-// newWarningPrefixes are the warnings the port adds to config_problems
-// (§3.4, quirk 6, D15): they come after Python's, so Python's list is a
-// prefix of the port's.
+// newWarningPrefixes are the warnings the port adds to config_problems:
+// they come after Python's, so Python's list is a prefix of the port's.
 var newWarning = []string{
 	": not a key the factory knows",
 	"has no install",
@@ -81,7 +80,7 @@ func checkNewWarnings(t *testing.T, name string, py, got []string) {
 	}
 }
 
-// The goldens: config_problems over the check cases (tools/goldens.py
+// The goldens: config_problems over the check cases (the Python goldens tool
 // CHECK_CASES), problems exactly, warnings with the port's additions after
 // Python's.
 func TestCheckGoldens(t *testing.T) {
@@ -172,7 +171,7 @@ body = "b"
 	}
 }
 
-// §13.2 row F: a schedule, recipe or watch naming no project still runs as
+// A schedule, recipe or watch naming no project still runs as
 // in Python, and check says so; the factory's own project is no warning.
 func TestCheckWarnsOfAnUnknownProject(t *testing.T) {
 	c := mustParse(t, `
@@ -247,7 +246,7 @@ func TestCheckTokens(t *testing.T) {
 	}
 }
 
-// [hosts.<name>] takes an optional kind (§2.4.6): "jobs" when absent, the
+// [hosts.<name>] takes an optional kind: "jobs" when absent, the
 // only kind there is; any other is a problem, and kind is a known key.
 func TestHostKind(t *testing.T) {
 	c := mustParse(t, "[hosts.a]\nssh = \"a\"\n\n[hosts.b]\nssh = \"b\"\nkind = \"jobs\"\n\n[hosts.c]\nssh = \"c\"\nkind = \"lever\"\n")
@@ -338,8 +337,8 @@ projects = ["b", "b"]
 	checkNewWarnings(t, "jobs", want, warnings)
 }
 
-// The port's own warnings: a factory project missing a gate command
-// (quirk 6), and GitHub with no app_slug (D15).
+// The port's own warnings: a factory project missing a gate command, and
+// GitHub with no app_slug.
 func TestCheckNewWarnings(t *testing.T) {
 	c := mustParse(t, "[github]\ninstallation_id = 1\n[projects.gem]\npath = \"/g\"\ninstall = \"i\"\n[projects.b]\nmode = \"board\"\n")
 	_, warnings := c.Problems(nil)
@@ -415,8 +414,8 @@ func TestDeploy(t *testing.T) {
 		t.Errorf("absent [deploy] = %+v, on %v", c.Deploy, c.Deploy.On())
 	}
 	ready := "[github]\ninstallation_id = 7\n\n[build]\nhost = \"helpera\"\n\n[hosts.helpera]\nssh = \"factory@helpera\"\n\n"
-	c := mustParse(t, ready+"[deploy]\ncore = \"example/agent-factory\"\nconfig = \"example/factory-config\"\nconfig_dir = \"conf/live\"\n")
-	if !c.Deploy.On() || c.Deploy != (Deploy{Core: "example/agent-factory", Config: "example/factory-config", ConfigDir: "conf/live"}) {
+	c := mustParse(t, ready+"[deploy]\ncore = \"example/agent-factory\"\nconfig = \"example/config-repo\"\nconfig_dir = \"conf/live\"\n")
+	if !c.Deploy.On() || c.Deploy != (Deploy{Core: "example/agent-factory", Config: "example/config-repo", ConfigDir: "conf/live"}) {
 		t.Errorf("[deploy] = %+v", c.Deploy)
 	}
 	problems, warnings := c.Problems(nil)
@@ -470,7 +469,7 @@ func TestDeploy(t *testing.T) {
 	}
 }
 
-// P6: [backup] name is used as it is in the archive's name, so it must
+// [backup] name is used as it is in the archive's name, so it must
 // already be a slug, and not one of the host part's fallbacks.
 func TestBackupNameMustBeASlug(t *testing.T) {
 	for name, bad := range map[string]bool{
@@ -489,7 +488,7 @@ func TestBackupNameMustBeASlug(t *testing.T) {
 	}
 }
 
-// P6: [build] host = "self" needs no [hosts] entry; this host's own
+// [build] host = "self" needs no [hosts] entry; this host's own
 // factory-remote builds, so [remote.<this host>] (or [remote]) has
 // build = true. That is HostProblems' check, for the host it names.
 func TestBuildHostSelfPassesCheck(t *testing.T) {

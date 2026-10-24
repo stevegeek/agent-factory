@@ -14,7 +14,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/fsx"
 )
 
-// Checkout is checkout_memory (F:1203): the run's own copy of files, in a
+// Checkout is checkout_memory: the run's own copy of files, in a
 // fresh directory dest (mode 0700) that nothing runs in yet. Anything at
 // dest is removed first. Paths that are not PathOK and the context folder
 // are not written; every file is created new.
@@ -61,7 +61,7 @@ func WriteNew(dir string, files Files) error {
 	return nil
 }
 
-// ReadCopy is read_copy (F:1217): a run's copy read back as files, regular
+// ReadCopy is read_copy: a run's copy read back as files, regular
 // files only, opened relative to their directory without following any
 // link, at most MaxFile each and MaxFiles in all, then Capped. It returns
 // what was left out too: links, devices, fifos, anything named .git, odd
@@ -108,7 +108,7 @@ func ReadCopy(top string, skipContext bool) (Files, []string, error) {
 	return files, skipped, nil
 }
 
-// ReadTar is read_memory_tar (F:1259): a helper host's copy, read from its
+// ReadTar is read_memory_tar: a helper host's copy, read from its
 // tar in memory; nothing is written to disk. Names are normalised with a
 // leading / dropped; directories and the context folder are passed over;
 // anything not a regular file, with an odd name or over MaxFile, and any
@@ -152,7 +152,7 @@ func regular(t byte) bool {
 	return t == tar.TypeReg || t == tar.TypeRegA || t == tar.TypeCont || t == tar.TypeGNUSparse
 }
 
-// RemoveCopy is remove_copy (F:1264): the run's copy deleted even where
+// RemoveCopy is remove_copy: the run's copy deleted even where
 // the agent made directories unreadable, never through a link.
 func RemoveCopy(dir string) error {
 	if err := fsx.RemoveTree(dir); err != nil {

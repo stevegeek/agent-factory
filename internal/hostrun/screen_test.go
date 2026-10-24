@@ -18,7 +18,7 @@ func TestScreenDropsScionNoiseAndKeepsTheEnd(t *testing.T) {
 	}
 }
 
-// screen_text over the golden corpus (tools/goldens.py).
+// screen_text over the golden corpus (the Python goldens tool).
 func TestScreenGolden(t *testing.T) {
 	b, err := os.ReadFile("testdata/py/screen.json")
 	if err != nil {

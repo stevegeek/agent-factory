@@ -8,10 +8,11 @@ import (
 
 // Every argv the old Foreman (core/foreman) sent the factory, from its
 // Plan (actions.go), its new-ticket form (server.go), its live look
-// (live.go), its recipes list and its API runner (api.go): the Go router
-// must take each one and read the same arguments out of it as argparse did
-// (§10.2). The table outlives core/foreman, deleted at the cutover, so
-// every argv the old units, docs and scripts use keeps parsing.
+// (live.go), its recipes list and its API runner (api.go): the Go
+// router must take each one and read the same arguments out of it as
+// argparse did. The table outlives core/foreman, deleted at the
+// cutover, so every argv the old units, docs and scripts use keeps
+// parsing.
 
 func TestForemanArgvIsAccepted(t *testing.T) {
 	type want struct {

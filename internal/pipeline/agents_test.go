@@ -53,8 +53,8 @@ func TestAHelperJobOutOfCreditGoesBackAndPausesItsHost(t *testing.T) {
 	}
 }
 
-// §10.7 S17 (S12's local limit path in the tick): a quiet agent whose
-// screen ends in a limit is stopped, put back and this host paused.
+// The local limit path in the tick: a quiet agent whose screen ends in a
+// limit is stopped, put back and this host paused.
 func TestAQuietLocalAgentAtItsLimitIsRequeued(t *testing.T) {
 	h := newHarness(t)
 	id := localAgent(h, "work", "working", func(t *ticket.Ticket) { t.Branch = ticket.Some("bot/x") })
@@ -94,7 +94,7 @@ func TestAQuietAgentWithoutALimitKeepsRunning(t *testing.T) {
 	}
 }
 
-// §10.7 S17: the local agent_lost path.
+// the local agent_lost path.
 func TestALocalAgentThatDisappearedIsLost(t *testing.T) {
 	h := newHarness(t)
 	id := localAgent(h, "triage", "triage", nil)
@@ -127,8 +127,8 @@ func TestAFailedScionListStrandsNothing(t *testing.T) {
 	}
 }
 
-// §10.7 S17: the local timed_out path, which keeps the branch even for a
-// stage without one (quirk 3).
+// the local timed_out path, which keeps the branch even for a
+// stage without one.
 func TestALocalAgentPastItsTimeoutIsStopped(t *testing.T) {
 	h := newHarness(t)
 	id := localAgent(h, "triage", "triage", nil)

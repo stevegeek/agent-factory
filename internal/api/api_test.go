@@ -194,7 +194,7 @@ func TestAPIConcurrency(t *testing.T) {
 }
 
 // A client that hangs up does not cut a write short: the verb runs on a
-// detached context (§5.6).
+// detached context.
 func TestAPIClientHangUpDoesNotCancel(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		h, f, tokens := newFakeHarness(t, harnessOpt{})

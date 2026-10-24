@@ -199,8 +199,7 @@ func TestTheLatestReviewDecides(t *testing.T) {
 }
 
 // Only [github] reviewers' reviews count, their logins compared without
-// case; with no reviewers configured the reviews are not even read
-// (§10.7 S14).
+// case; with no reviewers configured the reviews are not even read.
 func TestReviewersAreConfiguredAndCaseInsensitive(t *testing.T) {
 	cfgText := strings.Replace(testConfig, `reviewers = ["maintainer-login"]`, `reviewers = ["Maintainer-Login"]`, 1)
 	h := newHarness(t)
@@ -345,7 +344,7 @@ func TestTheLatestReviewDecisionIsRecorded(t *testing.T) {
 
 // An approval is not landed when the tick has too little time left for a
 // merge check: nothing is recorded and the approval is read again next
-// tick (§5.2).
+// tick.
 func TestAnApprovalIsDeferredNearTheDeadline(t *testing.T) {
 	head := sha('a')
 	h := newHarness(t)
@@ -368,9 +367,9 @@ func TestAnApprovalIsDeferredNearTheDeadline(t *testing.T) {
 	}
 }
 
-// Quirk 2: an approval whose merge check finds no room on this host is
-// not landed and not spent: nothing is recorded, and it is read again on
-// a later tick.
+// An approval whose merge check finds no room on this host is not landed
+// and not spent: nothing is recorded, and it is read again on a later
+// tick.
 func TestAnApprovalWaitsForRoomForTheMergeCheck(t *testing.T) {
 	head := sha('a')
 	h := newHarness(t)

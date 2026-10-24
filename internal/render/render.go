@@ -1,9 +1,9 @@
-// Package render is the port of bin/render (ARCHITECTURE.md §8.4): it
-// renders the files one host needs from the embedded core data and a
-// config directory, and it carries scion/patch_provision.py as Patch.
+// Package render is the port of bin/render: it renders the files one host
+// needs from the embedded core data and a config directory, and it carries
+// scion/patch_provision.py as Patch.
 //
 // It does not ship programs: deploy installs the binaries and bin/pi-run
-// from its own file list (§9.5).
+// from its own file list.
 package render
 
 import (

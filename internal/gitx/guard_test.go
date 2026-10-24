@@ -122,7 +122,7 @@ func TestGuardLogsAtMostEightKeys(t *testing.T) {
 	}
 }
 
-// §10.7 S7a (security): a symlinked .git/config is replaced, not followed.
+// Security: a symlinked .git/config is replaced, not followed.
 func TestGuardReplacesASymlinkedConfig(t *testing.T) {
 	f := newFixture(t)
 	ctx := ctxT(t)
@@ -154,7 +154,7 @@ func TestGuardReplacesASymlinkedConfig(t *testing.T) {
 	}
 }
 
-// §10.7 S7a (security): a config that is not a regular file is replaced.
+// Security: a config that is not a regular file is replaced.
 func TestGuardReplacesANonRegularConfig(t *testing.T) {
 	ctx := ctxT(t)
 	t.Run("fifo", func(t *testing.T) {
@@ -201,7 +201,7 @@ func TestGuardDoesNotFollowAPlantedTempFile(t *testing.T) {
 	}
 }
 
-// §10.7 S7a (security): the (ino, mtime, size) cache skips an unchanged
+// Security: the (ino, mtime, size) cache skips an unchanged
 // config, and any change to it is checked again.
 func TestGuardStatCache(t *testing.T) {
 	f := newFixture(t)
@@ -240,7 +240,7 @@ func TestGuardStatCache(t *testing.T) {
 	}
 }
 
-// quirk 11 (§13.2): a .git that is a file (a gitdir pointer) is refused.
+// a .git that is a file (a gitdir pointer) is refused.
 func TestGuardRefusesADotGitFile(t *testing.T) {
 	f := newFixture(t)
 	dir := t.TempDir()

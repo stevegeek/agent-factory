@@ -1,5 +1,5 @@
 // Command factory is the dispatcher: the CLI, the tick, the doors, upkeep and
-// render (ARCHITECTURE.md §7). Everything is in internal/cli.
+// render. Everything is in internal/cli.
 package main
 
 import (

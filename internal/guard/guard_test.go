@@ -515,7 +515,7 @@ func TestRunSlots(t *testing.T) {
 }
 
 // A call runs on a context the client cannot cancel, with its own 30 s
-// deadline (§5.6); what it returns is passed back.
+// deadline; what it returns is passed back.
 func TestRunDetaches(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		g := New(Options{})
@@ -552,7 +552,7 @@ func TestRunDetaches(t *testing.T) {
 }
 
 // A panic in a call is recovered: the caller learns nothing of it, the
-// journal gets the stack, and the slots are free again (§5.6).
+// journal gets the stack, and the slots are free again.
 func TestRunRecoversPanics(t *testing.T) {
 	l := &logs{}
 	g := New(Options{Concurrency: 1, Log: l})

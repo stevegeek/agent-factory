@@ -19,8 +19,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// The legacy fixtures are shared with package ticket (ARCHITECTURE.md §10.4):
-// hand-written old boards, and tickets the dispatcher's real code paths wrote.
+// The legacy fixtures are shared with package ticket: hand-written old
+// boards, and tickets the dispatcher's real code paths wrote.
 const (
 	legacyBoard    = "../ticket/testdata/legacy/board"
 	legacyContract = "../ticket/testdata/legacy/contract"

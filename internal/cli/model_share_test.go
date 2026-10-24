@@ -8,8 +8,8 @@ import (
 	"github.com/stevegeek/agent-factory/internal/tokens"
 )
 
-// tokens may not import model (§2.2), so it keeps copies of two model
-// lists. One definition of the model (§1.1 goal 2) means the copies never
+// tokens may not import model, so it keeps copies of two model
+// lists. One definition of the model means the copies never
 // drift: this test ties them together.
 func TestTokensShareTheModel(t *testing.T) {
 	var caps []string

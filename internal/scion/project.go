@@ -21,7 +21,7 @@ import (
 const gitTimeout = 120 * time.Second
 
 // EnsureProject gives the checkout at dir its own Scion project
-// (ensure_scion_project, F:580). Scion runs an agent in the project whose
+// (ensure_scion_project). Scion runs an agent in the project whose
 // .scion it finds; a checkout without one falls back to the global project,
 // which mounts the checkout itself instead of a worktree.
 //

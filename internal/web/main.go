@@ -40,7 +40,7 @@ type Wiring struct {
 	Log            Logger
 }
 
-// Wire builds the services web calls (S23: ops, ticketapi, config.Source,
+// Wire builds the services web calls (ops, ticketapi, config.Source,
 // api, mcp). It may be nil: the desk is then read-only.
 type Wire func(ctx context.Context, w Wiring) (Services, error)
 
@@ -122,7 +122,7 @@ func parseFlags(args []string, env map[string]string, stderr io.Writer) (*mainCo
 	return c, nil
 }
 
-// defaultSecretFile is Foreman's login secret (§6.2): in <root>/foreman-state,
+// defaultSecretFile is Foreman's login secret: in <root>/foreman-state,
 // where deploy moves it so the sandboxed unit can write it. A host whose
 // files have not moved yet keeps using ~/.config/factory/foreman-secret.
 // Users, sessions and the push keys live beside the secret, so this one path
@@ -225,7 +225,7 @@ func build(ctx context.Context, c *mainConfig, wire Wire, logger Logger, clk clo
 	return &app{srv: srv, pusher: p, board: board}, nil
 }
 
-// busSockets are the user manager's sockets, which the sandbox hides (§6.2).
+// busSockets are the user manager's sockets, which the sandbox hides.
 func (c *mainConfig) busSockets() []string {
 	if c.runtimeDir == "" {
 		return nil
@@ -285,7 +285,7 @@ func Main(args []string, env map[string]string, stdout, stderr io.Writer, wire W
 	defer stop()
 	signal.Ignore(syscall.SIGHUP)
 	// a small box: keep the heap tight rather than fast, and hand freed
-	// pages back between visits (§6.4)
+	// pages back between visits
 	debug.SetGCPercent(50)
 	debug.SetMemoryLimit(64 << 20)
 	go func() {

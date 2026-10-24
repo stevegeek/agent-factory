@@ -1,8 +1,8 @@
-// Package mcp is MCP at /mcp (ARCHITECTURE.md §2.3, §5.6; inventory-foreman
-// §13): streamable HTTP, one JSON-RPC message per POST, answered with JSON
-// (no event stream, no sessions). The same tokens, guard and slots as
-// /api/v1: every tool is one ticketapi verb, run in-process, and the verb
-// decides what the caller may do. This package only translates.
+// Package mcp is MCP at /mcp: streamable HTTP, one JSON-RPC message per
+// POST, answered with JSON (no event stream, no sessions). The same tokens,
+// guard and slots as /api/v1: every tool is one ticketapi verb, run
+// in-process, and the verb decides what the caller may do. This package
+// only translates.
 //
 // It is Foreman's mcp.go with the `factory ticket` subprocess replaced by
 // ticketapi.Service.Do; the request a verb sees is built exactly as the

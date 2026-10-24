@@ -7,9 +7,9 @@ import (
 	"github.com/stevegeek/agent-factory/internal/fizzy"
 )
 
-// The Fizzy import (ticket system step 5): `factory fizzy export` on the
-// maintainer's desktop, where the `fizzy` CLI holds the credentials, and
-// `factory fizzy import` on the dispatcher, into board projects.
+// The Fizzy import: `factory fizzy export` on a workstation,
+// where the `fizzy` CLI holds the credentials, and `factory fizzy import`
+// on the dispatcher, into board projects.
 
 // The command loads config.toml itself (no Config: true): export runs on a
 // desktop that has none.

@@ -70,7 +70,7 @@ type fakeExec struct {
 
 func (f *fakeExec) Run(_ context.Context, c execx.Cmd) (execx.Result, error) {
 	if slices.Equal(c.Argv, []string{"git", "--version"}) {
-		return execx.Result{Argv: c.Argv, Stdout: []byte("git version 2.50.1\n")}, nil // §4.8's check, not recorded
+		return execx.Result{Argv: c.Argv, Stdout: []byte("git version 2.50.1\n")}, nil // the git version check, not recorded
 	}
 	f.mu.Lock()
 	f.argv = append(f.argv, c.Argv)
@@ -116,7 +116,7 @@ func opsRun(t *testing.T, f *fixture, o opsCLI, ex execx.Execer, argv ...string)
 	return code, out.String(), errb.String()
 }
 
-// wakeLog points wake at a file (seam 4) and returns it.
+// wakeLog points wake at a file and returns it.
 func wakeLog(f *fixture) string {
 	p := f.env.Path("wake.log")
 	f.env.Vars["FACTORY_WAKE_LOG"] = p

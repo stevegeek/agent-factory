@@ -9,7 +9,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/imagebuild"
 )
 
-// Tool is one row of Python's TOOLS table (F:2812): a toolchain inside the
+// Tool is one row of Python's TOOLS table: a toolchain inside the
 // images, checked against its GitHub releases, only when some factory
 // project's kind has that toolchain (config.Toolchain).
 type Tool struct {
@@ -31,7 +31,7 @@ func Tools() []Tool {
 	}
 }
 
-// Versions is check_versions(cfg) (F:2850), `factory versions` and the
+// Versions is check_versions(cfg), `factory versions` and the
 // clock's weekly check: for each toolchain a factory project uses, and each
 // image whose version config pins, a release newer than the pin files a
 // notice saying how to take it. A lookup that fails is logged and passed
@@ -72,7 +72,7 @@ func (s Service) Versions(ctx context.Context, cfg *config.Config) error {
 			return fmt.Errorf("versions %s: %w", tool.Name, err)
 		}
 	}
-	// §15.1: the pin is a floor, and the version an image has is the newer
+	// the pin is a floor, and the version an image has is the newer
 	// of it and images.json. With no images.json (or one that does not
 	// read) that is the pin, as in Python.
 	state := imagebuild.State{}

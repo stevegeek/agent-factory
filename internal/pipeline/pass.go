@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
@@ -13,6 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/hosts"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/stage"
+	"github.com/stevegeek/agent-factory/internal/sysinfo"
 	"github.com/stevegeek/agent-factory/internal/textx"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
@@ -20,7 +23,7 @@ import (
 // workspaceReadme is the manager workspace's README (manager_project).
 const workspaceReadme = "The factory manager's scratch workspace. Nothing here is used by anything else.\n"
 
-// pass is tick_pass (F:2159).
+// pass is tick_pass.
 func (d Deps) pass(ctx context.Context, cfg *config.Config) error {
 	running, runErr := d.Local.Running(ctx, cfg)
 	if err := ctx.Err(); err != nil {
@@ -43,6 +46,17 @@ func (d Deps) pass(ctx context.Context, cfg *config.Config) error {
 				return ctxErr
 			}
 			d.logf("deploys: %v", err)
+		}
+	}
+	if d.Operator != nil && ctx.Err() == nil {
+		// after the drain, so a deploy the maintainer asked for starts
+		// before the operator offers another; an item's own failure is on
+		// the item, and anything else is logged: the pass goes on
+		if err := d.Operator.Settle(ctx, cfg, ts); err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			d.logf("operator: %v", err)
 		}
 	}
 	if stepErr != nil {
@@ -109,7 +123,7 @@ func hostOf(a ticket.Agent) string {
 	return a.Host
 }
 
-// reconcile is reconcile(tickets) (F:2150): a ticket left in Working with
+// reconcile is reconcile(tickets): a ticket left in Working with
 // no agent (a crash, a kill at the wrong moment) goes to the desk to be
 // retried, instead of sitting where nothing will pick it up. Review,
 // security, triage and voting are not among these: tickets wait there too.
@@ -171,7 +185,7 @@ func (d Deps) beforeDrain(ctx context.Context, cfg *config.Config, ts []*ticket.
 	return nil
 }
 
-// projectFor is project_for (F:660): the checkout a ticket's agents run in.
+// projectFor is project_for: the checkout a ticket's agents run in.
 // A manager's is its workspace here, made on first use; nil is a task with
 // no repository (or a project config does not name).
 func (d Deps) projectFor(ctx context.Context, cfg *config.Config, t *ticket.Ticket) (*config.Project, error) {
@@ -180,12 +194,15 @@ func (d Deps) projectFor(ctx context.Context, cfg *config.Config, t *ticket.Tick
 		if err := (gitx.Writer{Repo: d.Git.Repo(p)}).InitWorkspace(ctx, workspaceReadme); err != nil {
 			return nil, fmt.Errorf("manager workspace: %w", err)
 		}
+		if err := d.managerMounts(); err != nil {
+			return nil, fmt.Errorf("manager mounts: %w", err)
+		}
 		return &p, nil
 	}
 	return cfgOf(cfg, t.Project), nil
 }
 
-// startOne is one ticket of the start loop (F:2259): its gate, or its
+// startOne is one ticket of the start loop: its gate, or its
 // stage's agent on the host routing picks. Any error that is not a helper
 // refusing becomes a dispatcher error at the desk.
 func (d Deps) startOne(ctx context.Context, cfg *config.Config, t *ticket.Ticket, busy map[string]int, down map[string]bool) error {
@@ -237,7 +254,7 @@ func (d Deps) startStep(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 	return false, nil
 }
 
-// runGate is Gate 1 in the tick (F:2268): as a gate job on a pull host
+// runGate is Gate 1 in the tick: as a gate job on a pull host
 // when gateHost picks one (gatejob.go), else here (runGateHere). A host
 // that refuses the job is down for this pass, and the gate runs here.
 func (d Deps) runGate(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket, busy map[string]int, down map[string]bool) (bool, error) {
@@ -264,13 +281,13 @@ func (d Deps) runGate(ctx context.Context, cfg *config.Config, proj *config.Proj
 }
 
 // runGateHere is Gate 1 run in the tick. A gate runs on this host and
-// takes one of its slots while it runs (gate.Fits, quirk 2 fixed): it
+// takes one of its slots while it runs (gate.Fits): it
 // waits while every slot is taken, and a heavy one (more memory than
 // [gate] heavy_memory) waits until no agent runs here; meanwhile no new
 // agent starts here, so the host drains for it. The tick runs a gate to
 // its end before it starts anything else, so the slot is held for as
 // long as the gate runs. A gate starts only with enough of the tick's
-// time left to finish (§5.2).
+// time left to finish.
 func (d Deps) runGateHere(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket, busy map[string]int) (bool, error) {
 	if busy[hosts.Local] >= cfg.MaxAgents {
 		return true, nil
@@ -306,10 +323,10 @@ func (d Deps) afterGate(ctx context.Context, cfg *config.Config, proj *config.Pr
 	// commit, and an approval given there would be for code that is no
 	// longer the change
 	if t.PR.V.Number != 0 && proj.GitHub != "" && cfg.HasGitHub() && d.GitHub != nil {
-		// a commit point first (§5.2): the gate's outcome is saved, with an
+		// a commit point first: the gate's outcome is saved, with an
 		// open intent, before the push. The tick's deadline may end the
 		// push; then the gate is not run again, and the next tick's
-		// GitHub pass updates the PR from the intent (§6.3).
+		// GitHub pass updates the PR from the intent.
 		intent := !t.PR.V.OpenRequested.Set && (t.Column == string(model.ColReadyForPR) || t.Column == string(model.ColPROpen))
 		if intent {
 			t.PR.V.OpenRequested = ticket.Some(clock.Stamp(d.now()))
@@ -330,4 +347,28 @@ func (d Deps) afterGate(ctx context.Context, cfg *config.Config, proj *config.Pr
 		}
 	}
 	return gate.WriteAudit(d.Paths, t)
+}
+
+// managerMounts makes the sources of the manager's read-only mounts that
+// a fresh factory may not have yet (templates/*/manager/scion-agent.yaml):
+// the deploy records, the live context, and System status, which the
+// tick writes at its end (an empty object until then).
+func (d Deps) managerMounts() error {
+	for _, dir := range []string{d.Paths.Deploys(), d.Paths.Context} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+	}
+	f, err := os.OpenFile(sysinfo.File(d.Paths), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	switch {
+	case errors.Is(err, fs.ErrExist):
+		return nil
+	case err != nil:
+		return err
+	}
+	if _, err := f.WriteString("{}\n"); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

@@ -53,8 +53,8 @@ func allFixtures(t *testing.T) []fixture {
 	return out
 }
 
-// §3.1 property 1: decode then encode is byte-identical, and the files
-// decode with no problems (the nested fixture has its one wrong-typed field).
+// decode then encode is byte-identical, and the files decode with no problems
+// (the nested fixture has its one wrong-typed field).
 func TestDecodeEncodeIsByteIdentical(t *testing.T) {
 	for _, f := range allFixtures(t) {
 		tk, problems, err := Decode(f.data)

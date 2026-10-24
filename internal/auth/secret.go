@@ -1,9 +1,8 @@
-// Package auth is Foreman's login (ARCHITECTURE.md §2.3, inventory-foreman
-// §8): the shared secret, stateless signed sessions with a revocation file,
-// the login throttle that slows guessing without ever locking the
-// maintainer out, CSRF tokens derived from the session, the same-origin and
-// Host checks, safe post-login redirects, the trusted Tailscale header and
-// other people's logins (users).
+// Package auth is Foreman's login: the shared secret, stateless signed
+// sessions with a revocation file, the login throttle that slows guessing
+// without ever locking the maintainer out, CSRF tokens derived from the
+// session, the same-origin and Host checks, safe post-login redirects, the
+// trusted Tailscale header and other people's logins (users).
 //
 // Login sessions never open the bearer-token APIs and the other way round:
 // this package knows only the browser's cookie.

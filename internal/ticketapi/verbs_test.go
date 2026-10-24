@@ -83,7 +83,7 @@ func TestARevokedOrExpiredTokenIsUnauthorized(t *testing.T) {
 	}
 }
 
-// D19: a Foreman user answers as a person by their own name, never by a
+// a Foreman user answers as a person by their own name, never by a
 // reserved one.
 func TestAPersonByNameIsNeverAReservedName(t *testing.T) {
 	f := newFx(t, testConfig)

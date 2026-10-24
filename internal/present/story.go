@@ -409,6 +409,12 @@ func (r *reader) moveStep(t *ticket.Ticket, e ticket.Entry) *Step {
 			st.Who = "You"
 		}
 		st.What = "Asked the factory to deploy main; the next tick starts it."
+	case m.Is(model.ReasonOperatorSettled, false):
+		if byOf(e) != "factory" {
+			st.Who, st.What = "You", "Asked the factory to apply the manager's changes."
+		} else {
+			st.What = sentence(Clip(detail, 300))
+		}
 	case m.Is(model.ReasonDeployStarted, false):
 		st.What = "Started the deploy of main."
 	case m.Is(model.ReasonPanelDone, strings.HasPrefix(detail, "panel kept ")):
@@ -720,7 +726,18 @@ func WaitingWhat(t *ticket.Ticket, a *ticket.Ask) string {
 		}
 		return "The agent waits for your answer."
 	case model.AskDraft:
-		return "Apply the diff in the config repo on your machine and deploy, then say so here; or send it back, or drop it."
+		c := ticket.Items(t)
+		switch {
+		case c.New+c.Requested > 0 && c.ByHand > 0:
+			return "The factory applies the changes on the next tick; then apply the by-hand diff in the config repo on your machine."
+		case c.New+c.Requested > 0:
+			return "The factory applies the changes on the next tick; nothing is needed from you yet."
+		case c.ByHand > 0 || len(t.Drafts)+len(t.Actions) == 0:
+			return "Apply the diff in the config repo on your machine and deploy, then say so here; or send it back, or drop it."
+		case c.Waiting+c.Failed > 0:
+			return "Apply it: the factory lands each waiting change on config main and runs each action, checking every one again first; or send it back, or drop it."
+		}
+		return "Close it when you have read it."
 	case model.AskDeploy:
 		return "Deploy it now, or not now: the next merge asks again."
 	}

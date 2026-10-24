@@ -207,7 +207,7 @@ func TestInspect(t *testing.T) {
 			t.Errorf("no .git: %+v, %v", in, err)
 		}
 	})
-	// quirk 11 (§13.2): Python skipped a .git that is not a directory; the port refuses it
+	// Python skipped a .git that is not a directory; the port refuses it
 	t.Run(".git file", func(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, ".git"), []byte("gitdir: /elsewhere\n"), 0o644)
@@ -255,7 +255,7 @@ func TestVerifierRefusesAPlantedConfigAndChangesNothing(t *testing.T) {
 	}
 }
 
-// §10.7 S7a: gitread has no method that runs a write verb. Every git argv
+// gitread has no method that runs a write verb. Every git argv
 // its methods ran in these tests is one of the read-only forms.
 func TestNoWriteVerb(t *testing.T) {
 	f := newFixture(t)

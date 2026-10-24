@@ -1,7 +1,7 @@
-// Package jobtail is read-only access to helper jobs (ARCHITECTURE.md
-// §2.3): the tail of a job's output, its state, and the list of jobs. It is
-// Foreman's only path to a helper host, so each function names its verb as
-// a constant and no caller can name another (§2.2 rule 3).
+// Package jobtail is read-only access to helper jobs: the tail of a job's
+// output, its state, and the list of jobs. It is Foreman's only path to a
+// helper host, so each function names its verb as a constant and no caller
+// can name another.
 package jobtail
 
 import (
@@ -21,7 +21,7 @@ type Reader struct {
 }
 
 // Tail is `tail <job>`: the last 64 KiB of the job's agent.log, decoded as
-// Python's errors="replace" does (look, F:4540). A failure is a
+// Python's errors="replace" does (look). A failure is a
 // *jobproto.RemoteError; the caller decides how to show it.
 func (r Reader) Tail(ctx context.Context, h jobproto.Host, job string) (string, error) {
 	out, err := r.run(ctx, h, jobproto.VerbTail, job)

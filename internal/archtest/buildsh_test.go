@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// Tests of build.sh (§9.2-9.4): it refuses any toolchain but the pinned
+// Tests of build.sh: it refuses any toolchain but the pinned
 // official one, never falls back to a system go, ignores the caller's go
 // settings, and installs only a sha-pinned tarball.
 

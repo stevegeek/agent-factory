@@ -20,7 +20,7 @@ import (
 // dispatcher's and is never looked at.
 type Config struct {
 	Image  string            // the top-level image: the claude image's tag, "" when absent
-	Images map[string]string // [images] pins, str() of each truthy value: a floor (§15.1)
+	Images map[string]string // [images] pins, str() of each truthy value: a floor
 	// AutoUpdate is [images] auto_update: the tools the rebuild updates by
 	// itself; ["claude", "pi"] when absent.
 	AutoUpdate []string

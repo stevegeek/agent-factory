@@ -520,7 +520,7 @@ func (s *section) strMap(key string) map[string]string {
 }
 
 // images is [images]: the pins (strings, as strMap reads them) and
-// auto_update, a list of tool names (§15.1).
+// auto_update, a list of tool names.
 func (s *section) images() (map[string]string, []string) {
 	t := s.table("images")
 	pins, auto := map[string]string{}, DefaultAutoUpdate()

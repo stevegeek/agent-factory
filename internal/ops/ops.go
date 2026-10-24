@@ -1,16 +1,15 @@
-// Package ops is the maintainer's verbs and the answer service
-// (ARCHITECTURE.md §2.3, §2.4.3, §6.1): add, move, note, reply, ask,
-// approve, redirect, host, merge, pr, result, look and migrate, and what an
-// answer on Foreman's desk means. They write the board and hold no
-// credentials, so the CLI and Foreman call the same code in-process, under
-// the flocks the tick takes.
+// Package ops is the maintainer's verbs and the answer service: add, move,
+// note, reply, ask, approve, redirect, host, merge, pr, result, look and
+// migrate, and what an answer on Foreman's desk means. They write the board
+// and hold no credentials, so the CLI and Foreman call the same code
+// in-process, under the flocks the tick takes.
 //
 // Every verb reads the config once (Config.Current) and works on that
 // snapshot. A verb that changes a ticket does it under the ticket's lock on a
 // fresh read and saves it once, at the end; a refusal saves nothing. Who a
 // verb acts as is the maintainer (the first of [board] people), except an
 // answer or a new ticket from another Foreman user, which records that
-// user's name (D19).
+// user's name.
 //
 // The work that needs GitHub goes through PRActions: the CLI passes a
 // synchronous implementation (package prflow), Foreman passes Intents, which
@@ -42,7 +41,7 @@ type Waker interface {
 	Wake(ctx context.Context) error
 }
 
-// PRActions is the GitHub work a verb needs (§6.3). Both methods are called
+// PRActions is the GitHub work a verb needs. Both methods are called
 // under the ticket's lock with the ticket in hand, and the ticket is saved
 // after them; they record on it what they did.
 type PRActions interface {
@@ -205,7 +204,7 @@ func factoryOnly(t *ticket.Ticket) error {
 
 // change is changing(): the ticket under its lock, saved once if fn
 // returns nil. After the save, a tick is woken if fn asked for one or the
-// save recorded a new intent (§6.3).
+// save recorded a new intent.
 func (s *Service) change(ctx context.Context, name string, fn func(c *call, t *ticket.Ticket) error) error {
 	cfg, err := s.config()
 	if err != nil {
@@ -251,7 +250,7 @@ func (c *call) by() string {
 	return c.cfg.Maintainer()
 }
 
-// actAs makes the call act as a Foreman user ("" is the maintainer, D19).
+// actAs makes the call act as a Foreman user ("" is the maintainer).
 // A name the history already gives a meaning to is refused: the factory's,
 // or the maintainer's own, which would make the user's answers theirs.
 func (c *call) actAs(name string) error {

@@ -25,7 +25,7 @@ type item struct {
 	tree      bool
 }
 
-// neverNames are files no archive holds, wherever they are found (§15.2):
+// neverNames are files no archive holds, wherever they are found:
 // they are re-creatable, or the maintainer holds them.
 func neverNames() []string {
 	return []string{"claude-oauth-token", "github-app.pem", "anthropic-api-key", "foreman-secret",

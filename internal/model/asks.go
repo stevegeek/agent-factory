@@ -128,6 +128,10 @@ const (
 	ReasonDeployHeld      Reason = "deploy_held"
 	ReasonDeployRequested Reason = "deploy_requested"
 	ReasonDeployStarted   Reason = "deploy_started"
+	// ReasonOperatorSettled: the tick settled the manager's drafts and
+	// actions, or the maintainer asked it to apply them; the move refreshes
+	// the ask
+	ReasonOperatorSettled Reason = "operator_settled"
 )
 
 // ReasonInfo is one reason and whether the story marks it as a run that
@@ -158,6 +162,7 @@ func Reasons() []ReasonInfo {
 		plain(ReasonFindingsReported), plain(ReasonVerifyRequested), plain(ReasonFindingsVerified), flagged(ReasonVerifierBlocked),
 		plain(ReasonFindingsFiled), plain(ReasonFindingsDismissed), plain(ReasonImported),
 		plain(ReasonDeployHeld), plain(ReasonDeployRequested), plain(ReasonDeployStarted),
+		plain(ReasonOperatorSettled),
 	}
 }
 
@@ -191,7 +196,7 @@ const (
 	DoorImport Door = "import"
 )
 
-// DoorInfo is one door (§2.4.2).
+// DoorInfo is one door.
 type DoorInfo struct {
 	Name  Door
 	Label string // DOOR_NAMES

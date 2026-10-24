@@ -1,7 +1,7 @@
-// Package scion is Scion that changes state (ARCHITECTURE.md §2.3): init,
-// start, stop and delete, the project bootstrap, the agent's home and the
-// environment that carries the Claude token. It keeps calling the external
-// scion binary with Python's argv (inventory-contracts §5).
+// Package scion is Scion that changes state: init, start, stop and delete,
+// the project bootstrap, the agent's home and the environment that carries
+// the Claude token. It keeps calling the external scion binary with
+// Python's argv.
 //
 // Every call guards the project's repository first (Python scion() runs
 // guard_repo), through the Guard the caller passes: this package may not
@@ -31,7 +31,7 @@ type Client struct {
 	// TokenFile is paths.OAuthToken (~/.config/factory/claude-oauth-token).
 	TokenFile string
 	// RunDir is paths.Run: a failed start removes its --config file when
-	// the file lies directly in it (quirk 5, fixed at the port).
+	// the file lies directly in it (fixed at the port).
 	RunDir string
 	// Guard checks a project's repository before scion or git runs in it
 	// (gitx.Guard: scion runs git on the host too). An error stops the call.
@@ -53,7 +53,7 @@ func (c Client) Env() ([]string, error) {
 }
 
 // ErrRefused is the repository guard refusing a project (a .git that is
-// not a plain directory, quirk 11): scion is not run there at all.
+// not a plain directory): scion is not run there at all.
 var ErrRefused = errors.New("repository refused")
 
 func (c Client) guard(ctx context.Context, dir string) error {
@@ -124,7 +124,7 @@ type StartArgs struct {
 	Prompt   string // the last positional argument
 }
 
-// Argv is the argv after the scion binary (F:1798-1813):
+// Argv is the argv after the scion binary:
 // start <name> -t <template> --message-mode none [--config C] [-b B] [--model M] <prompt>.
 // A prompt that starts with "-" goes after "--", so it is never read as an
 // option; every other prompt gives Python's argv exactly.
@@ -159,7 +159,7 @@ func (a StartArgs) Argv() ([]string, error) {
 }
 
 // Start starts an agent in the project at dir, checked. When it fails, its
-// --config file is removed if it lies in RunDir (quirk 5).
+// --config file is removed if it lies in RunDir.
 func (c Client) Start(ctx context.Context, dir string, a StartArgs) error {
 	args, err := a.Argv()
 	if err != nil {
@@ -205,7 +205,7 @@ func (c Client) Delete(ctx context.Context, dir, name string, keepBranch bool) e
 }
 
 // AgentHome is the agent's home directory under ~/.scion/project-configs
-// (agent_home, F:691): pattern is paths.AgentHomes, whose {name} stands for
+// (agent_home): pattern is paths.AgentHomes, whose {name} stands for
 // the agent. "" when there is none, or the name is not an agent name.
 func AgentHome(pattern, name string) string {
 	if scionread.CheckName(name) != nil {

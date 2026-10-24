@@ -7,9 +7,11 @@ import (
 	"os"
 
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/deployrec"
 	"github.com/stevegeek/agent-factory/internal/hostrun"
 	"github.com/stevegeek/agent-factory/internal/jobproto"
 	"github.com/stevegeek/agent-factory/internal/mailbox"
+	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/podman"
 	"github.com/stevegeek/agent-factory/internal/sshjobs"
 	"github.com/stevegeek/agent-factory/internal/sysinfo"
@@ -45,6 +47,7 @@ func recordSysinfo(ctx context.Context, e *Env, cfg *config.Config) {
 		Containers: func(ctx context.Context) ([]string, error) { return pm.Running(ctx, "") },
 		HostVitals: hostVitals(e),
 	}
+	d.Switches, d.Hold = sysinfoState(p)
 	if err := sysinfo.Record(ctx, d); err != nil {
 		e.Log().Printf("%v", err)
 	}
@@ -80,4 +83,18 @@ func hostVitals(e *Env) func(ctx context.Context, h config.HostCfg) (*vitals.Vit
 		v = v.Received(e.Clock.Now())
 		return &v, nil
 	}
+}
+
+// sysinfoState reads what System status shows of the maintainer's own
+// switches: the project switches (projects.json) and the deploy hold.
+func sysinfoState(p paths.Paths) (func() (config.Switches, error), func() (*deployrec.Hold, error)) {
+	switches := func() (config.Switches, error) { return config.ReadSwitches(p.ProjectSwitches()) }
+	hold := func() (*deployrec.Hold, error) {
+		h, held, err := deployrec.ReadHold(p.DeployHold())
+		if err != nil || !held {
+			return nil, err
+		}
+		return &h, nil
+	}
+	return switches, hold
 }

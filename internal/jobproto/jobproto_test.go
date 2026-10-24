@@ -13,7 +13,7 @@ import (
 )
 
 // The Python patterns this package ports, run over the regex corpus
-// (internal/textx/testdata/py/regex.json, written by tools/goldens.py).
+// (internal/textx/testdata/py/regex.json, written by the Python goldens tool).
 // Only the trailing-newline cases differ, on purpose.
 func TestNamesMatchTheRegexGolden(t *testing.T) {
 	b, err := os.ReadFile("../textx/testdata/py/regex.json")

@@ -15,7 +15,7 @@ import (
 // done with findings goes to verifying, where an independent verifier
 // re-runs each one on the base branch, checks it against the project's
 // open tickets, issues and PRs, and writes it up for a ticket; the
-// maintainer then files the ones he wants (ops), or [findings] auto_file
+// maintainer then files the ones they want (ops), or [findings] auto_file
 // files the safe ones here.
 
 // The caps on findings, well within a report's limits (a helper job's

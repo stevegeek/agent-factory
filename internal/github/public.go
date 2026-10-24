@@ -19,10 +19,10 @@ type Issue struct {
 	Raw     jsonx.Value
 }
 
-// OpenIssues is fetch_open_issues (F:2335): an unauthenticated GET
+// OpenIssues is fetch_open_issues: an unauthenticated GET
 // /repos/<repo>/issues?state=open&per_page=50 with only Accept and
 // User-Agent, keeping the items with no "pull_request" key. One page of 50,
-// as Python asks (§13.2 quirk 8).
+// as Python asks.
 func (c *Client) OpenIssues(ctx context.Context, repo string) ([]Issue, error) {
 	items, err := c.OpenItems(ctx, repo)
 	var out []Issue
@@ -59,7 +59,7 @@ func (c *Client) OpenItems(ctx context.Context, repo string) ([]Issue, error) {
 	return out, nil
 }
 
-// LatestRelease is latest_github_release (F:2843): the tag_name of
+// LatestRelease is latest_github_release: the tag_name of
 // GET /repos/<repo>/releases/latest (unauthenticated, Accept and
 // User-Agent), with its leading "v"s stripped (str.lstrip("v")).
 func (c *Client) LatestRelease(ctx context.Context, repo string) (string, error) {
@@ -78,7 +78,7 @@ func (c *Client) LatestRelease(ctx context.Context, repo string) (string, error)
 	return strings.TrimLeft(tag, "v"), nil
 }
 
-// NPMLatest is latest_npm_version (F:2836): the "version" of
+// NPMLatest is latest_npm_version: the "version" of
 // GET <registry>/<package>/latest, sent with only the User-Agent.
 func (c *Client) NPMLatest(ctx context.Context, pkg string) (string, error) {
 	path := "/" + pkg + "/latest"

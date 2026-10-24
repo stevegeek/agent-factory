@@ -88,7 +88,7 @@ func TestTheManagersAgentsCountAsRunningHere(t *testing.T) {
 	}
 }
 
-// §13.2 quirk 11: a project the repository guard refuses is skipped by the
+// a project the repository guard refuses is skipped by the
 // count, not a failed list, so the other projects' agents stay known and
 // new ones can still start elsewhere.
 func TestARefusedProjectDoesNotMakeTheCountUnknown(t *testing.T) {
@@ -161,7 +161,7 @@ func TestLookReadsTheLocalScreen(t *testing.T) {
 	}
 }
 
-// The local usage-limit path (§10.7 S12): only an agent whose activity log
+// The local usage-limit path: only an agent whose activity log
 // has been quiet for QUIET_MINUTES is looked at, over 40 lines.
 func TestQuietAndTheLimitLook(t *testing.T) {
 	f := newFixture(t)
@@ -291,9 +291,9 @@ func projectAt(t *testing.T, dir string) *config.Project {
 	return &config.Project{Key: "p", Path: dir, Base: "main"}
 }
 
-// The full local scion start argv (inventory-contracts §9.1): -t, message
-// mode, --config only with memory, -b only for branch stages, --model only
-// when set, the prompt last.
+// The full local scion start argv: -t, message mode, --config only with
+// memory, -b only for branch stages, --model only when set, the prompt
+// last.
 func TestLocalStartArgv(t *testing.T) {
 	f := newFixture(t)
 	p := projectAt(t, t.TempDir())

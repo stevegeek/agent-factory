@@ -3,6 +3,7 @@ package stage
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -16,13 +17,15 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// The caps on what a report can put on the board (F:96-125, F:1937).
+// The caps on what a report can put on the board.
 const (
 	MaxPreExisting     = 3      // bugs a reviewer files per review
 	MaxProposedTickets = 6      // tickets a design proposes
 	MaxProposals       = 5      // proposals a prospector makes
 	MaxDrafts          = 5      // config drafts a manager writes
 	MaxPatch           = 50_000 // characters of one draft's patch
+	MaxActions         = 5      // typed actions a manager proposes per run
+	MaxKeptItems       = 15     // drafts and actions a manager ticket keeps
 	MaxQuestion        = 2000   // characters of an agent's question
 )
 
@@ -89,7 +92,7 @@ type Outcome struct {
 	DeleteBranch bool
 }
 
-// Finish is finish_stage (F:1848) for the stage of the ticket's agent.
+// Finish is finish_stage for the stage of the ticket's agent.
 func Finish(in FinishIn) (Outcome, error) {
 	a, ok := in.Ticket.Agent.Get()
 	if !ok {
@@ -212,7 +215,7 @@ func (f *finisher) run(s model.Stage) (Outcome, error) {
 	return f.out, nil
 }
 
-// triage is finish_triage (F:2088). Accepting rewrites the ticket in
+// triage is finish_triage. Accepting rewrites the ticket in
 // triage's own words, which is the injection boundary for untrusted doors.
 func (f *finisher) triage(r Report) {
 	t := f.Ticket
@@ -252,7 +255,7 @@ func (f *finisher) triage(r Report) {
 }
 
 // task: the result comes back to a person, or, for an Ask's task, to the
-// ticket it was asked on (deliver_answer, F:1532).
+// ticket it was asked on (deliver_answer).
 func (f *finisher) task(r Report) {
 	t := f.Ticket
 	t.Result = ticket.Some(r.Or("result", ""))
@@ -276,7 +279,7 @@ func (f *finisher) task(r Report) {
 	f.move(model.ColNeedsHuman, model.Reason("task_"+state), "task "+state+": "+textx.Prefix(summary, 200), "")
 }
 
-// AskedOn is asked_on (F:1520): parent is the open ticket whose Ask filed
+// AskedOn is asked_on: parent is the open ticket whose Ask filed
 // task t, by a typed asked event naming t or, on old history, an asked event
 // whose detail starts "<t>:". A task with a parent is not always a question.
 func AskedOn(t, parent *ticket.Ticket) bool {
@@ -318,12 +321,32 @@ func Deliver(parent *ticket.Ticket, a ParentAnswer, now time.Time) bool {
 	return true
 }
 
-// manage is finish_manage (F:1981) and clean_drafts (F:1971). The factory
-// never applies a draft: the maintainer does, from his own machine.
+// manage is finish_manage and clean_drafts, with the
+// operator's typed actions beside the drafts. Only a report with
+// status done records anything: a blocked run's proposals are dropped. A
+// rerun keeps the earlier items that were applied, refused or requested
+// (a tapped item is never lost to a reply) and drops the rest. Each item
+// is recorded new, for the tick to classify; an action's tier comes from
+// the model's table, never from the report, and a kind not in it is
+// refused here.
 func (f *finisher) manage(r Report) {
 	t := f.Ticket
 	t.Result = ticket.Some(r.Or("result", r.Or("summary", "")))
 	f.pin()
+	summary := textx.Prefix(r.Str("summary"), 200)
+	if !r.Is("status", "done") {
+		f.move(model.ColNeedsHuman, model.ReasonManagerBlocked, "manager blocked: "+summary, "")
+		return
+	}
+	// the run's number counts the manager's starts, which no rerun trims,
+	// so that no two runs share one (an item's land branch is named by it)
+	run := max(1, ticket.Starts(t, model.StageManage))
+	for _, d := range t.Drafts {
+		run = max(run, d.Run+1)
+	}
+	for _, a := range t.Actions {
+		run = max(run, a.Run+1)
+	}
 	drafts := []ticket.Draft{}
 	for _, v := range r.List("drafts") {
 		d, ok := v.Object()
@@ -336,22 +359,161 @@ func (f *finisher) manage(r Report) {
 			continue
 		}
 		drafts = append(drafts, ticket.Draft{Title: textx.Clip(dr.Or("title", "Untitled"), 120),
-			Why: textx.Clip(dr.Or("why", ""), 2000), Patch: textx.Prefix(jsonx.PyStr(patch), MaxPatch)})
+			Why: textx.Clip(dr.Or("why", ""), 2000), Patch: textx.Prefix(jsonx.PyStr(patch), MaxPatch), Run: run, State: model.ItemNew})
 	}
-	t.Drafts = drafts[:min(len(drafts), MaxDrafts)]
+	drafts = drafts[:min(len(drafts), MaxDrafts)]
+	actions := reportActions(r, run)
+	keptDrafts, keptActions := keptItems(t, MaxKeptItems-len(drafts)-len(actions))
+	t.Drafts = append(append([]ticket.Draft{}, keptDrafts...), drafts...)
 	f.pin()
-	summary := textx.Prefix(r.Str("summary"), 200)
+	t.Actions = append(keptActions, actions...)
+	if len(t.Actions) == 0 {
+		t.Actions = nil
+	}
+	f.pin()
+	applying := 0
+	for _, d := range keptDrafts {
+		if d.State == model.ItemRequested {
+			applying++
+		}
+	}
+	for _, a := range keptActions {
+		if a.State == model.ItemRequested {
+			applying++
+		}
+	}
 	switch {
-	case !r.Is("status", "done"):
-		f.move(model.ColNeedsHuman, model.ReasonManagerBlocked, "manager blocked: "+summary, "")
-	case len(t.Drafts) > 0:
-		f.move(model.ColNeedsHuman, model.ReasonManagerDrafted, fmt.Sprintf("manager drafted %d change(s): %s", len(t.Drafts), summary), "")
+	case len(actions) > 0:
+		f.move(model.ColNeedsHuman, model.ReasonManagerDrafted,
+			fmt.Sprintf("manager proposed %d draft(s) and %d action(s): %s", len(drafts), len(actions), summary), "")
+	case len(drafts) > 0:
+		f.move(model.ColNeedsHuman, model.ReasonManagerDrafted, fmt.Sprintf("manager drafted %d change(s): %s", len(drafts), summary), "")
+	case applying > 0:
+		// a tapped item is still to apply: the ask says so, and no notice
+		// offers to close the ticket over it
+		f.move(model.ColNeedsHuman, model.ReasonManagerDrafted,
+			fmt.Sprintf("manager drafted nothing new; %d tapped change(s) still to apply: %s", applying, summary), "")
 	default:
 		f.move(model.ColNeedsHuman, model.ReasonManagerAnswered, "manager answered: "+summary, "")
 	}
 }
 
-// design is finish_design (F:1955).
+// reportActions are the report's actions, at most MaxActions: objects with
+// a string kind, and an optional target, hours (a host pause's, 1 to 168,
+// 24 when not given) and why. A kind not in model.OperatorActions is kept,
+// refused, so that the maintainer sees what was asked.
+func reportActions(r Report, run int) []ticket.Action {
+	var out []ticket.Action
+	for _, v := range r.List("actions") {
+		if len(out) == MaxActions {
+			break
+		}
+		o, ok := v.Object()
+		if !ok {
+			continue
+		}
+		ar := Report{o: o}
+		kv, _ := ar.Value("kind")
+		kind, ok := kv.Str()
+		if kind = textx.Strip(kind); !ok || kind == "" {
+			continue
+		}
+		tv, _ := ar.Value("target")
+		target, _ := tv.Str()
+		target = textx.Strip(target)
+		a := ticket.Action{Kind: textx.Clip(kind, 60), Target: textx.Clip(target, 120),
+			Why: textx.Clip(ar.Or("why", ""), 2000), Run: run}
+		info, known := model.ActionOf(kind)
+		switch {
+		case !known:
+			a.Tier, a.State, a.Note = string(model.TierNever), model.ItemRefused, "not an action the manager may propose"
+		case info.Target == "" && target != "":
+			a.Tier, a.State, a.Note = string(info.Tier), model.ItemRefused, kind+" takes no target"
+		case info.Target != "" && !targetName(target):
+			a.Tier, a.State, a.Note = string(info.Tier), model.ItemRefused, kind+" needs a "+info.Target+" name as its target"
+		default:
+			a.Tier, a.State = string(info.Tier), model.ItemNew
+			if info.Kind == model.ActionPauseHost {
+				hv, _ := ar.Value("hours")
+				a.Hours = pauseHours(hv)
+			}
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// targetName reports a target that can be a host or project name: 1 to 64
+// letters, digits, '-', '_' and '.', not starting with '.' or '-'. It is
+// only the shape; the tick still checks the name against the config.
+func targetName(s string) bool {
+	if s == "" || len(s) > 64 || s[0] == '.' || s[0] == '-' {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
+			return false
+		}
+	}
+	return true
+}
+
+// pauseHours is a host pause's hours: a number clamped to 1..168, 24 when
+// the report gives none.
+func pauseHours(v jsonx.Value) int {
+	f, ok := v.Float64()
+	if !ok || math.IsNaN(f) {
+		return 24
+	}
+	return int(min(max(f, 1), 168))
+}
+
+// keptItems are the ticket's items a rerun keeps: applied, refused and
+// requested ones, in their order. When they are more than room, the oldest
+// settled ones (applied or refused, by run) go first; a requested one is
+// never dropped.
+func keptItems(t *ticket.Ticket, room int) ([]ticket.Draft, []ticket.Action) {
+	keep := func(state string) bool {
+		return state == model.ItemApplied || state == model.ItemRefused || state == model.ItemRequested
+	}
+	var ds []ticket.Draft
+	var as []ticket.Action
+	for _, d := range t.Drafts {
+		if keep(ticket.DraftState(d)) {
+			ds = append(ds, d)
+		}
+	}
+	for _, a := range t.Actions {
+		if keep(ticket.ActionState(a)) {
+			as = append(as, a)
+		}
+	}
+	for len(ds)+len(as) > max(room, 0) {
+		// the oldest settled item: the lowest run, a draft before an action
+		di, ai := -1, -1
+		for i, d := range ds {
+			if d.State != model.ItemRequested && (di < 0 || d.Run < ds[di].Run) {
+				di = i
+			}
+		}
+		for i, a := range as {
+			if a.State != model.ItemRequested && (ai < 0 || a.Run < as[ai].Run) {
+				ai = i
+			}
+		}
+		switch {
+		case di >= 0 && (ai < 0 || ds[di].Run <= as[ai].Run):
+			ds = append(ds[:di], ds[di+1:]...)
+		case ai >= 0:
+			as = append(as[:ai], as[ai+1:]...)
+		default:
+			return ds, as // only requested items are left
+		}
+	}
+	return ds, as
+}
+
+// design is finish_design.
 func (f *finisher) design(r Report) {
 	t := f.Ticket
 	proposed := []ticket.Proposed{}
@@ -379,7 +541,7 @@ func (f *finisher) design(r Report) {
 		fmt.Sprintf("design ready (%d tickets proposed): %s; factory approve or redirect", len(t.Proposed), textx.Prefix(summary, 160)), "")
 }
 
-// prospect is finish_prospect (F:1992): proposals with every field
+// prospect is finish_prospect: proposals with every field
 // written, for the blind panel.
 func (f *finisher) prospect(r Report) {
 	t := f.Ticket
@@ -414,7 +576,7 @@ func (f *finisher) prospect(r Report) {
 	f.move(model.ColVoting, model.ReasonProposalsReady, fmt.Sprintf("%d proposals; blind panel next", len(t.Proposals)), "")
 }
 
-// vote is finish_vote (F:2005): this voter's valid scores (an index of a
+// vote is finish_vote: this voter's valid scores (an index of a
 // proposal, a score of 1 to 5; anything else is ignored) join the votes;
 // the last voter's reveals the panel.
 func (f *finisher) vote(r Report, voter string) error {
@@ -497,7 +659,7 @@ func (f *finisher) committed(s model.Stage) bool {
 
 // review: pre-existing bugs become their own tickets; a pass goes to
 // security; changes go back to the worker until its attempts run out
-// (counted since the last passed review, D17).
+// (counted since the last passed review).
 func (f *finisher) review(r Report) error {
 	t := f.Ticket
 	if f.committed(model.StageReview) {
@@ -519,7 +681,7 @@ func (f *finisher) review(r Report) error {
 	return nil
 }
 
-// filePreExisting is file_pre_existing (F:1940): bugs a reviewer found that
+// filePreExisting is file_pre_existing: bugs a reviewer found that
 // the change did not introduce go to triage as tickets from a peer, instead
 // of being a reason to send the change back. Only the first MaxPreExisting
 // entries count, whatever they hold.
@@ -557,7 +719,7 @@ func (f *finisher) filePreExisting(r Report) error {
 }
 
 // security is decided from the answers, not the agent's verdict
-// (security_outcome, F:1916).
+// (security_outcome).
 func (f *finisher) security(r Report) {
 	t := f.Ticket
 	if f.committed(model.StageSecurity) {

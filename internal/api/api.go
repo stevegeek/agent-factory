@@ -1,9 +1,8 @@
-// Package api is the ticket API at /api/v1 (ARCHITECTURE.md §2.3, §5.6;
-// inventory-foreman §11), for scripts and agents with a token made by
-// `factory tokens add`. The guard checks who is calling; each route names
-// one ticketapi verb, which runs in-process on the shared slots, and the
-// verb decides the rest. This package only translates: HTTP in, the verb's
-// request; the verb's answer or refusal, HTTP out.
+// Package api is the ticket API at /api/v1, for scripts and agents with a
+// token made by `factory tokens add`. The guard checks who is calling; each
+// route names one ticketapi verb, which runs in-process on the shared
+// slots, and the verb decides the rest. This package only translates: HTTP
+// in, the verb's request; the verb's answer or refusal, HTTP out.
 //
 // It is Foreman's api.go with the `factory ticket VERB --as NAME --wait 10
 // --json` subprocess replaced by ticketapi.Service.Do. The request a verb

@@ -15,7 +15,7 @@ import (
 )
 
 // The goldens are ticket_markdown and written_markdown of Python's views
-// (tools/goldens.py). The views are decoded here with encoding/json into
+// (the Python goldens tool). The views are decoded here with encoding/json into
 // the View this package renders, as ticketapi builds it from a ticket.
 
 func decode(t *testing.T, path string, into any) {

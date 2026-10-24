@@ -12,7 +12,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// Search (§15.3): a GET form on the desk and the boards over the tickets
+// Search: a GET form on the desk and the boards over the tickets
 // the viewer may see, by text with filters for project, column and kind.
 // The text rule is the ticket API's (ticketapi list: every word, case-
 // folded, must appear), over the title, the body, the notes and the

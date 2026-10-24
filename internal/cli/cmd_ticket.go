@@ -17,9 +17,9 @@ import (
 	"github.com/stevegeek/agent-factory/internal/tokens"
 )
 
-// The ticket API and token commands (§7.3, slice S6): `factory ticket VERB
-// --json`, which Foreman's API and MCP served by running it until S22,
-// the maintainer's human forms of it, and `factory tokens`.
+// The ticket API and token commands: `factory ticket VERB --json`, which
+// Foreman's API and MCP once served by running it, the maintainer's human
+// forms of it, and `factory tokens`.
 
 // ticketService is what the ticket commands need of ticketapi.Service.
 type ticketService interface {

@@ -5,8 +5,8 @@ import (
 	"unicode"
 )
 
-// The version comparison of the version check and the automatic updates
-// (§15.1): Python's version_tuple, so both agree with `factory versions`.
+// The version comparison of the version check and the automatic updates:
+// Python's version_tuple, so both agree with `factory versions`.
 
 // Newer is version_tuple(latest) > version_tuple(pinned): the first three
 // runs of decimal digits (Python's \d, any script) as integers, compared as
@@ -21,7 +21,7 @@ func Newer(latest, pinned string) bool {
 	return len(a) > len(b)
 }
 
-// versionTuple is version_tuple (F:2832): up to three integers, each as
+// versionTuple is version_tuple: up to three integers, each as
 // its ASCII digits with no leading zeros (Python ints have no size limit).
 func versionTuple(v string) []string {
 	var out []string

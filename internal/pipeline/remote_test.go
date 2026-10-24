@@ -212,7 +212,7 @@ func TestARemoteAgentPastItsTimeoutIsStopped(t *testing.T) {
 	}
 }
 
-// §10.7 S17: a remote exception past the timeout.
+// a remote exception past the timeout.
 func TestARemoteErrorPastTheTimeoutLosesTheAgent(t *testing.T) {
 	h := newHarness(t)
 	id := remoteAgent(h, "triage", "triage", "")

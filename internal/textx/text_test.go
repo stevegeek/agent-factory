@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 )
 
-// The text golden is written by tools/goldens.py from the Python helpers in
+// The text golden is written by the Python goldens tool from the Python helpers in
 // bin/factory: clip, sentence, " ".join(s.split()), one_line, str.lower,
 // slugify, str.splitlines, len and the UTF-8 length.
 type textRow struct {

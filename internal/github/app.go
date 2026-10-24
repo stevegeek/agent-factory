@@ -24,7 +24,7 @@ import (
 
 const (
 	// tokenMargin: a cached installation token is used until this long
-	// before it expires (installation_token, F:2377).
+	// before it expires (installation_token).
 	tokenMargin = 5 * time.Minute
 	// maxKeyBytes caps the key file read; an RSA PEM is a few KiB.
 	maxKeyBytes = 64 << 10
@@ -65,7 +65,7 @@ type Installation struct {
 	Permissions jsonx.Object
 }
 
-// JWT is github_app_jwt (F:2352): a 9-minute RS256 JWT with header
+// JWT is github_app_jwt: a 9-minute RS256 JWT with header
 // {"alg": "RS256", "typ": "JWT"} and claims {"iat": now-60, "exp": now+540,
 // "iss": ClientID}, both as Python's json.dumps writes them, base64url
 // without padding. The signature is PKCS #1 v1.5 over SHA-256, which is what
@@ -154,7 +154,7 @@ func readKey(path string) (*rsa.PrivateKey, error) {
 // Mint POSTs /app/installations/<id>/access_tokens with the JWT and returns
 // the new token, uncached: every repo of the installation, with all of the
 // App's permissions. factory github uses it for the permissions, as
-// cmd_github does (F:4720).
+// cmd_github does.
 func (a *App) Mint(ctx context.Context) (*Installation, error) { return a.MintScoped(ctx, nil, nil) }
 
 // bareRepo is a repo name with no owner: letters, digits, _ . and -, not
@@ -230,9 +230,9 @@ func (a *App) MintScoped(ctx context.Context, repos []string, perms map[string]s
 	return &Installation{Token: tok, ExpiresAt: expires, Permissions: granted.Clone()}, nil
 }
 
-// Token is installation_token (F:2377): the installation token, minted once
+// Token is installation_token: the installation token, minted once
 // and reused until five minutes before it expires. The cache lives in the App,
-// so per process, as in Python (§13.2 quirk 9). A failed mint is not cached.
+// so per process, as in Python. A failed mint is not cached.
 func (a *App) Token(ctx context.Context) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

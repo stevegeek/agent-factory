@@ -14,14 +14,14 @@ import (
 	"github.com/stevegeek/agent-factory/internal/store"
 )
 
-// The latest-toolchain trial (P5 phase B): once every [upkeep]
-// latest_every_days (default 30; 0 is off), the weekly rebuild on the host
-// with the checkouts also builds a trial of the gate image with the newest
-// Crystal and ameba, runs every project's checks in it (a failure runs
-// again in the live image, to tell a break from one already there), and
-// files one notice with the outcome. The trial is the rebuild itself with
-// Spec.Trial set: it never tags, and the live image never changes. Ruby
-// comes from the distro with no pin, so it gets no trial.
+// The latest-toolchain trial: once every [upkeep] latest_every_days
+// (default 30; 0 is off), the weekly rebuild on the host with the
+// checkouts also builds a trial of the gate image with the newest Crystal
+// and ameba, runs every project's checks in it (a failure runs again in
+// the live image, to tell a break from one already there), and files one
+// notice with the outcome. The trial is the rebuild itself with Spec.Trial
+// set: it never tags, and the live image never changes. Ruby comes from
+// the distro with no pin, so it gets no trial.
 
 // LatestName is the trial's clock in state.json.
 const LatestName = "latest-toolchain"

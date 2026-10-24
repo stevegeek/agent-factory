@@ -1,9 +1,9 @@
-// Package present is Foreman's pure presentation (ARCHITECTURE.md §2.3,
-// §6.2): what the desk asks and in which order, the facts and callouts beside
-// an ask, the story of how a ticket got where it is, the week's floor and the
-// conversation view. It formats; it decides nothing, writes nothing and does
-// no I/O. Every function reads tickets as package ticket decodes them, and
-// reads history only through ticket.Interpret.
+// Package present is Foreman's pure presentation: what the desk asks and in
+// which order, the facts and callouts beside an ask, the story of how a
+// ticket got where it is, the week's floor and the conversation view. It
+// formats; it decides nothing, writes nothing and does no I/O. Every
+// function reads tickets as package ticket decodes them, and reads history
+// only through ticket.Interpret.
 //
 // It is Foreman's ask.go, facts.go, story.go, floor.go and talk.go on the
 // shared types, with the tables Foreman hard-coded taken from package model:

@@ -9,8 +9,8 @@ import (
 )
 
 // markerPrefix reports the prefixes port markers use for the three Python
-// test files they came from (§10.2): TF test_factory.py, TT
-// test_tickets.py, TL test_ticket_limits.py.
+// test files they came from: TF test_factory.py, TT test_tickets.py, TL
+// test_ticket_limits.py.
 func markerPrefix(p string) bool { return p == "TF" || p == "TT" || p == "TL" }
 
 // ReadManifest reads the committed list of Python tests (one per line;

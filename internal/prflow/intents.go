@@ -18,7 +18,7 @@ import (
 // errorEvery is how often a kept intent's failure is written to the ticket.
 const errorEvery = time.Hour
 
-// Pass is the GitHub half of the tick's pass (tick_pass, F:2210), run only
+// Pass is the GitHub half of the tick's pass (tick_pass), run only
 // when [github] installation_id is set: DrainIntents first, then each ticket
 // in pr_open is followed on GitHub (CheckPR) and each in ready_for_pr has its
 // PR opened when [github] open_prs = "auto" or it is a rework of a PR it
@@ -67,8 +67,8 @@ func (f *Flow) Pass(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket
 	})
 }
 
-// DrainIntents carries out the intents Foreman records on a ticket's pr
-// (§6.3), first in the GitHub pass, over every ticket that has one: a hold
+// DrainIntents carries out the intents Foreman records on a ticket's pr,
+// first in the GitHub pass, over every ticket that has one: a hold
 // (the PR back to draft) in any column, then an open in ready_for_pr or
 // pr_open; then, over the tickets in pr_open, a merge request.
 //

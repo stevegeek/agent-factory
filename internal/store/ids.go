@@ -13,7 +13,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// NextID allocates a ticket id no one else has or will get (next_id, §4.5):
+// NextID allocates a ticket id no one else has or will get (next_id):
 // under board/tickets/.id.lock, max(.last-id, the number of every T*.json)
 // + 1, written back to the counter (through ".last-id.tmp", as Python
 // does) before the lock is let go. Numbers only go up, so a deleted

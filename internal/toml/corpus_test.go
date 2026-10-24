@@ -27,7 +27,7 @@ type corpusCase struct {
 	// Error is tomllib's message when it refused the document.
 	Error string `json:"error,omitempty"`
 	// Refused marks a document tomllib reads but the subset refuses on
-	// purpose (dates, dotted keys, integers beyond 64 bits): §8.3.
+	// purpose (dates, dotted keys, integers beyond 64 bits).
 	Refused bool `json:"refused,omitempty"`
 }
 

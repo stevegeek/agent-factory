@@ -36,7 +36,7 @@ func save(tk *Ticket, now time.Time) []byte {
 }
 
 // New and the mutators make the same files as new_ticket, move, add_note
-// and event (testdata/new/gen.py), but for the events typed since (D9).
+// and event (testdata/new/gen.py), but for the events typed since.
 func TestNewTicketsAreByteIdenticalToPython(t *testing.T) {
 	cases := map[string]func() *Ticket{
 		"T0001": func() *Ticket {
@@ -165,7 +165,7 @@ func TestOldHistoryStillCountsStartsAndFindsAsks(t *testing.T) {
 	}
 }
 
-// D17: work rounds restart at a passed review, as the board stores it;
+// work rounds restart at a passed review, as the board stores it;
 // Starts still counts the ticket's life.
 func TestWorkRoundsRestartAtAPassedReview(t *testing.T) {
 	tk := mustDecode(t, []byte(`{"id": "T0001", "history": [
@@ -200,7 +200,7 @@ func TestEveryMoveNamesItsReason(t *testing.T) {
 	}
 }
 
-// §10.4: the contract tickets need no legacy reader; the old boards still go
+// the contract tickets need no legacy reader; the old boards still go
 // through it, and it reads their starts and moves.
 func TestInterpretOnTheLegacyFixtures(t *testing.T) {
 	for _, f := range readFixtures(t, "testdata/legacy/contract/T*.json", false) {
@@ -290,7 +290,7 @@ func TestInterpretReadsEveryLegacyForm(t *testing.T) {
 	}
 }
 
-// D9: the events Python wrote untyped are written typed, the detail as it
+// the events Python wrote untyped are written typed, the detail as it
 // was, and read back to the same payload with no legacy reader.
 func TestOnceUntypedEventsAreWrittenTyped(t *testing.T) {
 	tk := mustDecode(t, []byte(`{"id": "T0001", "history": []}`))

@@ -1,8 +1,7 @@
-// Package hosts is host routing and the rules around usage limits
-// (ARCHITECTURE.md §2.3, inventory-pipeline §14-15): which host runs a
-// stage, which model it uses there, whether an agent's output says it hit
-// a usage limit, and where a stopped run goes back to. It is pure: the
-// busy counts, the paused hosts and the config are passed in.
+// Package hosts is host routing and the rules around usage limits: which
+// host runs a stage, which model it uses there, whether an agent's output
+// says it hit a usage limit, and where a stopped run goes back to. It is
+// pure: the busy counts, the paused hosts and the config are passed in.
 package hosts
 
 import (
@@ -29,7 +28,7 @@ const (
 	// DefaultLimitLines is hit_limit's default: the last 15 lines count.
 	DefaultLimitLines = 15
 	// RemoteLimitLines and RemoteLimitChars are what a helper job's
-	// agent.log is searched over (poll_remote, F:984): its last 20 000
+	// agent.log is searched over (poll_remote): its last 20 000
 	// characters, then the last 40 lines.
 	RemoteLimitLines = 40
 	RemoteLimitChars = 20_000
@@ -37,7 +36,7 @@ const (
 	LookLimitLines = 40
 )
 
-// Pick is pick_host (F:836): the host that runs stage now, or false to
+// Pick is pick_host: the host that runs stage now, or false to
 // wait. A host is free while its busy count is under its capacity:
 // max_agents here, slots on a helper.
 //   - A ticket pinned to a host runs only there: the pinned host if it is
@@ -92,7 +91,7 @@ func contains(xs []string, s string) bool {
 	return false
 }
 
-// Model is stage_model (F:1836): [panel] models gives each voter its own
+// Model is stage_model: [panel] models gives each voter its own
 // model in turn (by the ticket's vote starts so far); otherwise [models]
 // per stage on any host, then a helper's own model. "" is the harness's
 // default. An unknown helper has no model (Python would raise).
@@ -109,7 +108,7 @@ func Model(cfg *config.Config, t *ticket.Ticket, stage, host string) string {
 	return m
 }
 
-// Timeout is ticket_timeout (F:167): the ticket's timeout_minutes when set
+// Timeout is ticket_timeout: the ticket's timeout_minutes when set
 // and not 0, else agent_timeout_minutes. It bounds local and helper runs
 // alike, and is sent to helpers as meta.timeout_minutes.
 func Timeout(cfg *config.Config, t *ticket.Ticket) time.Duration {
@@ -129,7 +128,7 @@ func RetryColumn(stage string) string {
 	return string(model.ColReady)
 }
 
-// HitLimit is hit_limit (F:769): the usage-limit message in the last lines
+// HitLimit is hit_limit: the usage-limit message in the last lines
 // of text (str.splitlines(), every Python line break), or false. Only the
 // end counts: a message that has scrolled away is not the agent's state.
 // lines <= 0 searches everything, as Python's [-0:] does.

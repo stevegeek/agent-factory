@@ -13,7 +13,7 @@ import (
 
 // The findings flow's verbs: a finding task's findings, checked by a
 // verifier, wait on the desk (ask kind findings); the maintainer files the
-// ones he picks, each as a change (into triage) or an intent (to its
+// ones they pick, each as a change (into triage) or an intent (to its
 // designer), and the hunt closes. A task whose findings are only prose
 // (from before structured findings) is sent to the verifier on request.
 

@@ -22,7 +22,7 @@ const (
 	EventQuestionAnswered EventType = "question_answered"
 	EventSentToFactory    EventType = "sent_to_factory"
 	// The events Python wrote untyped (error, pr, gate, filed, vote, panel,
-	// host, review requested), typed since it retired (§3.2, D9). Old
+	// host, review requested), typed since it retired. Old
 	// history still has them untyped.
 	EventErrored         EventType = "errored"
 	EventPR              EventType = "pr"

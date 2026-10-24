@@ -325,12 +325,12 @@ func TestMintScopedSendsTheBody(t *testing.T) {
 	f.on("POST", "/app/installations/42/access_tokens", 201, tokenReply)
 	f.on("POST", "/app/installations/42/access_tokens", 201, tokenReply)
 	app := newApp(t, f, clock.Fixed{T: testNow})
-	for _, bad := range []string{"other-owner/factory-config", "", "a b"} {
+	for _, bad := range []string{"other-owner/config-repo", "", "a b"} {
 		if _, err := app.MintScoped(context.Background(), []string{bad}, map[string]string{"contents": "read"}); err == nil {
 			t.Errorf("MintScoped(%q) minted", bad)
 		}
 	}
-	inst, err := app.MintScoped(context.Background(), []string{"factory-config"}, map[string]string{"metadata": "read", "contents": "read"})
+	inst, err := app.MintScoped(context.Background(), []string{"config-repo"}, map[string]string{"metadata": "read", "contents": "read"})
 	if err != nil || inst.Token != "ghs_first" {
 		t.Fatalf("MintScoped() = %+v, %v", inst, err)
 	}
@@ -342,7 +342,7 @@ func TestMintScopedSendsTheBody(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.Body), &body); err != nil {
 		t.Fatalf("body %q: %v", r.Body, err)
 	}
-	if strings.Join(body.Repositories, ",") != "factory-config" || len(body.Permissions) != 2 || body.Permissions["contents"] != "read" || body.Permissions["metadata"] != "read" {
+	if strings.Join(body.Repositories, ",") != "config-repo" || len(body.Permissions) != 2 || body.Permissions["contents"] != "read" || body.Permissions["metadata"] != "read" {
 		t.Errorf("body = %q", r.Body)
 	}
 	if !strings.Contains(r.Body, `"contents": "read", "metadata": "read"`) {

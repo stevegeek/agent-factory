@@ -17,7 +17,7 @@ const (
 	StageVerify   Stage = "verify"
 )
 
-// StageInfo is the static part of a stage (§2.4.1). Prompts and finishers
+// StageInfo is the static part of a stage. Prompts and finishers
 // are attached by name in package stage.
 type StageInfo struct {
 	Name          Stage
@@ -72,7 +72,7 @@ func StageForColumn(c Column) (Stage, bool) {
 }
 
 // NextStage is the stage a factory ticket of kind runs next from column,
-// if any (stage_for, F:155, without its board check): one in verifying is
+// if any (stage_for, without its board check): one in verifying is
 // verified, whatever its kind; task, intent and manage run their one stage
 // from ready; a prospect is prospected from ready and voted on in voting;
 // a proposal waits for a person; a change follows its column

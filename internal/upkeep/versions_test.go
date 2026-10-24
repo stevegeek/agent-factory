@@ -81,7 +81,7 @@ type filed struct {
 }
 
 // check_versions against a recorded GitHub and npm registry, golden from
-// Python (§10.3): the requests, the log lines and the notices it files.
+// Python: the requests, the log lines and the notices it files.
 func TestVersionsGolden(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "py", "versions.json"))
 	if err != nil {
@@ -227,7 +227,7 @@ func TestNewerReleaseFilesOneNotice(t *testing.T) {
 	}
 }
 
-// §15.1: the pin is a floor. Once the weekly rebuild has updated an image
+// the pin is a floor. Once the weekly rebuild has updated an image
 // past it (images.json), versions compares the release with that version:
 // no notice for what the image already has, and a notice for a newer one
 // says what the image has.
@@ -361,7 +361,7 @@ func TestToolchainNamesAgree(t *testing.T) {
 	}
 }
 
-// P5 B3: where the latest-toolchain trial runs (it is on, a gate image is
+// where the latest-toolchain trial runs (it is on, a gate image is
 // configured, and an enabled Crystal project has a checkout here), its
 // notice replaces the Crystal
 // and ameba ones; the harness notices stay. With it off, or no checkout

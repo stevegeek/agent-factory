@@ -231,3 +231,25 @@ func TestMetricsLayout(t *testing.T) {
 		t.Errorf("the floor's metrics %+v", f.Metrics)
 	}
 }
+
+// The maintainer's tap answers the draft ask; the tick's work after it is
+// no one's wait, and the notice its settle leaves is an ask of its own.
+func TestMetricsTapAndTheTicksSettle(t *testing.T) {
+	x := metricTicket(t, "T0130", model.NoticeProject, "manage", "working", day(10, 12, 7, 0))
+	x.Drafts = []ticket.Draft{{Title: "Gate", State: model.ItemNew}}
+	ticket.Move(x, "needs_human", model.ReasonManagerDrafted, "manager drafted 1 change(s): x", "", "", day(10, 12, 8, 0))
+	x.Drafts[0].State = model.ItemWaiting
+	ticket.SettleMove(x, "", "", day(10, 12, 8, 1))
+	x.Drafts[0].State = model.ItemRequested
+	ticket.SettleMove(x, "apply requested by maintainer; "+ticket.SettledDetail(ticket.Items(x)), "maintainer", day(10, 12, 10, 0))
+	x.Drafts[0].State = model.ItemApplied
+	ticket.SettleMove(x, "", "", day(10, 12, 14, 0))
+	ticket.Move(x, "done", model.ReasonByHuman, "by human", "", "maintainer", day(10, 12, 15, 0))
+	w := CountMetrics([]*ticket.Ticket{x}, metricsNow, you).Total[0]
+	if w.Answered != 2 || !reflect.DeepEqual(w.ByKind, map[model.AskKind]int{model.AskDraft: 1, model.AskNotice: 1}) {
+		t.Errorf("answers %d %v", w.Answered, w.ByKind)
+	}
+	if !reflect.DeepEqual(w.Waits, []time.Duration{2 * time.Hour, time.Hour}) {
+		t.Errorf("waits %v", w.Waits)
+	}
+}

@@ -51,7 +51,7 @@ func syncFor(h *harness) Sync {
 	return Sync{Flow: h.flow, Board: h.board, Config: configSource{cfg: parseConfig(h.t, testConfig)}}
 }
 
-// `factory pr T` opens the PR at once and gives its URL (§7.3).
+// `factory pr T` opens the PR at once and gives its URL.
 func TestSyncOpenOpensThePRAndGivesItsURL(t *testing.T) {
 	h := newHarness(t)
 	tk := readyTicket(t, true, sha('a'))
@@ -99,8 +99,8 @@ func TestSyncOpenRefusesAndSavesNothing(t *testing.T) {
 	}
 }
 
-// `factory move T ready` out of pr_open drafts the PR before it returns
-// (§6.1): Sync.Hold holds the ticket's PR and saves; a failure is saved
+// `factory move T ready` out of pr_open drafts the PR before it returns:
+// Sync.Hold holds the ticket's PR and saves; a failure is saved
 // on the ticket and comes back as the warning.
 func TestSyncHoldDraftsThePRAndWarnsWhenItCannot(t *testing.T) {
 	h := newHarness(t)

@@ -59,7 +59,7 @@ type ConfigStat struct {
 }
 
 // StatConfig lstats <path>/.git/config. A .git that exists but is not a
-// directory (a gitdir file, a symlink) is an error: quirk 11 (§13.2), where
+// directory (a gitdir file, a symlink) is an error, where
 // Python skipped the check. A missing .git or config is not present.
 func StatConfig(path string) (ConfigStat, error) {
 	gitdir := filepath.Join(path, ".git")

@@ -42,7 +42,7 @@ func open(sealed []byte, key []byte) ([]byte, error) {
 	return io.ReadAll(r)
 }
 
-// §15.2: an encrypt/decrypt round trip, at and around chunk boundaries.
+// an encrypt/decrypt round trip, at and around chunk boundaries.
 func TestEncryptRoundTrip(t *testing.T) {
 	const chunk = 16
 	for _, n := range []int{0, 1, chunk - 1, chunk, chunk + 1, 3 * chunk, 3*chunk + 7} {
@@ -62,7 +62,7 @@ func TestEncryptRoundTrip(t *testing.T) {
 	}
 }
 
-// §15.2: a tampered chunk fails, and so does every other change to the
+// a tampered chunk fails, and so does every other change to the
 // stream: a wrong key, a cut at a chunk boundary, a dropped or reordered
 // chunk, an extension, a changed header.
 func TestTamperedArchivesFail(t *testing.T) {

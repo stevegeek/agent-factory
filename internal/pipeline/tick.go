@@ -15,7 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
-// Tick is tick(cfg) (F:2120): one run of the pipeline. Another tick holding
+// Tick is tick(cfg): one run of the pipeline. Another tick holding
 // the tick lock gets .tick.again touched and this one returns at once;
 // that tick then goes round once more. Otherwise the watches run, then up
 // to three passes, each clearing .tick.again first and reading the config
@@ -105,8 +105,8 @@ func (d Deps) timeLeft(ctx context.Context) bool {
 	return !ok || time.Until(dl) >= d.reserve()
 }
 
-// notice files a notice for each ticket file the board cannot read
-// (quirk 1, §4.5): the tick passes it over instead of failing whole.
+// notice files a notice for each ticket file the board cannot read:
+// the tick passes it over instead of failing whole.
 // The reader has logged it; the notice is deduplicated by its title.
 func (d Deps) notice(ctx context.Context, problems []boardread.Problem) error {
 	if d.Doors == nil {

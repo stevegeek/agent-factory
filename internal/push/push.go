@@ -1,8 +1,8 @@
-// Package push is Foreman's Web Push (ARCHITECTURE.md §2.3, inventory-foreman
-// §10): it watches the board and tells people's devices when something needs
-// them or settles without them. Standard library only: VAPID (RFC 8292)
-// signs each request, and the payload is encrypted for the device (RFC 8291,
-// aes128gcm), so the push service sees nothing.
+// Package push is Foreman's Web Push: it watches the board and tells
+// people's devices when something needs them or settles without them.
+// Standard library only: VAPID (RFC 8292) signs each request, and the
+// payload is encrypted for the device (RFC 8291, aes128gcm), so the push
+// service sees nothing.
 //
 // Its files live in one directory (beside the login secret): the VAPID key
 // foreman-vapid.pem, the subscriptions foreman-push.json and what the
@@ -332,7 +332,7 @@ type Message struct {
 	// people's devices get it
 	forOthers bool
 	// by: the person whose own doing it is, by their name on the board; their
-	// devices do not hear it (D19)
+	// devices do not hear it
 	by string
 }
 

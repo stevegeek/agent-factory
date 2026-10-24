@@ -23,7 +23,7 @@ import (
 //
 // Decoding is lenient: a value of the wrong type reads as the zero value and
 // is reported as a Problem. Encoding merges the views back into the tree
-// they were read from (ARCHITECTURE.md §3.1):
+// they were read from:
 //
 //   - a value whose typed view did not change keeps its stored bytes, which
 //     also keeps wrong-typed values, null-for-zero, number literals and

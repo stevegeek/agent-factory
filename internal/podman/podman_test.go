@@ -89,8 +89,8 @@ func TestImageExists(t *testing.T) {
 	}
 }
 
-// rebuild_image's smoke test (F:2905), with the container named so a
-// cancelled run can be removed (§5.3).
+// rebuild_image's smoke test, with the container named so a
+// cancelled run can be removed.
 func TestSmokeArgv(t *testing.T) {
 	r := &recorder{answer: func(execx.Cmd) (execx.Result, error) {
 		return execx.Result{Stdout: []byte("2.1.296 (Claude Code)\n"), Stderr: []byte("warn\n")}, nil
@@ -111,7 +111,7 @@ func TestSmokeArgv(t *testing.T) {
 	}
 }
 
-// checks_on_fresh_checkout's container (F:1670): no network, keep-id user,
+// checks_on_fresh_checkout's container: no network, keep-id user,
 // the memory limit, the gate's env and mounts in order, the clone at /work.
 func TestGateArgv(t *testing.T) {
 	r := &recorder{}
@@ -169,7 +169,7 @@ func TestGateRefusesBadValues(t *testing.T) {
 	}
 }
 
-// §5.3: a cancelled or timed-out run leaves no container behind: Cleanup
+// a cancelled or timed-out run leaves no container behind: Cleanup
 // removes it by name, bounded by its own timeout.
 func TestCleanupRemovesTheNamedContainer(t *testing.T) {
 	r := &recorder{answer: func(c execx.Cmd) (execx.Result, error) {

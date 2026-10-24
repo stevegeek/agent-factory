@@ -95,7 +95,7 @@ func GoldenPatterns(files []string) (map[string]bool, error) {
 }
 
 // CheckRegexGoldens checks every regexp compile call in the module's
-// production code (§8.5): each carries "// py: <python pattern>" with a
+// production code: each carries "// py: <python pattern>" with a
 // pattern that a golden covers, or "// re: go" for a pattern that is not a
 // Python port.
 func CheckRegexGoldens(g *Graph, golden map[string]bool) []Violation {

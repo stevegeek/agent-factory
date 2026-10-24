@@ -1,10 +1,10 @@
-// Package jsonx is JSON that matches Python's json module byte for byte
-// (ARCHITECTURE.md §2.3, §3.1, §4.2): an ordered tree that keeps key order
-// at every depth, a parser that accepts what json.loads accepts, an encoder
-// that writes what json.dumps writes (ensure_ascii, Python separators,
-// Python's float repr, no HTML escaping), the canonical form used for the
-// idempotency digest. Writing a typed view back into the tree it was read
-// from (keeping unknown keys and their order) is ticket's codec (§3.1).
+// Package jsonx is JSON that matches Python's json module byte for byte: an
+// ordered tree that keeps key order at every depth, a parser that accepts
+// what json.loads accepts, an encoder that writes what json.dumps writes
+// (ensure_ascii, Python separators, Python's float repr, no HTML escaping),
+// the canonical form used for the idempotency digest. Writing a typed view
+// back into the tree it was read from (keeping unknown keys and their
+// order) is ticket's codec.
 //
 // Strings are Go strings. Python strings may hold lone surrogates (a JSON
 // escape of a surrogate that is not half of a pair); jsonx keeps them as

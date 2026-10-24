@@ -1,8 +1,8 @@
-// Package tokens is the API token store (ARCHITECTURE.md §2.3, inventory
-// features §15.10): api-tokens.json, {"version": 1, "tokens": [...]}, where
-// each agent outside the factory has a record with its name, the sha256 of
-// its token, the projects it may see and what it may do there. The plain
-// token is shown once, when it is made, and never kept.
+// Package tokens is the API token store: api-tokens.json, {"version": 1,
+// "tokens": [...]}, where each agent outside the factory has a record with
+// its name, the sha256 of its token, the projects it may see and what it
+// may do there. The plain token is shown once, when it is made, and never
+// kept.
 //
 // The file is read and written through its ordered JSON tree, so a hand
 // edit's keys and records survive a change, and the bytes are Python's

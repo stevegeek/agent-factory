@@ -21,13 +21,13 @@ type issueKey struct {
 	issue   int64
 }
 
-// Sweep is sweep(cfg) (F:2680), the github door: every open issue of each
+// Sweep is sweep(cfg), the github door: every open issue of each
 // enabled factory project with a repository (and no `sweep = false`) that
 // no ticket was filed for yet becomes a triage ticket, door github
 // (untrusted), with the issue as its source. An issue is known by
 // (project, issue number), whatever its ticket's column. A repository whose
 // issues cannot be fetched is logged and passed over. Only the first 50
-// open issues are seen (quirk 8, no pagination).
+// open issues are seen (no pagination).
 func (s Service) Sweep(ctx context.Context, cfg *config.Config) error {
 	known := map[issueKey]bool{}
 	ts, _ := s.Board.Reader.List()

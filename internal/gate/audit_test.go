@@ -33,7 +33,7 @@ func decodeText(t *testing.T, text string) *ticket.Ticket {
 	return tk
 }
 
-// The audits tools/goldens.py had audit_text write for each ticket shape.
+// The audits the Python goldens tool had audit_text write for each ticket shape.
 func TestAuditGoldens(t *testing.T) {
 	dir := filepath.Join("testdata", "py", "audit")
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
@@ -59,7 +59,7 @@ func TestAuditGoldens(t *testing.T) {
 }
 
 // The audit the Python tick wrote after the last gate run of the
-// change-through-a-pr life (tools/goldens.py g_life), from the ticket as
+// change-through-a-pr life (the Python goldens tool g_life), from the ticket as
 // that step saved it.
 func TestAuditOfARealLife(t *testing.T) {
 	tk := decodeFile(t, filepath.Join("..", "ticket", "testdata", "py", "history-order", "change-through-a-pr",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Capture a private snapshot of the live factory's board for the live-board tests, which read
-# it from FACTORY_LIVE_SNAPSHOT and skip without it (jsonx, ticket, ops; ARCHITECTURE.md §10.4, §15).
+# it from FACTORY_LIVE_SNAPSHOT and skip without it (jsonx, ticket, ops).
 #
 # The snapshot holds real project names, issue text and config: write it into the private
 # config repository, never into this public one. The script

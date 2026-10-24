@@ -155,7 +155,7 @@ func (w *world) restored(t *testing.T, key string) (string, []string) {
 	return dir, files
 }
 
-// §15.2: the archive's contents and exclusions.
+// the archive's contents and exclusions.
 func TestBackupHoldsTheStateAndNoCredential(t *testing.T) {
 	w := newWorld(t)
 	res, err := w.svc.Run(t.Context(), w.cfg)
@@ -211,7 +211,7 @@ func TestBackupHoldsTheStateAndNoCredential(t *testing.T) {
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 
-// §15.2: the tick lock is held only while board/ and memory/ are copied:
+// the tick lock is held only while board/ and memory/ are copied:
 // a held lock stops the backup (bounded by its context), and the lock is
 // free again before the rest is copied.
 func TestTheTickLockIsHeldOnlyWhileStaging(t *testing.T) {
@@ -299,7 +299,7 @@ func TestRetentionRunsAfterAGoodUpload(t *testing.T) {
 	}
 }
 
-// §15.2: Verify restores the newest archive into a temporary directory and
+// Verify restores the newest archive into a temporary directory and
 // checks it; a broken newest archive files a notice.
 func TestVerifyRestoresTheNewest(t *testing.T) {
 	w := newWorld(t)
@@ -324,7 +324,7 @@ func TestVerifyRestoresTheNewest(t *testing.T) {
 	}
 }
 
-// §15.2: a verify that passes files nothing, and writes its one
+// a verify that passes files nothing, and writes its one
 // factory.log line only on the month's first Sunday (day 1 to 7).
 func TestVerifyLogsOnlyOnTheFirstSundayOfTheMonth(t *testing.T) {
 	w := newWorld(t)
@@ -356,7 +356,7 @@ func TestVerifyLogsOnlyOnTheFirstSundayOfTheMonth(t *testing.T) {
 	}
 }
 
-// §15.2: restore refuses a non-empty directory and the live root (or a
+// restore refuses a non-empty directory and the live root (or a
 // path inside it, by a symlink too), and fetches an archive named only by its object name.
 func TestRestoreOnlyIntoAnEmptyDirectory(t *testing.T) {
 	w := newWorld(t)
@@ -433,7 +433,7 @@ func TestReadCredentials(t *testing.T) {
 	}
 }
 
-// P6: with [backup] name = "master" (the CLI sets Host from it), the
+// with [backup] name = "master" (the CLI sets Host from it), the
 // archive is on the master line, whichever machine writes it.
 func TestRunNamesTheArchiveFromConfig(t *testing.T) {
 	w := newWorld(t)
@@ -447,7 +447,7 @@ func TestRunNamesTheArchiveFromConfig(t *testing.T) {
 	}
 }
 
-// P6: verify takes the newest archive of the named line; another line's,
+// verify takes the newest archive of the named line; another line's,
 // even a newer one, is ignored.
 func TestVerifyFindsTheNamedLine(t *testing.T) {
 	w := newWorld(t)
@@ -464,7 +464,7 @@ func TestVerifyFindsTheNamedLine(t *testing.T) {
 	}
 }
 
-// P6: retention on the master line never removes the old machine's line.
+// retention on the master line never removes the old machine's line.
 func TestPruneKeepsOtherLines(t *testing.T) {
 	w := newWorld(t)
 	w.svc.Host = "master"

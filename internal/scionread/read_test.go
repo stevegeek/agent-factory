@@ -57,7 +57,7 @@ func TestListArgvAndNames(t *testing.T) {
 	}
 }
 
-// running_agents (F:686): a failed list is not an empty one.
+// running_agents: a failed list is not an empty one.
 func TestListFailureIsUnknownNotEmpty(t *testing.T) {
 	for name, f := range map[string]*fake{
 		"non-zero exit":       {res: execx.Result{Code: 1, Stderr: []byte("no daemon")}},
@@ -109,7 +109,7 @@ func TestOptionLikeOrPathNamesAreRefused(t *testing.T) {
 	}
 }
 
-// §6.2 and §10.7 S7b (security): read verbs run without the Claude token or
+// Security: read verbs run without the Claude token or
 // an API key in their environment, whatever the caller's base holds; PATH
 // gets scion's directory first, as scion_env() does.
 func TestReadVerbsCarryNoSecrets(t *testing.T) {

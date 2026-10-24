@@ -1,15 +1,15 @@
-// Package store writes the board and the factory's small state files
-// (ARCHITECTURE.md §4.3-4.6): ticket saves, ids, the per-ticket and other
-// locks, the index, state.json, watches.json and pauses.json.
+// Package store writes the board and the factory's small state files:
+// ticket saves, ids, the per-ticket and other locks, the index, state.json,
+// watches.json and pauses.json.
 //
 // Every lock is flock(2) on the path Python uses, so Python and Go
 // processes exclude each other, and each acquisition has its own open file
-// description, so goroutines exclude each other too. Locks are taken in the
-// order of §4.4: tick, create, ticket (several: lowest id first), then the
+// description, so goroutines exclude each other too. Locks are taken in this
+// order: tick, create, ticket (several: lowest id first), then the
 // leaves (id, index), which are never held while another lock is taken.
 //
 // A change is made on a fresh copy and saved only at a commit point: when
-// the step's function returns nil and its context is still live (§5.2).
+// the step's function returns nil and its context is still live.
 package store
 
 import (

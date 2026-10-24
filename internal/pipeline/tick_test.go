@@ -53,7 +53,7 @@ func TestAWakeDuringATickMakesItGoRoundOnceMore(t *testing.T) {
 	}
 }
 
-// §10.7 S17: the 3-pass cap.
+// the 3-pass cap.
 func TestATickGoesRoundAtMostThreeTimes(t *testing.T) {
 	h := newHarness(t)
 	h.local.onList = func(int) { _ = h.board.Again() } // wakes keep arriving
@@ -63,7 +63,7 @@ func TestATickGoesRoundAtMostThreeTimes(t *testing.T) {
 	}
 }
 
-// §10.7 S17: the config is read again between passes (a deploy may land
+// the config is read again between passes (a deploy may land
 // while a pass runs).
 func TestTheConfigIsReadAgainBetweenPasses(t *testing.T) {
 	h := newHarness(t)
@@ -115,7 +115,7 @@ func TestAFailingWatchIsLoggedAndTheTickGoesOn(t *testing.T) {
 	}
 }
 
-// §5.2: the tick runs under its own deadline, below the unit's 45 minutes,
+// the tick runs under its own deadline, below the unit's 45 minutes,
 // and the GitHub pass sees it (prflow defers a merge that would not fit).
 func TestTheTickRunsUnderItsDeadline(t *testing.T) {
 	h := newHarness(t)
@@ -132,7 +132,7 @@ func TestTheTickRunsUnderItsDeadline(t *testing.T) {
 	}
 }
 
-// §4.5, quirk 1: a ticket file that cannot be read is passed over, logged
+// a ticket file that cannot be read is passed over, logged
 // and noticed, instead of crashing the tick.
 func TestACorruptTicketIsPassedOverAndNoticed(t *testing.T) {
 	h := newHarness(t)
@@ -246,5 +246,63 @@ func TestPassGoesOnWhenDrainFails(t *testing.T) {
 	}
 	if h.local.lists != 2 {
 		t.Fatal("the pass stopped at the failed drain")
+	}
+}
+
+// fakeOperator records each Settle, and the drains before it.
+type fakeOperator struct {
+	settles      int
+	drainsBefore int
+	dep          *fakeDeployer
+	seen         []ticket.ID
+	err          error
+}
+
+func (f *fakeOperator) Settle(_ context.Context, _ *config.Config, ts []*ticket.Ticket) error {
+	f.settles++
+	if f.dep != nil {
+		f.drainsBefore = f.dep.drains
+	}
+	for _, t := range ts {
+		f.seen = append(f.seen, t.ID)
+	}
+	return f.err
+}
+
+func TestPassSettlesOperatorAfterDrain(t *testing.T) {
+	h := newHarness(t)
+	id := h.file("p", "Fix it", "backlog", nil)
+	dep := &fakeDeployer{}
+	op := &fakeOperator{dep: dep}
+	d := h.deps()
+	d.Deploys, d.Operator = dep, op
+	if err := Tick(context.Background(), d); err != nil {
+		t.Fatal(err)
+	}
+	if op.settles != 1 || op.drainsBefore != 1 || len(op.seen) != 1 || op.seen[0] != id {
+		t.Fatalf("settles %d after %d drains, saw %v", op.settles, op.drainsBefore, op.seen)
+	}
+	// a failed GitHub pass still settles: the items record their own errors
+	h.github.passErr = errors.New("github is down")
+	if err := Tick(context.Background(), d); err == nil {
+		t.Fatal("no error")
+	}
+	if op.settles != 2 {
+		t.Fatalf("settles %d", op.settles)
+	}
+}
+
+func TestPassGoesOnWhenSettleFails(t *testing.T) {
+	h := newHarness(t)
+	d := h.deps()
+	d.Operator = &fakeOperator{err: errors.New("board: disk full")}
+	if err := Tick(context.Background(), d); err != nil {
+		t.Fatal(err)
+	}
+	if !h.log.has("operator: board: disk full") {
+		t.Fatalf("log: %v", h.log.lines)
+	}
+	if h.local.lists != 2 {
+		t.Fatal("the pass stopped at the failed settle")
 	}
 }

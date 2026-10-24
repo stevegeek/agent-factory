@@ -2,22 +2,22 @@ package cli
 
 import "github.com/stevegeek/agent-factory/internal/ticketapi"
 
-// The command table (§7.3): every command the factory has, with the argv
+// The command table: every command the factory has, with the argv
 // Python's argparse took, unchanged. Each group's Run lives in its own
 // cmd_<group>.go:
 //
-//	S6   cmd_readonly.go, cmd_ticket.go: ls show result proposals recipes model check version ticket tokens
-//	S15b cmd_ops.go, cmd_inspect.go:     add move note reply ask approve redirect merge pr host migrate wake answer look audit memory github gate-workflow findings project
-//	S16  cmd_doors.go:                   sweep clock rebuild versions
-//	S17  cmd_tick.go:                    tick
-//	S19  cmd_render.go:                  render patch-scion
-//	     cmd_screens.go:                 screens
-//	     cmd_fizzy.go:                   fizzy (export, import)
-//	     cmd_onboard.go:                 kinds onboard
+//	cmd_readonly.go, cmd_ticket.go: ls show result proposals recipes model check version ticket tokens
+//	cmd_ops.go, cmd_inspect.go:     add move note reply ask approve redirect merge pr host migrate wake answer look audit memory github gate-workflow findings project
+//	cmd_doors.go:                   sweep clock rebuild versions
+//	cmd_tick.go:                    tick
+//	cmd_render.go:                  render patch-scion
+//	cmd_screens.go:                 screens
+//	cmd_fizzy.go:                   fizzy (export, import)
+//	cmd_onboard.go:                 kinds onboard
 func commands() []Command {
 	ticketArg := Positional{Name: "ticket"}
 	return []Command{
-		// S15b: the maintainer's verbs
+		// the maintainer's verbs
 		{Name: "add", Help: "file a ticket and print its id", Config: true,
 			Positionals: []Positional{{Name: "project"}, {Name: "title", Optional: true}},
 			Flags: []Flag{
@@ -121,9 +121,9 @@ func commands() []Command {
 				{Name: "force", Kind: BoolFlag, Help: "restore: put the snapshot back even when it is not of the last deploy"},
 			},
 			Run: runDeploy},
-		// S17
+		// the tick
 		{Name: "tick", Help: "run one tick of the pipeline", Config: true, Run: runTick},
-		// S16
+		// the doors and upkeep
 		{Name: "sweep", Help: "file tickets for open GitHub issues", Config: true, Run: runSweep},
 		{Name: "clock", Help: "file the scheduled tickets that are due", Config: true, Run: runClock},
 		{Name: "rebuild", Help: "rebuild the images", Config: true, Run: runRebuild,
@@ -136,9 +136,9 @@ func commands() []Command {
 		// the screen relay: Foreman's Live screens while it is open
 		{Name: "screens", Help: "relay the local agents' screens to Foreman while Live is open", Config: true, Run: runScreens},
 		backupCommand(),
-		// ticket system step 5: Fizzy boards into board projects
+		// Fizzy boards into board projects
 		fizzyCommand(),
-		// S6
+		// the read-only commands and the ticket API
 		{Name: "check", Help: "check the config (and with flags, the board)", Config: true,
 			Flags: []Flag{
 				{Name: "board", Kind: BoolFlag, Help: "list every ticket file that does not read cleanly"},
@@ -161,7 +161,7 @@ func commands() []Command {
 				{Name: "json", Kind: BoolFlag},
 			}},
 		{Name: "version", Help: "print the build's commit and Go version", Run: runVersion},
-		// S19
+		// render
 		{Name: "render", Help: "render the config into deployable files", Raw: ioRunner(runRender)},
 		{Name: "patch-scion", Help: "patch Scion's provision.py", Raw: ioRunner(runPatchScion)},
 	}

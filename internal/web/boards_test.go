@@ -406,7 +406,7 @@ func TestABoardQuestionIsAnsweredFromTheWeb(t *testing.T) {
 	if len(h.ops.takeAnswers()) != 0 {
 		t.Errorf("a board answer reached ops")
 	}
-	// D19: another user answers as a person of their own
+	// another user answers as a person of their own
 	tickets.take()
 	tickets.fail = nil
 	secret, err := h.users.Add("robin", []string{"notes"})

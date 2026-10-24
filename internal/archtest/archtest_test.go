@@ -79,7 +79,7 @@ func TestRepository(t *testing.T) {
 	})
 
 	t.Run("port", func(t *testing.T) {
-		// every Python test has its Go port (§10.1); FACTORY_PORT_COMPLETE=0
+		// every Python test has its Go port; FACTORY_PORT_COMPLETE=0
 		// relaxes this while a slice is half done
 		complete := os.Getenv("FACTORY_PORT_COMPLETE") != "0"
 		missing, vs, err := CheckPortMarkers(root, manifestFile, complete)
@@ -114,14 +114,14 @@ func TestRepository(t *testing.T) {
 }
 
 // The committed manifest, frozen from tests/*.py at the cutover, has all
-// 192 methods (§10.1), each once.
+// 192 methods, each once.
 func TestManifest(t *testing.T) {
 	manifest, err := ReadManifest(manifestFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(manifest) < 192 {
-		t.Errorf("manifest has %d tests, the plan counts 192", len(manifest))
+		t.Errorf("manifest has %d tests, want 192", len(manifest))
 	}
 	seen := map[string]bool{}
 	for _, m := range manifest {
@@ -132,8 +132,8 @@ func TestManifest(t *testing.T) {
 	}
 }
 
-// The table has a row for every package named in §2.2 and nothing else,
-// and the computed rows hold what the plan says.
+// The table has a row for every package and nothing else, and the computed
+// rows hold what the rules say.
 func TestTableMatchesThePlan(t *testing.T) {
 	tab := Table()
 	var names []string
@@ -148,10 +148,10 @@ func TestTableMatchesThePlan(t *testing.T) {
 		"internal/gate", "internal/github", "internal/gitread", "internal/gitx", "internal/guard", "internal/helper",
 		"internal/hostrun", "internal/hosts", "internal/imagebuild", "internal/jobproto", "internal/jobtail",
 		"internal/jsonx", "internal/logx", "internal/mailbox", "internal/mcp", "internal/mdhtml", "internal/mdout", "internal/memory",
-		"internal/memstore", "internal/model", "internal/onboard", "internal/ops", "internal/panel", "internal/paths", "internal/pipeline",
+		"internal/memstore", "internal/model", "internal/onboard", "internal/operator", "internal/ops", "internal/panel", "internal/paths", "internal/pipeline",
 		"internal/podman", "internal/present", "internal/prflow", "internal/pull", "internal/push", "internal/render",
 		"internal/scion", "internal/scionread", "internal/screens", "internal/security", "internal/sshjobs", "internal/stage",
-		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/ticket", "internal/ticketapi",
+		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/ticket", "internal/ticketapi", "internal/tiers",
 		"internal/tokens", "internal/toml", "internal/upkeep", "internal/vitals", "internal/wake", "internal/web",
 	}
 	if !slices.Equal(names, want) {

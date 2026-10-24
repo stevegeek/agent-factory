@@ -1,5 +1,5 @@
 schema_version: "1"
-description: "The factory's manager: answers questions about the factory and drafts changes to its config for the maintainer; never applies anything"
+description: "The factory's manager and operator: answers questions about the factory, drafts and proposes; the tick applies under the rights tiers"
 agent_instructions: agents.md
 default_harness_config: claude
 max_duration: "45m"
@@ -9,7 +9,7 @@ resources:
     cpu: "2"
   requests:
     memory: 300Mi
-# what the manager may read, and only read: it drafts, the maintainer applies from his own machine
+# what the manager may read, and only read: it drafts and proposes; the tick applies under the rights tiers
 volumes:
   - type: local
     source: /home/factory/factory/board
@@ -26,4 +26,16 @@ volumes:
   - type: local
     source: /home/factory/.scion/templates
     target: /factory/templates
+    read_only: true
+  - type: local
+    source: /home/factory/factory/sysinfo.json
+    target: /factory/sysinfo.json
+    read_only: true
+  - type: local
+    source: /home/factory/factory/context
+    target: /factory/context
+    read_only: true
+  - type: local
+    source: /home/factory/factory/deploys
+    target: /factory/deploys
     read_only: true

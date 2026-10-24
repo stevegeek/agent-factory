@@ -13,9 +13,9 @@ import (
 // holds. The finishers read it as Python's dict accesses do: report.get(k)
 // compared with a string, str() of whatever is there, `x or y` taking y
 // when x is falsy, int() of a vote. Report is that reading, over the parsed
-// object the ticket stores verbatim (inventory-contracts §4).
+// object the ticket stores verbatim.
 
-// ParseReport is parse_report (F:706): the report as stored on the ticket.
+// ParseReport is parse_report: the report as stored on the ticket.
 // Invalid JSON (or bytes that are not UTF-8), or JSON that is not an
 // object, becomes a blocked, failing report that says so, so a garbage
 // report always fails closed.

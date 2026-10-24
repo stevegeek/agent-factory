@@ -8,7 +8,7 @@ import (
 )
 
 // Python's view of a value json.loads made: str(), repr() and bool(), the
-// one copy every package uses (ARCHITECTURE.md §2.2, layer 0). Agents and
+// one copy every package uses (layer 0). Agents and
 // people write the files, so a value can be anything JSON holds; the
 // factory formats and tests them as Python did.
 

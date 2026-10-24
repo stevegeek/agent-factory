@@ -341,7 +341,7 @@ func TestPushReachesOnlyTheDevicesThatMaySeeIt(t *testing.T) {
 	if got := deliver(Message{Title: "5 updates"}); got != "https://a" {
 		t.Errorf("the summary went to %v", got)
 	}
-	// D19: what a person did themselves is news only to everyone else
+	// what a person did themselves is news only to everyone else
 	if got := deliver(Message{Project: "quotes", by: "robin"}); got != "https://a" {
 		t.Errorf("robin's own doing went to %v", got)
 	}
@@ -436,7 +436,7 @@ func TestNewsIsWhatChangedWithoutYou(t *testing.T) {
 	if out := News(prev, []*ticket.Ticket{mine}, "maintainer"); len(out) != 1 || out[0].by != "maintainer" {
 		t.Errorf("your own move is not news to you: %+v", out)
 	}
-	// D19: another person's move is still news to you, and not to them
+	// another person's move is still news to you, and not to them
 	theirs := cp(start)
 	moved := ticket.Moved{From: "ready", To: "needs_human", Reason: model.ReasonByHuman, By: "robin"}
 	theirs.History = append(theirs.History, ticket.Entry{At: "2026-10-09T10:00:00+00:00", Event: "move",

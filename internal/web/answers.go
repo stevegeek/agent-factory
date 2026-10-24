@@ -12,15 +12,15 @@ import (
 // OpsVerbs is what web's answer, filing and look services use of package
 // ops (*ops.Service). Foreman builds that service with ops.Intents as its
 // PR actions, so nothing reached from here talks to GitHub: an answer that
-// needs GitHub records an intent and wakes the tick (§6.3).
+// needs GitHub records an intent and wakes the tick.
 type OpsVerbs interface {
 	Answer(ctx context.Context, in ops.AnswerIn) (string, error)
 	File(ctx context.Context, project, kind, title, body, by string) (ticket.ID, error)
 	Look(ctx context.Context, id string, lines int) (ops.Screen, error)
 }
 
-// Ops is web's Answerer, Filer and Looker over package ops, in-process
-// (§6.1): what an answer means, what a new ticket gets and how a screen is
+// Ops is web's Answerer, Filer and Looker over package ops, in-process:
+// what an answer means, what a new ticket gets and how a screen is
 // read are all decided in ops; this only translates.
 type Ops struct {
 	Verbs OpsVerbs
@@ -47,8 +47,9 @@ func (Ops) Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 	return out
 }
 
-// Answer is ops.Service.Answer: one lock, one save, as the person answering
-// (§6.1). An answer to an ask that has moved on comes back as ErrStale.
+// Answer is ops.Service.Answer: one lock, one save, as the person
+// answering. An answer to an ask that has moved on comes back as
+// ErrStale.
 func (o Ops) Answer(ctx context.Context, req AnswerRequest) (string, error) {
 	out, err := o.Verbs.Answer(ctx, ops.AnswerIn{ID: string(req.ID), Value: req.Value, Note: req.Note, Picks: req.Picks,
 		As: req.As, Kind: req.Kind, Since: req.Since, By: req.By})

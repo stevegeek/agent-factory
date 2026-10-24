@@ -19,7 +19,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
-// jobScript runs inside the container as uid 1000 (R:47), byte for byte
+// jobScript runs inside the container as uid 1000, byte for byte
 // Python's JOB_SCRIPT. /job is the job's work/ directory (the agent can
 // write there); exit, run.log and meta.json stay outside it, so the agent
 // cannot fake them. The prompt comes on stdin (Pi reads piped stdin as
@@ -104,7 +104,7 @@ fi
 ` + jobFinish
 }
 
-// Harness is one command a job can run (§2.4.5): the script the container's
+// Harness is one command a job can run: the script the container's
 // /bin/sh runs (Run between the checkout and the finish), and what it adds
 // to the job's environment.
 type Harness struct {
@@ -146,7 +146,7 @@ func credentialEnv() []string {
 	return []string{"ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"}
 }
 
-// Container limits of every job (R:163).
+// Container limits of every job.
 const (
 	jobPids      = "512"
 	maxKeyBytes  = 64 << 10
@@ -155,7 +155,7 @@ const (
 	cleanupTimeout = 30 * time.Second
 )
 
-// run is `run <job>` (run_job, R:163), started by the job's unit: the
+// run is `run <job>` (run_job), started by the job's unit: the
 // job's container, with the helper's own image, agent, memory, cpus,
 // mounts and env, and its one credential read from its file into podman's
 // environment (never argv). Its output goes to run.log, and its status to
@@ -179,7 +179,7 @@ func (s *Server) run(ctx context.Context, job string) (err error) {
 	}
 	res, err := s.Exec.Run(ctx, cmd)
 	if err != nil {
-		// A cancel (SIGTERM from the unit's stop, §5.4): execx TERMed
+		// A cancel (SIGTERM from the unit's stop): execx TERMed
 		// podman's client and cmd.Cleanup ran `podman rm -f --time 5`,
 		// which stops the container (TERM, then KILL after 5 s) and removes
 		// it. exit stays 255, since no container status came back; what

@@ -41,7 +41,7 @@ type MissingAsk struct {
 
 // CheckAsks is `factory check --asks`: every factory ticket in an ask
 // column (model.AskColumns) without a stored ask, which Foreman does not
-// show on the desk (it no longer derives asks, D11). Board tickets ask
+// show on the desk (it no longer derives asks). Board tickets ask
 // through their questions and are not counted.
 func (r *Reader) CheckAsks() []MissingAsk {
 	ts, _ := r.List()

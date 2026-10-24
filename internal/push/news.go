@@ -77,7 +77,7 @@ func mover(t *ticket.Ticket, maintainer string) string {
 // News compares the board with what was seen before: a new ask on the
 // desk, the answer to a question you asked, and a PR ticket that closed
 // without you (merged or closed on GitHub). What a person did themselves
-// is not news to their own devices, only to everyone else's (D19);
+// is not news to their own devices, only to everyone else's;
 // maintainer is the maintainer's name on the board, the first of [board]
 // people. On a board ticket only an agent's new question to a person is.
 // More than three items the maintainer hears become one summary for them,

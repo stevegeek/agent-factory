@@ -10,13 +10,13 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// The walls and public-repo hygiene (DESIGN-self-hosting.md, project 3).
-// A wall is a file that holds the factory's own safety: a change to one
-// never merges without the maintainer. Hygiene is for a public repo: what
-// a PR publishes (its paths, added lines, commit messages, branch and the
-// report texts the body prints) must carry no [hygiene] deny term. The
-// hits name the term, so they go only to private places (gate-output.txt
-// and the board); the blocker, which the PR body prints, only counts them.
+// The walls and public-repo hygiene. A wall is a file that holds the
+// factory's own safety: a change to one never merges without the
+// maintainer. Hygiene is for a public repo: what a PR publishes (its
+// paths, added lines, commit messages, branch and the report texts the
+// body prints) must carry no [hygiene] deny term. The hits name the term,
+// so they go only to private places (gate-output.txt and the board); the
+// blocker, which the PR body prints, only counts them.
 
 // HygieneSnippet is how much text around a hit a hygiene line shows, in
 // code points.

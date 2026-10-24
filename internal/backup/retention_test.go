@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// §15.2: retention over a calendar of daily stamps: the last 7 days, the
+// retention over a calendar of daily stamps: the last 7 days, the
 // last 4 Sundays and the last 6 firsts of a month.
 func TestRetentionOverACalendar(t *testing.T) {
 	var names []string

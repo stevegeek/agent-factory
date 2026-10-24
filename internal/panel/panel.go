@@ -1,7 +1,7 @@
-// Package panel is the blind voting panel (inventory-features §8): the
-// tally of one proposal's scores, the rule sentence that says why it was
-// kept or dropped, and the reveal that files every proposal of a prospect
-// as its own ticket once the last voter is in.
+// Package panel is the blind voting panel: the tally of one proposal's
+// scores, the rule sentence that says why it was kept or dropped, and the
+// reveal that files every proposal of a prospect as its own ticket once
+// the last voter is in.
 //
 // Everything here is pure: the caller passes the time and the ids of the
 // tickets to file, and saves what comes back.
@@ -23,7 +23,7 @@ import (
 // ErrTooFewIDs is a reveal given fewer ids than it files tickets.
 var ErrTooFewIDs = errors.New("panel: too few ticket ids for the proposals")
 
-// Tally is panel_tally (F:2025): the scores voters gave proposal index
+// Tally is panel_tally: the scores voters gave proposal index
 // (1-based), their mean and population spread, how many were keen (4 or
 // more), the priority (mean - spread/2) and whether it survives (two keen
 // voters, or a mean of 3.5). Means, spreads and priorities are rounded to
@@ -95,7 +95,7 @@ func TallyValue(p ticket.Panel) jsonx.Value {
 	return o.Value()
 }
 
-// Rule is panel_rule (F:2038): the sentence that says why a tally was kept
+// Rule is panel_rule: the sentence that says why a tally was kept
 // or dropped, keen voters first unless the mean alone kept it.
 func Rule(p ticket.Panel) string {
 	n := len(p.Scores)
@@ -113,7 +113,7 @@ func Rule(p ticket.Panel) string {
 	return "kept: " + mean + "; " + keen
 }
 
-// Votes is panel_votes (F:2048): each voter's score and reason for
+// Votes is panel_votes: each voter's score and reason for
 // proposal index, in voting order; a voter with no host ran here.
 func Votes(index int, votes []ticket.Vote) []ticket.PanelVote {
 	out := []ticket.PanelVote{}
@@ -131,14 +131,14 @@ func Votes(index int, votes []ticket.Vote) []ticket.PanelVote {
 	return out
 }
 
-// ProposalText is proposal_text (F:1487): how a proposal reads to a voter
+// ProposalText is proposal_text: how a proposal reads to a voter
 // and, without its heading, on its own ticket.
 func ProposalText(i int, p ticket.Proposal) string {
 	return fmt.Sprintf("### Proposal %d: %s\n\n- Noticed: %s\n- Change: %s\n- Why it is worth it: %s\n- Cost: %s",
 		i, p.Title, p.Noticed, p.Change, p.Why, p.Cost)
 }
 
-// File is file_proposal (F:2054): proposal i of prospect t as a ticket
+// File is file_proposal: proposal i of prospect t as a ticket
 // with id, kind proposal, carrying its tally and votes; a kept one waits for
 // a person (asking "proposal"), a dropped one is filed rejected. at, when
 // set, back-dates a filing made after the fact (migrate). The caller saves
@@ -194,7 +194,7 @@ func proposalValue(p ticket.Proposal) jsonx.Value {
 // Needs is how many tickets Reveal files for t: one per proposal.
 func Needs(t *ticket.Ticket) int { return len(t.Proposals) }
 
-// Reveal is reveal (F:2073): every proposal of prospect t filed as its own
+// Reveal is reveal: every proposal of prospect t filed as its own
 // ticket (ids[k] for proposal k+1), what the panel kept and dropped
 // recorded on t, and t moved to done. The filed tickets come back for the
 // caller to save, before it saves t.

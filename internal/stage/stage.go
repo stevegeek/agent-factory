@@ -1,14 +1,14 @@
-// Package stage is the behaviour of each stage (ARCHITECTURE.md §2.4.1):
-// what its agent is told (Prompt) and what its report does to the ticket
-// (Finish). The static part of a stage, its template, column, suffix and
-// so on, is model.Stages(); this package attaches the behaviour by name.
+// Package stage is the behaviour of each stage: what its agent is told
+// (Prompt) and what its report does to the ticket (Finish). The static
+// part of a stage, its template, column, suffix and so on, is
+// model.Stages(); this package attaches the behaviour by name.
 //
 // Both halves are pure. The pipeline gathers the facts first (git heads,
 // the tier, the memory a run has, the parent of an Ask's task, the ids of
 // the tickets an outcome files), calls the stage, and saves what comes
 // back. Nothing here reads a file, runs a command or asks for the time.
 //
-// The pipeline's order around a finish is Python's finish_stage (F:1848):
+// The pipeline's order around a finish is Python's finish_stage:
 // remove the agent (keeping its branch when KeepBranch says so), settle its
 // memory on the ticket, then Finish, which records the report, clears the
 // agent, records the finished event and decides the move.
@@ -66,7 +66,7 @@ func For(s model.Stage) Behaviour {
 	}
 }
 
-// ForTicket is stage_for (F:155): the stage a ticket runs next from where
+// ForTicket is stage_for: the stage a ticket runs next from where
 // it waits, if any. A board ticket runs none; a factory ticket's is
 // model.NextStage of its kind and column, which Foreman reads too.
 func ForTicket(t *ticket.Ticket) (model.Stage, bool) {
@@ -98,8 +98,8 @@ type BeginIn struct {
 	Tier   int    // security: the tier the classifier gave the change
 }
 
-// Begin records on t what start_stage records before it builds the prompt
-// (F:1757): a worker's branch; for review and security the head they start
+// Begin records on t what start_stage records before it builds the prompt:
+// a worker's branch; for review and security the head they start
 // from, which a reviewer must leave where it is; for security the tier and
 // the questions asked, frozen so that the answers are judged against them.
 func Begin(t *ticket.Ticket, s model.Stage, in BeginIn) {

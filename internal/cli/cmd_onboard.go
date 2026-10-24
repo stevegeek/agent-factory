@@ -17,10 +17,10 @@ import (
 	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
-// The project kinds' commands (DESIGN-self-hosting.md, project 5): kinds
-// lists the kinds and what each factory project takes from its kind;
-// onboard checks whether a project is ready to switch on. Both only read,
-// except that onboard --checks runs the gate's checks on the base.
+// The project kinds' commands: kinds lists the kinds and what each factory
+// project takes from its kind; onboard checks whether a project is ready
+// to switch on. Both only read, except that onboard --checks runs the
+// gate's checks on the base.
 
 func runKinds(_ context.Context, e *Env, a Args) error {
 	cfg, err := e.Config()

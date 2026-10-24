@@ -1,8 +1,7 @@
-// Package gitx is git that writes (ARCHITECTURE.md §2.3, §4.8): the guard
-// that cleans a project's .git/config, the dispatcher's verbs on project
-// clones (base refresh, bundles, the gate's clone, push), and Bare, git on
-// the memory stores. Foreman's build may not link it (§2.2 rule 3); its
-// read-only counterpart is gitread.
+// Package gitx is git that writes: the guard that cleans a project's
+// .git/config, the dispatcher's verbs on project clones (base refresh,
+// bundles, the gate's clone, push), and Bare, git on the memory stores.
+// Foreman's build may not link it; its read-only counterpart is gitread.
 package gitx
 
 import (
@@ -52,7 +51,7 @@ func (g *Guarder) Check(ctx context.Context, path, github string) error {
 
 // Guard cleans <path>/.git/config and returns what it removed (nil when
 // the config was clean, unchanged since the last check, or absent). A .git
-// that is not a directory is refused (quirk 11, §13.2). A config that is a
+// that is not a directory is refused. A config that is a
 // symlink or not a regular file is replaced, never followed. github is the
 // project's owner/repo, or "": origin must then point at
 // https://github.com/<github>.git or it is dropped.

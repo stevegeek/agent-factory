@@ -12,13 +12,13 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// The intents (ARCHITECTURE.md §6.3): Foreman records "hold the PR", "open
-// the PR" and "merge it" on a ticket's pr; the tick carries them out first in
-// its GitHub pass, a hold in any column, then an open in ready_for_pr or
-// pr_open, then merges in pr_open. An intent is cleared only in the save
-// that records what happened; a failure retrying can fix keeps it.
+// The intents: Foreman records "hold the PR", "open the PR" and "merge it"
+// on a ticket's pr; the tick carries them out first in its GitHub pass, a
+// hold in any column, then an open in ready_for_pr or pr_open, then merges
+// in pr_open. An intent is cleared only in the save that records what
+// happened; a failure retrying can fix keeps it.
 //
-// These test §6.3 and §10.7's S14 intent cases. The Python factory never
+// These test the intent cases. The Python factory never
 // had these intents, so there is no Python test or golden to compare with.
 
 const intentConfig = testConfig
@@ -162,7 +162,7 @@ func TestAnyOtherFailureIsAnErrorEvent(t *testing.T) {
 
 // A failure retrying can fix (no answer, a 5xx) keeps the intent, with at
 // most one error event per intent per hour, and the next tick that gets
-// through clears it (§6.3, quirk 14).
+// through clears it.
 func TestATransientFailureKeepsTheIntent(t *testing.T) {
 	h := intentHarness(t)
 	tk := h.intentTicket(1, "ready_for_pr", "gem", 0, `"open_requested": "`+asked+`"`)
@@ -366,7 +366,7 @@ func TestAMergeRefusedForWantOfAnApprovalIsDropped(t *testing.T) {
 
 // A merge is not started when the tick's deadline leaves too little time
 // for the merge check: the intent stays, nothing is recorded on the ticket,
-// and the log says so (§5.2, C12).
+// and the log says so.
 func TestAMergeDeferredUnderTheDeadlineKeepsItsIntent(t *testing.T) {
 	h := intentHarness(t)
 	tk := h.intentTicket(1, "pr_open", "gem", 7, `"merge_requested": "`+asked+`"`)
@@ -382,9 +382,9 @@ func TestAMergeDeferredUnderTheDeadlineKeepsItsIntent(t *testing.T) {
 	}
 }
 
-// Quirk 2: a merge whose merge check finds no room on this host (agents
-// using it) keeps its intent with nothing recorded on the ticket, and the
-// log says it waits.
+// A merge whose merge check finds no room on this host (agents using it)
+// keeps its intent with nothing recorded on the ticket, and the log says
+// it waits.
 func TestAMergeWithNoRoomForItsCheckKeepsItsIntent(t *testing.T) {
 	h := intentHarness(t)
 	h.checks.ok, h.checks.err = false, fmt.Errorf("%w: 1 agents run here", gate.ErrNoRoom)
@@ -429,7 +429,7 @@ func TestHoldIntentOutcomes(t *testing.T) {
 	}
 }
 
-// A cancelled tick saves nothing (§5.2): the intent is still there for the
+// A cancelled tick saves nothing: the intent is still there for the
 // next one.
 func TestACancelledDrainSavesNothing(t *testing.T) {
 	h := intentHarness(t)
@@ -447,7 +447,7 @@ func TestACancelledDrainSavesNothing(t *testing.T) {
 
 // The rest of the pass is Python's GitHub loop: pr_open is followed, a
 // ready_for_pr ticket is opened when [github] open_prs = "auto" or it is a
-// rework of a PR (§10.7 S14), and left alone (unsaved) otherwise.
+// rework of a PR, and left alone (unsaved) otherwise.
 func TestOpenPRsAutoAndReworksOpenByThemselves(t *testing.T) {
 	for _, c := range []struct {
 		name   string

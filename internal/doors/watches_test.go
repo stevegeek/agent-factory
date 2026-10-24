@@ -252,7 +252,7 @@ file_first = true
 	type row struct{ kind, column string }
 	got := []row{{ts[1].KindName(), ts[1].Column}, {ts[2].KindName(), ts[2].Column}, {ts[3].KindName(), ts[3].Column}}
 	if want := []row{{"intent", "triage"}, {"", "triage"}, {"", "ready"}}; !reflect.DeepEqual(got, want) {
-		// D16: a watch's change goes through triage unless the watch sets its column
+		// a watch's change goes through triage unless the watch sets its column
 		t.Fatalf("kinds %v want %v", got, want)
 	}
 	if ts[2].Kind.Set || ts[3].Kind.Set {

@@ -15,7 +15,7 @@ import (
 )
 
 // The strongest parity check this package has: Python's real tick_pass,
-// driven by tools/goldens.py with GitHub faked, wrote every ticket file of
+// driven by the Python goldens tool with GitHub faked, wrote every ticket file of
 // two scenarios step by step (internal/ticket/testdata/py/history-order).
 // Here the GitHub pass replays the steps that are pure PR flow, from the
 // files Python wrote just before, against the same fake GitHub, at the same

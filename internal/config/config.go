@@ -1,4 +1,4 @@
-// Package config is the typed config.toml (ARCHITECTURE.md §3.4, §8.3).
+// Package config is the typed config.toml.
 //
 // Parse decodes a document read by the strict toml parser into Config by
 // hand-written field mapping, applies the Python defaults (each default
@@ -50,7 +50,7 @@ type Config struct {
 
 	Images map[string]string // [images]: pins by name (claude, pi, crystal, ameba); a floor for AutoUpdate's
 	// AutoUpdate is [images] auto_update: the tools the weekly rebuild
-	// updates by itself (§15.1); ["claude", "pi"] when absent, [] is off.
+	// updates by itself; ["claude", "pi"] when absent, [] is off.
 	AutoUpdate []string
 	Backup     Backup
 	Build      Build
@@ -92,10 +92,10 @@ type Config struct {
 	unknown      []unknown
 }
 
-// Build is [build]: the helper `factory build` builds core commits on
-// (DESIGN-self-hosting.md, project 1). It must be an ssh helper whose own
-// [remote.<hostname>] says build = true, or BuildSelf: this host builds
-// through its own factory-remote (P6), by its own [remote.<hostname>].
+// Build is [build]: the helper `factory build` builds core commits on. It
+// must be an ssh helper whose own [remote.<hostname>] says build = true,
+// or BuildSelf: this host builds through its own factory-remote, by its
+// own [remote.<hostname>].
 type Build struct {
 	Host string // a [hosts] name, or BuildSelf; "" for none
 }
@@ -128,7 +128,7 @@ type Deploy struct {
 // On reports whether the master deploys itself.
 func (d Deploy) On() bool { return d.Core != "" }
 
-// Backup is [backup] (§15.2): the R2 bucket the daily backup goes to.
+// Backup is [backup]: the R2 bucket the daily backup goes to.
 // Credentials and KeyFile are paths; "" means the defaults under
 // ~/.config/factory (r2-credentials, backup-key). Name is the archive
 // line's name (factory-<name>-<stamp>); "" is the machine's host name, so a
@@ -166,7 +166,7 @@ type GitHub struct {
 	Key            string // the App key's path; "" means the default under ~/.config/factory
 	OpenPRs        string // "manual" or "auto"; "" when unset
 	Reviewers      []string
-	AppSlug        string // required by gate-workflow (D15); no default
+	AppSlug        string // required by gate-workflow; no default
 }
 
 // Identity is [identity].
@@ -238,7 +238,7 @@ type HygieneCfg struct {
 }
 
 // The values of a project's self_deploy: which half of the factory a merge
-// on that project deploys (DESIGN-self-hosting.md, project 3).
+// on that project deploys.
 const (
 	SelfDeployCore   = "core"
 	SelfDeployConfig = "config"
@@ -281,13 +281,13 @@ func RemoteKeys() []string {
 }
 
 // HostJobs is the host kind of a [hosts.<name>] that names none: a helper
-// reached over ssh with the factory-remote job protocol (§2.4.6).
+// reached over ssh with the factory-remote job protocol.
 const HostJobs = "jobs"
 
 // HostCfg is one [hosts.<name>].
 type HostCfg struct {
 	Name string
-	// Kind is the host type (§2.4.6): "jobs", the six-verb factory-remote
+	// Kind is the host type: "jobs", the six-verb factory-remote
 	// protocol, when absent. It is the one type there is; Problems refuses
 	// any other until a second host type exists.
 	Kind   string
@@ -404,7 +404,7 @@ type Watch struct {
 	Command       []string
 	Title, Body   string
 	Kind          string        // "task"
-	Column        string        // "" when unset: ready, or triage for a change (D16)
+	Column        string        // "" when unset: ready, or triage for a change
 	Timeout       time.Duration // timeout_seconds, 120
 	FileFirst     bool
 }
@@ -471,6 +471,25 @@ func (c *Config) Project(key string) (*Project, bool) {
 		}
 	}
 	return nil, false
+}
+
+// SelfDeployProject is the project whose merges deploy the factory's
+// which (SelfDeployCore or SelfDeployConfig): a factory project on GitHub
+// with that self_deploy. False when there is none, or when two claim it
+// (Problems refuses that; no caller guesses between them).
+func (c *Config) SelfDeployProject(which string) (*Project, bool) {
+	var found *Project
+	for i := range c.Projects {
+		p := &c.Projects[i]
+		if which == "" || p.SelfDeploy != which || p.Mode != ModeFactory || p.GitHub == "" {
+			continue
+		}
+		if found != nil {
+			return nil, false
+		}
+		found = p
+	}
+	return found, found != nil
 }
 
 // ProjectMode is project_mode(cfg, key): the project's mode, "factory" for

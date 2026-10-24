@@ -1,9 +1,9 @@
 // Package toml is a strict parser for the subset of TOML 1.0 the factory's
-// configs use (ARCHITECTURE.md §8.3). It reads what Python's tomllib reads,
-// keeps the order keys were first defined in (Python dicts keep insertion
-// order, and clock and sweep file tickets in that order), and refuses with a
-// clear error what the subset leaves out: dates and times, dotted keys in a
-// key/value pair, and integers beyond 64 bits.
+// configs use. It reads what Python's tomllib reads, keeps the order keys
+// were first defined in (Python dicts keep insertion order, and clock and
+// sweep file tickets in that order), and refuses with a clear error what
+// the subset leaves out: dates and times, dotted keys in a key/value pair,
+// and integers beyond 64 bits.
 //
 // A parsed document is a *Table. Values are string, int64, float64, bool,
 // []Value (an array, including an array of tables) or *Table.

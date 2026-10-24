@@ -16,7 +16,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 )
 
-// §6.4, §13.4: Foreman runs `list` text searches in-process, up to 16 MiB
+// Foreman runs `list` text searches in-process, up to 16 MiB
 // of reads per call, two at a time (--api-concurrency 2), under
 // SetMemoryLimit(64 MiB) and MemoryMax=128M. The search reads one file at a
 // time and never holds them together, so two concurrent searches over a

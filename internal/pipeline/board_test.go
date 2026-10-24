@@ -41,7 +41,7 @@ func TestASendBackMadeWhileTheTickRunsIsKept(t *testing.T) {
 	}
 }
 
-// §4.4: the tick waits for a ticket a person is changing, and then works on
+// the tick waits for a ticket a person is changing, and then works on
 // what they saved.
 func TestTheTickWaitsForATicketsLock(t *testing.T) {
 	h := newHarness(t)
@@ -206,7 +206,7 @@ func TestAProjectSwitchedFromForemanOverridesConfig(t *testing.T) {
 	}
 }
 
-// §10.7 S17: the manager's workspace is made on first use: a repository
+// the manager's workspace is made on first use: a repository
 // with a README commit, as the factory, with gpg signing off.
 func TestTheManagerWorkspaceIsMadeOnFirstUse(t *testing.T) {
 	h := newHarness(t)
@@ -232,5 +232,27 @@ func TestTheManagerWorkspaceIsMadeOnFirstUse(t *testing.T) {
 	}
 	if got := h.load(id); got.Agent.V.Name != "t0001-m1" || got.Column != "working" {
 		t.Fatalf("agent %+v column %s", got.Agent.V, got.Column)
+	}
+}
+
+// The manager reads the deploy state, the live context and System status
+// through read-only mounts: their sources exist before it starts.
+func TestManagerWorkspaceMakesDeploysDir(t *testing.T) {
+	h := newHarness(t)
+	h.file("factory", "What deployed?", "ready", func(t *ticket.Ticket) {
+		t.Kind = ticket.Some("manage")
+		t.Host = ticket.Some("local")
+	})
+	h.tick()
+	if len(h.local.started) != 1 {
+		t.Fatalf("started %+v", h.local.started)
+	}
+	for _, dir := range []string{h.paths.Deploys(), h.paths.Context} {
+		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+			t.Errorf("%s: %v", dir, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(h.paths.Root, "sysinfo.json")); err != nil {
+		t.Errorf("sysinfo.json: %v", err)
 	}
 }

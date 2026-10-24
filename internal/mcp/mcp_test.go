@@ -215,7 +215,7 @@ func TestMCPHandshake(t *testing.T) {
 
 // serverInfo.version is the version the binary was given, and by default
 // buildinfo.Version, never "dev" from debug.BuildInfo when the linker set
-// one (C14).
+// one.
 func TestServerInfoVersion(t *testing.T) {
 	if got := New(Options{}).version; got != buildinfo.Version {
 		t.Errorf("the default version: %q, want %q", got, buildinfo.Version)
@@ -226,7 +226,7 @@ func TestServerInfoVersion(t *testing.T) {
 }
 
 // build.sh's -ldflags -X reaches serverInfo.version through an MCP
-// initialize (C14: builds use -buildvcs=false, so the version cannot come
+// initialize (builds use -buildvcs=false, so the version cannot come
 // from debug.BuildInfo).
 func TestLinkerSetsServerInfoVersion(t *testing.T) {
 	if testing.Short() {

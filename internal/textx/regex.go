@@ -10,11 +10,11 @@ import (
 )
 
 // Python 3 re on str patterns is Unicode-aware; RE2 is ASCII by default.
-// Every pattern ported from Python follows this checklist (ARCHITECTURE.md
-// §8.5), and carries a "// py: <original pattern>" comment so that archtest
-// finds its golden in testdata/py/regex.json. regex_test.go applies the
-// checklist to every pattern the Python code uses; the owning slices copy
-// those translations.
+// Every pattern ported from Python follows this checklist, and carries a
+// "// py: <original pattern>" comment so that archtest finds its golden in
+// testdata/py/regex.json. regex_test.go applies the checklist to every
+// pattern the Python code uses; the owning packages copy those
+// translations.
 //
 //	Python                      Go (RE2)
 //	\w                          PyWord (letters and numbers, not marks), \W PyNotWord

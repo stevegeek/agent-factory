@@ -9,7 +9,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// §15.3: the search box on the desk and the boards, a GET form whose
+// the search box on the desk and the boards, a GET form whose
 // results link to /t/{id}; it reads notes too, filters by project, column
 // and kind, and shows a person only the projects they may see.
 func TestSearch(t *testing.T) {

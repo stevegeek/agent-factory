@@ -144,7 +144,7 @@ func TestWatches(t *testing.T) {
 }
 
 // pauses.json: {host: until}, json.dump with no indent; expired entries are
-// ignored on read and dropped by the next pause (quirk 12).
+// ignored on read and dropped by the next pause.
 func TestPauses(t *testing.T) {
 	f := newFixture(t)
 	now := testkit.Stamp()
@@ -184,4 +184,69 @@ func TestPauses(t *testing.T) {
 		t.Error("a broken pauses.json is empty")
 	}
 	noTemps(t, f.p.Root)
+}
+
+// A shorter pause never cuts a longer one: a usage-limit pause of 30
+// minutes leaves the operator's 24 hours in place.
+func TestPauseHostKeepsTheLaterUntil(t *testing.T) {
+	f := newFixture(t)
+	long, err := f.b.PauseHost("helper", "manager T-1: maintenance", 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.b.PauseHost("helper", "usage limit", 30*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != long || got != "2026-01-03T03:04:05+00:00" {
+		t.Errorf("until %s, want %s", got, long)
+	}
+	b, _ := os.ReadFile(f.p.Pauses)
+	if string(b) != `{"helper": "2026-01-03T03:04:05+00:00"}` {
+		t.Errorf("pauses.json %s", b)
+	}
+	// a longer one still extends it
+	if got, _ := f.b.PauseHost("helper", "again", 48*time.Hour); got != "2026-01-04T03:04:05+00:00" {
+		t.Errorf("until %s", got)
+	}
+}
+
+func TestResumeHostRemovesOnlyThat(t *testing.T) {
+	f := newFixture(t)
+	f.b.PauseHost("helper", "a", time.Hour)
+	f.b.PauseHost("local", "b", time.Hour)
+	ok, err := f.b.ResumeHost("helper", "manager T-2: done")
+	if err != nil || !ok {
+		t.Fatalf("resume %v %v", ok, err)
+	}
+	if f.b.Paused("helper") || !f.b.Paused("local") {
+		t.Error("only helper resumes")
+	}
+	b, _ := os.ReadFile(f.p.Pauses)
+	if string(b) != `{"local": "2026-01-02T04:04:05+00:00"}` {
+		t.Errorf("pauses.json %s", b)
+	}
+	if got := f.log.all(); len(got) != 3 || got[2] != "helper resumed: manager T-2: done" {
+		t.Errorf("log %q", got)
+	}
+	noTemps(t, f.p.Root)
+}
+
+func TestResumeHostNotPaused(t *testing.T) {
+	f := newFixture(t)
+	ok, err := f.b.ResumeHost("helper", "x")
+	if err != nil || ok {
+		t.Errorf("resume %v %v", ok, err)
+	}
+	if _, err := os.Stat(f.p.Pauses); err == nil {
+		t.Error("nothing to resume writes nothing")
+	}
+	// an expired pause is not a pause
+	os.WriteFile(f.p.Pauses, []byte(`{"helper": "2026-01-02T03:00:00+00:00"}`), 0o644)
+	if ok, _ := f.b.ResumeHost("helper", "x"); ok {
+		t.Error("an expired pause resumes nothing")
+	}
+	if got := f.log.all(); len(got) != 0 {
+		t.Errorf("log %q", got)
+	}
 }

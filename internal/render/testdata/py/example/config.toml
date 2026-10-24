@@ -31,7 +31,7 @@ rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name t
 # on the config repo too. Needs [github] installation_id and [build] host.
 # [deploy]
 # core = "example/agent-factory"
-# config = "example/factory-config"
+# config = "example/config-repo"
 # config_dir = "config"      # the directory of the config repo that holds config.toml
 
 # Public-repo hygiene: on a project with `hygiene = true`, Gate 1 fails a change whose

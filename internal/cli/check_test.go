@@ -63,7 +63,7 @@ func TestCheckReportsATokenStoreItCannotRead(t *testing.T) {
 	}
 }
 
-// P6: `factory check` runs the host checks: [build] host = "self" on a
+// `factory check` runs the host checks: [build] host = "self" on a
 // host whose factory-remote does not build is a problem here.
 func TestCheckRunsThisHostsChecks(t *testing.T) {
 	f := newFixture(t)
@@ -106,7 +106,7 @@ func TestCheckAsksListsAskColumnsWithNoStoredAsk(t *testing.T) {
 	}
 }
 
-// §6.3: `factory check` warns about any intent older than one hour.
+// `factory check` warns about any intent older than one hour.
 func TestCheckWarnsAboutOldIntents(t *testing.T) {
 	f := newFixture(t) // FACTORY_TEST_NOW is 2026-10-18T10:00:00+00:00
 	f.env.WriteConfig(t, checkConfig)
@@ -122,7 +122,7 @@ func TestCheckWarnsAboutOldIntents(t *testing.T) {
 	}
 }
 
-// Quirk 11: a .git that is not a directory is refused; check says so first.
+// A .git that is not a directory is refused; check says so first.
 func TestCheckRefusesAGitFile(t *testing.T) {
 	f := newFixture(t)
 	repo := t.TempDir()

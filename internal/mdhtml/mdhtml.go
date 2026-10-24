@@ -1,6 +1,6 @@
 // Package mdhtml renders the Markdown agents write (designs, answers,
-// proposals, ticket bodies) as HTML for Foreman's pages (ARCHITECTURE.md
-// §2.3). It is Foreman's renderer, unchanged.
+// proposals, ticket bodies) as HTML for Foreman's pages. It is Foreman's
+// renderer, unchanged.
 //
 // It is safe by construction: every piece of text is HTML-escaped before any
 // tag is added, and only absolute http(s) links become links, because some

@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// The S3 API, as Cloudflare R2 speaks it, signed with SigV4 (§15.2):
+// The S3 API, as Cloudflare R2 speaks it, signed with SigV4:
 // PUT (one request under MultipartThreshold, else a multipart upload),
 // GET, LIST (v2) and DELETE. Path-style URLs: <endpoint>/<bucket>/<key>.
 
@@ -376,4 +376,4 @@ func fileSHA256(path string) (string, int64, error) {
 }
 
 // errNotConfigured is a [backup] table without an endpoint or bucket.
-var errNotConfigured = errors.New("backup: [backup] needs endpoint and bucket (§15.2)")
+var errNotConfigured = errors.New("backup: [backup] needs endpoint and bucket")

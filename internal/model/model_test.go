@@ -125,8 +125,8 @@ func TestTablesAreComplete(t *testing.T) {
 			t.Errorf("IsReason(%q) is false", r.Reason)
 		}
 	}
-	if len(reasons) != 61 {
-		t.Errorf("%d reasons, want 61", len(reasons))
+	if len(reasons) != 62 {
+		t.Errorf("%d reasons, want 62", len(reasons))
 	}
 	if IsReason("") || IsReason("nonsense") {
 		t.Error("IsReason accepts a reason that is not one")
@@ -297,5 +297,71 @@ func TestDeployAskIsInTheModel(t *testing.T) {
 		if !found {
 			t.Errorf("reason %s is not a plain reason of the model", r)
 		}
+	}
+}
+
+// The operator's actions: each kind once, the tiers they carry, and a
+// kind that is not in the table (a restart) is not an action.
+func TestOperatorActionsTable(t *testing.T) {
+	want := map[ActionKind]struct {
+		tier   Tier
+		target string
+	}{
+		ActionPauseHost:     {TierAuto, "host"},
+		ActionResumeHost:    {TierAuto, "host"},
+		ActionPauseProject:  {TierAuto, "project"},
+		ActionDeploy:        {TierAuto, ""},
+		ActionEnableProject: {TierTap, "project"},
+		ActionRebuild:       {TierTap, ""},
+	}
+	seen := map[ActionKind]bool{}
+	for _, a := range OperatorActions() {
+		if seen[a.Kind] {
+			t.Errorf("action %q twice", a.Kind)
+		}
+		seen[a.Kind] = true
+		w, ok := want[a.Kind]
+		if !ok {
+			t.Errorf("action %q is not in the table", a.Kind)
+			continue
+		}
+		if a.Tier != w.tier || a.Target != w.target || a.Label == "" {
+			t.Errorf("action %q = %+v, want tier %s target %q", a.Kind, a, w.tier, w.target)
+		}
+		if got, ok := ActionOf(string(a.Kind)); !ok || got != a {
+			t.Errorf("ActionOf(%q) = %+v, %v", a.Kind, got, ok)
+		}
+	}
+	if len(seen) != len(want) {
+		t.Errorf("%d actions, want %d", len(seen), len(want))
+	}
+	for _, k := range []string{"restart", "", "PAUSE_HOST", "pause_host "} {
+		if a, ok := ActionOf(k); ok {
+			t.Errorf("ActionOf(%q) = %+v, want none", k, a)
+		}
+	}
+	if names := []string{ItemNew, ItemWaiting, ItemRequested, ItemApplied, ItemRefused, ItemFailed, ItemByHand}; !slices.Equal(names,
+		[]string{"new", "waiting", "requested", "applied", "refused", "failed", "by_hand"}) {
+		t.Errorf("item states %q", names)
+	}
+}
+
+func TestTierLabels(t *testing.T) {
+	for tier, want := range map[Tier]string{TierAuto: "applies by itself", TierTap: "needs your tap", TierNever: "only you, by hand"} {
+		if got := TierLabel(tier); got != want {
+			t.Errorf("TierLabel(%s) = %q, want %q", tier, got, want)
+		}
+	}
+	// an unknown tier is never presented as one that applies by itself
+	if got := TierLabel("bogus"); got != TierLabel(TierTap) {
+		t.Errorf("TierLabel(bogus) = %q", got)
+	}
+}
+
+func TestOperatorSettledIsPlainAndLast(t *testing.T) {
+	rs := Reasons()
+	last := rs[len(rs)-1]
+	if last != (ReasonInfo{ReasonOperatorSettled, false}) || ReasonOperatorSettled != "operator_settled" {
+		t.Errorf("last reason = %+v", last)
 	}
 }

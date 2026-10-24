@@ -139,7 +139,7 @@ func TestClocks(t *testing.T) {
 }
 
 func TestFromEnvValue(t *testing.T) {
-	// FACTORY_TEST_NOW (seam 3): a stamp holds the clock still; empty means the system clock.
+	// FACTORY_TEST_NOW: a stamp holds the clock still; empty means the system clock.
 	c, err := FromTestNow("2026-10-17T08:00:00.75+02:00")
 	if err != nil {
 		t.Fatal(err)

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// §5.4: the timers' long-running commands ignore SIGHUP; every command is
+// the timers' long-running commands ignore SIGHUP; every command is
 // cancelled by SIGINT and SIGTERM, and a short one by SIGHUP too.
 func TestSignalsFor(t *testing.T) {
 	for _, cmd := range []string{"tick", "clock", "sweep", "rebuild", "backup"} {

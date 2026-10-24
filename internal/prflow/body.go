@@ -14,7 +14,7 @@ import (
 // body: it must not change.
 const AutoApprovalPhrase = "- Small, docs/tests/config-only change: eligible for automatic approval."
 
-// PRBody is pr_body (F:2404): the PR's public text, with no internal ids or
+// PRBody is pr_body: the PR's public text, with no internal ids or
 // board references. It is the worker's summary, "Fixes #<issue>" for a
 // ticket from a GitHub issue, how the change was tested, its risk (with the
 // files that touch the project's walls, when any do), how to revert it, and

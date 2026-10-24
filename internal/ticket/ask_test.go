@@ -89,7 +89,7 @@ func TestAskForMatchesPython(t *testing.T) {
 	if a := heldDeploy(t).Ask.V; a.Kind == string(model.AskDeploy) {
 		kinds[a.Kind] = true
 	}
-	// ticket/ask_test.go completeness (§3.5): AskFor covers every AskKind
+	// ticket/ask_test.go completeness: AskFor covers every AskKind
 	for _, k := range model.AskKinds() {
 		if !kinds[string(k.Kind)] {
 			t.Errorf("no case gives ask kind %q", k.Kind)
@@ -343,5 +343,81 @@ func TestAskForDeployOnlyOnTheNoticeProject(t *testing.T) {
 	in.Fields = fields(t, `{"deploy": {"rev": "0123456789ab", "why": ["merged #12"]}}`)
 	if a := New("T0041", in, testNow).Ask.V; a.Kind == string(model.AskDeploy) {
 		t.Errorf("a project ticket asks %+v", a)
+	}
+}
+
+// askAfter is the ask of a manager ticket after the finish's move (or the
+// tick's settle move) with reason r.
+func askAfter(t *testing.T, ds []Draft, as []Action, r model.Reason) Ask {
+	t.Helper()
+	tk := manageTicket(t, ds, as)
+	tk.Result = Some("The result.")
+	Move(tk, "needs_human", r, "manager proposed it", "", "", testNow)
+	a, ok := tk.Ask.Get()
+	if !ok {
+		t.Fatal("no ask")
+	}
+	return a
+}
+
+func TestAskForWaitingItems(t *testing.T) {
+	for _, r := range []model.Reason{model.ReasonManagerDrafted, model.ReasonOperatorSettled} {
+		a := askAfter(t, []Draft{{Title: "Use Sonnet", State: model.ItemWaiting}, {Title: "Gate mount", State: model.ItemRefused}},
+			[]Action{{Kind: "rebuild", State: model.ItemFailed, Note: "systemd-run: no user bus"}, {Kind: "pause_host", Target: "local", State: model.ItemApplied}}, r)
+		if a.Kind != string(model.AskDraft) || a.Question != "Apply the manager's 2 changes?" {
+			t.Errorf("%s: ask %+v", r, a)
+		}
+		if !strings.HasPrefix(a.Why, "failed: rebuild (systemd-run: no user bus); waiting: Use Sonnet.") {
+			t.Errorf("%s: why %q", r, a.Why)
+		}
+	}
+	if a := askAfter(t, []Draft{{Title: "x", State: model.ItemWaiting}}, nil, model.ReasonOperatorSettled); a.Question != "Apply the manager's 1 change?" {
+		t.Errorf("one: %+v", a)
+	}
+}
+
+func TestAskForByHandKeepsTodaysQuestion(t *testing.T) {
+	a := askAfter(t, []Draft{{Title: "a", State: model.ItemByHand}, {Title: "b", State: model.ItemByHand}},
+		[]Action{{Kind: "pause_host", Target: "local", State: model.ItemApplied}}, model.ReasonOperatorSettled)
+	if a.Kind != string(model.AskDraft) || a.Question != "Apply the manager's 2 config changes?" {
+		t.Errorf("ask %+v", a)
+	}
+}
+
+// With the landing off, a draft is by hand while the actions still work: a
+// waiting or failed action is still asked for, beside the by-hand drafts.
+func TestAskForByHandBesideWaitingActions(t *testing.T) {
+	a := askAfter(t, []Draft{{Title: "Use Sonnet", State: model.ItemByHand}},
+		[]Action{{Kind: "rebuild", State: model.ItemWaiting}, {Kind: "enable_project", Target: "gem", State: model.ItemFailed, Note: "no such project"}},
+		model.ReasonManagerDrafted)
+	if a.Kind != string(model.AskDraft) || a.Question != "Apply the manager's 2 changes? 1 config change is yours to apply by hand." {
+		t.Errorf("ask %+v", a)
+	}
+	if !strings.HasPrefix(a.Why, "failed: enable_project gem (no such project); waiting: rebuild; by hand: Use Sonnet.") {
+		t.Errorf("why %q", a.Why)
+	}
+}
+
+func TestAskForOldDraftsAreByHand(t *testing.T) {
+	a := askAfter(t, []Draft{{Title: "a", Why: "w", Patch: "p"}}, nil, model.ReasonManagerDrafted)
+	if a.Kind != string(model.AskDraft) || a.Question != "Apply the manager's 1 config change?" || a.Why != "manager proposed it." {
+		t.Errorf("ask %+v", a)
+	}
+}
+
+func TestAskForAllSettledIsANotice(t *testing.T) {
+	a := askAfter(t, []Draft{{Title: "a", State: model.ItemApplied}, {Title: "b", State: model.ItemRefused}},
+		[]Action{{Kind: "pause_host", Target: "local", State: model.ItemApplied}}, model.ReasonOperatorSettled)
+	if a.Kind != string(model.AskNotice) || a.Question != "Read what the manager did and close it?" ||
+		a.Why != "operator: 2 applied, 1 refused. The result." {
+		t.Errorf("ask %+v", a)
+	}
+}
+
+func TestAskForApplyingWhileNew(t *testing.T) {
+	a := askAfter(t, []Draft{{Title: "a", State: model.ItemNew}},
+		[]Action{{Kind: "rebuild", State: model.ItemRequested}, {Kind: "deploy", State: model.ItemApplied}}, model.ReasonManagerDrafted)
+	if a.Kind != string(model.AskDraft) || a.Question != "The factory is applying the manager's 2 changes" {
+		t.Errorf("ask %+v", a)
 	}
 }

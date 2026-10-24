@@ -1,9 +1,8 @@
-// Package guard admits a request to Foreman's token APIs, /api/v1 and /mcp
-// (ARCHITECTURE.md §5.6, §6; inventory-foreman §12): the peer, the Origin,
-// the bearer token, the caller's rate and the body's size and type, in that
-// order and before any body is read. It also holds the slots both APIs
-// share: a few verbs at a time, one per token, each on a context the client
-// cannot cancel.
+// Package guard admits a request to Foreman's token APIs, /api/v1 and /mcp:
+// the peer, the Origin, the bearer token, the caller's rate and the body's
+// size and type, in that order and before any body is read. It also holds
+// the slots both APIs share: a few verbs at a time, one per token, each on
+// a context the client cannot cancel.
 //
 // It is Foreman's apiguard.go and the slot half of its APIRunner, moved
 // in-process. It decides nothing about tickets: what a token may do is

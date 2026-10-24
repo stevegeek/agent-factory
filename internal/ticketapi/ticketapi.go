@@ -1,16 +1,15 @@
-// Package ticketapi is the ticket API: the verbs of `factory ticket`, which
-// Foreman's /api/v1 and /mcp serve to agents outside the factory
-// (ARCHITECTURE.md §2.3, inventory features §15). Every decision about a
-// ticket made through the API is made here: who the caller is, what they
-// may see and do, the column rules of a board, the limits and quotas, and
-// idempotent creates.
+// Package ticketapi is the ticket API: the verbs of `factory ticket`,
+// which Foreman's /api/v1 and /mcp serve to agents outside the factory.
+// Every decision about a ticket made through the API is made here: who the
+// caller is, what they may see and do, the column rules of a board, the
+// limits and quotas, and idempotent creates.
 //
 // A ticket the caller may not see is not_found, never forbidden: nothing
 // says it exists. A token can never act as a person. Each call reads the
 // config once, as it is now (config.Source), so a project removed, a new
 // person or a changed mode takes effect on the next call.
 //
-// The verbs port bin/factory's t_* functions (F:3705-4189) and give the
+// The verbs port bin/factory's t_* functions and give the
 // same answers, the same refusals with the same words, and the same ticket
 // files, byte for byte (the goldens under testdata/py are Python's).
 package ticketapi
@@ -28,7 +27,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/tokens"
 )
 
-// The codes a refusal carries (§8.1). api and mcp map them to statuses.
+// The codes a refusal carries. api and mcp map them to statuses.
 const (
 	BadRequest          = "bad_request"
 	NotFound            = "not_found"
@@ -130,7 +129,7 @@ type Caller struct {
 func ForPerson() Caller { return Caller{person: true} }
 
 // AsPerson is another person acting with a person's rights: a Foreman user
-// answering a board agent's question, recorded by their own name (D19). A
+// answering a board agent's question, recorded by their own name. A
 // reserved name (factory, maintainer, …) is refused.
 func AsPerson(name string) Caller { return Caller{name: name, person: true} }
 
@@ -282,7 +281,7 @@ func (cx *call) now() time.Time {
 
 func (cx *call) stamp() string { return clock.Stamp(cx.now()) }
 
-// Limits are LIMIT (F:3205): the most a caller may put in a ticket, and
+// Limits are LIMIT: the most a caller may put in a ticket, and
 // the most a token may write. Byte limits count UTF-8 bytes; Title, Reason,
 // Option, URL and LinkTitle count code points, as Python's len does.
 type Limits struct {

@@ -29,7 +29,7 @@ type ConfigSource interface {
 	Current() (*config.Config, error)
 }
 
-// Sync is the CLI's PR actions (ops.PRActions, §6.1, §7.3): done at once,
+// Sync is the CLI's PR actions (ops.PRActions): done at once,
 // in the calling process, which holds the App's credentials. Foreman passes
 // intents instead.
 type Sync struct {
@@ -46,7 +46,7 @@ func factoryOnly(t *ticket.Ticket) error {
 	return nil
 }
 
-// Open is cmd_pr (F:4608): the ticket's PR is opened (or updated) now, and
+// Open is cmd_pr: the ticket's PR is opened (or updated) now, and
 // its URL returned. Nothing is saved when it fails.
 func (s Sync) Open(ctx context.Context, id ticket.ID) (string, error) {
 	cfg, err := s.Config.Current()

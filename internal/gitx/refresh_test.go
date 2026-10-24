@@ -66,7 +66,7 @@ func runIgnoring(t *testing.T, dir string, env []string, args ...string) {
 	cmd.Run()
 }
 
-// §10.7 S7a (security): protocol.ext.allow=never outranks a config that
+// Security: protocol.ext.allow=never outranks a config that
 // allows the ext:: transport, which would run any command.
 func TestExtTransportIsNeverAllowed(t *testing.T) {
 	f := newFixture(t)

@@ -1,9 +1,9 @@
-// Package logx writes the factory log (ARCHITECTURE.md §8.2): Python's
-// "<stamp> <msg>" line, echoed to stderr and appended to logs/factory.log
-// (Foreman's to foreman-state/foreman.log) with one write per line,
-// rotated at a size under a leaf flock. A rotated file is renamed
-// factory.log.<stamp> and gzip-compressed beside it as
-// factory.log.<stamp>.gz; every one is kept (D13: nothing is deleted).
+// Package logx writes the factory log: Python's "<stamp> <msg>" line,
+// echoed to stderr and appended to logs/factory.log (Foreman's to
+// foreman-state/foreman.log) with one write per line, rotated at a size
+// under a leaf flock. A rotated file is renamed factory.log.<stamp> and
+// gzip-compressed beside it as factory.log.<stamp>.gz; every one is kept
+// (nothing is deleted).
 package logx
 
 import (

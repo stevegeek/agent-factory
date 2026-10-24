@@ -251,7 +251,8 @@
     "imported",
     "deploy_held",
     "deploy_requested",
-    "deploy_started"
+    "deploy_started",
+    "operator_settled"
   ],
   "running_column": {
     "design": "working",

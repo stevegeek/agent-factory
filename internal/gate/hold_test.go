@@ -152,10 +152,10 @@ func TestStillHoldsUsesTheLocalBaseWhenItCannotRefresh(t *testing.T) {
 	}
 }
 
-// Quirk 2: the merge check is a gate on this host, so it needs room
-// there: one of max_agents' slots, and the host to itself when the
-// project's gate memory is heavy. Without room it does not run, and says
-// so with ErrNoRoom; an agent count that cannot be read is no room.
+// The merge check is a gate on this host, so it needs room there: one of
+// max_agents' slots, and the host to itself when the project's gate memory
+// is heavy. Without room it does not run, and says so with ErrNoRoom; an
+// agent count that cannot be read is no room.
 func TestTheMergeCheckNeedsRoomOnThisHost(t *testing.T) {
 	for _, c := range []struct {
 		name    string

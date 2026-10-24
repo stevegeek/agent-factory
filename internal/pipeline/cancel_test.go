@@ -11,7 +11,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// §5.2, §10.7 S17: a cancel injected before every adapter call of a start,
+// a cancel injected before every adapter call of a start,
 // a finish, a gate and a PR open leaves the ticket's file as some commit
 // point wrote it (never a half-made step), and the ticks after it bring the
 // ticket to where an uninterrupted run left it. The one exception is a
@@ -118,9 +118,9 @@ func TestACancelBetweenAnyTwoCallsLeavesACommitPoint(t *testing.T) {
 				}
 				if got := h.raw(id); got != final {
 					// the one cancel point allowed to end elsewhere: on the agent
-					// start, after the write-ahead agent.starting save (F:1790).
+					// start, after the write-ahead agent.starting save.
 					// The next tick finds no agent behind the record and
-					// reconciles it to agent_lost (§5.2).
+					// reconciles it to agent_lost.
 					rec := h.load(id)
 					if at != "local.start" || rec.Column != string(model.ColNeedsHuman) || moveReason(lastMove(rec)) != model.ReasonAgentLost {
 						t.Errorf("cancel before call %d (%s): after recovery column %s, %+v, not the uninterrupted run's", k, at, rec.Column, lastMove(rec))

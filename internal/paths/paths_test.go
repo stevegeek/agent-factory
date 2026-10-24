@@ -68,6 +68,7 @@ func TestDerivedPaths(t *testing.T) {
 		p.CoreMirror():         "/srv/f/deploys/core.git",
 		p.ConfigMirror():       "/srv/f/deploys/config.git",
 		p.DeployHold():         "/srv/f/foreman-state/deploy-hold.json",
+		p.OperatorWork():       "/srv/f/operator/work",
 		p.AcceptInstalls():     "/srv/f/accept-installs",
 		p.SecretsDir():         "/h/.config/factory",
 		p.AnthropicKey():       "/h/.config/factory/anthropic-api-key",

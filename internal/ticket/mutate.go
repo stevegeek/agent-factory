@@ -14,7 +14,7 @@ import (
 // and then writes the lines.
 
 // Event appends a history entry {at, event, detail, rule?, type?, fields...}
-// (event, F:318). p is the typed part, or nil for an untyped entry.
+// (event). p is the typed part, or nil for an untyped entry.
 func Event(t *Ticket, kind, detail, rule string, p Payload, now time.Time) {
 	e := Entry{At: clock.Stamp(now), Event: kind, Detail: detail, Rule: rule}
 	if p != nil {
@@ -25,7 +25,7 @@ func Event(t *Ticket, kind, detail, rule string, p Payload, now time.Time) {
 }
 
 // Move puts the ticket in column to, records a typed moved event whose
-// detail is "<old> -> <to>[: detail]", and recomputes its ask (move, F:329).
+// detail is "<old> -> <to>[: detail]", and recomputes its ask (move).
 // by is who moved it ("" is the factory).
 func Move(t *Ticket, to string, reason model.Reason, detail, rule, by string, now time.Time) {
 	if by == "" {
@@ -48,7 +48,7 @@ type NoteAnswer struct {
 }
 
 // AddNote adds a maintainer's note, which every later agent on the ticket
-// gets, and a typed noted event (add_note, F:2785). by is the person or the
+// gets, and a typed noted event (add_note). by is the person or the
 // factory ("" is the factory); qa is set when the note answers an agent's
 // question.
 func AddNote(t *Ticket, text, by string, qa *NoteAnswer, now time.Time) {
@@ -81,8 +81,7 @@ type StartIn struct {
 }
 
 // RecordStart appends the typed start event, with Python's detail
-// "<stage> <agent>[ on <branch>][ @<host>][ (<model>)]" (start_stage,
-// F:1831).
+// "<stage> <agent>[ on <branch>][ @<host>][ (<model>)]" (start_stage).
 func RecordStart(t *Ticket, in StartIn, now time.Time) {
 	host := in.Host
 	if host == "" {
@@ -107,8 +106,7 @@ func RecordFinish(t *Ticket, stage model.Stage, agent string, now time.Time) {
 }
 
 // Starts counts a stage's starts in the ticket's whole life, from the typed
-// stage or, on old history, a "<stage> " prefix of the detail (starts,
-// F:439). It numbers agents and gate jobs and turns the voters' models, so
+// stage or, on old history, a "<stage> " prefix of the detail (starts). It numbers agents and gate jobs and turns the voters' models, so
 // it never resets; the work attempts a review allows are WorkRounds.
 func Starts(t *Ticket, stage model.Stage) int {
 	n := 0
@@ -122,9 +120,9 @@ func Starts(t *Ticket, stage model.Stage) int {
 
 // WorkRounds counts the work starts since the last passed review (a typed
 // move with reason review_passed), which bound the reworks a review may ask
-// for (D17): a rework a GitHub review asks for after the factory's review
-// passed starts a new round. Python counted the ticket's whole life
-// (quirk 7). Old untyped moves carry no reason, so on such history it
+// for: a rework a GitHub review asks for after the factory's review
+// passed starts a new round. Python counted the ticket's whole life.
+// Old untyped moves carry no reason, so on such history it
 // counts as Starts does.
 func WorkRounds(t *Ticket) int {
 	n := 0
@@ -153,7 +151,7 @@ func startOf(e Entry, stage model.Stage) bool {
 	return len(e.Detail) > len(stage) && e.Detail[:len(stage)+1] == string(stage)+" "
 }
 
-// New is a ticket as new_ticket (F:2312) makes it, before its first save:
+// New is a ticket as new_ticket makes it, before its first save:
 // the keys in Python's order, the typed created event, and its ask. fields
 // are new_ticket's **fields (kind, parent, labels, idempotency, ...), in the
 // caller's order; a key they share with the standard ones replaces its value

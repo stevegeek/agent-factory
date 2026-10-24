@@ -178,7 +178,7 @@ func boardAnswer(v string) bool {
 }
 
 // answerBoard answers the open question of a board ticket's agent through
-// the ticket API's answer verb, as the person answering (D19), as
+// the ticket API's answer verb, as the person answering, as
 // answer_question does for a person: the option picked, what was typed, or
 // the option with the typed text under it. The ticket API decides the rest
 // (who may answer, a question answered already, the ticket's move back

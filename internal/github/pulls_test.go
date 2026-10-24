@@ -303,3 +303,40 @@ func TestBranchRules(t *testing.T) {
 		t.Errorf("403: %v, want the *HTTPError", err)
 	}
 }
+
+// The merge answer's sha is the merge commit: the operator records
+// it on the item it landed.
+func TestMergeResultSHA(t *testing.T) {
+	f := newFake(t)
+	f.on("PUT", "/repos/o/r/pulls/12/merge", 200, `{"sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e", "merged": true, "message": "Pull Request successfully merged"}`)
+	f.on("PUT", "/repos/o/r/pulls/13/merge", 200, `{"merged": false, "message": "nope"}`)
+	c := f.client()
+	res, err := c.Merge(context.Background(), "o/r", 12, "abc")
+	if err != nil || res.SHA != "6dcb09b5b57875f334f61aebed695e2e4193db5e" {
+		t.Errorf("Merge = %+v, %v", res, err)
+	}
+	res, err = c.Merge(context.Background(), "o/r", 13, "abc")
+	if err != nil || res.SHA != "" {
+		t.Errorf("no sha: %+v, %v", res, err)
+	}
+}
+
+// BranchHead is GitHub's own head of a branch: the operator classifies a
+// config draft on it, never on a clone an agent can write.
+func TestBranchHead(t *testing.T) {
+	f := newFake(t)
+	f.on("GET", "/repos/o/r/git/ref/heads/main", 200, `{"ref": "refs/heads/main", "object": {"sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e", "type": "commit"}}`)
+	f.on("GET", "/repos/o/r/git/ref/heads/tag", 200, `{"ref": "refs/heads/tag", "object": {"sha": "abc", "type": "tag"}}`)
+	f.on("GET", "/repos/o/r/git/ref/heads/short", 200, `{"ref": "refs/heads/short", "object": {"sha": "abc", "type": "commit"}}`)
+	c := f.client()
+	got, err := c.BranchHead(context.Background(), "o/r", "main")
+	if err != nil || got != "6dcb09b5b57875f334f61aebed695e2e4193db5e" {
+		t.Errorf("BranchHead = %q, %v", got, err)
+	}
+	checkAPIHeaders(t, f.last())
+	for _, b := range []string{"tag", "short"} {
+		if got, err := c.BranchHead(context.Background(), "o/r", b); err == nil {
+			t.Errorf("%s: %q, want an error", b, got)
+		}
+	}
+}

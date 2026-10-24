@@ -1,6 +1,5 @@
 // Package helper is factory-remote, the server side of the dispatcher ↔
-// helper contract (ARCHITECTURE.md §2.3, inventory-pipeline §15.3,
-// inventory-contracts §3). The dispatcher's SSH key is forced to this
+// helper contract. The dispatcher's SSH key is forced to this
 // binary, so the nine verbs of jobproto.SSHVerbs, read from
 // SSH_ORIGINAL_COMMAND, are all it can do on a helper host: the job verbs;
 // `vitals`, the host's own load, memory, disks, temperature, containers
@@ -16,8 +15,8 @@
 // mailbox (claim, beat, done, release, vitals; internal/mailbox) and
 // nothing else.
 //
-// The helper links no dispatcher, board, config or GitHub code (§2.2 rule
-// 5): it decodes its own Config straight from the TOML.
+// The helper links no dispatcher, board, config or GitHub code: it
+// decodes its own Config straight from the TOML.
 package helper
 
 import (
@@ -105,9 +104,9 @@ type Server struct {
 	Stdin    io.Reader
 	Stdout   io.Writer
 	Stderr   io.Writer
-	// Latest is an npm package's latest release, for the rebuild's
-	// automatic updates (§15.1); nil asks the registry
-	// (FACTORY_NPM_REGISTRY, else registry.npmjs.org).
+	// Latest is an npm package's latest release, for the rebuild's automatic
+	// updates; nil asks the registry (FACTORY_NPM_REGISTRY, else
+	// registry.npmjs.org).
 	Latest func(ctx context.Context, pkg string) (string, error)
 }
 
@@ -304,8 +303,8 @@ func (s *Server) jobDir(job string) (string, error) {
 // unit is a job's systemd unit, which is also its container's name.
 func unit(job string) string { return "factory-job-" + job }
 
-// env is the minimal environment of every command the helper runs
-// (§5.3): podman, systemd-run and systemctl need only the user's runtime
+// env is the minimal environment of every command the helper runs:
+// podman, systemd-run and systemctl need only the user's runtime
 // dir and bus, never what the SSH session or the unit carried.
 func (s *Server) env() []string { return podman.PassEnv(s.Environ) }
 

@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Pagination exists but no caller uses it before cutover (§13.2 quirk 8:
-// the port keeps Python's single page of 50 issues and 100 reviews).
+// Pagination exists but no caller uses it before cutover (the
+// port keeps Python's single page of 50 issues and 100 reviews).
 func TestPagesFollowsNextLinksOnTheSameServer(t *testing.T) {
 	f := newFake(t)
 	next := func(page string) map[string]string {

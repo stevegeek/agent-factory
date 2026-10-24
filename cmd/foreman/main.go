@@ -1,18 +1,18 @@
-// Command foreman is the web desk, the ticket API and MCP server, and push
-// (ARCHITECTURE.md §6). web.Main parses the flags and serves; this file
-// builds the services it calls, in-process (§6.1):
+// Command foreman is the web desk, the ticket API and MCP server, and push.
+// web.Main parses the flags and serves; this file builds the services it
+// calls, in-process:
 //
 //   - the maintainer's answers, the ＋ page and the Live screens go to
 //     package ops, whose PR actions are ops.Intents: an answer that needs
 //     GitHub records an intent on the ticket and wakes the tick, which does
-//     the work with the credentials Foreman never holds (§6.3);
+//     the work with the credentials Foreman never holds;
 //   - /api/v1 and /mcp go to ticketapi through one shared guard;
 //   - every service reads config.toml through one config.Source, so a change
-//     to the file is seen by the next request without a restart (§3.4).
+//     to the file is seen by the next request without a restart.
 //
 // Foreman's dependency closure holds no GitHub, git-write, Scion-write,
 // gate or pipeline code (archtest); the subprocesses it may start are
-// ssh … tail and the wake (§6.5). A local agent's screen is a file the
+// ssh … tail and the wake. A local agent's screen is a file the
 // screen relay writes (package screens): Foreman runs no scion.
 package main
 
@@ -116,7 +116,7 @@ func (d deps) wire(_ context.Context, w web.Wiring) (web.Services, error) {
 		Config: cfg,
 		Clock:  w.Clock,
 		// the trigger file, never the user manager's bus, which the
-		// sandbox hides (§6.2): factory-wake.path starts the tick
+		// sandbox hides: factory-wake.path starts the tick
 		Wake: wake.Waker{Paths: w.Paths, Exec: d.exec, Spawn: d.spawn, Env: d.env, Clock: w.Clock,
 			Trigger: w.Paths.WakeTrigger()},
 		PR: ops.Intents{Clock: w.Clock},
@@ -131,7 +131,7 @@ func (d deps) wire(_ context.Context, w web.Wiring) (web.Services, error) {
 		Log:   flog,
 		AskOf: present.AskFor,
 		// Wait zero is the CLI's 60 s, which answers wait for a ticket the
-		// tick holds (§5.6); web's own timeout outlasts it
+		// tick holds; web's own timeout outlasts it
 	}
 	svc := web.OpsServices(verbs, cfg)
 	// the maintainer's project switch on Boards: foreman-state/projects.json,
@@ -156,7 +156,7 @@ func (d deps) wire(_ context.Context, w web.Wiring) (web.Services, error) {
 }
 
 // environList is the environment map as KEY=value lines, sorted: the base
-// every subprocess's own environment is built from (§5.3).
+// every subprocess's own environment is built from.
 func environList(env map[string]string) []string {
 	out := make([]string, 0, len(env))
 	for k, v := range env {

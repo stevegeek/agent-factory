@@ -16,7 +16,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/testkit"
 )
 
-// audit, gate-workflow, look, memory and github (§7.3, slice S15b).
+// audit, gate-workflow, look, memory and github.
 
 // The inspect commands on the board Python's goldens ran on.
 func TestInspectCommandsMatchPython(t *testing.T) {
@@ -103,7 +103,7 @@ func TestGateWorkflowPrintsTheYAML(t *testing.T) {
 			}
 		})
 	}
-	// no App slug: refused (D15), nothing printed
+	// no App slug: refused, nothing printed
 	f := newFixture(t)
 	f.env.WriteConfig(t, "[projects.gem]\npath = \"/srv/gem\"\n")
 	code, out, errs := f.run("", "gate-workflow", "gem")

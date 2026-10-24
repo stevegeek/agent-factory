@@ -1,11 +1,10 @@
 // Package textx holds the Python-compatible text helpers of the factory and
-// the shared regex classes every ported pattern uses (ARCHITECTURE.md §2.3,
-// §8.5).
+// the shared regex classes every ported pattern uses.
 //
 // Python counts str lengths in code points and splits, strips and lowers by
 // Unicode rules that differ from Go's strings package. Every helper here is
 // checked against goldens written by Python (testdata/py, from
-// tools/goldens.py). Lengths are in code points (runes); an invalid UTF-8
+// the Python goldens tool). Lengths are in code points (runes); an invalid UTF-8
 // byte counts as one, as utf8.RuneCountInString does. Python strings never
 // hold invalid UTF-8, so that case only arises for Go-made input.
 package textx
@@ -28,11 +27,11 @@ func Fold(s string) string {
 	return strings.Join(strings.FieldsFunc(s, IsSpace), " ")
 }
 
-// OneLine is one_line() (F:3580): the same fold, so that every line break
+// OneLine is one_line(): the same fold, so that every line break
 // becomes a space.
 func OneLine(s string) string { return Fold(s) }
 
-// Clip is clip(text, n) (F:360): fold the text, and if it is longer than n
+// Clip is clip(text, n): fold the text, and if it is longer than n
 // code points, cut it to n-1, strip trailing whitespace and add "…". Python
 // slices with n-1 even when n is 0 or negative (text[:-1]), and so does Clip.
 func Clip(s string, n int) string {
@@ -67,7 +66,7 @@ func runePrefix(s string, l, k int) string {
 	return s[:i]
 }
 
-// Sentence is sentence(text, n) (F:365): the first n sentences of the
+// Sentence is sentence(text, n): the first n sentences of the
 // folded text, clipped to ClipDefault, ending in a full stop unless it
 // already ends in . ? ! or ….
 func Sentence(s string, n int) string {
@@ -152,8 +151,8 @@ func Prefix(s string, n int) string {
 	return s
 }
 
-// IsLineBreak reports a Markdown line break, LINE_BREAK in bin/factory
-// (F:3577): CR, LF, VT, FF, NEL, LS and PS. A lone CR is a line ending in
+// IsLineBreak reports a Markdown line break, LINE_BREAK in bin/factory:
+// CR, LF, VT, FF, NEL, LS and PS. A lone CR is a line ending in
 // CommonMark.
 func IsLineBreak(r rune) bool {
 	switch r {
@@ -196,7 +195,7 @@ func SplitLines(s string) []string {
 	return out
 }
 
-// Slugify is slugify(title) (F:568): the title lowered as Python does, every
+// Slugify is slugify(title): the title lowered as Python does, every
 // run of characters outside [a-z0-9] turned into "-", hyphens trimmed, cut
 // to 48 characters, trailing hyphens trimmed again, and "change" when
 // nothing is left.

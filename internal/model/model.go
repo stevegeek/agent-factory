@@ -1,17 +1,17 @@
-// Package model is the one definition of the factory's board, as plain data
-// (ARCHITECTURE.md §2.3, §2.4, §3.5): the columns, stages, kinds, doors, ask
-// kinds, move reasons, typed event schema, modes, capabilities and tiers,
-// everything `factory model` prints, plus the constants Foreman used to
-// hard-code. Every table is a function returning a fresh slice, so no caller
-// can change the model for another. Behaviour that needs other packages
-// (prompts, finishers, answers) is attached by name in the package that owns
-// it, with a completeness test there.
+// Package model is the one definition of the factory's board, as plain data:
+// the columns, stages, kinds, doors, ask kinds, move reasons, typed event
+// schema, modes, capabilities and tiers, everything `factory model` prints,
+// plus the constants Foreman used to hard-code. Every table is a function
+// returning a fresh slice, so no caller can change the model for another.
+// Behaviour that needs other packages (prompts, finishers, answers) is
+// attached by name in the package that owns it, with a completeness test
+// there.
 package model
 
 // Column is a factory column: where a ticket waits or runs.
 type Column string
 
-// The factory columns, in board order (COLUMNS, F:87).
+// The factory columns, in board order (COLUMNS).
 const (
 	ColTriage     Column = "triage"
 	ColReady      Column = "ready"

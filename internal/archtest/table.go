@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-// A row of the allowed-imports table (ARCHITECTURE.md §2.2). Imports name
-// other rows by their short name; "agentfactory" is the module root package.
+// A row of the allowed-imports table. Imports name other rows by their
+// short name; "agentfactory" is the module root package.
 type row struct {
 	layer   int
 	name    string
 	imports []string
 }
 
-// rows is the table of §2.2, verbatim. pipeline and cli are computed from
+// rows is the import table. pipeline and cli are computed from
 // the layers in Table.
 func rows() []row {
 	return []row{
@@ -50,7 +50,7 @@ func rows() []row {
 		{2, "sshjobs", []string{"jobproto", "execx"}},
 		{2, "screens", []string{"fsx", "clock"}},
 		{2, "deployrec", []string{"fsx"}},
-		{2, "sysinfo", []string{"vitals", "config", "ticket", "model", "paths", "fsx", "clock"}},
+		{2, "sysinfo", []string{"vitals", "config", "deployrec", "ticket", "model", "paths", "fsx", "clock"}},
 
 		{3, "imagebuild", []string{"podman", "execx", "fsx", "logx", "clock", "textx"}},
 		{3, "memstore", []string{"gitx", "gitread", "execx", "fsx", "paths", "textx"}},
@@ -64,6 +64,7 @@ func rows() []row {
 		{3, "ticketapi", []string{"store", "boardread", "tokens", "config", "ticket", "model", "mdout", "jsonx", "clock", "textx", "logx"}},
 		{3, "present", []string{"model", "ticket", "textx", "clock"}},
 		{3, "builds", []string{"jobproto", "fsx"}},
+		{3, "tiers", []string{"model", "config", "toml", "textx"}},
 
 		{4, "ops", []string{"store", "boardread", "deployrec", "config", "ticket", "model", "wake", "gitread", "scionread", "jobtail", "paths", "jsonx", "textx", "clock", "logx"}},
 		{4, "prflow", []string{"github", "gitx", "gitread", "gate", "security", "store", "config", "ticket", "model", "mdout", "jsonx", "textx", "clock", "logx"}},
@@ -76,6 +77,7 @@ func rows() []row {
 		{4, "pull", []string{"jobproto", "vitals", "toml", "fsx", "execx", "clock", "textx", "mailbox"}},
 		{4, "onboard", []string{"config", "github", "paths", "jsonx", "textx"}},
 		{4, "deploy", []string{"deployrec", "sshjobs", "hostrun", "jobproto", "gitx", "store", "boardread", "config", "ticket", "model", "execx", "fsx", "paths", "clock", "logx", "textx"}}, // boardread: its tests build a store.Board
+		{4, "operator", []string{"tiers", "github", "gitx", "gitread", "store", "boardread", "config", "ticket", "model", "execx", "fsx", "paths", "clock", "logx", "textx"}},                // boardread: its tests build a store.Board
 		{4, "fizzy", []string{"store", "boardread", "paths", "ticketapi", "config", "ticket", "model", "execx", "fsx", "jsonx", "clock", "textx"}},
 
 		{5, "cli", nil}, // computed
@@ -89,20 +91,19 @@ func rows() []row {
 }
 
 // ForemanForbidden lists the packages that must never be in the dependency
-// closure of cmd/foreman (§2.2 rule 3), plus the test-only packages.
+// closure of cmd/foreman, plus the test-only packages.
 func ForemanForbidden() []string {
 	return []string{
 		"github", "gitx", "scion", "sshjobs", "podman", "imagebuild", "memstore", "memory", "gate",
 		"security", "stage", "panel", "hostrun", "hosts", "prflow", "doors", "upkeep", "backup", "pipeline",
-		"render", "cli", "helper", "fizzy", "onboard", "deploy", "testkit", "archtest",
+		"render", "cli", "helper", "fizzy", "onboard", "deploy", "operator", "testkit", "archtest",
 	}
 }
 
-// HelperAllowed is the whole permitted closure of cmd/factory-remote (§2.2
-// rule 5). It holds jsonx because the table's jobproto row imports it
-// (pure layer-0 encoding), mailbox for factory-remote's mailbox mode
-// (the forced command of a pull host's key on the dispatcher), and vitals
-// for the vitals verb.
+// HelperAllowed is the whole permitted closure of cmd/factory-remote. It
+// holds jsonx because the table's jobproto row imports it (pure layer-0
+// encoding), mailbox for factory-remote's mailbox mode (the forced command
+// of a pull host's key on the dispatcher), and vitals for the vitals verb.
 func HelperAllowed() []string {
 	return []string{"helper", "jobproto", "mailbox", "vitals", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo", "jsonx"}
 }

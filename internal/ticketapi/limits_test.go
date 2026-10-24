@@ -13,7 +13,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// The ticket_limits tests (TL) and the behaviours §10.7 lists for S5.
+// The ticket_limits tests (TL) and the limits' behaviours.
 
 func limitsFx(t *testing.T) *fx {
 	f := newFx(t, testConfig)
@@ -262,7 +262,7 @@ func TestASecondResultIsRefusedAndClosedToClosedIsNoReopening(t *testing.T) {
 	}
 }
 
-// §10.7 S5: projects.
+// projects.
 func TestProjects(t *testing.T) {
 	f := limitsFx(t)
 	f.token("board-only", "read,work", "sandbox")
@@ -282,7 +282,7 @@ func TestProjects(t *testing.T) {
 	}
 }
 
-// §10.7 S5: list's updated_since, assignee "me" and null, kind, column.
+// list's updated_since, assignee "me" and null, kind, column.
 func TestListFilters(t *testing.T) {
 	f := limitsFx(t)
 	a := str(f.boardTicket(""), "id")
@@ -315,7 +315,7 @@ func TestListFilters(t *testing.T) {
 	}
 }
 
-// §10.7 S5: update's labels, links, assignee, "changed meanwhile" and the
+// update's labels, links, assignee, "changed meanwhile" and the
 // update that changes nothing.
 func TestUpdate(t *testing.T) {
 	f := limitsFx(t)
@@ -403,7 +403,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-// §10.7 S5: a link to a ticket the caller cannot see is refused; one it can
+// a link to a ticket the caller cannot see is refused; one it can
 // see shows the factory ticket's facts only to callers who can see that.
 func TestLinkVisibility(t *testing.T) {
 	f := limitsFx(t)
@@ -438,7 +438,7 @@ func TestLinkVisibility(t *testing.T) {
 	}
 }
 
-// §10.7 S5: parents go at most 20 deep.
+// parents go at most 20 deep.
 func TestParentDepthLimit(t *testing.T) {
 	f := limitsFx(t)
 	f.limits(func(l *Limits) { l.Depth = 2 })
@@ -462,7 +462,7 @@ func TestParentDepthLimit(t *testing.T) {
 	_ = chain
 }
 
-// §10.7 S5: a board project holds at most project_tickets tickets.
+// a board project holds at most project_tickets tickets.
 func TestProjectTicketsCap(t *testing.T) {
 	f := limitsFx(t)
 	f.boardTicket("")
@@ -477,7 +477,7 @@ func TestProjectTicketsCap(t *testing.T) {
 	f.ok("create", `{"project": "fac", "title": "a factory project has no cap"}`, "")
 }
 
-// §3.4: each call reads the config as it is now.
+// each call reads the config as it is now.
 func TestConfigChangesAreSeenOnTheNextCall(t *testing.T) {
 	f := limitsFx(t)
 	id := str(f.boardTicket(""), "id")

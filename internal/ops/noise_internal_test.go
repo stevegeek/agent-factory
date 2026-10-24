@@ -17,7 +17,7 @@ type pyRegex struct {
 	} `json:"patterns"`
 }
 
-// readPyRegex is the regex golden tools/goldens.py wrote from Python: each
+// readPyRegex is the regex golden the Python goldens tool wrote from Python: each
 // pattern's inputs and what its op returned on them, null for no match.
 func readPyRegex(t *testing.T) pyRegex {
 	t.Helper()

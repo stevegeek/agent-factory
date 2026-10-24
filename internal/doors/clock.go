@@ -23,7 +23,7 @@ const (
 	MemoryNoticeTitle = "Memory stores: sizes and stale notes"
 )
 
-// Clock is clock(cfg) (F:2750), the clock door, run daily: each schedule
+// Clock is clock(cfg), the clock door, run daily: each schedule
 // files its ticket on each of its projects where it is due (every_days
 // since it last filed there, from state.json), then the memory report
 // (every 30 days) and the version check (every 7 days) run. state.json is

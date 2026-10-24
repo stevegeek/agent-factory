@@ -1,8 +1,8 @@
-// Package memory is the memory policy of a run (inventory-features §1, §2):
-// which role a stage remembers as, the copy a run starts from and the
-// project context beside it, the prompts that tell the agent about them,
-// and what happens to the copy afterwards (Settle, Lost). The stores
-// themselves are package memstore.
+// Package memory is the memory policy of a run: which role a stage
+// remembers as, the copy a run starts from and the project context beside
+// it, the prompts that tell the agent about them, and what happens to the
+// copy afterwards (Settle, Lost). The stores themselves are package
+// memstore.
 package memory
 
 import (
@@ -65,7 +65,7 @@ type Service struct {
 	Clock clock.Clock
 }
 
-// Prepare is prepare_memory (F:1298): before a run, the store's latest
+// Prepare is prepare_memory: before a run, the store's latest
 // commit for the stage's role, created on first use, and for a local run a
 // fresh copy of it under run/memory/<name> with the project context beside
 // it under context/. nil means the run has no memory (no project, or the
@@ -122,7 +122,7 @@ func (s *Service) checkout(ctx context.Context, repo *memstore.Repo, head, dir s
 }
 
 // NoMemory records that a run starts without memory because Prepare
-// failed (start_stage, F:1794).
+// failed (start_stage).
 func (s *Service) NoMemory(t *ticket.Ticket, err error) {
 	text := textx.Prefix(err.Error(), 250)
 	ticket.Event(t, "error", "memory: "+text+"; this run has none", "", ticket.Errored{Text: text}, s.Clock.Now())
@@ -153,7 +153,7 @@ func (s *Service) Volume(name, dir string) (string, error) {
 	return conf, nil
 }
 
-// Context is project_context (F:1176): the maintainer's notes for a
+// Context is project_context: the maintainer's notes for a
 // project, as {"context/<path>": contents}, read like a run's copy (no
 // links followed), in path order, stopping at the first file that would
 // take it past memstore.ContextMaxBytes. An odd project name, a missing
@@ -187,8 +187,7 @@ func (s *Service) Context(project string) (memstore.Files, error) {
 	return out, nil
 }
 
-// JobFiles are a helper run's memory in its start tar (start_remote,
-// F:904): the snapshot of the base commit (capped, plain names, no
+// JobFiles are a helper run's memory in its start tar (start_remote): the snapshot of the base commit (capped, plain names, no
 // context) and the project context, each under memory/.
 func (s *Service) JobFiles(ctx context.Context, t *ticket.Ticket, ref ticket.MemoryRef) (memstore.Files, error) {
 	repo, err := s.Store.Repo(t.Project, ref.Role)
@@ -228,7 +227,7 @@ discarded): what you learn goes in your memory below. Where they and the code di
 report rather than guessing which is right.`, "{where}", where)
 }
 
-// Prompt is memory_prompt (F:1156), appended to a stage's prompt: the
+// Prompt is memory_prompt, appended to a stage's prompt: the
 // context prompt when there is context, then how to read and keep the
 // memory at where. The wording is part of the agent contract.
 func Prompt(id ticket.ID, role, where string, withContext bool) string {

@@ -30,6 +30,7 @@ import (
 
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/deployrec"
 	"github.com/stevegeek/agent-factory/internal/fsx"
 	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/ticket"
@@ -56,7 +57,13 @@ type Snapshot struct {
 	Pauses     []Pause          `json:"pauses,omitempty"`
 	Images     map[string]Image `json:"images,omitempty"` // images.json, by kind
 	Rebuilds   []Rebuild        `json:"rebuilds,omitempty"`
-	Problems   []string         `json:"problems,omitempty"` // what could not be read
+	// Switches are the maintainer's project switches (projects.json): each
+	// overrides config.toml's enabled until it is back to follow.
+	Switches map[string]config.Switch `json:"switches,omitempty"`
+	// DeployHold is the maintainer's deploy hold; nil when deploys are not
+	// held by the file (an open Deploy? ask holds them too).
+	DeployHold *deployrec.Hold `json:"deploy_hold,omitempty"`
+	Problems   []string        `json:"problems,omitempty"` // what could not be read
 }
 
 // Memory, Disk and Temp are the machine's, as vitals reads them; Image is
@@ -117,6 +124,10 @@ type Deps struct {
 	// Tickets is the board, for the agents running per host.
 	Tickets func() []*ticket.Ticket
 	Pauses  func() []Pause
+	// Switches is projects.json; Hold is the deploy hold (nil, nil when
+	// there is none). An error is a problem.
+	Switches func() (config.Switches, error)
+	Hold     func() (*deployrec.Hold, error)
 	// Containers is `podman ps` (names); it is given ContainersTimeout.
 	Containers func(ctx context.Context) ([]string, error)
 	Statfs     func(path string) (Disk, error) // nil: Statfs

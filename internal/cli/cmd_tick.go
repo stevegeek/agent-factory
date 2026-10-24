@@ -13,6 +13,8 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jobtail"
 	"github.com/stevegeek/agent-factory/internal/memory"
 	"github.com/stevegeek/agent-factory/internal/memstore"
+	"github.com/stevegeek/agent-factory/internal/operator"
+	"github.com/stevegeek/agent-factory/internal/ops"
 	"github.com/stevegeek/agent-factory/internal/pipeline"
 	"github.com/stevegeek/agent-factory/internal/podman"
 	"github.com/stevegeek/agent-factory/internal/prflow"
@@ -21,7 +23,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/sshjobs"
 )
 
-// The tick (§7.3, slice S17): `factory tick`, run by factory-tick.timer
+// The tick: `factory tick`, run by factory-tick.timer
 // and by wake. It prints nothing on stdout; what it did is in the log.
 // The command table (commands.go) names its runner:
 //
@@ -34,7 +36,7 @@ func runTick(ctx context.Context, e *Env, _ Args) error {
 		return err
 	}
 	if err := e.Git(ctx); err != nil {
-		return err // an old git is refused before the tick runs anything (§4.8)
+		return err // an old git is refused before the tick runs anything
 	}
 	err = pipeline.Tick(ctx, tickDeps(e, cfg))
 	recordSysinfo(ctx, e, cfg) // for Foreman's Settings page; never fails the tick (cli/sysinfo.go)
@@ -70,6 +72,7 @@ func tickDeps(e *Env, cfg *config.Config) pipeline.Deps {
 	mem := &memory.Service{Store: &memstore.Store{Paths: p, Exec: e.Exec}, Paths: p, Clock: e.Clock}
 	board := e.Board()
 	deploys := deployService(e, cfg)
+	gh := opsCLI{}.githubClient(e, cfg)
 	return pipeline.Deps{
 		Board:  board,
 		Config: src,
@@ -84,7 +87,7 @@ func tickDeps(e *Env, cfg *config.Config) pipeline.Deps {
 		Memory: mem,
 		Gate:   runner,
 		GitHub: &prflow.Flow{
-			GitHub:  opsCLI{}.githubClient(e, cfg),
+			GitHub:  gh,
 			Git:     prflow.Repos{Repo: runner.Repo},
 			Checks:  runner,
 			Board:   board,
@@ -96,6 +99,21 @@ func tickDeps(e *Env, cfg *config.Config) pipeline.Deps {
 		Doors:   doors.Service{Board: board, Exec: e.Exec, Log: log},
 		Issues:  doorsGitHub(e),
 		Deploys: deploys,
+		// the operator: the tick alone touches git, GitHub, systemd and the
+		// pause file for the manager's items; it pushes only bot/* (Writer.Push)
+		Operator: operator.Service{
+			Paths:    p,
+			Board:    board,
+			GitHub:   gh,
+			Token:    gh.Auth.Token,
+			Repos:    runner.Repo,
+			Exec:     e.Exec,
+			Deploys:  operatorDeploys{Deploy: deploys, Asks: deployAsks{e.doors()}},
+			Switches: &ops.Service{Board: board, Config: loadedConfig{cfg}, Clock: e.Clock, Log: log},
+			Clock:    e.Clock,
+			Log:      log,
+			Env:      e.Environ,
+		},
 	}
 }
 

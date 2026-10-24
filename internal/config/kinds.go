@@ -8,9 +8,9 @@ import (
 	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
-// ProjectKind is a project kind (DESIGN-self-hosting.md, project 5): the
-// toolchain a project builds with and the defaults a project of the kind
-// takes for the keys its own table leaves out.
+// ProjectKind is a project kind: the toolchain a project builds with and
+// the defaults a project of the kind takes for the keys its own table
+// leaves out.
 type ProjectKind struct {
 	Name, Toolchain, Language string
 	Install, Test, Lint       string

@@ -56,7 +56,7 @@ func mode(t *testing.T, path string) os.FileMode {
 	return fi.Mode()
 }
 
-// P6: adopt moves the restored state into the fresh root by rename: the
+// adopt moves the restored state into the fresh root by rename: the
 // tickets, the memory stores and the token store land where Paths says,
 // with their modes.
 func TestAdoptMovesTheArchiveIntoAFreshRoot(t *testing.T) {
@@ -100,7 +100,7 @@ func TestAdoptMovesTheArchiveIntoAFreshRoot(t *testing.T) {
 	}
 }
 
-// P6: a root that already has a board is not a fresh master: adopt
+// a root that already has a board is not a fresh master: adopt
 // refuses and moves nothing.
 func TestAdoptRefusesARootWithABoard(t *testing.T) {
 	a := newAdopt(t)
@@ -114,7 +114,7 @@ func TestAdoptRefusesARootWithABoard(t *testing.T) {
 	}
 }
 
-// P6: a tick running in the new root refuses the adopt.
+// a tick running in the new root refuses the adopt.
 func TestAdoptRefusesWhileTheTickLockIsHeld(t *testing.T) {
 	a := newAdopt(t)
 	held, err := a.board.TickLock(t.Context(), store.NoWait)
@@ -130,7 +130,7 @@ func TestAdoptRefusesWhileTheTickLockIsHeld(t *testing.T) {
 	}
 }
 
-// P6: every target is checked before anything moves; one that holds a
+// every target is checked before anything moves; one that holds a
 // file (a helper's rebuild log) refuses the whole adopt, naming it.
 func TestAdoptRefusesANonEmptyTargetBeforeMovingAnything(t *testing.T) {
 	a := newAdopt(t)
@@ -149,7 +149,7 @@ func TestAdoptRefusesANonEmptyTargetBeforeMovingAnything(t *testing.T) {
 	}
 }
 
-// P6: the login secret already in the root (copied by hand; no archive
+// the login secret already in the root (copied by hand; no archive
 // holds it) stays, and is listed as kept; the rest moves in beside it.
 func TestAdoptKeepsAHandCopiedSecret(t *testing.T) {
 	a := newAdopt(t)
@@ -173,7 +173,7 @@ func TestAdoptKeepsAHandCopiedSecret(t *testing.T) {
 	}
 }
 
-// P6: any other foreman-state file in both the root and the archive is
+// any other foreman-state file in both the root and the archive is
 // Foreman's own from a start here (a push key it made unbinds every
 // device): adopt refuses, naming it, before anything moves.
 func TestAdoptRefusesForemanStateTheRootMadeItself(t *testing.T) {
@@ -201,7 +201,7 @@ func TestAdoptRefusesForemanStateTheRootMadeItself(t *testing.T) {
 	}
 }
 
-// P6: a foreman-state step that fails after the whole items moved names
+// a foreman-state step that fails after the whole items moved names
 // what is still in DIR, for moving by hand (a rerun refuses the board).
 func TestAdoptHalfDoneSaysWhatIsLeft(t *testing.T) {
 	if os.Geteuid() == 0 {
@@ -227,7 +227,7 @@ func TestAdoptHalfDoneSaysWhatIsLeft(t *testing.T) {
 	}
 }
 
-// P6: a foreman-state file moves without replacing one that appeared at
+// a foreman-state file moves without replacing one that appeared at
 // its target since the checks.
 func TestMoveNoReplaceKeepsAnExistingTarget(t *testing.T) {
 	d := t.TempDir()
@@ -252,7 +252,7 @@ func TestMoveNoReplaceKeepsAnExistingTarget(t *testing.T) {
 	}
 }
 
-// P6: config.toml (deploy renders it) and images.json (this host's
+// config.toml (deploy renders it) and images.json (this host's
 // images) stay in the restored directory; the root's own are untouched.
 func TestAdoptLeavesConfigAndImages(t *testing.T) {
 	a := newAdopt(t)
@@ -273,7 +273,7 @@ func TestAdoptLeavesConfigAndImages(t *testing.T) {
 	}
 }
 
-// P6: each repos/<project> stays in the restored directory and is listed,
+// each repos/<project> stays in the restored directory and is listed,
 // for its bundle to be fetched where a clone lacks the commits.
 func TestAdoptListsRepos(t *testing.T) {
 	a := newAdopt(t)
@@ -290,7 +290,7 @@ func TestAdoptListsRepos(t *testing.T) {
 	}
 }
 
-// P6: a directory that is not a restored archive (its config does not
+// a directory that is not a restored archive (its config does not
 // check) is refused.
 func TestAdoptRefusesWhatIsNotARestoredArchive(t *testing.T) {
 	a := newAdopt(t)
@@ -299,7 +299,7 @@ func TestAdoptRefusesWhatIsNotARestoredArchive(t *testing.T) {
 	}
 }
 
-// P6: the live root, a restored archive inside it (by path, by a symlink
+// the live root, a restored archive inside it (by path, by a symlink
 // into it, or under a name starting ".."), is refused as the root.
 func TestAdoptRefusesTheRootAndWhatIsInsideIt(t *testing.T) {
 	const want = "is the root or inside it"
@@ -332,7 +332,7 @@ func TestAdoptRefusesTheRootAndWhatIsInsideIt(t *testing.T) {
 	}
 }
 
-// P6: an archive written after the move ([build] host = "self", built by
+// an archive written after the move ([build] host = "self", built by
 // the master's own factory-remote) adopts on any machine: the host check
 // is factory check's, not the archive's.
 func TestAdoptTakesASelfBuildArchiveOnAnotherHost(t *testing.T) {

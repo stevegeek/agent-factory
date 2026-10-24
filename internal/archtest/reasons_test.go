@@ -8,7 +8,7 @@ import (
 
 // Every model.Reason is written by name somewhere in production code (a
 // ticket.Move call site, or a writer that hands it on to one), and no
-// reason is spelled as a string literal (§3.2, §3.5).
+// reason is spelled as a string literal.
 func TestEveryReasonIsWrittenByName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("loads the whole module with go list -export")
@@ -22,7 +22,7 @@ func TestEveryReasonIsWrittenByName(t *testing.T) {
 		t.Error(v)
 	}
 	if len(use.Reasons) < 51 {
-		t.Errorf("found %d model.Reason constants, the plan counts 51: %v", len(use.Reasons), use.Reasons)
+		t.Errorf("found %d model.Reason constants, want 51: %v", len(use.Reasons), use.Reasons)
 	}
 	// The board moves of ticketapi are among the writers.
 	for _, r := range []string{"claimed", "parked", "waiting", "finished", "dropped", "reopened", "question_asked"} {

@@ -96,7 +96,7 @@ func (f *fixture) run(stdin string, argv ...string) (int, string, string) {
 
 // Every read-only command on the board Python's goldens ran on.
 func TestReadOnlyCommandsMatchPython(t *testing.T) {
-	// audit and gate-workflow are S15b's commands.
+	// audit and gate-workflow are the inspect group's commands.
 	notMine := map[string]bool{"audit": true, "gate-workflow": true}
 	f := goldenRoot(t)
 	for _, c := range readGolden(t, "commands.json").Commands {
@@ -125,7 +125,7 @@ func TestReadOnlyCommandsOnAnEmptyBoard(t *testing.T) {
 	}
 }
 
-// addedWarning is a warning the Go config adds on purpose (quirk 6: a
+// addedWarning is a warning the Go config adds on purpose (a
 // factory project with no gate commands); Python's check had none.
 var addedWarning = regexp.MustCompile(`^warning: \[projects\.[a-z0-9_-]+\] has no [a-z, ]+: the gate refuses to run its checks without them\n$`)
 

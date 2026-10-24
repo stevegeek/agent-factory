@@ -1,8 +1,8 @@
-// Package ticket is the ticket entity and its pure rules (ARCHITECTURE.md
-// §3.1-3.3): the typed views over a ticket file's ordered JSON tree, the
-// history entries and their typed payloads, the one set of readers for
-// legacy history (Interpret), the mutators that record history, and the asks
-// a waiting ticket puts to a person (AskFor).
+// Package ticket is the ticket entity and its pure rules: the typed views
+// over a ticket file's ordered JSON tree, the history entries and their
+// typed payloads, the one set of readers for legacy history (Interpret), the
+// mutators that record history, and the asks a waiting ticket puts to a
+// person (AskFor).
 //
 // The tree as read is the source of truth. Decode reads typed views from it
 // leniently; Encode writes them back into it path by path, so that key order
@@ -69,6 +69,7 @@ type Ticket struct {
 	Proposed           []Proposed       `json:"proposed"`
 	Feedback           []Feedback       `json:"feedback"`
 	Drafts             []Draft          `json:"drafts"`
+	Actions            []Action         `json:"actions,omitempty"` // the manager's typed actions beside its drafts
 	Proposals          []Proposal       `json:"proposals"`
 	Votes              []Vote           `json:"votes"`
 	Panel              Opt[Panel]       `json:"panel"`
@@ -135,7 +136,7 @@ type MemoryRef struct {
 	Settled bool   `json:"settled,omitempty"`
 }
 
-// Ask is what a waiting ticket asks a person (§3.3).
+// Ask is what a waiting ticket asks a person.
 type Ask struct {
 	Kind        string        `json:"kind"` // a model.AskKind
 	Question    string        `json:"question"`
@@ -324,10 +325,42 @@ type Feedback struct {
 }
 
 // Draft is a change to the factory's own config that the manager wrote.
+// Title, Why and Patch are the manager's; the rest is the operator's
+// record of it: the run that proposed it, the rights tier and places
+// the tick's checker found, its state (a model.Item* constant; "" on a
+// draft saved before the operator, which is by hand), a note on the outcome, when
+// the maintainer asked to apply it, and the PR and merge commit it landed
+// as.
 type Draft struct {
-	Title string `json:"title"`
-	Why   string `json:"why"`
-	Patch string `json:"patch"`
+	Title     string   `json:"title"`
+	Why       string   `json:"why"`
+	Patch     string   `json:"patch"`
+	Run       int      `json:"run,omitempty"`
+	Tier      string   `json:"tier,omitempty"`
+	State     string   `json:"state,omitempty"`
+	Places    []string `json:"places,omitempty"`
+	Walls     []string `json:"walls,omitempty"`
+	Note      string   `json:"note,omitempty"`
+	Requested string   `json:"requested,omitempty"`
+	PR        int64    `json:"pr,omitempty"`
+	PRURL     string   `json:"pr_url,omitempty"`
+	Commit    string   `json:"commit,omitempty"`
+}
+
+// Action is a typed operation the manager proposed (a model.ActionKind,
+// its target host or project, hours for a pause, and why), with the
+// operator's record of it like a Draft's. Its Tier comes from the model's
+// table, never from the manager.
+type Action struct {
+	Kind      string `json:"kind,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Hours     int    `json:"hours,omitempty"`
+	Why       string `json:"why,omitempty"`
+	Run       int    `json:"run,omitempty"`
+	Tier      string `json:"tier,omitempty"`
+	State     string `json:"state,omitempty"`
+	Note      string `json:"note,omitempty"`
+	Requested string `json:"requested,omitempty"`
 }
 
 // Proposal is a prospector's proposal.

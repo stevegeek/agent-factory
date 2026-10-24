@@ -1,8 +1,8 @@
-// Package jobproto is the dispatcher ↔ helper contract (ARCHITECTURE.md
-// §2.3, inventory-contracts §3), shared by both sides: the nine SSH verbs,
-// the job name, the start meta and its validation, the member names and
-// caps of the start and collect tars, flat tars, the OpenSSH argv that
-// reaches a helper's forced command, and how a failed verb reads.
+// Package jobproto is the dispatcher ↔ helper contract, shared by both
+// sides: the nine SSH verbs, the job name, the start meta and its
+// validation, the member names and caps of the start and collect tars,
+// flat tars, the OpenSSH argv that reaches a helper's forced command, and
+// how a failed verb reads.
 //
 // It holds data and pure functions only: sshjobs and jobtail run ssh, and
 // the helper serves the verbs.
@@ -20,7 +20,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
-// The verbs a helper's forced command accepts over SSH (R:42). `run <job>`
+// The verbs a helper's forced command accepts over SSH. `run <job>`
 // is only ever taken from the helper's own argv (systemd-run), never from
 // SSH_ORIGINAL_COMMAND.
 const (
@@ -97,14 +97,14 @@ const (
 	KindGate  = "gate"
 )
 
-// The states `status` answers with ({"state": ...}, R:192).
+// The states `status` answers with ({"state": ...}).
 const (
 	StateRunning = "running"
 	StateDone    = "done"
 	StateMissing = "missing"
 )
 
-// Limits of the contract (bin/factory-remote, R:36-46).
+// Limits of the contract (bin/factory-remote).
 const (
 	DefaultModel          = "claude-sonnet-5-5"
 	DefaultHarness        = "pi"
@@ -118,7 +118,7 @@ const (
 	RuntimeSlack = 300 * time.Second
 )
 
-// Member names of the start tar (F:899, R:127). Memory and pinned files
+// Member names of the start tar. Memory and pinned files
 // sit under MemoryDir and UntrackedDir.
 const (
 	MemberPrompt    = "prompt.md"
@@ -145,7 +145,7 @@ type Cap struct {
 
 // CollectCaps is MAX_COLLECTED_BYTES, in the order collect writes the
 // members. A member over its cap is left out, except agent.log, which is
-// cut to its tail (R:203).
+// cut to its tail.
 func CollectCaps() []Cap {
 	return []Cap{
 		{MemberReport, 1_000_000},
@@ -157,7 +157,7 @@ func CollectCaps() []Cap {
 	}
 }
 
-// Timeout is the dispatcher's limit on one verb (F:811, F:932, F:4540):
+// Timeout is the dispatcher's limit on one verb:
 // collect 300 s, tail and vitals 20 s, everything else 120 s.
 func Timeout(verb string) time.Duration {
 	switch verb {
@@ -208,7 +208,7 @@ type Host struct {
 	Key  string // the private key's path, already expanded (no ~)
 }
 
-// SSHArgv is the argv of one verb on a helper (remote(), F:811): OpenSSH
+// SSHArgv is the argv of one verb on a helper (remote()): OpenSSH
 // with BatchMode, a 10 s connect timeout and only the given key, then the
 // verb and its job, which the helper's forced command reads from
 // SSH_ORIGINAL_COMMAND. The verb must be one of SSHVerbs; every verb but

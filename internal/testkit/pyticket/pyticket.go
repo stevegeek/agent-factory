@@ -11,7 +11,7 @@ import (
 
 // History is a ticket file as Python would have written it: the
 // history entries of the events Python left untyped, and the factory types
-// since it retired (D9), lose their type and its fields. Their detail, the
+// since it retired, lose their type and its fields. Their detail, the
 // human text, is left as it is, so a test can still compare the rest with
 // Python's goldens byte for byte. Anything else comes back unchanged.
 func History(file string) string {
@@ -57,7 +57,7 @@ func History(file string) string {
 	return b
 }
 
-// onceUntyped are the event types D9 typed, with their fields.
+// onceUntyped are the event types typed since, with their fields.
 func onceUntyped() map[model.EventType][]string {
 	out := map[model.EventType][]string{}
 	for _, e := range model.EventTypes() {

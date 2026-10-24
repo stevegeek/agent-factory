@@ -6,7 +6,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// §6.3: an intent Foreman recorded shows as the tick's pending work, with
+// an intent Foreman recorded shows as the tick's pending work, with
 // the latest error since the request as "still trying".
 func TestPendingIntents(t *testing.T) {
 	at := "2026-10-18T10:00:00+00:00"

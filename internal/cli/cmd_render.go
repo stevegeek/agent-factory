@@ -9,7 +9,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/render"
 )
 
-// The render command group (§7.3, slice S19): `render CONFIG_DIR OUT_DIR`
+// The render command group: `render CONFIG_DIR OUT_DIR`
 // replaces bin/render for deploy, and `patch-scion PROVISION_PY` replaces
 // scion/patch_provision.py. Each runner takes its arguments after the
 // command name and returns the exit code: 0, 1 for a refusal (the message
@@ -76,7 +76,7 @@ func renderArgs(args []string, n int, usage string, stdout, stderr io.Writer) (p
 	return pos, 0, false
 }
 
-// renderFail prints err as §7.2 says and returns 1.
+// renderFail prints err as report does and returns 1.
 func renderFail(stderr io.Writer, err error) int {
 	var p render.Problem
 	if errors.As(err, &p) {

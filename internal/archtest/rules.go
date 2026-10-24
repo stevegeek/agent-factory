@@ -49,8 +49,7 @@ func typeCheck(g *Graph, fset *token.FileSet, rule string) ([]typed, []Violation
 	return out, vs
 }
 
-// domainPackages are the packages §2.2 rule 2 keeps free of I/O and of the
-// wall clock.
+// domainPackages are the packages kept free of I/O and of the wall clock.
 func domainPackages() []string { return []string{"internal/model", "internal/ticket"} }
 
 // impureImport reports whether a standard-library import does file I/O,
@@ -63,7 +62,7 @@ func impureImport(path string) bool {
 	return strings.HasPrefix(path, "net/") || strings.HasPrefix(path, "os/")
 }
 
-// CheckDomainPurity enforces §2.2 rule 2: model and ticket do no file I/O,
+// CheckDomainPurity enforces domain purity: model and ticket do no file I/O,
 // no exec and no network (no import of os, os/exec, net or net/...), and
 // never ask for the time (no reference to time.Now: the clock is passed in).
 func CheckDomainPurity(g *Graph) []Violation {
@@ -77,7 +76,7 @@ func CheckDomainPurity(g *Graph) []Violation {
 			for _, imp := range f.Imports {
 				path := strings.Trim(imp.Path.Value, `"`)
 				if impureImport(path) {
-					vs = append(vs, Violation{"purity", fset.Position(imp.Pos()).String(), "the domain package imports " + path + " (no file I/O, exec or network: §2.2 rule 2)"})
+					vs = append(vs, Violation{"purity", fset.Position(imp.Pos()).String(), "the domain package imports " + path + " (no file I/O, exec or network)"})
 				}
 			}
 			ast.Inspect(f, func(n ast.Node) bool {
@@ -86,7 +85,7 @@ func CheckDomainPurity(g *Graph) []Violation {
 					return true
 				}
 				if fn, ok := tp.info.Uses[id].(*types.Func); ok && fn.FullName() == "time.Now" {
-					vs = append(vs, Violation{"purity", fset.Position(id.Pos()).String(), "the domain package calls time.Now (the clock is passed in: §2.2 rule 2)"})
+					vs = append(vs, Violation{"purity", fset.Position(id.Pos()).String(), "the domain package calls time.Now (the clock is passed in)"})
 				}
 				return true
 			})
@@ -95,12 +94,13 @@ func CheckDomainPurity(g *Graph) []Violation {
 	return sortViolations(dedupe(vs))
 }
 
-// MaxInterfaceMethods is §2.2 rule 6: no package exports an interface of
-// more than four methods for others to implement.
+// MaxInterfaceMethods is the interface-size rule: no package exports an
+// interface of more than four methods for others to implement.
 const MaxInterfaceMethods = 4
 
-// CheckInterfaceSize enforces §2.2 rule 6 on every exported interface type
-// in production code, counting the methods of embedded interfaces.
+// CheckInterfaceSize enforces MaxInterfaceMethods on every exported
+// interface type in production code, counting the methods of embedded
+// interfaces.
 func CheckInterfaceSize(g *Graph) []Violation {
 	fset := token.NewFileSet()
 	pkgs, vs := typeCheck(g, fset, "interfaces")
@@ -126,7 +126,7 @@ func CheckInterfaceSize(g *Graph) []Violation {
 					}
 					if n := iface.NumMethods(); n > MaxInterfaceMethods {
 						vs = append(vs, Violation{"interfaces", fset.Position(ts.Pos()).String(),
-							"exported interface " + ts.Name.Name + " has " + strconv.Itoa(n) + " methods (at most 4: §2.2 rule 6)"})
+							"exported interface " + ts.Name.Name + " has " + strconv.Itoa(n) + " methods (at most 4)"})
 					}
 				}
 			}
@@ -142,7 +142,7 @@ type ReasonUse struct {
 	Written map[string][]string // value -> positions that write it
 }
 
-// CheckReasons enforces §3.2 and §3.5 for moves and their reasons:
+// CheckReasons enforces the rules for moves and their reasons:
 //
 //   - a model.Reason is never spelled as a string literal outside package
 //     model (Go converts an untyped constant to model.Reason silently, so a
@@ -203,7 +203,7 @@ func CheckReasons(g *Graph) (ReasonUse, []Violation) {
 				case *ast.BasicLit:
 					if tv, ok := tp.info.Types[x]; ok && tv.Value != nil && isReason(tv.Type) && x.Value != `""` {
 						vs = append(vs, Violation{"reasons", fset.Position(x.Pos()).String(),
-							"the string literal " + x.Value + " is used as a model.Reason: name its model.Reason constant (§3.2)"})
+							"the string literal " + x.Value + " is used as a model.Reason: name its model.Reason constant"})
 					}
 				case *ast.Ident:
 					c, ok := tp.info.Uses[x].(*types.Const)
@@ -219,7 +219,7 @@ func CheckReasons(g *Graph) (ReasonUse, []Violation) {
 	}
 	for _, r := range use.Reasons {
 		if len(use.Written[r]) == 0 {
-			vs = append(vs, Violation{"reasons", "internal/model", "model.Reason " + r + " is never written by production code (no ticket.Move or other writer names it: §3.5)"})
+			vs = append(vs, Violation{"reasons", "internal/model", "model.Reason " + r + " is never written by production code (no ticket.Move or other writer names it)"})
 		}
 	}
 	return use, sortViolations(dedupe(vs))

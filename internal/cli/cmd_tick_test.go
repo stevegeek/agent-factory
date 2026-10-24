@@ -124,7 +124,7 @@ func TestTickCommandWhileATickRuns(t *testing.T) {
 	if _, err := os.Stat(root.Path(".tick.again")); err != nil {
 		t.Fatal(".tick.again not left")
 	}
-	// Only the git version check (§4.8) ran, and the sysinfo snapshot's
+	// Only the git version check ran, and the sysinfo snapshot's
 	// podman ps: the factory is alive while a long tick holds the lock.
 	if len(ex.argv) != 2 || !slices.Equal(ex.argv[0], []string{"git", "--version"}) ||
 		!slices.Equal(ex.argv[1], []string{"podman", "ps", "--format", "{{.Names}}"}) {
@@ -185,7 +185,7 @@ func (x *oldGit) Run(ctx context.Context, c execx.Cmd) (execx.Result, error) {
 	return x.tickExec.Run(ctx, c)
 }
 
-// A git older than 2.48 stops the tick before it runs anything (§4.8), and
+// A git older than 2.48 stops the tick before it runs anything, and
 // `factory check` lists it as a problem.
 func TestTickRefusesAnOldGit(t *testing.T) {
 	e, _, _, stdout, id := tickEnv(t)

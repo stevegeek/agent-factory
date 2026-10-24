@@ -125,7 +125,7 @@ func TestHelperPreferredForTasksThenLocalNeverLocalWithoutAProject(t *testing.T)
 }
 
 // The routing half of LimitTest: a paused host gets no new work, this host
-// still does (the requeue itself is the pipeline's, S17).
+// still does (the requeue itself is the pipeline's).
 // port: TF LimitTest.test_a_helper_job_out_of_credit_goes_back_and_pauses_its_host
 func TestPausedHostsGetNoWork(t *testing.T) {
 	c := cfgOf(t, `agent_timeout_minutes = 30
@@ -251,7 +251,7 @@ func TestOnlyRealLimitMessagesCount(t *testing.T) {
 	}
 }
 
-// hit_limit over the golden corpus, with 15 and 40 lines (tools/goldens.py).
+// hit_limit over the golden corpus, with 15 and 40 lines (the Python goldens tool).
 func TestHitLimitGolden(t *testing.T) {
 	b, err := os.ReadFile("testdata/py/hit_limit.json")
 	if err != nil {

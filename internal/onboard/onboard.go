@@ -1,9 +1,9 @@
-// Package onboard checks whether a factory project is ready to switch on
-// (DESIGN-self-hosting.md, project 5): its kind, its commands, its
-// checkout, its context, the App's reach, the base's rules and, when asked,
-// a green main. It is read-only and makes no podman, git or GitHub call of
-// its own: everything it asks goes through Deps. factory onboard prints a
-// Report; the operator reads its JSON.
+// Package onboard checks whether a factory project is ready to switch on:
+// its kind, its commands, its checkout, its context, the App's reach, the
+// base's rules and, when asked, a green main. It is read-only and makes
+// no podman, git or GitHub call of its own: everything it asks goes
+// through Deps. factory onboard prints a Report; the operator reads its
+// JSON.
 package onboard
 
 import (
@@ -55,7 +55,7 @@ type Deps struct {
 	Checks func(ctx context.Context, p config.Project, ref string) (ok bool, tail string, err error)
 }
 
-// Item is one check's outcome. The names are stable: P4's operator reads
+// Item is one check's outcome. The names are stable: the operator reads
 // them.
 type Item struct{ Check, Status, Detail string }
 

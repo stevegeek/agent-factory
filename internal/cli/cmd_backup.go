@@ -16,10 +16,10 @@ import (
 	"github.com/stevegeek/agent-factory/internal/gitx"
 )
 
-// The backup group (§15.2): `factory backup` (the daily timer),
+// The backup group: `factory backup` (the daily timer),
 // `factory backup keygen`, `factory backup verify` (the Sunday timer),
 // `factory backup restore ARCHIVE --to DIR` and `factory backup adopt DIR`
-// (P6: a restored archive becomes a fresh master's state).
+// (a restored archive becomes a fresh master's state).
 
 // The command loads config.toml itself (no Config: true): keygen, and a
 // restore of a local archive, need only the key, so on a rebuilt machine

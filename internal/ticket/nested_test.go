@@ -40,7 +40,7 @@ func parse(t *testing.T, s string) jsonx.Value {
 	return v
 }
 
-// §3.1 property 2: typed changes to a ticket whose nested keys are in an
+// typed changes to a ticket whose nested keys are in an
 // order no struct has, with unknown keys at every depth, give exactly the
 // bytes Python's dict operations give (testdata/nested/gen.py).
 func TestTypedChangesKeepNestedOrderAndUnknownKeys(t *testing.T) {

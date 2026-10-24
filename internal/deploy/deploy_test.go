@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -121,7 +122,7 @@ func newFixture(t *testing.T) *fixture {
 	if err := os.MkdirAll(filepath.Join(served, "example"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for name, r := range map[string]*testkit.Repo{"agent-factory": f.core, "factory-config": f.conf} {
+	for name, r := range map[string]*testkit.Repo{"agent-factory": f.core, "config-repo": f.conf} {
 		if err := os.Symlink(filepath.Join(r.Dir, ".git"), filepath.Join(served, "example", name+".git")); err != nil {
 			t.Fatal(err)
 		}
@@ -153,7 +154,7 @@ listen = %q
 
 [deploy]
 core = "example/agent-factory"
-config = "example/factory-config"
+config = "example/config-repo"
 
 [hosts.helper1]
 ssh = "factory@helper1"
@@ -323,12 +324,18 @@ func (s *fakeSSH) Do(_ context.Context, h jobproto.Host, verb, job string, stdin
 	return []byte("installed " + job + "\n"), nil
 }
 
-type fakeAsker struct{ asks []string }
+type fakeAsker struct {
+	asks    []string
+	open    bool  // a Deploy? ask is open
+	openErr error // DeployAskOpen fails
+}
 
 func (a *fakeAsker) DeployAsk(_ context.Context, rev, why string) error {
 	a.asks = append(a.asks, rev+": "+why)
 	return nil
 }
+
+func (a *fakeAsker) DeployAskOpen(context.Context) (bool, error) { return a.open, a.openErr }
 
 type memLog struct {
 	mu    sync.Mutex
@@ -374,6 +381,34 @@ func TestOfferHeldFilesTheAsk(t *testing.T) {
 	}
 	if _, err := os.Stat(f.p.DeployRequest()); !os.IsNotExist(err) {
 		t.Errorf("a held offer wrote a request: %v", err)
+	}
+}
+
+// "Merge, don't deploy yet" leaves an open Deploy? ask and no hold file: a
+// later offer folds into that ask instead of deploying the held change.
+func TestOfferFoldsIntoOpenDeployAsk(t *testing.T) {
+	f := newFixture(t)
+	f.userBus()
+	a := &fakeAsker{open: true}
+	if err := f.s.Offer(context.Background(), f.cfg, a, "main", "T0042: raise max_agents to 3", "manager", false); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"main: T0042: raise max_agents to 3"}; !slices.Equal(a.asks, want) {
+		t.Errorf("asks %q, want %q", a.asks, want)
+	}
+	if _, err := os.Stat(f.p.DeployRequest()); !os.IsNotExist(err) {
+		t.Errorf("a held offer wrote a request: %v", err)
+	}
+	if n := len(f.exec.ran("systemd-run")); n != 0 {
+		t.Errorf("systemd-run ran %d times", n)
+	}
+	// an ask that cannot be looked for counts as open: unknown holds
+	a = &fakeAsker{openErr: errors.New("the board does not read")}
+	if err := f.s.Offer(context.Background(), f.cfg, a, "main", "why", "manager", false); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.asks) != 1 || len(f.exec.ran("systemd-run")) != 0 {
+		t.Errorf("asks %q, systemd-run %d", a.asks, len(f.exec.ran("systemd-run")))
 	}
 }
 

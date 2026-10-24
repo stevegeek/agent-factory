@@ -29,7 +29,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/web"
 )
 
-// These are the S21 web flows rerun against the real services: package ops
+// These are the web flows rerun against the real services: package ops
 // (with ops.Intents), ticketapi, config.Source, guard, api and mcp, wired as
 // the foreman binary wires them, on a temp board. Only the subprocesses
 // (scion, ssh) are faked, and wakes go to FACTORY_WAKE_LOG.
@@ -364,7 +364,7 @@ func TestAStaleAnswerIsRefused(t *testing.T) {
 	}
 }
 
-// §6.2: Foreman's wake writes foreman-state/wake, which factory-wake.path
+// Foreman's wake writes foreman-state/wake, which factory-wake.path
 // watches; it never runs systemd-run (the bus would let it run anything
 // outside its sandbox) and never spawns a tick inside the sandbox.
 func TestForemanWakesThroughTheTriggerFile(t *testing.T) {
@@ -389,7 +389,7 @@ func TestForemanWakesThroughTheTriggerFile(t *testing.T) {
 // Foreman never holds GitHub credentials: "Send back" from pr_open records
 // hold_requested and "Open the PR" records open_requested, each a stamp on
 // the ticket's pr, and the save wakes the tick, whose GitHub pass drains
-// them first (§6.3). Nothing ran a subprocess.
+// them first. Nothing ran a subprocess.
 func TestGitHubAnswersRecordIntentsAndWakeTheTick(t *testing.T) {
 	w := newWorld(t)
 	review := w.file(ticket.NewIn{Title: "Tidy README", Body: "b", Column: "ready_for_pr"}, func(tk *ticket.Ticket) {
@@ -437,7 +437,7 @@ func TestGitHubAnswersRecordIntentsAndWakeTheTick(t *testing.T) {
 	}
 }
 
-// An answer from Foreman records who gave it (D19): the maintainer as the
+// An answer from Foreman records who gave it: the maintainer as the
 // first of [board] people, a second user by their own name; the journal
 // says who clicked too.
 func TestEveryAnswerIsByWhoGaveIt(t *testing.T) {

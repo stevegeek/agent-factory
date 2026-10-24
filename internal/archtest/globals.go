@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 )
 
-// CheckGlobals enforces "no package-level mutable state" (§2.2 rule 7) with
+// CheckGlobals enforces "no package-level mutable state" with
 // go/types: a package-level var in production code must have an allowed
 // type, and no code in the module, tests included, may assign to it, take
 // its address or change it through a field or index after its declaration.

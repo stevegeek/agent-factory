@@ -1,6 +1,6 @@
 package model
 
-// Model is the JSON shape `factory model` prints (model(), F:4592), built
+// Model is the JSON shape `factory model` prints (model()), built
 // from the tables only. Printed with sorted keys and indent 2, it is byte
 // for byte the old Foreman's model.json (internal/model/testdata).
 type Model struct {

@@ -3,6 +3,7 @@ package sysinfo
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -35,6 +36,20 @@ func factory(s *Snapshot, d Deps, problem func(string, error)) {
 	}
 	if d.Pauses != nil {
 		s.Pauses = d.Pauses()
+	}
+	if d.Switches != nil {
+		if sw, err := d.Switches(); err != nil {
+			problem("project switches", err)
+		} else if len(sw) > 0 {
+			s.Switches = sw
+		}
+	}
+	if d.Hold != nil {
+		if h, err := d.Hold(); err != nil {
+			problem("deploy hold", fmt.Errorf("%w (deploys are held)", err))
+		} else {
+			s.DeployHold = h
+		}
 	}
 	if d.Config != nil {
 		s.Hosts = append(s.Hosts, Host{Name: model.LocalHost, Slots: d.Config.MaxAgents, Agents: s.Agents[model.LocalHost]})

@@ -1,7 +1,6 @@
-// Package backup is `factory backup` (ARCHITECTURE.md §15.2): a daily
-// encrypted archive of the box's state to Cloudflare R2, read back after
-// each upload, with retention, a weekly restore check, and restore into an
-// empty directory.
+// Package backup is `factory backup`: a daily encrypted archive of the
+// box's state to Cloudflare R2, read back after each upload, with
+// retention, a weekly restore check, and restore into an empty directory.
 //
 // The archive holds board/, memory/ (the bare stores, as files), context/,
 // config.toml, the token store (hashes only), foreman-state/ (without the

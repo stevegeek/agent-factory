@@ -32,7 +32,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/wake"
 )
 
-// The maintainer's verbs (§7.3, slice S15b): add, move, note, reply, ask,
+// The maintainer's verbs: add, move, note, reply, ask,
 // approve, redirect, merge, pr, host, migrate, wake and answer, each a thin
 // layer over package ops. The CLI holds the App's credentials, so its
 // PRActions are synchronous (prActions over prflow): `move` out of pr_open
@@ -44,7 +44,7 @@ import (
 //	host: runHost, migrate: runMigrate, wake: runWake, answer: runAnswer
 //
 // What a verb prints is its result only, on stdout; a refusal is its
-// message alone on stderr with exit 1 (§7.2).
+// message alone on stderr with exit 1.
 
 // opsCLI wires the verbs for one invocation. HTTP is GitHub's transport;
 // nil is a real http.Client (tests pass a fake).
@@ -410,7 +410,7 @@ func joinIDs(ids []ticket.ID) string {
 	return strings.Join(s, " ")
 }
 
-// refusal turns a verb's refusal into the command's (§7.2): its message
+// refusal turns a verb's refusal into the command's: its message
 // alone on stderr, exit 1. Any other error stays as it is (factory: …).
 func refusal(err error) error {
 	if err == nil {
@@ -528,7 +528,7 @@ func appKeyPath(e *Env, cfg *config.Config) string {
 	return key
 }
 
-// waker starts a tick (FACTORY_WAKE_LOG, seam 4, only notes it).
+// waker starts a tick (FACTORY_WAKE_LOG only notes it).
 func waker(e *Env) wake.Waker {
 	var sp wake.Spawner = execx.OS{}
 	if s, ok := e.Exec.(wake.Spawner); ok {

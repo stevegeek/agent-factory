@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-// The encrypted archive (§15.2): a header, then the archive in GCM-sealed
+// The encrypted archive: a header, then the archive in GCM-sealed
 // chunks, so neither side holds more than one chunk in memory.
 //
 //	header: magic "FBACKUP" | version 1 | chunk size (uint32, big-endian) | nonce prefix (7 bytes)

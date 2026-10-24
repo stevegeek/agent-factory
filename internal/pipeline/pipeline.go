@@ -1,16 +1,15 @@
-// Package pipeline is the tick (ARCHITECTURE.md §2.3, §5; inventory-pipeline
-// §5-§7, §13-§15): the watches, then up to three passes over the board,
-// each of which reconciles tickets stranded in Working, polls every running
-// agent (finishing, requeueing or losing it), runs the GitHub pass (the
-// intents Foreman records first), refreshes the bases and starts what waits:
-// a gate here, or a stage's agent on the host routing picks.
+// Package pipeline is the tick: the watches, then up to three passes over
+// the board, each of which reconciles tickets stranded in Working, polls
+// every running agent (finishing, requeueing or losing it), runs the GitHub
+// pass (the intents Foreman records first), refreshes the bases and starts
+// what waits: a gate here, or a stage's agent on the host routing picks.
 //
-// The decision order is Python's tick_pass (F:2159), step for step. What is
+// The decision order is Python's tick_pass, step for step. What is
 // different is said where it is: a ticket file that cannot be read is passed
-// over and noticed instead of crashing the tick (quirk 1); the tick runs
-// under a deadline below its unit's and starts no gate it could not finish
-// (quirk 10); a cancelled tick saves nothing it had not saved at a commit
-// point (§5.2).
+// over and noticed instead of crashing the tick; the tick runs
+// under a deadline below its unit's and starts no gate it could not finish;
+// a cancelled tick saves nothing it had not saved at a commit
+// point.
 //
 // Commit points are Python's: the write-ahead save of an agent before its
 // launch, and the save at the end of each ticket's step in each loop. Every
@@ -40,9 +39,9 @@ import (
 )
 
 const (
-	// DefaultDeadline bounds a whole tick (§5.2, quirk 10): below the
-	// factory@tick unit's TimeoutStartSec of 45 minutes, so systemd never
-	// kills a tick half-way through a step.
+	// DefaultDeadline bounds a whole tick: below the factory@tick unit's
+	// TimeoutStartSec of 45 minutes, so systemd never kills a tick half-way
+	// through a step.
 	DefaultDeadline = 42 * time.Minute
 	// DefaultReserve is what must be left of the deadline before a gate
 	// starts (up to 30 minutes of checks); prflow keeps the same reserve
@@ -73,6 +72,9 @@ type Deps struct {
 	Doors   Doors  // the watches and the notices (doors.Service)
 	Issues  Tracker
 	Deploys Deployer // the self-deploy's tick part (deploy.Service); nil does nothing
+	// Operator settles the manager's drafts and actions under the rights
+	// tiers (operator.Service); nil does nothing
+	Operator Operator
 
 	// Deadline bounds the tick; 0 is DefaultDeadline.
 	Deadline time.Duration
@@ -86,6 +88,14 @@ type Deps struct {
 // reboot cut off. The tick never deploys itself.
 type Deployer interface {
 	Drain(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket) error
+}
+
+// Operator is the operator's part of each pass (operator.Service.Settle):
+// it judges the manager's new and tapped items, lands or runs those the
+// rights tiers allow, and offers one deploy. The pipeline reaches it only
+// through this interface.
+type Operator interface {
+	Settle(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket) error
 }
 
 // ConfigSource gives the config as it is now (*config.Source): the tick

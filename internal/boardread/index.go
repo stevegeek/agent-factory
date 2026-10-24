@@ -200,7 +200,7 @@ func sameIDs(a, b Index) bool {
 // what summary_of reads.
 func EntryOf(tree jsonx.Value) Entry { return Entry{entryOf(tree, nil)} }
 
-// entryOf is index_entry (F:3116), reading the dict as Python does.
+// entryOf is index_entry, reading the dict as Python does.
 func entryOf(tree jsonx.Value, st *Stat) jsonx.Object {
 	t, _ := tree.Object()
 	get := t.Get

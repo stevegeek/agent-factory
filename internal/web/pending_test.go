@@ -7,7 +7,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// §6.3: after "Open the PR" the ticket says the tick is doing it.
+// after "Open the PR" the ticket says the tick is doing it.
 func TestTheTicketSaysAnIntentIsPending(t *testing.T) {
 	h := newHarness(t, false)
 	id := string(h.fixtures()[0].ID)

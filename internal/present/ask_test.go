@@ -62,7 +62,7 @@ func TestDeskOrderAndAsks(t *testing.T) {
 }
 
 // Only a stored ask asks, and only in the ask columns: a ticket with none
-// is what `factory check --asks` lists (D11).
+// is what `factory check --asks` lists.
 func TestOnlyAStoredAskAsks(t *testing.T) {
 	x := tk(t, `{"id": "T0043", "project": "p", "title": "T", "door": "human", "column": "needs_human",
 		"ask": {"kind": "start", "question": "Go?", "why": "", "since": "2026-10-16T10:00:00+00:00", "retry_column": null},
@@ -136,7 +136,7 @@ func TestARespondedAskWaitsLowerDownUntilTheFactoryMoves(t *testing.T) {
 	}
 }
 
-// D19: a response is its own person's. Another user's note leaves the ask
+// a response is its own person's. Another user's note leaves the ask
 // waiting on the maintainer's desk, and moves it down only on theirs; a
 // question is its asker's, as its task records.
 func TestARespondedAskIsOnlyItsOwnPersons(t *testing.T) {
@@ -165,7 +165,7 @@ func TestARespondedAskIsOnlyItsOwnPersons(t *testing.T) {
 	if r, _ := Responded(first.T, first.Ask, robin, ByID(ts)); r != "" {
 		t.Errorf("the maintainer's note is not robin's response: %q", r)
 	}
-	// an untyped note names nobody: the maintainer's, from before D19
+	// an untyped note names nobody: the maintainer's, from an older board
 	first.T.History = append(first.T.History, note(at, "old style"))
 	if r, _ := Responded(first.T, first.Ask, robin, ByID(ts)); r != "" {
 		t.Errorf("an unnamed note is not robin's: %q", r)
@@ -345,7 +345,7 @@ func TestAnAnsweredQuestionBringsItsTicketBack(t *testing.T) {
 	}
 }
 
-// Every ask kind the model knows has its words here (§2.4.3): a label and a
+// Every ask kind the model knows has its words here: a label and a
 // glyph, a desk position, an action and what the desk waits for.
 func TestEveryAskKindHasItsWords(t *testing.T) {
 	x := tk(t, `{"id": "T0001", "column": "needs_human"}`)

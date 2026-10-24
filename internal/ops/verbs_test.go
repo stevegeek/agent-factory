@@ -26,7 +26,7 @@ path = "/srv/widgets"
 base = "main"
 `
 
-// Each verb reads the config as it is now (§3.4): a project removed from
+// Each verb reads the config as it is now: a project removed from
 // config, or switched to board mode, refuses the next add; a paused project
 // still takes tickets, as in Python (the tick starts none of them).
 func TestAddFollowsTheConfig(t *testing.T) {
@@ -232,7 +232,7 @@ func TestSendingAPRBackHoldsIt(t *testing.T) {
 	}
 }
 
-// Foreman's intents (§6.3): the send-back records hold_requested, the open
+// Foreman's intents: the send-back records hold_requested, the open
 // records open_requested, and the save that records one wakes the tick.
 // Nothing in Intents talks to GitHub.
 func TestIntentsRecordWhatTheTickDoes(t *testing.T) {

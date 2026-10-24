@@ -137,7 +137,7 @@ type Review struct {
 }
 
 // Reviews is GET /repos/<repo>/pulls/<n>/reviews?per_page=100: one page,
-// as Python asks (§13.2 quirk 8).
+// as Python asks.
 func (c *Client) Reviews(ctx context.Context, repo string, number int64) ([]Review, error) {
 	path := "/repos/" + repo + "/pulls/" + n(number) + "/reviews?per_page=100"
 	items, err := c.list(ctx, path)
@@ -186,10 +186,12 @@ func (c *Client) list(ctx context.Context, path string) ([]jsonx.Value, error) {
 	return objects("GET "+path, resp.Value)
 }
 
-// MergeResult is the answer to a merge.
+// MergeResult is the answer to a merge. SHA is the merge commit ("" when
+// the answer names none).
 type MergeResult struct {
 	Merged  bool
 	Message string
+	SHA     string
 	Raw     jsonx.Value
 }
 
@@ -208,13 +210,43 @@ func (c *Client) Merge(ctx context.Context, repo string, number int64, sha strin
 	if err := object("PUT "+path, resp.Value); err != nil {
 		return nil, err
 	}
-	return &MergeResult{Merged: jsonx.Truthy(resp.Value.Get("merged")), Message: str(resp.Value, "message"), Raw: resp.Value}, nil
+	return &MergeResult{Merged: jsonx.Truthy(resp.Value.Get("merged")), Message: str(resp.Value, "message"), SHA: str(resp.Value, "sha"), Raw: resp.Value}, nil
 }
 
 // DeleteRef is DELETE /repos/<repo>/git/refs/heads/<branch>.
 func (c *Client) DeleteRef(ctx context.Context, repo, branch string) error {
 	_, err := c.Do(ctx, "DELETE", "/repos/"+repo+"/git/refs/heads/"+branch, jsonx.Null())
 	return err
+}
+
+// BranchHead is GET /repos/<repo>/git/ref/heads/<branch> (the branch
+// unescaped, as DeleteRef sends it): the commit GitHub has at the branch's
+// head. Anything but a commit with a full object id is an error.
+func (c *Client) BranchHead(ctx context.Context, repo, branch string) (string, error) {
+	path := "/repos/" + repo + "/git/ref/heads/" + branch
+	resp, err := c.Do(ctx, "GET", path, jsonx.Null())
+	if err != nil {
+		return "", err
+	}
+	obj := resp.Value.Get("object")
+	sha := str(obj, "sha")
+	if str(obj, "type") != "commit" || !fullSHA(sha) {
+		return "", fmt.Errorf("github: GET %s: no commit at the head", path)
+	}
+	return sha, nil
+}
+
+// fullSHA reports a whole SHA-1 or SHA-256 object id in lower-case hex.
+func fullSHA(s string) bool {
+	if len(s) != 40 && len(s) != 64 {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // Comment is POST /repos/<repo>/issues/<n>/comments with {"body": body}.
@@ -243,7 +275,7 @@ func (c *Client) GraphQL(ctx context.Context, query string, variables jsonx.Valu
 	return resp.Value, nil
 }
 
-// SetDraft is set_pr_draft (F:2582): REST cannot change a PR's draft state,
+// SetDraft is set_pr_draft: REST cannot change a PR's draft state,
 // so GraphQL's convertPullRequestToDraft or markPullRequestReadyForReview,
 // with the PR's node id. GraphQL errors fail with Python's message.
 func (c *Client) SetDraft(ctx context.Context, nodeID string, draft bool) error {

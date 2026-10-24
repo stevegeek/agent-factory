@@ -10,19 +10,19 @@ import (
 	"github.com/stevegeek/agent-factory/internal/podman"
 )
 
-// rebuild is the helper's weekly image rebuild (`factory-remote rebuild`,
-// or `factory rebuild` through the bin/factory symlink): Python's
-// rebuild(cfg) on a host with no project checkouts. Each image this host
-// has (the pi image from [remote] image, and the claude image when the
-// top-level image is set and present) is rebuilt under the tick lock,
-// logged to logs/rebuild-<kind>.log and factory.log. On a host whose
-// agent is claude, [remote] image is the claude image and the only one
-// rebuilt. The version follows the dispatcher's rule (§15.1): an auto-updated tool's latest stable
-// release when it is newer than the version the image has (the newer of
-// the [images] floor and this host's images.json) and than a held one;
-// images.json records a promoted update. The helper has no board, so a
-// failure files no notice and runs no project checks; like Python it
-// still exits 0 when an image failed.
+// rebuild is the helper's weekly image rebuild (`factory-remote
+// rebuild`, or `factory rebuild` through the bin/factory symlink):
+// Python's rebuild(cfg) on a host with no project checkouts. Each image
+// this host has (the pi image from [remote] image, and the claude image
+// when the top-level image is set and present) is rebuilt under the tick
+// lock, logged to logs/rebuild-<kind>.log and factory.log. On a host
+// whose agent is claude, [remote] image is the claude image and the only
+// one rebuilt. The version follows the dispatcher's rule: an
+// auto-updated tool's latest stable release when it is newer than the
+// version the image has (the newer of the [images] floor and this host's
+// images.json) and than a held one; images.json records a promoted
+// update. The helper has no board, so a failure files no notice and runs
+// no project checks; like Python it still exits 0 when an image failed.
 func (s *Server) rebuild(ctx context.Context) error {
 	cfg, err := s.config()
 	if err != nil {

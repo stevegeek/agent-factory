@@ -1,9 +1,9 @@
-// Package sshjobs is the dispatcher's client for factory-remote
-// (ARCHITECTURE.md §2.3): one helper verb over OpenSSH (Python remote(),
-// F:811). The helper's authorized_keys forces the key to factory-remote, so
-// the verbs of jobproto.SSHVerbs are all a call can do there.
+// Package sshjobs is the dispatcher's client for factory-remote: one helper
+// verb over OpenSSH (Python remote()). The helper's authorized_keys
+// forces the key to factory-remote, so the verbs of jobproto.SSHVerbs are
+// all a call can do there.
 //
-// Foreman never links this package (§2.2 rule 3); its read-only path to a
+// Foreman never links this package; its read-only path to a
 // helper is jobtail.
 package sshjobs
 

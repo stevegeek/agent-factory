@@ -179,8 +179,8 @@ func PRCallout(t *ticket.Ticket) *Callout {
 	return &Callout{Tone: "warn", Title: "Why this PR is a draft", Lines: DraftReasons(g.Blockers)}
 }
 
-// Pending says what the tick is doing for an intent Foreman recorded
-// (§6.3): Foreman holds no GitHub credentials, so "Open the PR", "Merge"
+// Pending says what the tick is doing for an intent Foreman recorded:
+// Foreman holds no GitHub credentials, so "Open the PR", "Merge"
 // and "Send back" wait for the next tick. A failure since the request
 // (the latest error event after it) is the "still trying" line. nil when
 // nothing waits.

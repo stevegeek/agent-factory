@@ -1,12 +1,12 @@
-// Package scionread is read-only Scion (ARCHITECTURE.md §2.3): `scion list`
-// and `scion look`, the only verbs Foreman's code may reach. It contains no
-// verb that changes an agent.
+// Package scionread is read-only Scion: `scion list` and `scion look`, the
+// only verbs Foreman's code may reach. It contains no verb that changes an
+// agent.
 //
 // The read verbs run without the Claude token or an API key in their
 // environment. Scion's look is `tmux capture-pane` run in the agent's
 // container through the runtime (cmd/look.go), and list reads Scion's own
 // agent state: neither starts a harness, so neither needs the token. This
-// is what lets the Foreman unit make the token file inaccessible (§6.2).
+// is what lets the Foreman unit make the token file inaccessible.
 package scionread
 
 import (
@@ -22,7 +22,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 )
 
-// Timeout is the limit on every scion call (Python scion(), F:678).
+// Timeout is the limit on every scion call (Python scion()).
 const Timeout = 600 * time.Second
 
 // Variables a scion read verb never gets, whatever the caller's base holds.
@@ -95,7 +95,7 @@ func firstArg(args []string) string {
 
 // List is `scion list --format json` in a project: the names of the agents
 // Scion runs there. A failed or unreadable list is an error, never an empty
-// list (running_agents, F:686).
+// list (running_agents).
 func (r Reader) List(ctx context.Context, dir string) ([]string, error) {
 	res, err := r.run(ctx, dir, ReadEnv(r.Env, r.Bin), "list", "--format", "json")
 	if err != nil {

@@ -26,7 +26,7 @@ import (
 // it matches no head a reviewer started from, so the check fails closed.
 const unknownHead = "unknown"
 
-// agents is the agent pass of tick_pass (F:2164): every ticket with an
+// agents is the agent pass of tick_pass: every ticket with an
 // agent, under its lock. A helper's agent is polled there; one here is
 // finished when it left a report, requeued when it went quiet at a usage
 // limit, lost when Scion no longer runs it, and stopped past its timeout.
@@ -123,7 +123,7 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 		if err := checkout(); err != nil {
 			return err
 		}
-		// the branch is kept even for a stage without one (quirk 3)
+		// the branch is kept even for a stage without one, as in Python
 		if err := d.Local.Remove(ctx, dir, t.ID, a.Name, true); err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 	return nil
 }
 
-// remoteAgent is the helper half of the agent pass (F:2169): poll_remote,
+// remoteAgent is the helper half of the agent pass: poll_remote,
 // and when it fails, an error event; past the agent's timeout the job is
 // removed and the agent counted lost.
 func (d Deps) remoteAgent(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket) {
@@ -162,7 +162,7 @@ func (d Deps) remoteAgent(ctx context.Context, cfg *config.Config, proj *config.
 	t.Agent = ticket.Nil[ticket.Agent]()
 }
 
-// pollRemote is poll_remote (F:942): a running job is timed out once past
+// pollRemote is poll_remote: a running job is timed out once past
 // its time, a job that is gone is lost; a done one is collected (its files
 // archived, its memory settled, a worker's branch fetched from its bundle),
 // removed from the helper, and finished, requeued at a usage limit, or sent
@@ -244,7 +244,7 @@ func (d Deps) pollRemote(ctx context.Context, cfg *config.Config, proj *config.P
 	return d.finish(ctx, cfg, proj, t, report, res.Head())
 }
 
-// requeue is requeue_after_limit (F:805): a run a usage limit stopped is not
+// requeue is requeue_after_limit: a run a usage limit stopped is not
 // the ticket's fault. It goes back to where its stage starts, its memory
 // settled, and the host is paused; no person is asked.
 func (d Deps) requeue(ctx context.Context, cfg *config.Config, t *ticket.Ticket, host, why string) error {
@@ -272,7 +272,7 @@ func (d Deps) lost(t *ticket.Ticket, host string) {
 	}
 }
 
-// finish is finish_stage (F:1848): a local agent is removed (its branch kept
+// finish is finish_stage: a local agent is removed (its branch kept
 // for the stages that have one), the run's memory settled, the facts of the
 // branch read, and the stage's finisher decides. The tickets it files are
 // saved first, an Ask's answer is delivered to the ticket it was asked on
@@ -406,7 +406,7 @@ func (d Deps) loadParent(id string) (*ticket.Ticket, error) {
 	return p, err
 }
 
-// deliver is deliver_answer's write (F:1532): under the lock of the ticket
+// deliver is deliver_answer's write: under the lock of the ticket
 // the Ask was asked on, the answer is recorded there and saved, unless that
 // ticket closed meanwhile.
 func (d Deps) deliver(ctx context.Context, a stage.ParentAnswer) (bool, error) {

@@ -15,7 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/testkit"
 )
 
-// The goldens of tools/goldens.py (g_markdown): Python's ticket verbs on a
+// The goldens of the Python goldens tool (g_markdown): Python's ticket verbs on a
 // scratch board, at a fixed clock per call. The writes are replayed here in
 // the same order, each output and written Markdown compared with Python's,
 // then the ticket files byte for byte, then the read calls on the board.
@@ -226,7 +226,7 @@ func TestBoardCallsMatchPython(t *testing.T) {
 //
 // port: TT ContractFixture.test_fixture_is_current
 func TestContractBoardTicket(t *testing.T) {
-	// The module's own copy (§10.4), which stays after core/foreman is gone.
+	// The module's own copy of the contract fixture.
 	files, _ := filepath.Glob(filepath.Join("..", "ticket", "testdata", "legacy", "contract", "T*.json"))
 	var want []byte
 	for _, p := range files {

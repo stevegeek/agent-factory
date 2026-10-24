@@ -28,7 +28,7 @@ func pythonArgv(t *testing.T) map[string][]string {
 
 // The table has every command Python's argparse had, each with the same
 // positionals and flags, so every argv Foreman, the units and the docs
-// use still parses (§7.3).
+// use still parses.
 func TestTheTableTakesPythonsArgv(t *testing.T) {
 	py := pythonArgv(t)
 	if len(py) < 30 {
@@ -56,9 +56,9 @@ func TestTheTableTakesPythonsArgv(t *testing.T) {
 		}
 		want := append([]string(nil), args...)
 		switch name { // the flags Go adds
-		case "check": // §7.3
+		case "check":
 			want = append(want, "--board", "--asks")
-		case "rebuild": // §15.1; --latest: P5's latest-toolchain trial
+		case "rebuild": // automatic updates; --latest: the latest-toolchain trial
 			want = append(want, "--rollback", "--unhold", "--latest")
 		case "add": // the findings flow
 			want = append(want, "--findings")
@@ -69,8 +69,8 @@ func TestTheTableTakesPythonsArgv(t *testing.T) {
 			t.Errorf("%s: arguments %q, Python's %q", name, got, want)
 		}
 	}
-	// The commands Go adds (§7.3).
-	for _, name := range []string{"answer", "render", "patch-scion", "version", "backup", "findings", "screens", "fizzy", "project", "build", "kinds", "onboard", "deploy"} { // backup: §15.2; project: the maintainer's switch; build, kinds, onboard, deploy: DESIGN-self-hosting
+	// The commands Go adds.
+	for _, name := range []string{"answer", "render", "patch-scion", "version", "backup", "findings", "screens", "fizzy", "project", "build", "kinds", "onboard", "deploy"} { // backup: the R2 backup; project: the maintainer's switch; build, kinds, onboard, deploy: self-hosting
 		if _, ok := ours[name]; !ok {
 			t.Errorf("no command %s", name)
 		}

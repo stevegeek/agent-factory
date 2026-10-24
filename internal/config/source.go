@@ -15,7 +15,7 @@ type Logger interface {
 	Printf(format string, args ...any)
 }
 
-// Source is a config that follows its file (§3.4). Each Current call stats
+// Source is a config that follows its file. Each Current call stats
 // the file and re-parses it when its (inode, mtime_ns, size) changed, so a
 // project removed from config, a new person, a paused project or a changed
 // mode takes effect on the next call, as it did when every action was a

@@ -1,7 +1,6 @@
-// Package gitread is read-only git on project repositories (ARCHITECTURE.md
-// §2.3, §4.8). No method here writes a repository, its config, its index
-// or the network: the write verbs live in gitx, which Foreman's build may
-// not link (§2.2 rule 3).
+// Package gitread is read-only git on project repositories. No method here
+// writes a repository, its config, its index or the network: the write verbs
+// live in gitx, which Foreman's build may not link.
 //
 // An agent's container mounts its project's .git read-write, so anything
 // git on the host reads from that .git could have been planted (hooks, and
@@ -309,7 +308,7 @@ func (r *Repo) CatFileExists(ctx context.Context, rev, file string) (bool, error
 	return res.Code == 0, nil
 }
 
-// MinVersion is the oldest git the factory supports (HANDOVER; merge-tree
+// MinVersion is the oldest git the factory supports (merge-tree
 // --write-tree needs 2.38).
 const MinVersion = "2.48"
 

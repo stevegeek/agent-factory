@@ -127,7 +127,7 @@ func selfFixture(t *testing.T) *fixture {
 	return f
 }
 
-// P6: a master with [build] host = "self" runs factory-remote's build verb
+// a master with [build] host = "self" runs factory-remote's build verb
 // itself: the source on stdin, and no SSH_ORIGINAL_COMMAND (the verb is
 // in argv; over SSH it would be refused).
 func TestBuildSelfRunsTheLocalVerb(t *testing.T) {
@@ -159,7 +159,7 @@ func TestBuildSelfRunsTheLocalVerb(t *testing.T) {
 	}
 }
 
-// P6: the self build's answer is checked and stored like a helper's,
+// the self build's answer is checked and stored like a helper's,
 // with "self" as the builder.
 func TestBuildSelfStoresTheCandidate(t *testing.T) {
 	f := selfFixture(t)
@@ -177,7 +177,7 @@ func TestBuildSelfStoresTheCandidate(t *testing.T) {
 	}
 }
 
-// P6: a failed self build stores nothing and reports the verb's failure.
+// a failed self build stores nothing and reports the verb's failure.
 func TestBuildSelfFailureIsReported(t *testing.T) {
 	f := selfFixture(t)
 	ex := &fakeExec{answer: func([]string) (int, string) { return 3, "" }}

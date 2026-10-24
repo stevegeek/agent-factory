@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// regex.json (tools/goldens.py) runs every regex the Python code uses over a
+// regex.json (the Python goldens tool) runs every regex the Python code uses over a
 // corpus with non-ASCII letters and digits, NEL, LS, PS, \x1c-\x1f and
-// trailing newlines. This test is the §8.5 checklist applied to every one of
+// trailing newlines. This test is regex.go's checklist applied to every one of
 // them: each Go translation below is built from the shared classes and
 // helpers and must give Python's result for every case. The slices that own
 // these patterns copy the translations from here.

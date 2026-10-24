@@ -78,7 +78,7 @@ func TestMergeOnYourGoAheadMergesExactlyTheGatedCommit(t *testing.T) {
 }
 
 // merge_pr refuses a PR that is closed or a draft, and says what GitHub
-// said when it refuses the merge (§10.7 S14).
+// said when it refuses the merge.
 func TestMergeRefusals(t *testing.T) {
 	cfg := parseConfig(t, testConfig)
 	p := project(t, cfg, "gem")
@@ -183,7 +183,7 @@ func TestMainMovedAndTheChecksFailSendsItBack(t *testing.T) {
 }
 
 // A merge that worked but whose branch could not be deleted is only an
-// event (§10.7 S14); a branch that is not bot/* is never deleted.
+// event; a branch that is not bot/* is never deleted.
 func TestABranchDeleteFailureIsOnlyAnEvent(t *testing.T) {
 	cfg := parseConfig(t, testConfig)
 	p := project(t, cfg, "gem")

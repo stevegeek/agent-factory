@@ -15,7 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// OpenPR is open_pr (F:2431): it opens the ticket's PR, or updates it when
+// OpenPR is open_pr: it opens the ticket's PR, or updates it when
 // the ticket's PR is still open on its branch (a rework), and moves the
 // ticket to pr_open.
 //
@@ -153,7 +153,7 @@ func prTitle(cfg *config.Config, p config.Project, t *ticket.Ticket) string {
 	return textx.Clip(textx.SentenceSplit(summary)[0], prTitleMax)
 }
 
-// openPROf is open_pr_of (F:2568): the ticket's PR when it is still open on
+// openPROf is open_pr_of: the ticket's PR when it is still open on
 // its branch. A PR that is gone (404) is not an error: a new one is opened.
 func (f *Flow) openPROf(ctx context.Context, repo string, t *ticket.Ticket) (*github.PR, error) {
 	n := t.PR.V.Number
@@ -174,7 +174,7 @@ func (f *Flow) openPROf(ctx context.Context, repo string, t *ticket.Ticket) (*gi
 	return nil, nil
 }
 
-// requestReview is request_review (F:2555): the configured reviewers are
+// requestReview is request_review: the configured reviewers are
 // asked, with a "review requested" event. A failure is only an error event:
 // the PR is open either way.
 func (f *Flow) requestReview(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) {

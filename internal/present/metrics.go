@@ -176,14 +176,29 @@ func (r *reader) countMetrics(ts []*ticket.Ticket, start time.Time, v Viewer) Me
 				if i >= 0 {
 					r.countMove(at(i), m, open)
 				}
-				if open != nil {
+				settle := m.Is(model.ReasonOperatorSettled, false)
+				kind, asks := model.AskKind(""), isAskColumn(m.To)
+				if asks {
+					kind = r.arrivalKind(t, m)
+				}
+				if settle {
+					kind, asks = settledAsk(m.Text)
+					if open != nil && asks && byOf(h) == "factory" {
+						// the tick's settle refreshes the ask it keeps open:
+						// the wait goes on from when it arrived, as the ask
+						// the settle left
+						open.kind = kind
+						continue
+					}
+				}
+				if open != nil && (!settle || byOf(h) != "factory") {
 					if by, ok := r.answeredBy(h, m, open); ok {
 						answer(when, by)
 					}
 				}
 				open = nil
-				if isAskColumn(m.To) {
-					open = &openAsk{kind: r.arrivalKind(t, m), since: when}
+				if asks {
+					open = &openAsk{kind: kind, since: when}
 				}
 			}
 		}
@@ -275,6 +290,36 @@ func createdAskKind(t *ticket.Ticket) model.AskKind {
 	return model.AskUnstick
 }
 
+// settledAsk is what an operator settle move left a person to answer, read
+// from the tally in its detail ("operator: 1 applied, 1 waits for you"):
+// nothing while the factory has an item still to run (the tap, a pass that
+// left one), the draft ask while one waits, failed or is by hand, else the
+// notice. What follows the tally after "; " is the pass's own lines.
+func settledAsk(text string) (model.AskKind, bool) {
+	_, tally, ok := strings.Cut(text, "operator: ")
+	if !ok {
+		return model.AskDraft, true
+	}
+	tally, _, _ = strings.Cut(tally, ";")
+	has := func(words ...string) bool {
+		for _, part := range strings.Split(tally, ", ") {
+			for _, w := range words {
+				if _, rest, ok := strings.Cut(part, " "); ok && rest == w {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	switch {
+	case has("waits for you", "wait for you", "failed", "to apply by hand"):
+		return model.AskDraft, true
+	case has("requested", "new"):
+		return "", false
+	}
+	return model.AskNotice, true
+}
+
 // arrivalKind is the kind of the ask move m put to a person, as
 // ticket.AskFor decided it when the move was made: read from the move's
 // reason (or older history's wording), not from the ticket as it is now.
@@ -291,7 +336,8 @@ func (r *reader) arrivalKind(t *ticket.Ticket, m MoveFacts) model.AskKind {
 		return model.AskProposal
 	case m.Is(model.ReasonDesignReady, strings.HasPrefix(d, "design ready")):
 		return model.AskDesign
-	case m.Is(model.ReasonManagerDrafted, strings.HasPrefix(d, "manager drafted")):
+	case m.Is(model.ReasonManagerDrafted, strings.HasPrefix(d, "manager drafted")),
+		m.Is(model.ReasonOperatorSettled, false):
 		return model.AskDraft
 	case m.Is(model.ReasonManagerAnswered, strings.HasPrefix(d, "manager answered")):
 		return model.AskNotice

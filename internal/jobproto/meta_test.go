@@ -38,7 +38,7 @@ func TestMetaIsValidatedAndClamped(t *testing.T) {
 }
 
 // The golden is check_meta run by Python over a corpus of metas
-// (tools/goldens.py). Each row's out is compared field by field; branch and
+// (the Python goldens tool). Each row's out is compared field by field; branch and
 // start as str() of what Python returned.
 func TestMetaGolden(t *testing.T) {
 	b, err := os.ReadFile("testdata/py/meta.json")

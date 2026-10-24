@@ -29,7 +29,7 @@ type AddIn struct {
 	Manage   bool   // a request for the manager
 	Findings bool   // with Task: its agent reports structured findings, which a verifier checks
 	Timeout  int    // minutes its agents may run; 0 is the default
-	By       string // the Foreman user filing it; "" is the maintainer (D19)
+	By       string // the Foreman user filing it; "" is the maintainer
 }
 
 // MaxBodyFile caps what --body-file reads: far above any ticket's body, far

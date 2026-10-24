@@ -13,7 +13,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/execx"
 )
 
-// Healthy is the deploy's check that commit12 runs (decision 5): within
+// Healthy is the deploy's check that commit12 runs: within
 // HealthWait, Foreman's /healthz answers ok and names version commit12
 // (the old Foreman answers ok until its restart, so ok alone proves
 // nothing), and, when since is set, a start no earlier than since (to the

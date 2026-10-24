@@ -69,7 +69,7 @@ func filedWords(kind string) string {
 	case model.KindTask:
 		return "An agent answers it; the answer lands on your desk."
 	case model.KindManage:
-		return "The manager answers it, with any config change as a draft for you to apply."
+		return "The manager answers it, and proposes any config change or action; the factory applies each under the rights tiers, or waits for your tap."
 	}
 	return "A worker picks it up on the next tick."
 }
@@ -213,7 +213,7 @@ func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 }
 
 // fileCard files a card on a board project through the ticket API's create
-// verb, as the person filing it (D19): it lands in Inbox for the board's
+// verb, as the person filing it: it lands in Inbox for the board's
 // agents, and no agent of the factory's ever takes it.
 func (s *Server) fileCard(w http.ResponseWriter, r *http.Request, v *NewView, again func(string)) {
 	req := jsonx.ObjectOf(jsonx.Member{Key: "project", Value: jsonx.String(v.Project)},

@@ -30,7 +30,7 @@ const (
 	watchStderrMax = 200
 )
 
-// Watches is watches(cfg) (F:2707), the watch door, run by the tick before
+// Watches is watches(cfg), the watch door, run by the tick before
 // its passes: each [[watches]] command that has not run within its
 // every_minutes runs (no shell; only the maintainer's config names
 // commands), and when its stripped output is non-empty and differs from the
@@ -41,7 +41,7 @@ const (
 // skipped. A watch's kind task, intent or manage is kept and goes to the
 // watch's column (ready by default); anything else files a change, which
 // goes through triage like the other untrusted doors unless the watch sets
-// its column (D16; Python filed it to ready). watches.json is written after
+// its column (Python filed it to ready). watches.json is written after
 // every watch has had its turn.
 //
 // The error is what Python raised out of watches() (which the tick logs as

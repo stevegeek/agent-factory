@@ -187,7 +187,7 @@ func TestRotationKeepsEveryFileCompressed(t *testing.T) {
 			rotated = append(rotated, e.Name())
 		}
 	}
-	// D13: every rotated file is kept, as factory.log.<stamp>[-n].gz
+	// every rotated file is kept, as factory.log.<stamp>[-n].gz
 	stamp := at.UTC().Format("20060102T150405Z")
 	if len(rotated) < 5 {
 		t.Fatalf("only %d rotated files: %v", len(rotated), rotated)

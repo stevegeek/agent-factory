@@ -14,7 +14,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/testkit"
 )
 
-// §15.2: on a rebuilt machine there is no factory root, no config.toml and
+// on a rebuilt machine there is no factory root, no config.toml and
 // no ~/.config/factory yet. keygen makes the key's directory (0700), and a
 // restore of a local archive needs only the key; a backup run still needs
 // the config.
@@ -75,7 +75,7 @@ func TestBackupKeygenAndRestoreWithNoConfig(t *testing.T) {
 	}
 }
 
-// §15.2: `factory backup` and its verbs. deploy.sh installs the timers only
+// `factory backup` and its verbs. deploy.sh installs the timers only
 // once `factory backup --help` answers.
 func TestBackupCommand(t *testing.T) {
 	root := testkit.Root(t)
@@ -116,7 +116,7 @@ func TestBackupCommand(t *testing.T) {
 	}
 }
 
-// P6: [backup] name is the archive line's name; without it the backup
+// [backup] name is the archive line's name; without it the backup
 // names itself after the machine.
 func TestBackupServiceTakesTheNameFromConfig(t *testing.T) {
 	root := testkit.Root(t)
@@ -132,7 +132,7 @@ func TestBackupServiceTakesTheNameFromConfig(t *testing.T) {
 	}
 }
 
-// P6: `factory backup adopt DIR` moves a restored archive into a fresh
+// `factory backup adopt DIR` moves a restored archive into a fresh
 // root and says what moved, what stayed, and how to take a project's
 // unpushed commits.
 func TestBackupAdoptPrintsWhatMoved(t *testing.T) {

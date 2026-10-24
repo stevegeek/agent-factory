@@ -110,7 +110,7 @@ func TestParseFlags(t *testing.T) {
 	}
 }
 
-// §6.2: Foreman's state lives in <root>/foreman-state. A host whose files
+// Foreman's state lives in <root>/foreman-state. A host whose files
 // deploy has not moved yet keeps its old secret (and its users and sessions
 // beside it); once the moved secret exists it wins.
 func TestTheSecretDefaultFallsBackToTheOldPath(t *testing.T) {

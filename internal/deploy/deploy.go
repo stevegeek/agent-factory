@@ -78,9 +78,11 @@ type Noticer interface {
 }
 
 // Asker files or updates the one Deploy? ticket of a held deploy
-// (doors.Service.DeployAsk, wrapped by the cli).
+// (doors.Service.DeployAsk, wrapped by the cli), and reports whether one
+// is open (doors.Service.DeployAskOpen).
 type Asker interface {
 	DeployAsk(ctx context.Context, rev, why string) error
+	DeployAskOpen(ctx context.Context) (bool, error)
 }
 
 // SSHDoer runs a factory-remote verb on a helper (sshjobs.Client).
@@ -151,10 +153,14 @@ func (s Service) notice(ctx context.Context, title, body string) {
 	}
 }
 
-// Offer is how a merge asks for a deploy (P3): while deploys are held
-// (hold, or the maintainer's hold file) it files or updates the Deploy?
-// ask; otherwise it starts a deploy of main. rev and why are for the ask's
-// display: a deploy always takes main's head when it runs.
+// Offer is how a merge asks for a deploy: while deploys are held
+// (hold, the maintainer's hold file, or a Deploy? ask still open) it files
+// or updates the Deploy? ask; otherwise it starts a deploy of main. An
+// open ask holds because "merge, don't deploy yet" leaves one and no hold
+// file: deploying main now would deploy that held change behind the
+// maintainer's back. An ask that cannot be looked for
+// holds too. rev and why are for the ask's display: a deploy always takes
+// main's head when it runs.
 func (s Service) Offer(ctx context.Context, cfg *config.Config, a Asker, rev, why, by string, hold bool) error {
 	if !hold {
 		_, held, err := deployrec.ReadHold(s.Paths.DeployHold())
@@ -162,6 +168,14 @@ func (s Service) Offer(ctx context.Context, cfg *config.Config, a Asker, rev, wh
 			s.logf("deploy: the hold does not read (%v): holding", err)
 		}
 		hold = held
+	}
+	if !hold {
+		open, err := a.DeployAskOpen(ctx)
+		if err != nil {
+			s.logf("deploy: an open Deploy? ask cannot be looked for (%v): holding", err)
+			open = true
+		}
+		hold = open
 	}
 	if hold {
 		return a.DeployAsk(ctx, rev, why)

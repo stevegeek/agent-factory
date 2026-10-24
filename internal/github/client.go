@@ -5,9 +5,9 @@
 //
 // It ports github_request, github_app_jwt, installation_token,
 // fetch_open_issues, latest_github_release, latest_npm_version and the calls
-// the PR flow makes (F:2330-2600, F:2836-2848, F:4720). It makes no decision:
+// the PR flow makes. It makes no decision:
 // prflow, doors, upkeep and the CLI decide what a refusal means. Errors say
-// whether retrying can help (IsTransient), which the intent drain (§6.3)
+// whether retrying can help (IsTransient), which the intent drain
 // needs and Python did not have.
 //
 // Requests and their bodies are what Python sends, byte for byte: the same
@@ -116,7 +116,7 @@ func (c *Client) timeout() time.Duration {
 	return c.Timeout
 }
 
-// Do is github_api (F:2388): an authenticated call to path (which starts with
+// Do is github_api: an authenticated call to path (which starts with
 // "/" and may carry a query) with body as JSON, or no body when body is null.
 // A non-2xx answer is a bare *HTTPError, whose text is Python's str(e).
 func (c *Client) Do(ctx context.Context, method, path string, body jsonx.Value) (*Response, error) {
@@ -133,7 +133,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body jsonx.Value) 
 	return c.send(ctx, method, path, "Bearer "+tok, body)
 }
 
-// send is github_request (F:2366) with the Authorization header given whole.
+// send is github_request with the Authorization header given whole.
 func (c *Client) send(ctx context.Context, method, path, authorization string, body jsonx.Value) (*Response, error) {
 	if err := checkPath(path); err != nil {
 		return nil, fmt.Errorf("github: %s %q: %w", method, path, err)

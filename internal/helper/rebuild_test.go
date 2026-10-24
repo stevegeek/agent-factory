@@ -134,9 +134,9 @@ func TestRebuildWithNoConfig(t *testing.T) {
 	os.Remove(filepath.Join(r.Root, "config.toml"))
 }
 
-// §15.1 on the helper: a newer Pi release is built, checked for that exact
-// version, promoted and recorded in the helper's images.json; a held one
-// is not retried.
+// The automatic updates on the helper: a newer Pi release is built,
+// checked for that exact version, promoted and recorded in the helper's
+// images.json; a held one is not retried.
 func TestRebuildUpdatesPiOnTheHelper(t *testing.T) {
 	r := newRig(t)
 	r.write(t, "config.toml", "[images]\npi = \"1.2.0\"\nauto_update = [\"pi\"]\n")

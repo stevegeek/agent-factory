@@ -49,7 +49,7 @@ func markSettled(t *ticket.Ticket, a ticket.Agent, m ticket.MemoryRef) {
 	t.Agent = ticket.Some(a)
 }
 
-// Settle is settle_memory (F:1326): after a run, its container gone, what
+// Settle is settle_memory: after a run, its container gone, what
 // it changed is committed on the commit it started from and merged into
 // the store, and a memory event says so on the ticket. remote is a helper
 // run's copy (from ReadTar); nil reads the local copy. It never fails: an
@@ -162,7 +162,7 @@ func (s *Service) settle(ctx context.Context, cfg *config.Config, t *ticket.Tick
 	return nil
 }
 
-// Lost is memory_lost (F:1318): a helper run that brought no usable copy
+// Lost is memory_lost: a helper run that brought no usable copy
 // back (timed out, lost, a failed collect, a broken tar). Its notes are
 // gone; the ticket says so once.
 func (s *Service) Lost(t *ticket.Ticket, host string) {

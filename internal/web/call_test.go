@@ -15,7 +15,7 @@ func (l *logLines) Printf(format string, args ...any) {
 	l.got = append(l.got, fmt.Sprintf(format, args...))
 }
 
-// §5.6: a panic in a service call reaches the caller as an error with no
+// a panic in a service call reaches the caller as an error with no
 // detail, and the log has the panic with its stack.
 func TestACallPanicIsLoggedWithItsStack(t *testing.T) {
 	log := &logLines{}

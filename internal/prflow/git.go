@@ -39,7 +39,7 @@ func (r Repos) Push(ctx context.Context, p config.Project, branch, token string)
 // maxBranchTries bounds pick_branch's search for a free name.
 const maxBranchTries = 10000
 
-// PickBranch is pick_branch (F:573): bot/<slug of the title>, with -2, -3,
+// PickBranch is pick_branch: bot/<slug of the title>, with -2, -3,
 // ... added until no local branch has the name. The name carries no ticket
 // id, because it is public; on a hygiene project a title with a deny term
 // gives bot/change, since a merge keeps the branch name in history.

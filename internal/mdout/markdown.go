@@ -1,11 +1,10 @@
-// Package mdout is the Markdown that agents read (ARCHITECTURE.md §2.3,
-// inventory features §15.7): a ticket as MCP shows it, the conversation's
-// tail a write answers with, the summary lines of a list, and the fences and
-// inline code that keep ticket text from forging a heading or closing a
-// fence in an agent's view.
+// Package mdout is the Markdown that agents read: a ticket as MCP shows it,
+// the conversation's tail a write answers with, the summary lines of a
+// list, and the fences and inline code that keep ticket text from forging a
+// heading or closing a fence in an agent's view.
 //
 // The output is byte for byte what bin/factory's ticket_markdown,
-// conversation_markdown and summary_line print (F:3570-3700); the goldens
+// conversation_markdown and summary_line print; the goldens
 // under testdata/py are Python's.
 package mdout
 

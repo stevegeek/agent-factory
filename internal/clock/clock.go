@@ -1,6 +1,6 @@
 // Package clock is time for the factory: the clock interface every package
 // receives, the factory's stamp format and a parser for the stamps Python
-// writes and reads (ARCHITECTURE.md §2.3).
+// writes and reads.
 package clock
 
 import (
@@ -60,13 +60,13 @@ func (s *Step) Advance(d time.Duration) {
 // Layout is the factory's stamp: UTC, whole seconds, "+00:00", never "Z".
 const Layout = "2006-01-02T15:04:05+00:00"
 
-// Stamp is Python's now() (F:201) for t: utcnow().replace(microsecond=0)
+// Stamp is Python's now() for t: utcnow().replace(microsecond=0)
 // .isoformat(). Fractions are truncated, not rounded.
 func Stamp(t time.Time) string {
 	return t.UTC().Truncate(time.Second).Format(Layout)
 }
 
-// FromTestNow is the clock for a FACTORY_TEST_NOW value (seam 3, §10.5):
+// FromTestNow is the clock for a FACTORY_TEST_NOW value:
 // empty gives System; otherwise the stamp, read as Python's utcnow() reads
 // it (naive means UTC), fixes the clock.
 func FromTestNow(value string) (Clock, error) {

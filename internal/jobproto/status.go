@@ -6,7 +6,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 )
 
-// ParseStatus reads a status answer, json.loads(out)["state"] (F:945).
+// ParseStatus reads a status answer, json.loads(out)["state"].
 // A state that is not a string is "" (neither running nor done: the tick
 // treats the job as gone, as Python's comparisons do); an answer that is
 // not an object holding "state" is an error.

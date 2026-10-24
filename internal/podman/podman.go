@@ -1,12 +1,12 @@
-// Package podman runs containers and image commands on this host
-// (ARCHITECTURE.md §2.3), with Python's argv: the gate's checks, the image
-// rebuild's build, smoke test, tags and prune.
+// Package podman runs containers and image commands on this host, with
+// Python's argv: the gate's checks, the image rebuild's build, smoke test,
+// tags and prune.
 //
 // Every container it starts is named (factory-gate-<id>,
 // factory-merge-<id>, factory-smoke-<kind>), and the run's Cleanup removes
 // it by name after a cancelled or timed-out run, because a container
-// outlives its podman client (§5.3, review F3). The name is the one
-// difference from Python's argv: `--name <name>` right after `--rm`.
+// outlives its podman client. The name is the one difference from Python's
+// argv: `--name <name>` right after `--rm`.
 package podman
 
 import (
@@ -19,7 +19,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/execx"
 )
 
-// Python's timeouts (§5.2).
+// Python's timeouts.
 const (
 	GateTimeout    = 1800 * time.Second
 	BuildTimeout   = 6000 * time.Second
@@ -47,7 +47,7 @@ type Client struct {
 
 // PassEnv keeps only what rootless podman needs from an environment: PATH,
 // HOME, USER, LOGNAME, TMPDIR, XDG_RUNTIME_DIR, XDG_CONFIG_HOME,
-// XDG_DATA_HOME and DBUS_SESSION_BUS_ADDRESS (§5.3). No token or key can
+// XDG_DATA_HOME and DBUS_SESSION_BUS_ADDRESS. No token or key can
 // reach a container through it.
 func PassEnv(environ []string) []string {
 	keep := map[string]bool{"PATH": true, "HOME": true, "USER": true, "LOGNAME": true, "TMPDIR": true,
@@ -187,7 +187,7 @@ type Smoke struct {
 }
 
 // RunSmoke is `podman run --rm --name N --network none <keep-id> --user 1000:1000
-// --entrypoint /bin/sh <image> -c <script>` in Dir, 2400 s (F:2905). The
+// --entrypoint /bin/sh <image> -c <script>` in Dir, 2400 s. The
 // result is unchecked: the caller reads its code and stdout.
 func (p Client) RunSmoke(ctx context.Context, s Smoke) (execx.Result, error) {
 	if err := checkName(s.Name); err != nil {
@@ -212,7 +212,7 @@ type Gate struct {
 	Script  string   // "set -e; <install>; <test>; <lint>", run by sh -c
 }
 
-// RunGate runs the gate's container (checks_on_fresh_checkout, F:1670):
+// RunGate runs the gate's container (checks_on_fresh_checkout):
 // no network, the keep-id user, the memory limit, 1800 s. ok is a zero
 // exit; tail is the last 4000 code points of stdout then stderr. The error
 // is for a run that did not finish (it timed out, was cancelled, or podman

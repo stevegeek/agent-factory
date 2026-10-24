@@ -1,10 +1,10 @@
-// Package hostrun runs agents on a host (ARCHITECTURE.md §2.3, §2.4.6):
-// Local runs them here through Scion, Jobs on a helper host through
-// factory-remote. They are concrete types with no shared exported
-// interface; the pipeline declares what it consumes and keeps every
-// decision (timeouts, lost agents, limits, finishing) in Python's order.
-// This package does the mechanics: launching, polling, collecting,
-// archiving into logs/<ticket>/<agent>/, removing, and the screen.
+// Package hostrun runs agents on a host: Local runs them here through
+// Scion, Jobs on a helper host through factory-remote. They are concrete
+// types with no shared exported interface; the pipeline declares what it
+// consumes and keeps every decision (timeouts, lost agents, limits,
+// finishing) in Python's order. This package does the mechanics:
+// launching, polling, collecting, archiving into logs/<ticket>/<agent>/,
+// removing, and the screen.
 package hostrun
 
 import (
@@ -123,7 +123,7 @@ func scionNoise(line string) bool {
 	return true
 }
 
-// ScreenText is screen_text (F:4523): Scion's own WARN lines dropped, each
+// ScreenText is screen_text: Scion's own WARN lines dropped, each
 // line's trailing whitespace and the trailing blank lines cut, and the
 // last `lines` lines kept (all of them for lines <= 0, as [-0:]).
 func ScreenText(text string, lines int) string {

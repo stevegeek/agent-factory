@@ -15,7 +15,7 @@ import (
 )
 
 // CheckHermeticTests checks that no test outside internal/testkit reads HOME
-// or FACTORY_ROOT from the environment (§10.1 rule 2): tests build their
+// or FACTORY_ROOT from the environment: tests build their
 // root with testkit.Root.
 func CheckHermeticTests(g *Graph) []Violation {
 	fset := token.NewFileSet()

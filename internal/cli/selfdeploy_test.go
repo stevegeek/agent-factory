@@ -42,6 +42,8 @@ type nopAsks struct{}
 
 func (nopAsks) DeployAsk(context.Context, string, string) error { return nil }
 
+func (nopAsks) DeployAskOpen(context.Context) (bool, error) { return false, nil }
+
 func mergedTicket(n int) *ticket.Ticket {
 	return &ticket.Ticket{ID: "T0007", PR: ticket.Some(ticket.PR{Number: n})}
 }
@@ -52,7 +54,7 @@ func TestSelfDeploysRequestsCoreAndConfig(t *testing.T) {
 	o := &fakeOffer{}
 	s := selfDeploys{Config: &config.Config{}, Deploy: o, Asks: nopAsks{}, Notices: &fakeNotices{}}
 	core := config.Project{Key: "agent-factory", SelfDeploy: config.SelfDeployCore}
-	conf := config.Project{Key: "factory-config", SelfDeploy: config.SelfDeployConfig}
+	conf := config.Project{Key: "config-repo", SelfDeploy: config.SelfDeployConfig}
 	if err := s.Merged(context.Background(), core, mergedTicket(12), prflow.MergedPR{Commit: strings.Repeat("a", 40)}); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +63,7 @@ func TestSelfDeploysRequestsCoreAndConfig(t *testing.T) {
 	}
 	want := []string{
 		"main | PR #12 merged (agent-factory aaaaaaaaaaaa) | factory | go",
-		"main | PR #3 merged (factory-config bbbbbbbbbbbb) | factory | hold",
+		"main | PR #3 merged (config-repo bbbbbbbbbbbb) | factory | hold",
 	}
 	if !slices.Equal(o.got, want) {
 		t.Errorf("offers = %q, want %q", o.got, want)
@@ -83,5 +85,18 @@ func TestSelfDeploysFailureFilesNotice(t *testing.T) {
 		!strings.Contains(n.got[0], "no user bus") || !strings.Contains(n.got[0], "T0007") ||
 		!strings.Contains(n.got[0], "A request may be waiting: `factory deploy status` shows it and `factory deploy run` runs it.") {
 		t.Errorf("notices = %q", n.got)
+	}
+}
+
+// The operator's deploys offer main with the doors' asker and no hold of
+// their own: Offer still folds into a held deploy or an open Deploy? ask.
+func TestOperatorDeploysOfferMain(t *testing.T) {
+	o := &fakeOffer{}
+	d := operatorDeploys{Deploy: o, Asks: nopAsks{}}
+	if err := d.Offer(context.Background(), &config.Config{}, "T0050: Lower the poll interval", "manager"); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"main | T0050: Lower the poll interval | manager | go"}; !slices.Equal(o.got, want) {
+		t.Errorf("offers %q", o.got)
 	}
 }

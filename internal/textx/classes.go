@@ -65,7 +65,7 @@ func IsDigits(s string) bool {
 
 // IsWordBoundary is Python's \b at byte offset i of s: exactly one of the
 // characters before and after i is a word character (IsWord). Use it for
-// the \b that RE2 only knows in ASCII (§8.5).
+// the \b that RE2 only knows in ASCII.
 func IsWordBoundary(s string, i int) bool {
 	before, after := false, false
 	if i > 0 {

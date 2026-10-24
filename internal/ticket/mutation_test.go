@@ -103,9 +103,9 @@ func withUnknownKeys(t *testing.T, b []byte) []byte {
 	return jsonx.EncodePython(top.Value(), 2)
 }
 
-// mutationProperty is §3.1 property 3 on one ticket file: random typed
-// mutations; Decode(Encode(t)) gives the same views, a second save changes
-// nothing, and every unknown key is still there with its value.
+// mutationProperty is the mutation property on one ticket file: random
+// typed mutations; Decode(Encode(t)) gives the same views, a second save
+// changes nothing, and every unknown key is still there with its value.
 func mutationProperty(t *testing.T, name string, base []byte, seeds int64) {
 	t.Helper()
 	unknown := map[string]string{}
@@ -147,9 +147,10 @@ func mutationProperty(t *testing.T, name string, base []byte, seeds int64) {
 	}
 }
 
-// §3.1 property 3, on every fixture: the nested-order fixture with its own
-// unknown keys at every depth (200 seeds), and every legacy, contract,
-// history-order and new ticket with unknown keys added (20 seeds each).
+// The mutation property, on every fixture: the nested-order fixture with
+// its own unknown keys at every depth (200 seeds), and every legacy,
+// contract, history-order and new ticket with unknown keys added (20
+// seeds each).
 func TestRandomMutationsKeepViewsAndUnknownKeys(t *testing.T) {
 	nested := mustRead(t, "testdata/nested/T0001.json")
 	unknown := map[string]string{}

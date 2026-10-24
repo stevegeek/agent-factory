@@ -21,7 +21,7 @@ import (
 // result as a candidate in ~/factory/builds/<commit12>, which deploy.sh's
 // candidate verb installs. The source is the tree deploy.sh extracted for
 // that commit (~/factory/src/<commit12>). An existing candidate is kept.
-// With [build] host = "self" (P6) this host's own factory-remote builds it.
+// With [build] host = "self" this host's own factory-remote builds it.
 func runBuild(ctx context.Context, e *Env, a Args) error {
 	cfg, err := e.Config()
 	if err != nil {

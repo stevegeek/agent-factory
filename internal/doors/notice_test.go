@@ -151,3 +151,44 @@ func TestDeployAskRefusesAnUnreadBoard(t *testing.T) {
 		t.Errorf("filed %d tickets", len(ts))
 	}
 }
+
+// DeployAskOpen finds the open Deploy? ask the way DeployAsk does: a
+// merge left with "merge, don't deploy yet" holds deploys until it is
+// answered.
+func TestDeployAskOpen(t *testing.T) {
+	f := newFixture(t)
+	if open, err := f.s.DeployAskOpen(t.Context()); err != nil || open {
+		t.Errorf("empty board: %v %v", open, err)
+	}
+	// a notice on the factory's project is no Deploy? ask
+	if _, err := f.s.Notice(t.Context(), "Something", "b"); err != nil {
+		t.Fatal(err)
+	}
+	if open, err := f.s.DeployAskOpen(t.Context()); err != nil || open {
+		t.Errorf("a notice: %v %v", open, err)
+	}
+	tk, err := f.s.DeployAsk(t.Context(), "0123456789ab", "merged #12")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if open, err := f.s.DeployAskOpen(t.Context()); err != nil || !open {
+		t.Errorf("an open ask: %v %v", open, err)
+	}
+	if err := f.s.Board.Changing(t.Context(), string(tk.ID), store.NoWait, func(x *ticket.Ticket) error {
+		ticket.Move(x, "done", model.ReasonByHuman, "", "", "", f.clock.Now())
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if open, err := f.s.DeployAskOpen(t.Context()); err != nil || open {
+		t.Errorf("a closed ask: %v %v", open, err)
+	}
+	// a board that does not read in full is an error: the ask may be the
+	// ticket it skipped
+	if err := os.WriteFile(filepath.Join(f.p.Tickets, "T9999.json"), []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.DeployAskOpen(t.Context()); err == nil {
+		t.Error("an unread board")
+	}
+}

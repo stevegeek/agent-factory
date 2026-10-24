@@ -18,7 +18,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/upkeep"
 )
 
-// The doors and upkeep group (§7.3, slice S16): `sweep` and `clock` (the
+// The doors and upkeep group: `sweep` and `clock` (the
 // weekly and daily timers), `rebuild` (the rebuild unit) and `versions`.
 // None prints anything on stdout; what they did is in the log. The
 // command table (commands.go) names their runners:
@@ -55,8 +55,9 @@ func runVersions(ctx context.Context, e *Env, _ Args) error {
 }
 
 // runRebuild is `factory rebuild`: the weekly image rebuild, under the
-// tick lock; with --rollback KIND or --unhold KIND, the §15.1 controls;
-// with --latest, the latest-toolchain trial alone, now.
+// tick lock; with --rollback KIND or --unhold KIND, the automatic
+// updates' controls; with --latest, the latest-toolchain trial alone,
+// now.
 func runRebuild(ctx context.Context, e *Env, a Args) error {
 	cfg, err := e.Config()
 	if err != nil {
@@ -93,7 +94,7 @@ func runRebuild(ctx context.Context, e *Env, a Args) error {
 		return nil
 	}
 	if err := e.Git(ctx); err != nil {
-		return err // the project checks clone with git (§4.8)
+		return err // the project checks clone with git
 	}
 	if a.Bool("latest") {
 		return up.Latest(ctx, cfg)
@@ -154,7 +155,7 @@ func doorsUpkeep(e *Env) upkeep.Service {
 
 // doorsGitHub is the client for GitHub's and npm's public reads. The
 // differential tests' seams point it elsewhere: FACTORY_GITHUB_API and
-// FACTORY_NPM_REGISTRY (seams 1 and 2).
+// FACTORY_NPM_REGISTRY.
 func doorsGitHub(e *Env) *github.Client {
 	return &github.Client{
 		BaseURL: e.Environ["FACTORY_GITHUB_API"],

@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// MaxPackageLines is the size limit of one internal package's non-test Go
-// (§2.2 rule 8): a package is one compile unit on a small box.
+// MaxPackageLines is the size limit of one internal package's non-test Go:
+// a package is one compile unit on a small box.
 const MaxPackageLines = 4000
 
 // CheckLoad reports module packages that go list could not load. Every other
@@ -27,14 +27,14 @@ func CheckLoad(g *Graph) []Violation {
 }
 
 // CheckTable checks every internal import edge, in production and test
-// code, against Table (§2.2 rule 1), refuses packages that are not in the
+// code, against Table, refuses packages that are not in the
 // table, and keeps testkit out of production code.
 func CheckTable(g *Graph) []Violation {
 	t := Table()
 	var vs []Violation
 	for _, p := range g.Pkgs {
 		if _, ok := t[tableKey(p.Rel)]; !ok {
-			vs = append(vs, Violation{"table", p.Rel, "package is not in the allowed-imports table (ARCHITECTURE.md §2.2)"})
+			vs = append(vs, Violation{"table", p.Rel, "package is not in the allowed-imports table"})
 			continue
 		}
 		edges := func(imports []string, test bool) {
@@ -65,7 +65,7 @@ func CheckTable(g *Graph) []Violation {
 }
 
 // CheckForemanClosure checks that cmd/foreman's whole dependency closure
-// holds none of ForemanForbidden (§2.2 rule 3). A missing cmd/foreman is
+// holds none of ForemanForbidden. A missing cmd/foreman is
 // not a violation.
 func CheckForemanClosure(g *Graph) []Violation {
 	p := g.pkg(foremanCmd)
@@ -87,7 +87,7 @@ func CheckForemanClosure(g *Graph) []Violation {
 }
 
 // CheckHelperClosure checks that cmd/factory-remote's dependency closure
-// stays inside HelperAllowed (§2.2 rule 5).
+// stays inside HelperAllowed.
 func CheckHelperClosure(g *Graph) []Violation {
 	p := g.pkg(helperCmd)
 	if p == nil {
@@ -131,7 +131,7 @@ func CheckPullClosure(g *Graph) []Violation {
 }
 
 // CheckStdlibOnly checks that nothing outside the standard library and the
-// module is required or imported, by production or test code (§2.2 rule 8).
+// module is required or imported, by production or test code.
 func CheckStdlibOnly(g *Graph) []Violation {
 	var vs []Violation
 	sc := bufio.NewScanner(bytes.NewReader(g.GoMod))

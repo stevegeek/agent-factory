@@ -1,10 +1,10 @@
-// Package upkeep keeps the dispatcher host's agent images current
-// (ARCHITECTURE.md §2.3, inventory-features §13-14): the version check,
-// which files a notice when a newer Claude Code, Pi, Crystal or ameba is
-// out than config pins, and the weekly image rebuild, which builds and
-// checks each image through imagebuild while the tick is held off, runs the
-// projects' gate checks in the new gate image, and files a notice when a
-// rebuild fails on the host that has the project checkouts.
+// Package upkeep keeps the dispatcher host's agent images current: the
+// version check, which files a notice when a newer Claude Code, Pi,
+// Crystal or ameba is out than config pins, and the weekly image
+// rebuild, which builds and checks each image through imagebuild while
+// the tick is held off, runs the projects' gate checks in the new gate
+// image, and files a notice when a rebuild fails on the host that has
+// the project checkouts.
 //
 // No model runs here. The notices go through the doors' Notice (one open
 // ticket per title).

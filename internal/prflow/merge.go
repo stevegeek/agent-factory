@@ -17,7 +17,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// MergePR is merge_pr (F:2481), the maintainer's go-ahead for an
+// MergePR is merge_pr, the maintainer's go-ahead for an
 // auto-merge-eligible PR: it merges exactly the commit the gate checked.
 //
 // It refuses (a *Refusal) a ticket that is not in pr_open with a PR, one the
@@ -86,7 +86,7 @@ func refusedForApproval(code int, message string) bool {
 	return false
 }
 
-// land is land_pr (F:2525): merge the PR at exactly head (a merge commit),
+// land is land_pr: merge the PR at exactly head (a merge commit),
 // close the ticket as done and delete the bot branch. GitHub's own rules
 // still apply: a required check that is not green makes it refuse (an
 // *HTTPError). First, if the base moved since the gate, the checks must

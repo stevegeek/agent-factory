@@ -245,7 +245,7 @@ type regexCase struct {
 }
 
 // regexCases reads one pattern's cases from the regex golden that
-// tools/goldens.py wrote from Python.
+// the Python goldens tool wrote from Python.
 func regexCases(t *testing.T, name string) []regexCase {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "textx", "testdata", "py", "regex.json"))

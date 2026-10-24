@@ -1,7 +1,7 @@
-// Package execx runs subprocesses (ARCHITECTURE.md §5.3). Every command
-// runs in its own process group; a timeout or a cancelled context sends
-// SIGTERM to the group and SIGKILL after WaitDelay, so no child outlives
-// its run. Output is captured with an optional tail-kept cap.
+// Package execx runs subprocesses. Every command runs in its own process
+// group; a timeout or a cancelled context sends SIGTERM to the group and
+// SIGKILL after WaitDelay, so no child outlives its run. Output is
+// captured with an optional tail-kept cap.
 //
 // Execer is the seam every adapter takes: OS runs for real, and Func turns
 // a function into a fake.

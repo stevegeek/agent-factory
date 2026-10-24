@@ -31,13 +31,13 @@ type Local struct {
 // Host is "local".
 func (l *Local) Host() string { return model.LocalHost }
 
-// Running is running_agents (F:684): the names of the agents Scion runs
+// Running is running_agents: the names of the agents Scion runs
 // in every factory project and, once it has a .scion, the manager's
 // workspace. If any list fails the answer is ErrUnknown, never a partial or
 // empty set (a failed list is not an empty one), so the tick counts this
 // host as full and strands nothing. (Python also crashed the tick when a
 // list could not run at all; that is ErrUnknown here too.) A project the
-// repository guard refuses (quirk 11) runs no agent of the factory's and is
+// repository guard refuses runs no agent of the factory's and is
 // skipped, so one refused project does not stop starts in every other; its
 // own tickets get the refusal as a dispatcher error when they start.
 func (l *Local) Running(ctx context.Context, cfg *config.Config) (map[string]bool, error) {
@@ -72,11 +72,11 @@ func (l *Local) Running(ctx context.Context, cfg *config.Config) (map[string]boo
 	return names, nil
 }
 
-// Start is the local launch of start_stage (F:1795): the project's Scion
+// Start is the local launch of start_stage: the project's Scion
 // bootstrap, then `scion start <name> -t <template> --message-mode none
 // [--config run/<name>.yaml] [-b <branch>] [--model M] <prompt>`, with -b
 // for branch stages only. A failed start leaves its run config removed
-// (quirk 5, scion.Client) and the memory copy to the caller.
+// (scion.Client) and the memory copy to the caller.
 func (l *Local) Start(ctx context.Context, j Job) error {
 	if j.Gate != nil {
 		return fmt.Errorf("start %s: a gate here runs in the tick, not as a job", j.Name)
@@ -191,7 +191,7 @@ func (l *Local) home(name string) string { return scion.AgentHome(l.Paths.AgentH
 // MaxReportBytes bounds a local report.json; a bigger one reads as invalid.
 const MaxReportBytes = 16 << 20
 
-// Report is read_report (F:715): the agent's report.json, and whether it
+// Report is read_report: the agent's report.json, and whether it
 // left one. The file is read without following a link (the home is the
 // agent's to plant one in) and up to MaxReportBytes; a report that is not a
 // regular file or is too big comes back empty, which parses as an invalid
@@ -226,7 +226,7 @@ func (l *Local) Report(name string) ([]byte, bool, error) {
 	return b, true, nil
 }
 
-// Quiet is quiet() (F:776): the agent's agent.log exists and has not
+// Quiet is quiet(): the agent's agent.log exists and has not
 // changed for quietFor (hosts.QuietFor, 4 minutes); only then is it looked at for a
 // usage limit.
 func (l *Local) Quiet(name string, quietFor time.Duration) bool {
@@ -244,7 +244,7 @@ func (l *Local) Quiet(name string, quietFor time.Duration) bool {
 // LookBytes is how much of a local agent.log a look falls back to.
 const LookBytes = 64_000
 
-// Look is the local half of look() (F:4547): the agent's screen from
+// Look is the local half of look(): the agent's screen from
 // `scion look --plain -n <lines>` in its checkout dir, or, when Scion shows
 // nothing, the end of its agent.log; ScreenText of either, "" when there is
 // neither. Only a Scion that could not run (or a refused repository) is an
@@ -287,7 +287,7 @@ func (l *Local) screen(ctx context.Context, dir, name string, lines int) (string
 	return out, true, nil
 }
 
-// Remove is remove_agent (F:747): keep the agent's last screen and archive
+// Remove is remove_agent: keep the agent's last screen and archive
 // its report, log and prompt into logs/<id>/<name>/, drop its run config,
 // then `scion stop` and `scion delete [-b] -y` (keepBranch gives -b, as
 // remove_agent(keep_branch=True) does; the tick passes true for branch
@@ -310,7 +310,7 @@ func (l *Local) Remove(ctx context.Context, dir string, id ticket.ID, name strin
 	return l.Scion.Delete(ctx, dir, name, keepBranch)
 }
 
-// keepScreen is keep_screen (F:735): the last 200 lines of the agent's
+// keepScreen is keep_screen: the last 200 lines of the agent's
 // screen in screen.txt, cut to MaxArchivedBytes characters.
 func (l *Local) keepScreen(ctx context.Context, dir string, id ticket.ID, name string) error {
 	out, ok, err := l.screen(ctx, dir, name, ScreenLines)
@@ -325,7 +325,7 @@ func (l *Local) keepScreen(ctx context.Context, dir string, id ticket.ID, name s
 	return writeNoFollow(filepath.Join(dest, "screen.txt"), []byte(text))
 }
 
-// archive is archive_agent (F:724): report.json, agent.log and prompt.md
+// archive is archive_agent: report.json, agent.log and prompt.md
 // copied whole from the agent's home, with their mode and times. A link in
 // the home is not followed (Python's copy2 would copy what it points at).
 func (l *Local) archive(id ticket.ID, name string) error {

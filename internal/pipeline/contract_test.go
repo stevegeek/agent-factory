@@ -20,7 +20,7 @@ import (
 
 // port: TT ContractFixture.test_fixture_is_current
 //
-// The pipeline's part of the contract fixture (§10.4).
+// The pipeline's part of the contract fixture.
 //
 // The change of the contract fixture, re-driven by the Go tick: filed into
 // ready, through work (a model, a memory over its limit), review and

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy.sh: build the factory's Go binaries, render a config directory, and install both on a
-# host as the factory user over SSH (docs/go-rewrite/ARCHITECTURE.md §9.5).
+# host as the factory user over SSH.
 #
 #   deploy.sh --config DIR --host SSH_HOST [--build host|local|helper] [--verify] [--helper SSH_HOST]...
 #             [--install-go] [--commit REV] [--core GITDIR] [--prebuilt DIR] [--allow-older] [--dry-run]
@@ -80,7 +80,7 @@ fi
 [ -f "$config/config.toml" ] || die "$config has no config.toml"
 config=$(cd "$config" && pwd -P)
 # the config commit this installs, when --config is in a git checkout: the host keeps it in
-# deploys/config-commit (P3's stale-checkout guard reads it). A self-deploy's runner writes it
+# deploys/config-commit (the stale-checkout guard reads it). A self-deploy's runner writes it
 # itself, after its check.
 config_commit=""
 if [ "$host" != self ] && git -C "$config" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -217,7 +217,7 @@ take_tick_lock() {
   fi
 }
 
-# The Foreman unit's sandbox (§6.2): the Key=Value lines between its markers.
+# The Foreman unit's sandbox: the Key=Value lines between its markers.
 sandbox_lines() { awk '/^# sandbox:begin/ { on = 1; next } /^# sandbox:end/ { on = 0 } on && NF && $1 !~ /^#/' "$1"; }
 sandbox_props() {
   local l rt=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
@@ -234,7 +234,7 @@ in_sandbox() {
   timeout 120 systemd-run --user --wait --pipe --quiet --collect "${props[@]}" "$@" </dev/null
 }
 
-# Foreman's own files, moved once from beside the old secret into foreman-state/ (§6.2).
+# Foreman's own files, moved once from beside the old secret into foreman-state/.
 FOREMAN_STATE=(foreman-secret foreman-secret.since foreman-users.json foreman-vapid.pem foreman-push.json foreman-seen.json)
 
 v_prepare() {
@@ -356,7 +356,7 @@ v_stage() {
   cp "$D/out/config.toml" "$D/root/config.toml"
   say "new build: $("$n/factory" version)"
   FACTORY_ROOT=$D/root "$n/factory" check >&2 || die "factory check found problems in the new config: nothing installed"
-  # §11: the new binary reads the live root cleanly (check only reads): every ticket file
+  # the new binary reads the live root cleanly (check only reads): every ticket file
   # decodes, and every ticket in an ask column has its stored ask
   if [ -f "$F/config.toml" ]; then
     FACTORY_ROOT=$F "$n/factory" check --board --asks >&2 ||
@@ -396,7 +396,7 @@ reduce_unit() {
 }
 
 # foreman_unit UNIT: install the unit, sandboxed if this user manager can apply the sandbox.
-# D18: when it cannot apply the whole sandbox, the credentials and the user manager are kept
+# When it cannot apply the whole sandbox, the credentials and the user manager are kept
 # out of reach with as much of it as it takes: first the InaccessiblePaths lines with
 # PrivateUsers, then the InaccessiblePaths lines alone; only if neither applies does the unit
 # go in with no sandbox.
@@ -408,7 +408,7 @@ foreman_unit() {
     printf 'would run: systemd-run --user --wait --pipe %s true\n' "$(sandbox_lines "$unit" | sed 's/^/-p /' | tr '\n' ' ')" >&2
   elif ! command -v systemd-run >/dev/null 2>&1; then
     say "WARNING: no systemd-run here to apply Foreman's sandbox; installing foreman.service without it" \
-      "(it can then read the App key and the Claude token: ARCHITECTURE.md §6.2, D18)"
+      "(it can then read the App key and the Claude token)"
     reduce_unit "$unit" "" "$D/foreman.service"
   else
     for keep in full '^(PrivateUsers|InaccessiblePaths)=' '^InaccessiblePaths='; do
@@ -419,14 +419,13 @@ foreman_unit() {
       full) ;;
       "")
         say "WARNING: this user manager cannot apply Foreman's sandbox, not even its InaccessiblePaths;" \
-          "installing foreman.service without it (it can then read the App key and the Claude token:" \
-          "ARCHITECTURE.md §6.2, D18)"
+          "installing foreman.service without it (it can then read the App key and the Claude token)"
         reduce_unit "$unit" "" "$D/foreman.service" ;;
       *)
         mv "$D/foreman.try" "$D/foreman.service"
         say "WARNING: this user manager cannot apply Foreman's whole sandbox; installing it with only" \
-          "$(sandbox_lines "$D/foreman.service" | sed 's/=.*//' | sort -u | tr '\n' ' ')(D18:" \
-          "the credentials and the user manager stay out of reach; the binaries, source and config do not)" ;;
+          "$(sandbox_lines "$D/foreman.service" | sed 's/=.*//' | sort -u | tr '\n' ' ')(the" \
+          "credentials and the user manager stay out of reach; the binaries, source and config do not)" ;;
     esac
     rm -f "$D/foreman.try"
   fi
@@ -450,13 +449,13 @@ foreman_unit() {
   fi
   install_file "$D/foreman.service" "$u/foreman.service" 644
   # Foreman wakes the tick, and starts the screen relay for Live, through files these units
-  # watch (§5.5, §6.2): neither runs inside its sandbox
+  # watch: neither runs inside its sandbox
   for f in factory-wake.path factory-wake.service factory-screens.path factory-screens.service; do
     [ -f "$D/out/systemd/$f" ] && install_file "$D/out/systemd/$f" "$u/$f" 644
   done
 }
 
-# backup_units: the daily backup and Sunday verify timers (§15.2); enabled once the backup key
+# backup_units: the daily backup and Sunday verify timers; enabled once the backup key
 # exists (never written here).
 backup_units() {
   local u=$HOME/.config/systemd/user f

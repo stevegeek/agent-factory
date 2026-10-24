@@ -136,7 +136,7 @@ func TestRebuildKeepsTheOldImageWhenTheVersionIsWrong(t *testing.T) {
 	}
 }
 
-// The full argv sequence of one good claude rebuild (F:2868-2925), and the
+// The full argv sequence of one good claude rebuild, and the
 // pi image (unpinned) taken the same way.
 func TestRebuildArgvSequence(t *testing.T) {
 	f := &fakePodman{}
@@ -173,7 +173,7 @@ func fmtCalls(cs [][]string) string {
 	return b.String()
 }
 
-// §10.7 S7b: an image this host does not have is not built.
+// an image this host does not have is not built.
 func TestAbsentImageIsSkipped(t *testing.T) {
 	f := &fakePodman{exists: map[string]bool{}}
 	r, logs := runner(t, f)
@@ -210,7 +210,7 @@ func TestBuildFailureKeepsTheOldImage(t *testing.T) {
 	}
 }
 
-// §10.7 S7b: a tag that is the rebuild's own candidate or previous tag is
+// a tag that is the rebuild's own candidate or previous tag is
 // refused before anything runs (and nothing is cleaned up: Python returns
 // before its try).
 func TestTagClash(t *testing.T) {
@@ -267,7 +267,7 @@ func TestUnpinnedSmokeNeedsOnlyAZeroExit(t *testing.T) {
 
 // For the gate image, every project's checks run in the candidate; a
 // failure that the live image does not share (a regression) keeps the old
-// image (F:2894-2902, §15.1).
+// image.
 func TestProjectChecksRunInTheCandidate(t *testing.T) {
 	f := &fakePodman{}
 	r, _ := runner(t, f)
@@ -301,7 +301,7 @@ func TestProjectChecksRunInTheCandidate(t *testing.T) {
 	}
 }
 
-// §15.1: a project whose base already fails in the live image does not
+// a project whose base already fails in the live image does not
 // block the new one; the log and the summary name it.
 func TestAProjectAlreadyFailingDoesNotBlock(t *testing.T) {
 	f := &fakePodman{}
@@ -325,7 +325,7 @@ func TestAProjectAlreadyFailingDoesNotBlock(t *testing.T) {
 	}
 }
 
-// §15.1: the smoke test checks the exact version: 2.1.30 is not 2.1.302.
+// the smoke test checks the exact version: 2.1.30 is not 2.1.302.
 func TestSmokeChecksTheExactVersion(t *testing.T) {
 	for out, want := range map[string]bool{
 		"2.1.302 (Claude Code)\n": true, "v2.1.302\n": true, "2.1.3020\n": false, "2.1.30\n": false, "": false,
@@ -379,7 +379,7 @@ func TestCancelledRebuildStillCleansUp(t *testing.T) {
 	}
 }
 
-// rebuild() (F:2928): logs/rebuild-<kind>.log holds the run's output joined
+// rebuild(): logs/rebuild-<kind>.log holds the run's output joined
 // by newlines, and factory.log one line per image.
 func TestLogFileAndLogLine(t *testing.T) {
 	f := &fakePodman{results: map[string]string{"smoke": "2.1.999\n"}}
@@ -419,7 +419,7 @@ func TestBuildOutputIsCut(t *testing.T) {
 	}
 }
 
-// upkeep.Rebuild holds the tick lock (§10.7 S16): All waits for it, so no
+// upkeep.Rebuild holds the tick lock: All waits for it, so no
 // agent starts meanwhile, and gives up when its context ends.
 func TestAllWaitsForTheTickLock(t *testing.T) {
 	f := &fakePodman{exists: map[string]bool{"localhost/factory-agent:scion": true}}

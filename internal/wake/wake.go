@@ -1,4 +1,4 @@
-// Package wake starts a tick now (ARCHITECTURE.md §5.5).
+// Package wake starts a tick now.
 //
 // Python's wake() Popen'd a detached tick, which inherited the caller's
 // cgroup: a wake from Foreman ran the tick inside Foreman's 64 MB limit. Wake
@@ -7,7 +7,7 @@
 // bus it falls back to a detached bin/factory tick. A wake while a tick
 // runs only matters through .tick.again, which the running tick sees.
 //
-// Foreman never reaches the bus (§6.2): its Waker has a Trigger file, which
+// Foreman never reaches the bus: its Waker has a Trigger file, which
 // the factory-wake.path user unit watches.
 package wake
 
@@ -54,12 +54,12 @@ type Waker struct {
 	// the file (Paths.WakeTrigger), and the factory-wake.path user unit
 	// starts the tick outside the caller's sandbox. Foreman sets it: its
 	// sandbox hides the user manager's bus, since any process that reaches
-	// the bus can run any command outside the sandbox (§6.2). It never
+	// the bus can run any command outside the sandbox. It never
 	// asks systemd and never spawns a tick itself.
 	Trigger string
 }
 
-// passEnv are the variables passed to a fallback tick by name (§5.3), besides
+// passEnv are the variables passed to a fallback tick by name, besides
 // FACTORY_*. Credentials are never among them: the tick reads its token files.
 func passEnv() []string {
 	return []string{"PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TZ", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"}

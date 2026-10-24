@@ -1,9 +1,9 @@
-// Package memstore holds the agents' memory stores (ARCHITECTURE.md §4.8,
-// inventory-features §1): one bare git repository per (project, role) under
-// memory/, and nothing else. There is no work tree an agent could plant a
-// hook, a nested repository or a filter in. Every read and write goes
-// through git objects with a stripped environment (gitx.Bare); a run's copy
-// is written into a fresh directory and read back without following links.
+// Package memstore holds the agents' memory stores: one bare git repository
+// per (project, role) under memory/, and nothing else. There is no work
+// tree an agent could plant a hook, a nested repository or a filter in.
+// Every read and write goes through git objects with a stripped environment
+// (gitx.Bare); a run's copy is written into a fresh directory and read back
+// without following links.
 //
 // This package is the mechanism: names and limits, git plumbing, and the
 // file copies. The policy (which role, prompts, what a settle records on the
@@ -22,7 +22,7 @@ import (
 	"unicode/utf8"
 )
 
-// The limits (F:996-1001).
+// The limits.
 const (
 	MaxFile         = 256 * 1024      // one file
 	MaxFiles        = 2000            // files in one copy
@@ -63,7 +63,7 @@ func nameError(project, role string) error {
 	return fmt.Errorf("no memory for %s/%s: %w", PyRepr(project), PyRepr(role), ErrName)
 }
 
-// PathOK is memory_path_ok (F:1054): valid UTF-8 of 1 to 300 characters, no
+// PathOK is memory_path_ok: valid UTF-8 of 1 to 300 characters, no
 // control character, backslash, double quote or DEL, and no component that
 // is empty, ".", ".." or ".git" in any case.
 func PathOK(p string) bool {
@@ -92,7 +92,7 @@ func InContext(p string) bool {
 	return p == ContextTop || strings.HasPrefix(p, ContextTop+"/")
 }
 
-// Capped is capped() (F:1063): the files in path order, leaving out any
+// Capped is capped(): the files in path order, leaving out any
 // that is also a directory of another and any that would take the total
 // past MaxBytes. What is left out is appended to skipped.
 func Capped(files Files, skipped []string) (Files, []string) {

@@ -30,7 +30,7 @@ func (e *ConflictError) Error() string {
 	return "undoing " + e.Commit + " conflicts with later changes; nothing changed"
 }
 
-// The first commit's files (MEMORY_README and its folders, F:1002).
+// The first commit's files (MEMORY_README and its folders).
 const readme = `# Memory: {role} on {project}
 
 What agents in this role on this project have learned, kept between runs. Plain Markdown; every
@@ -91,7 +91,7 @@ func (s *Store) Open(project, role string) (*Repo, error) {
 	return r, nil
 }
 
-// Ensure is ensure_memory (F:1135): the store, created on first use in
+// Ensure is ensure_memory: the store, created on first use in
 // <repo>.new (bare, branch main, no template, so no sample hooks) with a
 // README and empty folders, then renamed into place, so no half-made store
 // is ever seen.
@@ -309,8 +309,8 @@ func (r *Repo) mergeTree(ctx context.Context, base, ours, theirs string) (string
 	return strings.TrimSpace(first), res.Code == 1, nil
 }
 
-// Land puts a run's commit (made on base) into the store under its lock
-// (F:1351): if the head has moved since base, the two are merged with
+// Land puts a run's commit (made on base) into the store under its lock:
+// if the head has moved since base, the two are merged with
 // merge-tree, both sides of a conflict kept in the file, as a merge commit
 // "<message> (merged)" or "<message> (merged; both sides kept)". The ref
 // moves only if the head is still the one merged. It returns the new head.
@@ -346,7 +346,7 @@ func (r *Repo) Land(ctx context.Context, base, run, message string) (head string
 }
 
 // Revert undoes one commit with a three-way merge onto the head (factory
-// memory --revert, F:1414), committed as "undo <commit[:12]>". The first
+// memory --revert), committed as "undo <commit[:12]>". The first
 // commit and a change later ones built on are refused, and nothing changes.
 func (r *Repo) Revert(ctx context.Context, commit string) error {
 	l, err := r.Lock(ctx)

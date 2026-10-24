@@ -15,7 +15,7 @@ import (
 
 // The PR body is public text that the off-box approve job reads: it must be
 // Python's, byte for byte. The goldens under testdata/py/pr_body were written
-// by tools/goldens.py from Python's pr_body.
+// by the Python goldens tool from Python's pr_body.
 func TestPRBodyMatchesPythonGoldens(t *testing.T) {
 	cases, err := filepath.Glob(filepath.Join("testdata", "py", "pr_body", "*.json"))
 	if err != nil || len(cases) == 0 {

@@ -3,6 +3,7 @@ package present
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"sort"
 	"time"
 
@@ -136,7 +137,7 @@ func Action(t *ticket.Ticket, a *ticket.Ask) string {
 		issue = fmt.Sprintf(" · issue #%d", n)
 	}
 	walls := ""
-	if len(Walls(t)) > 0 {
+	if len(Walls(t)) > 0 || len(DraftWalls(t)) > 0 {
 		walls = " · touches the walls"
 	}
 	switch model.AskKind(a.Kind) {
@@ -180,7 +181,16 @@ func Action(t *ticket.Ticket, a *ticket.Ask) string {
 		}
 		return "Answer the agent"
 	case model.AskDraft:
-		return "Apply the draft? · " + Plural(len(t.Drafts), "change")
+		c := ticket.Items(t)
+		switch {
+		case c.New+c.Requested > 0:
+			return "Applying · " + Plural(c.New+c.Requested, "change") + walls
+		case c.ByHand > 0 || len(t.Drafts)+len(t.Actions) == 0:
+			return "Apply the draft? · " + Plural(len(t.Drafts), "change") + walls
+		case c.Waiting+c.Failed > 0:
+			return "Apply it? · " + Plural(c.Waiting+c.Failed, "change") + walls
+		}
+		return "Read what the manager did"
 	case model.AskDeploy:
 		if d, ok := t.Deploy.Get(); ok && d.Rev != "" {
 			return "Deploy main? · now " + d.Rev
@@ -206,7 +216,7 @@ type DeskItem struct {
 // Viewer is the person reading the desk: the name their answers record as
 // by (the maintainer's is the first of [board] people), and whether they
 // are the maintainer. Only a person's own response moves an ask down their
-// desk (D19); one whose history names nobody (older boards) is the
+// desk; one whose history names nobody (older boards) is the
 // maintainer's.
 type Viewer struct {
 	By         string
@@ -344,7 +354,7 @@ func DeskPage(items []DeskItem, kind, current string, now time.Time) *DeskView {
 		q := QueueItem{ID: id, Kind: it.Ask.Kind, Label: KindLabel(it.Ask.Kind), Glyph: KindGlyph(it.Ask.Kind),
 			Question: Headline(it.T, it.Ask), Title: it.T.Title, Action: Action(it.T, it.Ask), Project: it.T.Project,
 			Age: AgeSince(it.Ask.Since, now), Href: TicketHref(id, kind), Current: id == current, Answered: it.Answered,
-			Walls: Walls(it.T)}
+			Walls: slices.Concat(Walls(it.T), DraftWalls(it.T))}
 		switch it.Responded {
 		case "asked":
 			q.Responded = "You asked " + AgeSince(it.RespondedAt, now) + " ago · the answer comes here"

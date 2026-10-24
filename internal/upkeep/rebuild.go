@@ -14,13 +14,13 @@ import (
 	"github.com/stevegeek/agent-factory/internal/store"
 )
 
-// Rebuild is rebuild(cfg) (F:2928), `factory rebuild`, weekly: each agent
+// Rebuild is rebuild(cfg), `factory rebuild`, weekly: each agent
 // image this host has is rebuilt with fresh OS packages, and kept only if
 // the new one passes its smoke test and, for the gate image, the projects'
 // tests (imagebuild does the build, the checks and the swap, and writes
 // logs/rebuild-<kind>.log).
 //
-// The version (§15.1): a tool in [images] auto_update is built at its
+// The version: a tool in [images] auto_update is built at its
 // latest stable release when that is newer than the version the image
 // has (the newer of the [images] pin, now a floor, and images.json) and
 // than a held one; images.json records it once it is promoted, and a
@@ -109,7 +109,7 @@ func (s Service) Rebuild(ctx context.Context, cfg *config.Config) error {
 }
 
 // Rollback is `factory rebuild --rollback KIND`: the image goes back to
-// :previous, and images.json holds the version it leaves (§15.1).
+// :previous, and images.json holds the version it leaves.
 func (s Service) Rollback(ctx context.Context, cfg *config.Config, kind string) (imagebuild.ToolState, error) {
 	return s.changeState(ctx, kind, func(st imagebuild.State) (imagebuild.ToolState, error) {
 		if s.Tagger == nil {

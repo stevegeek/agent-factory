@@ -13,7 +13,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 )
 
-// The small state files (§4.6). Each is kept as its ordered JSON tree, so a
+// The small state files. Each is kept as its ordered JSON tree, so a
 // key's place and any key the code does not know survive a write, which is
 // json.dump with Python's formatting through fsx.WriteAtomic.
 
@@ -184,8 +184,8 @@ type Pause struct {
 }
 
 // LoadPauses is load_pauses(): the hosts paused now, in the file's order.
-// Expired entries are ignored here and dropped by the next PauseHost
-// (quirk 12); missing or broken is none. An entry whose time does not read
+// Expired entries are ignored here and dropped by the next PauseHost;
+// missing or broken is none. An entry whose time does not read
 // is ignored too (Python would raise).
 func (b *Board) LoadPauses() []Pause {
 	o, _, err := readObject(b.Paths.Pauses)
@@ -221,20 +221,57 @@ func (b *Board) Paused(host string) bool {
 // PauseHost is pause_host(): host gets no new agents for d. The file is
 // rewritten from the pauses still running plus this one (a host paused
 // already keeps its place), json.dump with no indent, and the pause is
-// logged. It returns the until stamp.
+// logged. A host paused until later already keeps that time: a short
+// usage-limit pause never cuts the maintainer's or the operator's longer
+// one. It returns the until stamp stored.
 func (b *Board) PauseHost(host, why string, d time.Duration) (string, error) {
 	var o jsonx.Object
+	at := b.now().Add(d)
+	until := clock.Stamp(at)
 	for _, p := range b.LoadPauses() {
 		o = append(o, jsonx.Member{Key: p.Host, Value: p.stamp})
+		if p.Host == host && p.Until.After(at) {
+			s, _ := p.stamp.Str()
+			until = s
+		}
 	}
-	until := clock.Stamp(b.now().Add(d))
 	o.Set(host, jsonx.String(until))
+	if err := b.writePauses(o); err != nil {
+		return "", err
+	}
+	b.logf("%s paused until %s: %s", host, until, why)
+	return until, nil
+}
+
+// ResumeHost lifts host's pause: the file is rewritten from the pauses
+// still running without it, and the resume is logged. It reports false,
+// and writes nothing, when the host was not paused.
+func (b *Board) ResumeHost(host, why string) (bool, error) {
+	o := jsonx.Object{}
+	found := false
+	for _, p := range b.LoadPauses() {
+		if p.Host == host {
+			found = true
+			continue
+		}
+		o = append(o, jsonx.Member{Key: p.Host, Value: p.stamp})
+	}
+	if !found {
+		return false, nil
+	}
+	if err := b.writePauses(o); err != nil {
+		return false, err
+	}
+	b.logf("%s resumed: %s", host, why)
+	return true, nil
+}
+
+func (b *Board) writePauses(o jsonx.Object) error {
 	if o == nil {
 		o = jsonx.Object{}
 	}
 	if err := fsx.WriteAtomic(b.Paths.Pauses, jsonx.EncodePython(o.Value(), -1), 0o666); err != nil {
-		return "", fmt.Errorf("pauses: %w", err)
+		return fmt.Errorf("pauses: %w", err)
 	}
-	b.logf("%s paused until %s: %s", host, until, why)
-	return until, nil
+	return nil
 }

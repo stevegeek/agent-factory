@@ -18,7 +18,7 @@ import (
 // py: (\w+) -> (\w+)(?:: (.*))?
 var moveDetail = regexp.MustCompile(`\A(?s:(` + textx.PyWord + `+) -> (` + textx.PyWord + `+)(?:: (.*))?)\z`)
 
-// Migrate backfills a board made before asks and filed votes (migrate, D7):
+// Migrate backfills a board made before asks and filed votes (migrate):
 // answers already on the desk go back to the ticket they were asked on,
 // waiting tickets get their ask, and a decided prospect's proposals get
 // their votes, with the dropped ones filed as rejected proposal tickets

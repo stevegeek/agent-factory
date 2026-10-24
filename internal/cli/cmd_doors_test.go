@@ -23,7 +23,7 @@ type doorsExec struct {
 
 func (d *doorsExec) Run(_ context.Context, c execx.Cmd) (execx.Result, error) {
 	if slices.Equal(c.Argv, []string{"git", "--version"}) {
-		return execx.Result{Argv: c.Argv, Stdout: []byte("git version 2.50.1\n")}, nil // §4.8's check, not recorded
+		return execx.Result{Argv: c.Argv, Stdout: []byte("git version 2.50.1\n")}, nil // the git version check, not recorded
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()

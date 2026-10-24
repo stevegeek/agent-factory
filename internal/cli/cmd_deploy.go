@@ -241,7 +241,7 @@ func (e *Env) doors() doors.Service {
 }
 
 // deployNotices and deployAsks fit doors.Service to deploy's interfaces
-// (deployAsks is the Asker P3's merge hook hands Service.Offer).
+// (deployAsks is the Asker the merge hook hands Service.Offer).
 type deployNotices struct{ d doors.Service }
 
 func (n deployNotices) Notice(ctx context.Context, title, body string) error {
@@ -255,3 +255,5 @@ func (a deployAsks) DeployAsk(ctx context.Context, rev, why string) error {
 	_, err := a.d.DeployAsk(ctx, rev, why)
 	return err
 }
+
+func (a deployAsks) DeployAskOpen(ctx context.Context) (bool, error) { return a.d.DeployAskOpen(ctx) }

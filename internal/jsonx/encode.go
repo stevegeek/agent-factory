@@ -29,7 +29,7 @@ func EncodePython(v Value, indent int) []byte {
 }
 
 // Canonical is json.dumps(v, sort_keys=True, separators=(",", ":")): the
-// form whose sha256 is request_digest's idempotency digest (F:3420).
+// form whose sha256 is request_digest's idempotency digest.
 func Canonical(v Value) []byte {
 	return Format{Indent: -1, SortKeys: true, Compact: true}.Encode(v)
 }

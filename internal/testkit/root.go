@@ -1,8 +1,8 @@
 // Package testkit holds the test-only fakes and fixture builders shared by
-// the module's tests (ARCHITECTURE.md §10.6). Production code never imports
-// it (archtest enforces this).
+// the module's tests. Production code never imports it (archtest enforces
+// this).
 //
-// This is the S0 skeleton: a hermetic factory root, clock fakes, a real-git
+// It holds a hermetic factory root, clock fakes, a real-git
 // repository builder, golden files, a small diff for failure messages and
 // the opt-in live-board snapshot. Later slices add their fakes beside these.
 package testkit

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// The spec table: one row per construct of the subset (§8.3). want is the
+// The spec table: one row per construct of the subset. want is the
 // Python repr of what tomllib returns (dict order is insertion order), so a
 // row reads like the tomllib oracle; err is a substring of the error.
 type specCase struct{ name, in, want, err string }

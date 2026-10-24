@@ -98,7 +98,7 @@ func TestCatFileExistsReadsTheBaseNotTheBranch(t *testing.T) {
 	}
 }
 
-// The argv of every read, as Python runs it (§4.8: same argv as Python).
+// The argv of every read, as Python runs it.
 func TestReadArgvMatchPython(t *testing.T) {
 	var got [][]string
 	var envs [][]string

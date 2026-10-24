@@ -1,8 +1,7 @@
-// Package doors is how work comes in without a person filing it
-// (ARCHITECTURE.md §2.3, inventory-features §10-12): the weekly GitHub issue
-// sweep, the daily clock (schedules, the monthly memory report and the
-// weekly version check), the watches the tick runs, and notices, the
-// needs_human tickets the factory files about itself.
+// Package doors is how work comes in without a person filing it: the
+// weekly GitHub issue sweep, the daily clock (schedules, the monthly
+// memory report and the weekly version check), the watches the tick runs,
+// and notices, the needs_human tickets the factory files about itself.
 //
 // Every ticket is filed through store.Board, as Python's new_ticket, and a
 // field Python sets after that first save (a sweep's source, a schedule's
@@ -99,7 +98,7 @@ func (s Service) file(ctx context.Context, in ticket.NewIn, then func(*ticket.Ti
 	return t, nil
 }
 
-// Notice is notice(title, body) (F:2825): a needs_human ticket about the
+// Notice is notice(title, body): a needs_human ticket about the
 // factory itself, on the factory's own project and through the clock door,
 // unless a ticket with that title is still open (in any column but done or
 // rejected, on any project). It returns nil when it filed nothing.
@@ -186,6 +185,27 @@ func (s Service) DeployAsk(ctx context.Context, rev, why string) (*ticket.Ticket
 	}, func(t *ticket.Ticket) {
 		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonDeployHeld, "deploys are held", "", "", s.Board.Clock.Now())
 	})
+}
+
+// DeployAskOpen reports whether a Deploy? ask is open, found as
+// DeployAsk finds it. A board that does not read in full is an error: the
+// open ask may be the ticket it skipped.
+func (s Service) DeployAskOpen(ctx context.Context) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	ts, problems := s.Board.Reader.List()
+	for _, p := range problems {
+		if p.Err != nil {
+			return false, fmt.Errorf("deploy ask: the board does not read (%s: %w)", p.File, p.Err)
+		}
+	}
+	for _, t := range ts {
+		if openDeployAsk(t) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // openDeployAsk is a Deploy? ticket still waiting for the maintainer.

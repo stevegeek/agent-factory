@@ -22,7 +22,7 @@ func values(as []ops.Answer) string {
 }
 
 // GitHub merges a PR the App pushed only once the maintainer approves its
-// head there: until then the review ask sends him to GitHub and offers no
+// head there: until then the review ask sends them to GitHub and offers no
 // "Merge it" (the factory merges by itself once the approval comes); once
 // the head is approved and the PR still waits, "Merge it" is back.
 func TestReviewAnswersFollowTheApproval(t *testing.T) {
@@ -66,8 +66,8 @@ func TestReviewAnswersFollowTheApproval(t *testing.T) {
 	}
 }
 
-// Every ask kind has its answers (§3.5 completeness), each a value the
-// service carries out or a link.
+// Every ask kind has its answers, each a value the service carries out or
+// a link.
 func TestEveryAskKindHasAnswers(t *testing.T) {
 	tk := &ticket.Ticket{ID: "T0001", Column: "needs_human"}
 	for _, k := range model.AskKinds() {

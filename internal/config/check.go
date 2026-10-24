@@ -40,7 +40,7 @@ type TokenRecords interface {
 // 1; warnings print "warning: …" and exit 0. The problems and the first
 // warnings are Python's, word for word; the port then adds warnings for
 // unknown keys and wrong types, entries it skips, a factory project missing
-// a gate command (quirk 6) and GitHub with no app_slug (D15). A nil tokens
+// a gate command and GitHub with no app_slug. A nil tokens
 // skips the token checks.
 func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 	projects, _ := c.Raw.Table("projects")
@@ -100,7 +100,7 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 				if board[key] {
 					warnings = append(warnings, fmt.Sprintf("[[%s]] %s names %s, a board project: the pipeline never works on one", what, toml.PyStr(name), key))
 				} else if !known[key] && key != NoticeProject {
-					// §13.2 row F: kept as Python runs it, but said
+					// kept as Python runs it, but said
 					warnings = append(warnings, fmt.Sprintf("[[%s]] %s names %s, which is not a project", what, toml.PyStr(name), key))
 				}
 			}

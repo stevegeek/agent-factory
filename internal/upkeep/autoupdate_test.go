@@ -59,7 +59,7 @@ func autoFixture(t *testing.T, latest string, ok bool) (*fixture, *answering, Se
 	return f, b, s, cfg
 }
 
-// §15.1: a newer release than the floor is built, promoted, recorded in
+// a newer release than the floor is built, promoted, recorded in
 // images.json, and announced; the pi image, not auto-updated, keeps its
 // version.
 func TestRebuildTakesANewerRelease(t *testing.T) {
@@ -140,7 +140,7 @@ func (p *podTag) Tag(_ context.Context, src, dst string) (execx.Result, error) {
 	return execx.Result{}, nil
 }
 
-// §15.1: --rollback retags :previous and holds the version left; the next
+// --rollback retags :previous and holds the version left; the next
 // rebuild does not retry it; --unhold lets it be tried again.
 func TestRollbackHoldsAndUnholdReleases(t *testing.T) {
 	f, b, s, cfg := autoFixture(t, "2.1.302", true)

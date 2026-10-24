@@ -35,7 +35,7 @@ func adoptItems(p paths.Paths) []adoptItem {
 	}
 }
 
-// Adopt is `factory backup adopt DIR` (P6): it moves a restored archive's
+// Adopt is `factory backup adopt DIR`: it moves a restored archive's
 // state into this root, which must be a fresh master's: no board, no tick
 // running, and every target missing or an empty directory (all checked
 // before anything moves). It moves only by rename, so DIR must be on the

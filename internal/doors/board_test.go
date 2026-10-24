@@ -9,7 +9,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/execx"
 )
 
-// The CONFIG of tests/test_tickets.py: two board projects and a factory one.
+// The CONFIG of the Python tests: two board projects and a factory one.
 const ticketsConfig = `
 [board]
 people = ["alice", "bob"]

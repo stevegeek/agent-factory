@@ -266,7 +266,7 @@ func TestAStaleAnswerRunsNothing(t *testing.T) {
 	}
 }
 
-// D19: an answer from another Foreman user records that user as by, on its
+// an answer from another Foreman user records that user as by, on its
 // note and its move, and a question's task too; a name the history already
 // means something by is refused, and nothing is saved.
 func TestAnAnswerRecordsWhoGaveIt(t *testing.T) {

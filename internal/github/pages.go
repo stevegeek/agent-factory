@@ -12,7 +12,7 @@ import (
 // Pages GETs path and follows GitHub's Link rel="next" pages, gathering
 // list items until there are no more pages or limit items. Nothing calls it
 // before cutover: the port keeps Python's single page of 50 issues and 100
-// reviews or comments (§13.2 quirk 8); it is here for the fix after.
+// reviews or comments; it is here for the fix after.
 //
 // A next link is followed only when it is under BaseURL, so the token is
 // never sent to another host.

@@ -58,11 +58,11 @@ func TestGateBlocksAutoMergeWithoutStatedReasoningAndAuditSaysWhy(t *testing.T) 
 	}
 }
 
-// Review §4.9: the gate takes the branch's head first and checks exactly
-// that commit: its files, its size and the checks on a fresh clone. A
-// commit that lands on the branch while the checks run is not what was
-// gated: the gate records the commit it checked, says in the log that the
-// branch moved, and the merge path merges only that commit.
+// the gate takes the branch's head first and checks exactly that commit: its
+// files, its size and the checks on a fresh clone. A commit that lands on
+// the branch while the checks run is not what was gated: the gate records
+// the commit it checked, says in the log that the branch moved, and the
+// merge path merges only that commit.
 func TestTheGateChecksTheHeadItTookFirst(t *testing.T) {
 	r := newRig(t)
 	r.repo.BranchWith("b", map[string]string{"README.md": "x\n"})
@@ -208,7 +208,7 @@ func TestGateRecordsItsRule(t *testing.T) {
 
 // port: TF AskTest.test_gate_in_the_tick_moves_with_its_rule
 //
-// The tick's move after Gate 1 (F:2262): a failed check needs a person and
+// The tick's move after Gate 1: a failed check needs a person and
 // asks to unstick back to the gate; a pass goes to ready_for_pr, with the
 // blockers (cut at 200) as the detail when it needs a person's review.
 func TestRecordMovesWithItsRule(t *testing.T) {

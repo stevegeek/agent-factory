@@ -296,7 +296,7 @@ func TestActions(t *testing.T) {
 	}
 }
 
-// D19: an answer from Foreman names its user: the maintainer's names
+// an answer from Foreman names its user: the maintainer's names
 // nobody (the service records the first of [board] people), another user's
 // their own name; the rest of the request is the same.
 func TestAnAnswerNamesWhoGaveIt(t *testing.T) {
@@ -805,6 +805,78 @@ func TestDeskShowsWallsBadge(t *testing.T) {
 			`<li><code>internal/gate/gate.go</code></li>`, `<li><code>deploy.sh</code></li>`} {
 			if !strings.Contains(body, want) {
 				t.Errorf("%s lacks %q", page, want)
+			}
+		}
+	}
+}
+
+// A manager ticket's items each show their tier, their state, the diff,
+// the walls and the checker's places, and the PR they landed as; the
+// by-hand line only on a draft still the maintainer's to apply by hand.
+func TestTicketPageShowsTierAndState(t *testing.T) {
+	h := newHarness(t, false)
+	h.env.WriteFile(t, "board/tickets/T0050.json", `{"id": "T0050", "project": "factory", "kind": "manage", "title": "Tidy",
+		"column": "needs_human", "history": [], "updated": "2026-10-16T10:00:00+00:00",
+		"ask": {"kind": "draft", "question": "Apply the manager's 1 change?", "why": "", "since": "2026-10-16T10:00:00+00:00"},
+		"drafts": [
+			{"title": "Lower the poll interval", "why": "Less noise.", "patch": "+every_days = 14\n", "tier": "auto", "state": "applied",
+			 "places": ["schedules[bug-hunt].every_days"], "pr": 7, "pr_url": "https://github.com/example/config/pull/7"},
+			{"title": "Gate limit", "why": "w", "patch": "+max_changed_lines = 900\n", "tier": "tap", "state": "waiting",
+			 "places": ["gate.max_changed_lines"], "walls": ["gate.max_changed_lines"]}],
+		"actions": [{"kind": "rebuild", "why": "Stale images.", "tier": "tap", "state": "waiting"}]}`)
+	c := h.login()
+	body := h.do("GET", "/t/T0050", nil, c).Body.String()
+	for _, want := range []string{"Draft 1: Lower the poll interval", "applies by itself", "Applied", `href="https://github.com/example/config/pull/7"`,
+		"Draft 2: Gate limit", "needs your tap", "Waits for your tap", "<code>gate.max_changed_lines</code>", `id="patch-T0050-1"`,
+		"Action 3: rebuild", "Stale images."} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the page lacks %q", want)
+		}
+	}
+	for _, not := range []string{"Apply it in the config repo on your machine"} {
+		if strings.Contains(body, not) {
+			t.Errorf("the page has %q", not)
+		}
+	}
+}
+
+// The ticket page's buttons through the real answers (ops.Answers): Apply
+// it only while something waits, beside I've applied it for a by-hand
+// draft, and neither while the factory is applying.
+func TestTicketPageOffersTheOperatorAnswers(t *testing.T) {
+	h := newHarness(t, false)
+	h.srv.svc.Answers = Ops{}
+	page := func(id, drafts, actions string) string {
+		h.env.WriteFile(t, "board/tickets/"+id+".json", `{"id": "`+id+`", "project": "factory", "kind": "manage", "title": "Tidy",
+			"column": "needs_human", "history": [], "updated": "2026-10-16T10:00:00+00:00",
+			"ask": {"kind": "draft", "question": "Apply the manager's 1 change?", "why": "", "since": "2026-10-16T10:00:00+00:00"},
+			"drafts": [`+drafts+`], "actions": [`+actions+`]}`)
+		return h.do("GET", "/t/"+id, nil, h.login()).Body.String()
+	}
+	button := func(v string) string { return `name="answer" value="` + v + `"` }
+	cases := []struct {
+		id, drafts, actions string
+		want, not           []string
+	}{
+		{"T0051", `{"title": "Gate", "why": "w", "patch": "+x\n", "tier": "tap", "state": "waiting"}`, ``,
+			[]string{button("apply"), button("send_back"), button("drop")}, []string{button("applied")}},
+		{"T0052", `{"title": "Old", "why": "w", "patch": "+x\n"}`, `{"kind": "rebuild", "why": "w", "tier": "tap", "state": "waiting"}`,
+			[]string{button("applied"), button("apply"), button("drop")}, nil},
+		{"T0053", `{"title": "Old", "why": "w", "patch": "+x\n"}`, ``,
+			[]string{button("applied")}, []string{button("apply")}},
+		{"T0054", `{"title": "Old", "why": "w", "patch": "+x\n"}`, `{"kind": "rebuild", "why": "w", "tier": "tap", "state": "requested"}`,
+			[]string{button("send_back"), "Applying"}, []string{button("apply"), button("applied")}},
+	}
+	for _, c := range cases {
+		body := page(c.id, c.drafts, c.actions)
+		for _, w := range c.want {
+			if !strings.Contains(body, w) {
+				t.Errorf("%s lacks %q", c.id, w)
+			}
+		}
+		for _, n := range c.not {
+			if strings.Contains(body, n) {
+				t.Errorf("%s has %q", c.id, n)
 			}
 		}
 	}

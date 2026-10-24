@@ -7,7 +7,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/model"
 )
 
-// Entry is one history entry (§3.2). Event and Detail are on every entry;
+// Entry is one history entry. Event and Detail are on every entry;
 // Type and the payload's fields only on typed entries, flattened into the
 // same object. An entry keeps its own key order and the keys no view knows,
 // like every object of the tree.
@@ -138,7 +138,7 @@ type (
 
 // The payloads of the events Python wrote untyped (error, pr, gate, filed,
 // vote, panel, host, review requested). They are written typed since it
-// retired (D9); Interpret reads old history's from the detail.
+// retired; Interpret reads old history's from the detail.
 type (
 	// Errored: something went wrong (event "error"). Text is the error
 	// itself; the detail says it in a sentence, with where it came from.

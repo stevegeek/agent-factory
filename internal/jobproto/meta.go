@@ -20,7 +20,7 @@ type Meta struct {
 	Model          string // "" in what the dispatcher sends means the helper's default
 	Bundle         bool   // send the branch back as out.bundle (work only)
 	TimeoutMinutes int
-	// Harness picks the command the job runs (§2.4.5). The dispatcher
+	// Harness picks the command the job runs. The dispatcher
 	// leaves it out, which means DefaultHarness; Python helpers ignore it.
 	Harness string
 	// Kind is "" for an agent's run (KindAgent reads as ""), or KindGate
@@ -29,7 +29,7 @@ type Meta struct {
 	Kind string
 }
 
-// Encode is the meta.json the dispatcher sends (start_remote, F:899):
+// Encode is the meta.json the dispatcher sends (start_remote):
 // json.dumps of {branch, start, model, bundle, timeout_minutes}, with
 // "harness" after them only when it is not the default, and "kind" only
 // for a gate job.
@@ -71,7 +71,7 @@ func ParseMeta(b []byte) (Meta, error) {
 	return CheckMeta(v)
 }
 
-// CheckMeta is check_meta (R:72), the helper's validation of a job's
+// CheckMeta is check_meta, the helper's validation of a job's
 // meta, as the shared definition of what a dispatcher may send:
 //   - branch and start (str() of the value, "" when absent) match
 //     ^[A-Za-z0-9._/-]{1,100}$, hold no "..", and start with neither "-"

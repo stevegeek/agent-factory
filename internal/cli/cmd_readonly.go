@@ -25,7 +25,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/tokens"
 )
 
-// The read-only commands (§7.3, slice S6): ls, show, result, proposals,
+// The read-only commands: ls, show, result, proposals,
 // recipes, model, check and version. Their output is Python's, byte for
 // byte (testdata/py holds what Python printed). They read the tickets'
 // trees, as Python's dicts, so a value of an unexpected type prints as
@@ -252,7 +252,7 @@ func (c checkTokens) Records() ([]config.TokenRecord, error) {
 	return out, nil
 }
 
-// intentAge is how old an intent may be before check warns (§6.3).
+// intentAge is how old an intent may be before check warns.
 const intentAge = time.Hour
 
 // runCheck is cmd_check: config_problems, then the board's own checks.
@@ -262,7 +262,7 @@ func runCheck(ctx context.Context, e *Env, a Args) error {
 	problems, warnings := cfg.Problems(checkTokens{e.Tokens()})
 	problems = append(problems, cfg.HostProblems(config.ThisHost())...)
 	if err := e.Git(ctx); err != nil {
-		problems = append(problems, err.Error()) // §4.8: the git version is a contract
+		problems = append(problems, err.Error()) // the git version is a contract
 	}
 	problems = append(problems, gitFileProblems(cfg)...)
 	reader := e.Board().Reader
@@ -326,7 +326,7 @@ func switchNotes(cfg *config.Config, path string) (notes, warnings []string) {
 	return notes, warnings
 }
 
-// gitFileProblems is quirk 11's pre-flight: a factory project whose .git is
+// gitFileProblems is a pre-flight check: a factory project whose .git is
 // not a directory, which the port refuses.
 func gitFileProblems(cfg *config.Config) []string {
 	var out []string

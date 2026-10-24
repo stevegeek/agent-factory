@@ -9,7 +9,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// HoldPR is hold_pr (F:4815): a ticket sent back for rework has its open PR
+// HoldPR is hold_pr: a ticket sent back for rework has its open PR
 // put back to draft, so the old version cannot be merged meanwhile, with a
 // "pr" event. A ticket with no PR, a project with no GitHub repository, a
 // factory with no GitHub App and a PR that is no longer open have nothing to

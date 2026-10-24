@@ -17,6 +17,18 @@ type offerer interface {
 	Offer(ctx context.Context, cfg *config.Config, a deploy.Asker, rev, why, by string, hold bool) error
 }
 
+// operatorDeploys is the operator's operator.Deployer: the deploy Offer of
+// main with the doors' asker and no hold of its own, so a hold file or an
+// open Deploy? ask still turns it into a Deploy? line.
+type operatorDeploys struct {
+	Deploy offerer
+	Asks   deploy.Asker
+}
+
+func (o operatorDeploys) Offer(ctx context.Context, cfg *config.Config, why, by string) error {
+	return o.Deploy.Offer(ctx, cfg, o.Asks, "main", why, by, false)
+}
+
 // selfDeploys is the PR flow's prflow.Deployer: a merge of the factory's
 // own core or config offers a deploy of main, which holds the merge (every
 // deploy is core main with config main, so a config merge offers the same

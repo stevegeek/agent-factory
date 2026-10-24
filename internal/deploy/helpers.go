@@ -103,7 +103,7 @@ func HelperBundle(p paths.Paths) ([]byte, error) {
 }
 
 // updateHelpers sends each ssh helper the bundle of what the master now
-// runs, after the master's check passed (decision 16). Each outcome is
+// runs, after the master's check passed. Each outcome is
 // "ok" or the error; a failure files nothing (helpers are often off, and
 // the next deploy tries again).
 func (s Service) updateHelpers(ctx context.Context, cfg *config.Config, commit12 string) map[string]string {
@@ -137,8 +137,8 @@ func (s Service) updateHelpers(ctx context.Context, cfg *config.Config, commit12
 }
 
 // rootSteps files a notice when the deploy changed a file only a root
-// step installs (decision 18), or when it cannot tell, because the
-// commit it replaced is not in the mirror (the desktop deployed one off
+// step installs, or when it cannot tell, because the
+// commit it replaced is not in the mirror (a deploy by hand put one off
 // main). It never fails the deploy.
 func (s Service) rootSteps(ctx context.Context, core gitx.Mirror, from, to string) {
 	c := to[:12]

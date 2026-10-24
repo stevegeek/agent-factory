@@ -56,7 +56,7 @@ func TestFloorReadsTheDispatchersRealMoveText(t *testing.T) {
 }
 
 // The contract tickets were written by the dispatcher's real code paths
-// (tests/test_tickets.py ContractFixture). They read through the typed fields
+// (the Python tests ContractFixture). They read through the typed fields
 // alone: no legacy reader is needed.
 func TestContractTicketsReadFromTypedHistory(t *testing.T) {
 	all := contractTickets(t)

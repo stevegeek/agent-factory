@@ -1,6 +1,6 @@
-// Package archtest enforces the architecture plan's structural rules
-// (docs/go-rewrite/ARCHITECTURE.md §2.2, §8.5, §10.1) as tests, so a broken
-// boundary is a build failure rather than a review point.
+// Package archtest enforces the architecture's structural rules as
+// tests, so a broken boundary is a build failure rather than a review
+// point.
 //
 // The checks run against any module directory, so the package's own tests
 // can build small fixture modules that break each rule. The repository test
@@ -41,12 +41,12 @@
 //  11. No personal strings: when FACTORY_PERSONAL_STRINGS names a file (kept
 //     in the private config repo), no file in the module contains one of its
 //     lines.
-//  12. Domain purity (§2.2 rule 2): internal/model and internal/ticket
+//  12. Domain purity: internal/model and internal/ticket
 //     import no os, os/..., syscall, net or net/... package and never refer
 //     to time.Now.
-//  13. Interface size (§2.2 rule 6): no exported interface in production
+//  13. Interface size: no exported interface in production
 //     code has more than four methods, counting embedded ones.
-//  14. Reasons (§3.2, §3.5): no model.Reason is spelled as a string literal
+//  14. Reasons: no model.Reason is spelled as a string literal
 //     outside internal/model, and every model.Reason constant is written
 //     (not only compared) by production code outside internal/model.
 package archtest

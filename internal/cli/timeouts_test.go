@@ -11,10 +11,9 @@ import (
 	"github.com/stevegeek/agent-factory/internal/scionread"
 )
 
-// §5.2: the per-call timeouts keep Python's values. Each lives as a
+// The per-call timeouts keep Python's values. Each lives as a
 // constant in the adapter that runs the call; this one table pins them all
-// to the values of §5.2 (Python's), so a change to any of them is a change
-// to this test and the document.
+// to Python's values, so a change to any of them is a change to this test.
 func TestPerCallTimeoutsArePythons(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -34,7 +33,7 @@ func TestPerCallTimeoutsArePythons(t *testing.T) {
 		{"smoke (podman.SmokeTimeout)", podman.SmokeTimeout, 2400 * time.Second},
 	} {
 		if tc.got != tc.want {
-			t.Errorf("%s = %v, §5.2 says %v", tc.name, tc.got, tc.want)
+			t.Errorf("%s = %v, Python's is %v", tc.name, tc.got, tc.want)
 		}
 	}
 }

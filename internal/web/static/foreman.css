@@ -139,6 +139,9 @@ form.sending .btn.busy { pointer-events: none; }
 .badge.small { font-size: 11.5px; padding: 0 6px; }
 .badge.paused, .badge.board { background: var(--sunk); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); vertical-align: 2px; }
 .badge.walls { background: var(--sunk); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.badge[class*="tier-"], .badge[class*="state-"] { background: var(--sunk); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.badge.state-applied { background: var(--go-soft); color: var(--go); box-shadow: none; }
+.badge.state-refused, .badge.state-failed { background: var(--stop-soft); color: var(--stop); box-shadow: none; }
 .eyebrow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; color: var(--muted); font-size: 13px; }
 .eyebrow a { color: var(--muted); }
 .ask-head { display: grid; gap: 6px; }

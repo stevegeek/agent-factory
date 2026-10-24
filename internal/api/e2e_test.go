@@ -290,8 +290,8 @@ func TestAPIStaleTokensDontLockOutOthers(t *testing.T) {
 	}
 }
 
-// A config change is seen on the next call: the service reads it afresh
-// (§3.4), so a project removed from config is gone at once.
+// A config change is seen on the next call: the service reads it afresh,
+// so a project removed from config is gone at once.
 func TestAPIFollowsTheConfig(t *testing.T) {
 	h := newHarness(t, nil, harnessOpt{})
 	agent := h.mint("example-agent", "read,file", "sandbox", "other")

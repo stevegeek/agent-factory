@@ -16,7 +16,7 @@ import (
 
 const deployConfig = `[deploy]
 core = "example/agent-factory"
-config = "example/factory-config"
+config = "example/config-repo"
 
 [github]
 installation_id = "1"

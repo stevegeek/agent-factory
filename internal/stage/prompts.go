@@ -14,9 +14,9 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// The prompts are part of the agent contract (inventory-contracts §25.13):
-// each is built by concatenation in Python's order, and tested byte for byte
-// against Python's goldens (testdata/py/prompts).
+// The prompts are part of the agent contract: each is built by
+// concatenation in Python's order, and tested byte for byte against
+// Python's goldens (testdata/py/prompts).
 
 // PromptIn is what a stage's prompt is built from.
 type PromptIn struct {
@@ -41,7 +41,7 @@ type PromptIn struct {
 	KnownNote string
 }
 
-// QuestionNote is QUESTION_NOTE (F:116): how a stage that may ask stops to
+// QuestionNote is QUESTION_NOTE: how a stage that may ask stops to
 // ask the maintainer.
 const QuestionNote = `
 
@@ -71,14 +71,14 @@ func compose(s model.Stage, in PromptIn, p string) string {
 	return p
 }
 
-// UntrustedNote is untrusted_note (F:1434): what an agent is told about
+// UntrustedNote is untrusted_note: what an agent is told about
 // text that came in through a door that is not trusted.
 func UntrustedNote(door string) string {
 	d, _ := model.DoorOf(door)
 	return d.PromptNote
 }
 
-// ProjectFacts is project_facts (F:1447): the language and the commands
+// ProjectFacts is project_facts: the language and the commands
 // the gate runs, then the project's notes.
 func ProjectFacts(p *config.Project) string {
 	lines := []string{"\n\n## This project\n\n" + p.LanguageLabel() + ". Run from the repository root:"}
@@ -93,7 +93,7 @@ func ProjectFacts(p *config.Project) string {
 	return strings.Join(lines, "\n")
 }
 
-// NotesText is notes_text (F:2795): the maintainer's notes on the ticket,
+// NotesText is notes_text: the maintainer's notes on the ticket,
 // which work, task, design and manage are told to follow.
 func NotesText(t *ticket.Ticket) string {
 	if len(t.Notes) == 0 {
@@ -245,17 +245,48 @@ func votePrompt(in PromptIn) string {
 func managePrompt(in PromptIn) string {
 	t := in.Ticket
 	before := ""
-	if t.Result.Or("") != "" || len(t.Drafts) > 0 {
-		titles := make([]string, len(t.Drafts))
-		for i, d := range t.Drafts {
-			titles[i] = d.Title
-		}
+	if t.Result.Or("") != "" || len(t.Drafts) > 0 || len(t.Actions) > 0 {
 		before = "\n\nYour previous answer on this ticket (the maintainer's notes below respond to it):\n\n" +
 			textx.Clip(t.Result.Or(""), 4000)
-		if len(t.Drafts) > 0 {
+		if items := operatorItems(t); items != nil {
+			before += "\n\nWhat you proposed before, and what became of it:\n" + bullets(items)
+		} else if len(t.Drafts) > 0 {
+			titles := make([]string, len(t.Drafts))
+			for i, d := range t.Drafts {
+				titles[i] = d.Title
+			}
 			before += "\n\nDrafts you gave:\n" + bullets(titles)
 		}
 	}
 	return heading("The maintainer asks the manager", t) + before + NotesText(t) +
 		"\n\nYou run in a scratch directory; what you may read is under /factory (see your instructions)."
+}
+
+// operatorItems are a manager ticket's drafts and actions as
+// "<title, or kind target> — <state>: <note>", or nil when it has only
+// drafts saved before the operator (no state), which the prompt lists as titles.
+func operatorItems(t *ticket.Ticket) []string {
+	operator := len(t.Actions) > 0
+	for _, d := range t.Drafts {
+		operator = operator || d.State != ""
+	}
+	if !operator {
+		return nil
+	}
+	line := func(label, state, note string) string {
+		// folded again here, so that whatever is stored stays on its line
+		s := textx.Clip(label, 200) + " — " + strings.ReplaceAll(state, "_", " ")
+		if note != "" {
+			s += ": " + textx.Clip(note, 300)
+		}
+		return s
+	}
+	var out []string
+	for _, d := range t.Drafts {
+		out = append(out, line(d.Title, ticket.DraftState(d), d.Note))
+	}
+	for _, a := range t.Actions {
+		out = append(out, line(a.ItemLabel(), ticket.ActionState(a), a.Note))
+	}
+	return out
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// CheckPR is check_pr (F:2592): a PR merged on GitHub closes the ticket as
+// CheckPR is check_pr: a PR merged on GitHub closes the ticket as
 // done, one closed without merging as rejected; an open one has its reviews
 // followed.
 func (f *Flow) CheckPR(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) error {
@@ -46,7 +46,7 @@ func (f *Flow) CheckPR(ctx context.Context, cfg *config.Config, p config.Project
 	return nil
 }
 
-// followReviews is follow_reviews (F:2604): a configured reviewer's review
+// followReviews is follow_reviews: a configured reviewer's review
 // on GitHub (nobody else's) is an instruction, and the latest new one
 // decides. Changes requested go back to the worker; an approval merges.
 // Every new review is marked seen, so an approval that a later review
@@ -140,7 +140,7 @@ func markSeen(t *ticket.Ticket, rs []github.Review) {
 	t.PR = ticket.Some(pr)
 }
 
-// approveToMerge is approve_to_merge (F:2624): the approval is the
+// approveToMerge is approve_to_merge: the approval is the
 // go-ahead, so the factory marks the PR ready and merges it, but only the
 // commit that was approved, and only if that is the commit the gate checked.
 // A PR that conflicts with the base goes back for a rebase. A merge GitHub
@@ -224,7 +224,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 	return nil
 }
 
-// pickUpChanges is pick_up_changes (F:2661): the review bodies and the PR's
+// pickUpChanges is pick_up_changes: the review bodies and the PR's
 // line comments that belong to those reviews become one note for the
 // worker, and the ticket goes back for rework with its PR a draft
 // meanwhile.

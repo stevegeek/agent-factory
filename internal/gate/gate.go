@@ -1,9 +1,9 @@
-// Package gate is Gate 1, the deterministic gate with no model
-// (ARCHITECTURE.md §2.3, inventory-pipeline §9): the project's install, tests
-// and lint on a fresh clone of the branch in a container with no network,
-// the size and path rules that decide whether a change may merge without a
-// person, the merge queue's re-check against a moved base, the audit trail
-// written after every gate run, and the off-box gate's GitHub workflow.
+// Package gate is Gate 1, the deterministic gate with no model: the
+// project's install, tests and lint on a fresh clone of the branch in a
+// container with no network, the size and path rules that decide whether a
+// change may merge without a person, the merge queue's re-check against a
+// moved base, the audit trail written after every gate run, and the off-box
+// gate's GitHub workflow.
 //
 // The gate never runs anything from the agent-writable clone itself: it
 // clones it (objects and refs only; no hooks, no config), checks the ref out
@@ -177,7 +177,7 @@ func (r Runner) Checks(ctx context.Context, in CheckIn) (ok bool, tail string, e
 func Script(p config.Project) (string, error) { return gateScript(p) }
 
 // gateScript is the container's shell command. A project without install,
-// test or lint is refused, naming the key (quirk 6: Python ran the string
+// test or lint is refused, naming the key (Python ran the string
 // "None"); an empty command is kept as Python had it.
 func gateScript(p config.Project) (string, error) {
 	cmds := []string{p.Install, p.Test, p.Lint}
@@ -210,8 +210,8 @@ func containerName(prefix, id string) string {
 // puts the result on it.
 //
 // The branch's and the base's heads are taken first, and everything is
-// read from those two commits: the files, the size and the checks (review
-// §4.9; Python read the head after the checks, so a commit landing during
+// read from those two commits: the files, the size and the checks (Python
+// read the head after the checks, so a commit landing during
 // them could be approved untested). The gate records that head; a branch
 // that moved meanwhile is logged, and its new commits are not gated (the
 // merge path merges only the gated commit).
@@ -462,7 +462,7 @@ func Evaluate(in GateIn) (ticket.Gate, error) {
 // ticket holds it, or the string "unknown" when the review report does not
 // say.
 //
-// The gate may not import jsonx (§2.2), so the value is taken from the
+// The gate may not import jsonx, so the value is taken from the
 // ticket's own reports, and "unknown" is made by ticket.Decode.
 func setBehaviour(g *ticket.Gate, t *ticket.Ticket, behaviour node) error {
 	if review, ok := t.Reports.Lookup("review"); ok {
@@ -493,8 +493,8 @@ func Rule(cfg *config.Config, g ticket.Gate) string {
 		"(limit %d), reviewer says no runtime change", g.ChangedLines, cfg.MaxChangedLines())
 }
 
-// Record puts Gate 1's result on the ticket and moves it as the tick does
-// (F:2262): failed checks, or public-repo hygiene hits, need a person
+// Record puts Gate 1's result on the ticket and moves it as the tick does:
+// failed checks, or public-repo hygiene hits, need a person
 // (gate_failed), anything else goes to
 // ready_for_pr (gate_passed), saying what keeps it from auto-merging. The
 // caller writes the audit (WriteAudit) and updates an open PR.

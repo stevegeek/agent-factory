@@ -19,17 +19,17 @@ import (
 	"github.com/stevegeek/agent-factory/internal/fsx"
 )
 
-// Automatic agent updates (ARCHITECTURE.md §15.1). The weekly rebuild
-// updates Claude Code and Pi by itself: the [images] pins are a floor, the
-// version installed lives in ~/factory/images.json (which a deploy never
-// writes), and the effective version is the newer of the two. A newer
-// release is built as the candidate, smoke-checked for that exact version,
-// checked against the projects (blocking only a regression), and only then
-// promoted. `factory rebuild --rollback KIND` goes back to :previous and
-// holds the version it left; a held version is not tried again until a
-// newer one is out or `--unhold KIND`. images.json's previous always names
-// the version :previous holds: every promoted rebuild, update or not,
-// retags the image it replaces as :previous (Rebuilt).
+// Automatic agent updates. The weekly rebuild updates Claude Code and Pi
+// by itself: the [images] pins are a floor, the version installed lives in
+// ~/factory/images.json (which a deploy never writes), and the effective
+// version is the newer of the two. A newer release is built as the
+// candidate, smoke-checked for that exact version, checked against the
+// projects (blocking only a regression), and only then promoted. `factory
+// rebuild --rollback KIND` goes back to :previous and holds the version it
+// left; a held version is not tried again until a newer one is out or
+// `--unhold KIND`. images.json's previous always names the version
+// :previous holds: every promoted rebuild, update or not, retags the image
+// it replaces as :previous (Rebuilt).
 
 // ToolState is one tool's entry in images.json.
 type ToolState struct {

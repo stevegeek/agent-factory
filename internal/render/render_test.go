@@ -284,7 +284,7 @@ func listTree(t *testing.T, dir string) map[string]string {
 
 // The example config renders from the embedded assets exactly as bin/render
 // does: every file, its bytes and its mode (bin/ and patch_provision.py are
-// deploy's job now, §8.4).
+// deploy's job now).
 func TestRenderExampleMatchesPython(t *testing.T) {
 	var golden struct {
 		Files map[string]struct {
@@ -334,7 +334,7 @@ func TestRenderExampleMatchesPython(t *testing.T) {
 	}
 }
 
-// Every stage has a role template in the default flavour (§2.4.1: render's
+// Every stage has a role template in the default flavour (render's
 // test fails if a role lacks a template).
 func TestEveryStageHasATemplate(t *testing.T) {
 	for _, s := range stageTemplates() {

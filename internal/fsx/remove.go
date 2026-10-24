@@ -8,7 +8,7 @@ import (
 )
 
 // RemoveTree deletes the tree at path even where an agent made directories
-// unreadable (Python remove_copy, F:1264): each directory is opened with
+// unreadable (Python remove_copy): each directory is opened with
 // O_PATH|O_NOFOLLOW|O_DIRECTORY, which works on a mode-000 directory and
 // never through a link, and chmodded 0700 through /proc/self/fd before it
 // is entered; then the tree is removed without following links. A path that

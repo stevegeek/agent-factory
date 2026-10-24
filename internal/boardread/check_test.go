@@ -39,8 +39,7 @@ func TestCheckBoard(t *testing.T) {
 }
 
 // factory check --asks: every factory ticket in an ask column (needs_human,
-// pr_open, ready_for_pr) without a stored ask, which Foreman does not show
-// (D11).
+// pr_open, ready_for_pr) without a stored ask, which Foreman does not show.
 func TestCheckAsks(t *testing.T) {
 	b := newBoard(t)
 	put := func(id ticket.ID, column string, mode string, ask string) {

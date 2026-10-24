@@ -70,7 +70,7 @@ func TestACLIChangeGivesUpWhileTheTickHoldsTheTicket(t *testing.T) {
 	}
 }
 
-// changing(): saved only if the block ends normally, and (§5.2) never after
+// changing(): saved only if the block ends normally, and never after
 // its context is cancelled.
 func TestChangingSavesOnlyWhatFinished(t *testing.T) {
 	f := newFixture(t)

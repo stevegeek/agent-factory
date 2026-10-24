@@ -1,4 +1,4 @@
-// Package mailbox is the pull transport (§2.4.6): the jobs of a host the
+// Package mailbox is the pull transport: the jobs of a host the
 // dispatcher cannot reach wait in ~/factory/mailbox/<host>/<job>/, and the
 // host calls in to take them. Two sides share the directory, both as the
 // factory user:

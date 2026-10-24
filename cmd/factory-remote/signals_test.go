@@ -44,7 +44,7 @@ func waitFor(t *testing.T, what string, ok func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
-// §5.4: `factory-remote run <job>` ignores SIGHUP; on SIGTERM (systemd
+// `factory-remote run <job>` ignores SIGHUP; on SIGTERM (systemd
 // stopping the job's unit) it TERMs podman's client, removes the container
 // with `podman rm -f --time 5` (which stops it first), writes what the run
 // printed to run.log and 255 to exit, and exits 1.

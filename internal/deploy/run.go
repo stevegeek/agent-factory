@@ -30,8 +30,8 @@ const (
 	tailBytes = 2 << 10
 )
 
-// rootPaths are the files whose change needs a root step on the master
-// (decision 18): git pathspecs for Mirror.Changed.
+// rootPaths are the files whose change needs a root step on the master:
+// git pathspecs for Mirror.Changed.
 func rootPaths() []string {
 	return []string{"host/", "systemd/factory@.service", "systemd/*.timer", "systemd/factory-rebuild.service", "systemd/install-units.sh"}
 }

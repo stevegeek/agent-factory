@@ -123,7 +123,7 @@ nft -c -f "$RULES.new" || { rm -f "$RULES.new"; die "nft refused the rules; noth
 mv "$RULES.new" "$RULES"
 chmod 0644 "$RULES"
 
-# The backup bucket (ARCHITECTURE.md §15.2): R2's endpoint is per account, <account>.r2.cloudflarestorage.com
+# The backup bucket: R2's endpoint is per account, <account>.r2.cloudflarestorage.com
 # on 443, so it is read from the factory user's config.toml ([backup] endpoint) rather than listed above.
 # Re-run this script after setting or changing it.
 r2=""

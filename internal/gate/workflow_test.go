@@ -20,7 +20,7 @@ func mustConfig(t *testing.T, text string) *config.Config {
 	return cfg
 }
 
-// The workflows tools/goldens.py had gate_workflow write for each config.
+// The workflows the Python goldens tool had gate_workflow write for each config.
 func TestWorkflowGoldens(t *testing.T) {
 	dir := filepath.Join("testdata", "py", "workflow")
 	tomls, err := filepath.Glob(filepath.Join(dir, "*.toml"))
@@ -175,7 +175,7 @@ mode = "board"
 			t.Errorf("Workflow(%q) = %v, want %q", c.key, err, c.want)
 		}
 	}
-	// D15: no default App slug in the code.
+	// no default App slug in the code.
 	noSlug := mustConfig(t, "[projects.gem]\npath = \"/srv/gem\"\n")
 	_, err := Workflow(noSlug, "gem")
 	if err == nil || !strings.Contains(err.Error(), "app_slug") {

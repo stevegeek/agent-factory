@@ -27,7 +27,7 @@ type caller struct {
 	expires  jsonx.Value
 }
 
-// resolve is caller_for (F:3214). Without a token the caller is a person
+// resolve is caller_for. Without a token the caller is a person
 // with every project and capability. A token's live record gives its
 // projects (those still in config) and capabilities (those that exist); a
 // token that is missing, expired, reserved or now a person's name is

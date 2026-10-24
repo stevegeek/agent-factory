@@ -14,7 +14,7 @@ import (
 )
 
 // buildFactory builds cmd/factory into a temp dir: the exit codes are the
-// binary's, so they are checked on the binary (§10.2).
+// binary's, so they are checked on the binary.
 func buildFactory(t *testing.T) string {
 	t.Helper()
 	if testing.Short() {
@@ -93,7 +93,7 @@ func TestTheBinarysExitCodes(t *testing.T) {
 	}
 }
 
-// A command killed by a signal exits 128+n (§7.2): the lock wait of
+// A command killed by a signal exits 128+n: the lock wait of
 // `ticket --json` is cut short by SIGTERM.
 func TestASignalExits128PlusN(t *testing.T) {
 	bin := buildFactory(t)

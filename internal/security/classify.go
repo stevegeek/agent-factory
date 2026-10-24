@@ -1,8 +1,8 @@
-// Package security is the mechanical half of the security stage
-// (ARCHITECTURE.md §2.3, inventory-pipeline §7.4): the tier a change is
-// classified into from its files and added lines (no model involved), the
-// questions each tier asks the security agent, and the outcome, which is
-// decided from the agent's answers rather than its own verdict.
+// Package security is the mechanical half of the security stage: the tier a
+// change is classified into from its files and added lines (no model
+// involved), the questions each tier asks the security agent, and the
+// outcome, which is decided from the agent's answers rather than its own
+// verdict.
 //
 // The package reads no files and runs no git: callers pass what git said
 // (gate.ClassifyBranch does both for a branch).
@@ -31,7 +31,7 @@ func DefaultTextPaths() []string {
 		"*.rbs", "sig/*", ".ameba.yml", ".editorconfig"}
 }
 
-// Patterns are the fnmatch patterns Classify reads paths with (§2.4.8: a
+// Patterns are the fnmatch patterns Classify reads paths with (a
 // later language registry supplies other ones).
 type Patterns struct {
 	Tier3 []string // build or dependencies

@@ -1,7 +1,7 @@
-// Package fsx holds the factory's file primitives (ARCHITECTURE.md §4.3,
-// §4.4): atomic writes with Python's temp names, flock(2) locks with waits
-// and inherited descriptors, a walk and reads that never follow a link, and
-// the removal of a tree an agent may have made unreadable.
+// Package fsx holds the factory's file primitives: atomic writes with
+// Python's temp names, flock(2) locks with waits and inherited descriptors,
+// a walk and reads that never follow a link, and the removal of a tree an
+// agent may have made unreadable.
 package fsx
 
 import (

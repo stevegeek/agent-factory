@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The TT CONFIG fixture (tests/test_tickets.py).
+// The TT CONFIG fixture (the Python tests).
 const ticketsConfig = `
 [board]
 people = ["alice", "bob"]

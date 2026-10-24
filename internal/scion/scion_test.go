@@ -57,7 +57,7 @@ func envMap(env []string) map[string]string {
 	return m
 }
 
-// §10.7 S7b (security): scion_env drops ANTHROPIC_API_KEY and reads the token
+// Security: scion_env drops ANTHROPIC_API_KEY and reads the token
 // file (stripped) into CLAUDE_CODE_OAUTH_TOKEN; PATH gets scion's directory.
 func TestEnvDropsTheAPIKeyAndReadsTheToken(t *testing.T) {
 	c := client(t, &recorder{}, "PATH=/usr/bin", "ANTHROPIC_API_KEY=sk-x", "CLAUDE_CODE_OAUTH_TOKEN=stale", "GIT_CONFIG_COUNT=3")
@@ -94,7 +94,7 @@ func TestMissingTokenFileStopsAStart(t *testing.T) {
 	}
 }
 
-// §10.7 S7b: the full `scion start` argv (F:1792-1813), the prompt last, the
+// the full `scion start` argv, the prompt last, the
 // token in the environment and never in argv.
 func TestStartArgv(t *testing.T) {
 	cases := []struct {
@@ -155,7 +155,7 @@ func TestStartRefusesOptionLikeValues(t *testing.T) {
 	}
 }
 
-// Quirk 5, fixed at the port: a failed start removes its run/<name>.yaml.
+// Fixed at the port: a failed start removes its run/<name>.yaml.
 func TestFailedStartRemovesItsRunConfig(t *testing.T) {
 	runDir := t.TempDir()
 	conf := filepath.Join(runDir, "t0001-w1.yaml")
@@ -196,7 +196,7 @@ func TestSuccessfulStartKeepsItsRunConfig(t *testing.T) {
 	}
 }
 
-// remove_agent's tail (F:737): stop, then delete with -b when the branch is
+// remove_agent's tail: stop, then delete with -b when the branch is
 // kept; both unchecked.
 func TestStopAndDeleteArgv(t *testing.T) {
 	r := &recorder{code: 1}

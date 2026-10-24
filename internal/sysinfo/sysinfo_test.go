@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/deployrec"
 	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/testkit"
 	"github.com/stevegeek/agent-factory/internal/ticket"
@@ -337,5 +338,58 @@ func TestLive(t *testing.T) {
 	l = LiveOf(t.TempDir(), p, now, func(string) (Disk, error) { return Disk{}, errors.New("no") })
 	if len(l.Disks) != 0 || l.Process.RSS != 0 || l.Process.Cgroup != nil || l.Process.GoSys == 0 {
 		t.Errorf("live from nothing %+v", l)
+	}
+}
+
+// System status carries the project switches and the deploy hold, for the
+// operator (the manager reads sysinfo.json): a switch overrides config's
+// enabled, and a hold turns deploys into Deploy? asks.
+func TestSysinfoHasSwitchesAndHold(t *testing.T) {
+	d, p := collectDeps(t)
+	d.Switches = func() (config.Switches, error) {
+		return config.Switches{"alpha": {Enabled: false, By: "maintainer", At: "2026-10-18T09:00:00+00:00"}}, nil
+	}
+	d.Hold = func() (*deployrec.Hold, error) {
+		return &deployrec.Hold{By: "maintainer", At: "2026-10-18T08:00:00+00:00", Note: "travelling"}, nil
+	}
+	s := Collect(t.Context(), d)
+	if sw, ok := s.Switches["alpha"]; !ok || sw.Enabled || sw.By != "maintainer" || len(s.Switches) != 1 {
+		t.Errorf("switches %+v", s.Switches)
+	}
+	if s.DeployHold == nil || s.DeployHold.Note != "travelling" {
+		t.Errorf("hold %+v", s.DeployHold)
+	}
+	if err := Write(File(p), s); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(File(p))
+	for _, want := range []string{`"switches": {`, `"enabled": false`, `"deploy_hold": {`, `"note": "travelling"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("sysinfo.json lacks %s", want)
+		}
+	}
+	back, err := Read(File(p))
+	if err != nil || back.DeployHold == nil || back.Switches["alpha"].By != "maintainer" {
+		t.Errorf("read back %+v %v", back, err)
+	}
+
+	// none: both left out; what does not read is a problem
+	d.Switches = func() (config.Switches, error) { return nil, nil }
+	d.Hold = func() (*deployrec.Hold, error) { return nil, nil }
+	s = Collect(t.Context(), d)
+	if s.Switches != nil || s.DeployHold != nil {
+		t.Errorf("none: %+v %+v", s.Switches, s.DeployHold)
+	}
+	Write(File(p), s)
+	b, _ = os.ReadFile(File(p))
+	if strings.Contains(string(b), "switches") || strings.Contains(string(b), "deploy_hold") {
+		t.Errorf("empty fields written: %s", b)
+	}
+	d.Switches = func() (config.Switches, error) { return nil, errors.New("projects.json: bad") }
+	d.Hold = func() (*deployrec.Hold, error) { return nil, errors.New("deploy-hold.json: bad") }
+	s = Collect(t.Context(), d)
+	joined := strings.Join(s.Problems, "\n")
+	if !strings.Contains(joined, "projects.json: bad") || !strings.Contains(joined, "deploy hold: deploy-hold.json: bad (deploys are held)") {
+		t.Errorf("problems %v", s.Problems)
 	}
 }

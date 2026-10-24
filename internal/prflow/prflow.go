@@ -1,14 +1,13 @@
-// Package prflow is the factory's pull requests (ARCHITECTURE.md §2.3,
-// §6.3; inventory-pipeline §10): the PR body, opening and updating a PR,
-// following a PR's reviews, the maintainer's go-ahead and the merge queue,
-// putting a PR back to draft while it is reworked, the intents Foreman
-// records for the tick to carry out, and the synchronous actions the CLI
-// passes to ops.
+// Package prflow is the factory's pull requests: the PR body, opening and
+// updating a PR, following a PR's reviews, the maintainer's go-ahead and the
+// merge queue, putting a PR back to draft while it is reworked, the intents
+// Foreman records for the tick to carry out, and the synchronous actions the
+// CLI passes to ops.
 //
 // It ports pick_branch, pr_body, open_pr, open_pr_of, request_review,
 // check_pr, follow_reviews, approve_to_merge, pick_up_changes, merge_pr,
-// land_pr, hold_pr, drain_intents and the GitHub half of tick_pass
-// (F:573, F:2404-2680, F:2210-2236, F:4815-4870). The decisions, the text
+// land_pr, hold_pr, drain_intents and the GitHub half of tick_pass.
+// The decisions, the text
 // written to tickets and to GitHub, and the order of requests are Python's.
 //
 // Security: the factory merges only on a maintainer's explicit go-ahead
@@ -18,11 +17,10 @@
 // reviews are read as instructions. It pushes only bot/* branches, with the
 // token in the environment, never in argv or a URL.
 //
-// Two deliberate changes from Python (§6.3, §13.2 quirk 14): an intent is
-// cleared only in the save that records its outcome, and a failure that
-// retrying can fix (no answer, a 5xx, a rate limit, a deferral under the
-// tick's deadline) keeps it, with at most one error event per intent per
-// hour.
+// Two deliberate changes from Python: an intent is cleared only in the save
+// that records its outcome, and a failure that retrying can fix (no answer,
+// a 5xx, a rate limit, a deferral under the tick's deadline) keeps it, with
+// at most one error event per intent per hour.
 package prflow
 
 import (
@@ -38,7 +36,7 @@ import (
 )
 
 // DefaultReserve is how much of the tick's deadline must remain before a
-// merge (and its merge check, up to 30 minutes) starts (§5.2): the tick
+// merge (and its merge check, up to 30 minutes) starts: the tick
 // runs for at most 42 minutes, under the unit's 45.
 const DefaultReserve = 32 * time.Minute
 

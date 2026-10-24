@@ -293,7 +293,7 @@ func TestAnUnwritableFlagIsMootOnceATickStarts(t *testing.T) {
 	})
 }
 
-// §6.2: Foreman's sandbox hides the user manager's bus, so a Waker with a
+// Foreman's sandbox hides the user manager's bus, so a Waker with a
 // Trigger never asks systemd (systemd-run through the bus would run any
 // command outside the sandbox) and never spawns a tick inside the sandbox:
 // it writes the trigger file, which the factory-wake.path unit watches.

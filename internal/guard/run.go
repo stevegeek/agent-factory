@@ -29,7 +29,7 @@ var (
 // token's own slot (one at a time per token, so one token cannot hold them
 // all) and for one of the shared ones, else ErrBusy. fn gets a context that
 // keeps ctx's values but not its cancellation, with the guard's Timeout: a
-// client that hangs up never cuts a write short (§5.6). A panic in fn is
+// client that hangs up never cuts a write short. A panic in fn is
 // recovered into ErrPanic and logged with its stack.
 func (g *Guard) Run(ctx context.Context, name string, fn func(context.Context) error) (err error) {
 	timer := time.NewTimer(g.slotWait)

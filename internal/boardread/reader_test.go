@@ -76,7 +76,7 @@ func ids(ts []*ticket.Ticket) []string {
 	return out
 }
 
-// Quirk 1 (§4.5): a corrupt ticket file is skipped and logged, never fatal.
+// A corrupt ticket file is skipped and logged, never fatal.
 // Everything else is read in Python's sorted(glob("T*.json")) order.
 func TestListSkipsWhatCannotBeReadAndLogsItOnce(t *testing.T) {
 	b := newBoard(t)

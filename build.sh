@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# build.sh: the one build entry point, on the box and anywhere else
-# (docs/go-rewrite/ARCHITECTURE.md §9).
+# build.sh: the one build entry point, on the box and anywhere else.
 #
 #   build.sh [--out DIR] [--commit ID]       build factory, foreman, factory-remote into DIR
 #            [--box | --no-box]              on-box mode (scope, tick lock, agent wait); default: auto
@@ -62,8 +61,8 @@ sha256() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
 }
 
-# A value from build/limits (key=value lines, written by S24's
-# measurement), or the provisional default of §9.
+# A value from build/limits (key=value lines, written by a
+# measurement), or the provisional default.
 limit() {
   local v=""
   if [ -f "$SRC/build/limits" ]; then
@@ -117,7 +116,7 @@ check_toolchain() {
   [ -z "$e" ] || die "toolchain at $GOROOT has GOEXPERIMENT=$e: only the official $PIN is allowed"
 }
 
-# The environment of every go invocation (§9.3). Nothing from the caller's
+# The environment of every go invocation. Nothing from the caller's
 # GOFLAGS or GOEXPERIMENT survives.
 go_env() {
   unset GOEXPERIMENT GOFLAGS GOOS GOARCH GOAMD64 GOPATH GOWORK GOENV
@@ -154,7 +153,7 @@ check_source() {
 }
 
 # Re-run inside a systemd user scope with the build's memory cap, then raise
-# our own OOM score so the kernel kills the build before any agent (§9.4).
+# our own OOM score so the kernel kills the build before any agent.
 enter_scope() {
   if [ "${FACTORY_BUILD_SCOPED:-}" != 1 ]; then
     command -v systemd-run >/dev/null 2>&1 || die "systemd-run not found: use --no-scope"

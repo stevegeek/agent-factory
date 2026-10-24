@@ -54,7 +54,7 @@ func TestClassify(t *testing.T) {
 		// port: TF ConfigTest.test_boundary_and_build_is_tier_4
 		{port: "ConfigTest.test_boundary_and_build_is_tier_4", name: "a parser and a gemspec",
 			files: []string{"lib/parser.rb", "x.gemspec"}, added: []string{"X = 1", "spec"}, want: 4},
-		// §10.7 S10: more than 15 files is tier 4, whatever they are.
+		// more than 15 files is tier 4, whatever they are.
 		{name: "sixteen doc files", files: sixteen, want: 4},
 		{name: "fifteen doc files", files: sixteen[:15], want: 0},
 		{name: "no files", want: 0},
@@ -138,7 +138,7 @@ func TestDefaultsAreFreshCopies(t *testing.T) {
 	}
 }
 
-// The tier patterns as tools/goldens.py wrote them: every default pattern
+// The tier patterns as the Python goldens tool wrote them: every default pattern
 // has a row in textx's fnmatch golden, and the Python lists are exactly ours.
 func TestPatternsMatchThePythonLists(t *testing.T) {
 	var golden struct {
@@ -165,7 +165,7 @@ func TestPatternsMatchThePythonLists(t *testing.T) {
 	}
 }
 
-// Every case tools/goldens.py ran TIER2_CONTENT (re.search) and TIER2_PATH
+// Every case the Python goldens tool ran TIER2_CONTENT (re.search) and TIER2_PATH
 // (re.search, re.I) over: the same match, and the same text matched.
 func TestTierRegexesMatchPython(t *testing.T) {
 	var golden struct {

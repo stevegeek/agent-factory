@@ -11,7 +11,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 )
 
-// checkAPIHeaders asserts the fixed headers of github_request (F:2366).
+// checkAPIHeaders asserts the fixed headers of github_request.
 func checkAPIHeaders(t *testing.T, r request) {
 	t.Helper()
 	for k, want := range map[string]string{

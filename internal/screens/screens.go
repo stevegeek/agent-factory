@@ -1,9 +1,9 @@
-// Package screens is the screen relay (ARCHITECTURE.md §6.2): Foreman's
-// sandbox hides podman and the user manager, so it cannot run `scion look`
-// itself. `factory screens`, a user unit outside the sandbox
-// (factory-screens.path starts it), looks at each running local agent's
-// terminal while someone has Live open and writes it to
-// Root/screens/<agent>.txt, which Foreman only reads (Reader).
+// Package screens is the screen relay: Foreman's sandbox hides podman and
+// the user manager, so it cannot run `scion look` itself. `factory
+// screens`, a user unit outside the sandbox (factory-screens.path starts
+// it), looks at each running local agent's terminal while someone has Live
+// open and writes it to Root/screens/<agent>.txt, which Foreman only reads
+// (Reader).
 //
 // Foreman's one input to the relay is the mtime of foreman-state/watching,
 // which it touches on every Live screen poll: the relay never reads what

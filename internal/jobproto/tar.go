@@ -16,7 +16,7 @@ type File struct {
 	Data []byte
 }
 
-// TarFlat is tar_bytes (F:856): a plain uncompressed tar of files in the
+// TarFlat is tar_bytes: a plain uncompressed tar of files in the
 // given order, every member a regular file with mode 0644 and mtime, owned
 // by uid and gid 0 with no user or group names.
 func TarFlat(files []File, mtime time.Time) ([]byte, error) {
@@ -49,7 +49,7 @@ func TarFlat(files []File, mtime time.Time) ([]byte, error) {
 // ErrEmptyTar is a tar with no bytes at all (tarfile's "empty file").
 var ErrEmptyTar = errors.New("tar: empty file")
 
-// UntarFlat is untar_bytes (F:866): the regular-file members whose name
+// UntarFlat is untar_bytes: the regular-file members whose name
 // holds no "/", by name (a later member of the same name wins). Links,
 // directories, devices and anything in a subdirectory are dropped, so
 // nothing a helper sends can name a path outside one flat namespace.

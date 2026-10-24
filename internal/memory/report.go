@@ -29,7 +29,7 @@ func Closed(ts []*ticket.Ticket) map[string]bool {
 	return out
 }
 
-// Report is memory_report (F:1384): each store's file count and size,
+// Report is memory_report: each store's file count and size,
 // flagged when over [memory] max_kb, and its notes for closed tickets,
 // gathered without a model, for the clock's monthly notice. ok is false
 // when there is no store. A store git cannot read is passed over.
@@ -97,7 +97,7 @@ func noteID(p string) string {
 	return string(r[8 : len(r)-3])
 }
 
-// Listing is `factory memory [<project> [<role>]]` (F:1428): for each
+// Listing is `factory memory [<project> [<role>]]`: for each
 // matching store, "== project/role" and its last 20 commits with their
 // file stats. project and role are glob patterns, empty meaning any; a
 // pattern naming a path ("a/b", "..") matches nothing.
@@ -125,7 +125,7 @@ func (s *Service) Listing(ctx context.Context, w io.Writer, project, role string
 	return nil
 }
 
-// Revert is `factory memory P R --revert COMMIT` (F:1411): one change
+// Revert is `factory memory P R --revert COMMIT`: one change
 // undone, and the line it prints. It needs the project and the role; a
 // store that does not exist is a clean refusal.
 func (s *Service) Revert(ctx context.Context, project, role, commit string) (string, error) {

@@ -10,7 +10,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// Intents is Foreman's PRActions (§6.3): Foreman holds no GitHub
+// Intents is Foreman's PRActions: Foreman holds no GitHub
 // credentials, so instead of doing the work it records on the ticket's pr
 // what the tick should do (hold_requested, open_requested, each a stamp),
 // and the save that records it wakes the tick, whose GitHub pass drains it

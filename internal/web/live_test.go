@@ -69,7 +69,7 @@ func TestLiveShowsRunningAgentsAndTheirScreens(t *testing.T) {
 }
 
 // In flight at the top of Live: the maintainer sees every project's
-// queue, agents (linked to their screens on the page) and moves, his own
+// queue, agents (linked to their screens on the page) and moves, their own
 // marked; another person sees only her projects, her own moves marked,
 // and no screens or log. It rides the page's poll: a move changes the
 // version, so the next poll brings it.
@@ -107,7 +107,7 @@ func TestLiveInFlight(t *testing.T) {
 	}
 	moved := body[strings.Index(body, "Just moved"):]
 	if !strings.Contains(moved, `class="fl-row mine"`) || !strings.Contains(moved, "<b>you</b>: go") || !strings.Contains(moved, "robin") {
-		t.Errorf("the maintainer's moves: his own not marked, or robin's missing")
+		t.Errorf("the maintainer's moves: their own not marked, or robin's missing")
 	}
 	if strings.Index(moved, "T0008") > strings.Index(moved, "T0002") {
 		t.Errorf("moves not newest first")
@@ -333,7 +333,7 @@ func TestAppFilesArePublicAndSettingsRender(t *testing.T) {
 	}
 }
 
-// /healthz says when Foreman can open a file it must not (§6.2).
+// /healthz says when Foreman can open a file it must not.
 func TestHealthzReportsAnExposedSecret(t *testing.T) {
 	h := newHarness(t, false)
 	if w := h.do("GET", "/healthz", nil); w.Body.String() != healthzHead {
@@ -346,7 +346,7 @@ func TestHealthzReportsAnExposedSecret(t *testing.T) {
 }
 
 // /healthz says when Foreman can connect to the user manager's bus, through
-// which it could run anything outside its sandbox (§6.2).
+// which it could run anything outside its sandbox.
 func TestHealthzReportsAReachableBus(t *testing.T) {
 	h := newHarness(t, false)
 	dir, err := os.MkdirTemp("", "xdg") // short: unix socket names are limited
@@ -369,8 +369,8 @@ func TestHealthzReportsAReachableBus(t *testing.T) {
 	}
 }
 
-// Every credential §6.2 seals, and the user manager's sockets, are what
-// Foreman's /healthz checks.
+// Every credential the sandbox seals, and the user manager's sockets,
+// are what Foreman's /healthz checks.
 func TestForemanChecksEverySealedPath(t *testing.T) {
 	c, err := parseFlags([]string{"--root", "/r"}, map[string]string{"HOME": "/h", "XDG_RUNTIME_DIR": "/run/user/7"}, io.Discard)
 	if err != nil {

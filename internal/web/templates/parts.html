@@ -40,12 +40,18 @@
   <p class="quiet">These files hold the factory's own safety: the change never merges without you.</p>
   <ul>{{range .}}<li><code>{{.}}</code></li>{{end}}</ul>
 </section>{{end}}
-{{range $i, $d := .T.Drafts}}<section class="draft" aria-label="Draft {{inc $i}}">
-  <h3 class="panel-h">Draft {{inc $i}}: {{$d.Title}}</h3>
-  <div class="text md">{{md $d.Why}}</div>
-  <div class="patch-head"><span class="quiet">Apply it in the config repo on your machine (<code>git apply</code>), then deploy.</span>
+{{range $i, $d := .Operator}}<section class="draft item-{{$d.State}}" aria-label="{{if eq $d.Kind "draft"}}Draft{{else}}Action{{end}} {{$d.N}}">
+  <h3 class="panel-h">{{if eq $d.Kind "draft"}}Draft{{else}}Action{{end}} {{$d.N}}: {{$d.Title}}</h3>
+  <p class="eyebrow">{{with $d.TierLabel}}<span class="badge small tier-{{$d.Tier}}">{{.}}</span>{{end}}
+    <span class="badge small state-{{$d.State}}">{{$d.StateLabel}}</span>
+    {{with $d.PRURL}}<a href="{{.}}" target="_blank" rel="noopener noreferrer" hx-boost="false">the PR</a>{{end}}</p>
+  {{with $d.Note}}<p class="quiet">{{.}}</p>{{end}}
+  {{with $d.Why}}<div class="text md">{{md .}}</div>{{end}}
+  {{with $d.Walls}}<p class="quiet">Touches the walls: {{range $j, $w := .}}{{if $j}}, {{end}}<code>{{$w}}</code>{{end}}</p>{{end}}
+  {{with $d.Places}}<p class="quiet">Changes: {{range $j, $w := .}}{{if $j}}, {{end}}<code>{{$w}}</code>{{end}}</p>{{end}}
+  {{if $d.Patch}}<div class="patch-head">{{if $d.ByHand}}<span class="quiet">Apply it in the config repo on your machine (<code>git apply</code>), then deploy.</span>{{else}}<span></span>{{end}}
     <button type="button" class="btn quiet" data-copy="patch-{{$.Ticket.T.ID}}-{{$i}}">Copy the diff</button></div>
-  <pre class="patch" id="patch-{{$.Ticket.T.ID}}-{{$i}}">{{$d.Patch}}</pre>
+  <pre class="patch" id="patch-{{$.Ticket.T.ID}}-{{$i}}">{{$d.Patch}}</pre>{{end}}
 </section>{{end}}
 {{if and .Findings (not .FindingsAsk)}}<section class="picks findings" aria-label="Findings">
   <h3 class="panel-h">Findings</h3>

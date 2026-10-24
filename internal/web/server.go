@@ -1,7 +1,6 @@
-// Package web is Foreman's server (ARCHITECTURE.md §2.3, §5.6, §6): the
-// routes, pages, templates and static files, the flash message, live
-// polling, the Live tab, filing a new ticket, settings and the push
-// endpoints, and Main.
+// Package web is Foreman's server: the routes, pages, templates and static
+// files, the flash message, live polling, the Live tab, filing a new ticket,
+// settings and the push endpoints, and Main.
 //
 // It holds no decision. It reads the board through a change-aware snapshot
 // (boardread), formats with package present, and every write or answer goes
@@ -65,7 +64,7 @@ type Answer struct {
 }
 
 // AnswerRequest is what a person posted on a ticket's form, and who: the
-// answer records its Foreman user as by (D19).
+// answer records its Foreman user as by.
 type AnswerRequest struct {
 	ID    ticket.ID
 	Value string // an Answer's Value, or "note", "ask" (a question for an agent) or "talk" (a reply)
@@ -172,11 +171,11 @@ type Options struct {
 	Push     *push.Pusher // nil: notifications are off
 	Projects []string     // what a new ticket may name, besides the board's own projects
 	// Sealed are files this process must not be able to open (the App key,
-	// the Claude token): /healthz says when it can (§6.2).
+	// the Claude token): /healthz says when it can.
 	Sealed []string
 	// Bus are sockets this process must not be able to connect to (the
 	// user manager's bus and private socket: through them it could run any
-	// command outside its sandbox): /healthz says when it can (§6.2).
+	// command outside its sandbox): /healthz says when it can.
 	Bus   []string
 	Clock clock.Clock // nil: the system clock
 	Log   Logger      // nil: silent
@@ -340,7 +339,7 @@ func headers(next http.Handler) http.Handler {
 // deploy of the running commit waits for a Foreman started after it
 // began), plus one line for each sealed file this process can open and
 // each bus socket it can connect to: under the sandboxed unit there must
-// be none (§6.2). The file is opened and closed, never read; the socket is
+// be none. The file is opened and closed, never read; the socket is
 // connected to and closed, with nothing sent.
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -472,7 +471,7 @@ func (s *Server) viewer(r *http.Request) *auth.User {
 
 func (s *Server) isMaintainer(r *http.Request) bool { return s.viewer(r) == nil }
 
-// actor is who an answer or a new ticket from r records as by (D19): ""
+// actor is who an answer or a new ticket from r records as by: ""
 // for the maintainer, whom the services name by the first of [board]
 // people, else the user's own name.
 func (s *Server) actor(r *http.Request) string {
@@ -483,7 +482,7 @@ func (s *Server) actor(r *http.Request) string {
 }
 
 // asPerson is the ticket API's caller for a person's answer from r: the
-// maintainer, or the user as a person of their own (D19).
+// maintainer, or the user as a person of their own.
 func (s *Server) asPerson(r *http.Request) ticketapi.Caller {
 	if name := s.actor(r); name != "" {
 		return ticketapi.AsPerson(name)
@@ -492,7 +491,7 @@ func (s *Server) asPerson(r *http.Request) ticketapi.Caller {
 }
 
 // deskViewer is who reads the desk, for "You've responded": only their own
-// responses move an ask down (D19).
+// responses move an ask down.
 func (s *Server) deskViewer(r *http.Request) present.Viewer {
 	if u := s.viewer(r); u != nil {
 		return present.Viewer{By: u.Name}
@@ -530,8 +529,7 @@ func (s *Server) maintainerOnly(h http.HandlerFunc) http.HandlerFunc {
 
 // call runs a service call on a context detached from the request (a client
 // hanging up never cuts a write short), with a timeout, turning a panic
-// into an error with no detail for the caller (logged with its stack,
-// §5.6).
+// into an error with no detail for the caller (logged with its stack).
 func (s *Server) call(r *http.Request, timeout time.Duration, fn func(ctx context.Context) error) (err error) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), timeout)
 	defer cancel()

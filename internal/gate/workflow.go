@@ -47,7 +47,7 @@ func workflowSetup(crystal bool, ameba string) string {
 // from a bot/ branch with "eligible for automatic approval." in its body.
 //
 // An unknown or board project is refused, with cmd_gate_workflow's words.
-// [github] app_slug is required: the code holds no default App (D15).
+// [github] app_slug is required: the code holds no default App.
 func Workflow(cfg *config.Config, key string) (string, error) {
 	var p *config.Project
 	for _, fp := range cfg.FactoryProjects() {

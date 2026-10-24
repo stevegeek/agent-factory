@@ -25,7 +25,7 @@ type HTTPError struct {
 	Code         int
 	// Reason is the status line's phrase ("Unprocessable Entity").
 	Reason string
-	// Message is github_error(e) (F:2473): GitHub's own "message" when the
+	// Message is github_error(e): GitHub's own "message" when the
 	// body is JSON with one, else Python's str(e).
 	Message string
 	// Body is the answer's first 64 KiB.
@@ -98,7 +98,7 @@ type GraphQLError struct {
 	Errors jsonx.Value
 }
 
-// Error is set_pr_draft's RuntimeError (F:2588): "github: <op>:
+// Error is set_pr_draft's RuntimeError: "github: <op>:
 // <str(errors)[:200]>", Python's str of the parsed errors cut to 200 code
 // points.
 func (e *GraphQLError) Error() string {

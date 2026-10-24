@@ -10,11 +10,11 @@ import (
 )
 
 // Tickets written by Python's real save_ticket (json.dump(indent=2)): the
-// history-order goldens of tools/goldens.py (nested pr keys and reports in
-// history-dependent order, §3.1) and the copy of Foreman's contract
-// fixtures in internal/ticket/testdata/legacy. Each reads and writes back
-// byte for byte (§3.1 property 1, at the jsonx level).
-// The files belong to other packages; this test only reads them.
+// history-order goldens of the Python goldens tool (nested pr keys and reports
+// in history-dependent order) and the copy of Foreman's contract fixtures
+// in internal/ticket/testdata/legacy. Each reads and writes back byte for
+// byte (at the jsonx level). The files belong to other packages; this
+// test only reads them.
 func TestPythonWrittenTicketsRoundTrip(t *testing.T) {
 	var files []string
 	for _, pat := range []string{

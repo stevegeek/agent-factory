@@ -11,7 +11,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// Answer is one answer the desk offers for an ask (§2.4.3). An answer with
+// Answer is one answer the desk offers for an ask. An answer with
 // Href is a plain link; the others are carried out by Service.Answer with
 // their Value.
 type Answer struct {
@@ -138,11 +138,62 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		return []Answer{{Value: "deploy", Label: "Deploy it", Sub: "the master builds main, installs it and checks Foreman; a failed check puts the running build back", Primary: true},
 			{Value: "drop", Label: "Not now", Sub: "the ticket closes; the next merge asks again", Danger: true}}
 	case model.AskDraft:
-		return []Answer{{Value: "applied", Label: "I've applied it", Sub: "you deployed it from your machine; the ticket closes", Primary: true},
-			{Value: "send_back", Label: "Send back with a note", Sub: "the manager redrafts it", NeedsNote: true, NoteFor: "to send it back"},
-			{Value: "drop", Label: "Drop", Sub: "nothing changes; the ticket closes", Danger: true}}
+		return draftAnswers(t)
 	}
 	return nil
+}
+
+// draftAnswers are the answers to a manager's drafts and actions:
+// "I've applied it" while a draft is the maintainer's to apply by hand,
+// and "Apply it", the maintainer's tap, while an item waits or failed.
+// While the factory has an item to run (new, or tapped) only send back and
+// drop are offered. A ticket with no items (an ask stored before the operator) keeps
+// today's answers.
+func draftAnswers(t *ticket.Ticket) []Answer {
+	c := ticket.Items(t)
+	apply := Answer{Value: "apply", Label: "Apply it", Primary: true,
+		Sub: "each waiting change goes to config main as a PR the factory merges, then deploys (or asks Deploy? while held); each action runs now; a rebuild pauses ticks while it builds"}
+	sendBack := Answer{Value: "send_back", Label: "Send back with a note", Sub: "the manager redrafts it", NeedsNote: true, NoteFor: "to send it back"}
+	waits := c.Waiting+c.Failed > 0
+	drop := Answer{Value: "drop", Label: "Drop", Sub: "anything already applied stays; the ticket closes", Danger: true}
+	if c.New+c.Requested > 0 {
+		return []Answer{sendBack, drop}
+	}
+	if c.ByHand > 0 || len(t.Drafts)+len(t.Actions) == 0 {
+		applied := Answer{Value: "applied", Label: "I've applied it", Sub: "you deployed it from your machine; the ticket closes", Primary: true}
+		out := []Answer{applied}
+		if waits {
+			out[0].Sub = "you deployed the by-hand drafts from your machine; the ticket closes and what waits for a tap is not applied"
+			apply.Primary = false
+			out = append(out, apply)
+		}
+		return append(out, sendBack, Answer{Value: "drop", Label: "Drop", Sub: "nothing changes; the ticket closes", Danger: true})
+	}
+	if waits {
+		return []Answer{apply, sendBack, drop}
+	}
+	return []Answer{sendBack, drop}
+}
+
+// unapplied names the items "I've applied it" leaves waiting or failed,
+// for the move's detail: "" when there are none.
+func unapplied(t *ticket.Ticket) string {
+	var names []string
+	left := func(state string) bool { return state == model.ItemWaiting || state == model.ItemFailed }
+	for _, d := range t.Drafts {
+		if left(ticket.DraftState(d)) {
+			names = append(names, d.Title)
+		}
+	}
+	for _, a := range t.Actions {
+		if left(ticket.ActionState(a)) {
+			names = append(names, a.ItemLabel())
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	return "not applied: " + strings.Join(names, ", ")
 }
 
 func orSub(s, fallback string) string {
@@ -175,7 +226,7 @@ type AnswerIn struct {
 	// either is set, an answer to an ask that has moved on is ErrStale.
 	Kind, Since string
 	// By is the Foreman user answering, recorded as by on what the answer
-	// writes; "" is the maintainer (D19).
+	// writes; "" is the maintainer.
 	By string
 }
 
@@ -183,7 +234,7 @@ type AnswerIn struct {
 var ErrNoteNeeded = errors.New("that answer needs a note")
 
 // Answer carries out one answer to a ticket's ask (Foreman's Plan and the
-// commands it ran, review step 4): under the ticket's lock, on a fresh read,
+// commands it ran): under the ticket's lock, on a fresh read,
 // with one save. A note typed with any answer is added first, for the next
 // agent. It returns what the commands would have printed, for the person.
 //
@@ -281,6 +332,15 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 			return err
 		}
 		return refuse(Conflict, "this ticket is not waiting for an answer")
+	case a.Kind == string(model.AskDraft) && value == "apply" && c.as != "":
+		// the tap stands in for the maintainer's approval of a config
+		// change: Foreman lets anyone answer, so it is
+		// refused here for anyone else
+		return refuse(Conflict, "only the maintainer applies the manager's changes")
+	case a.Kind == string(model.AskDraft) && (value == "drop" || value == "send_back") && c.as != "" && ticket.Items(t).Requested > 0:
+		// the maintainer's tap waits for the tick: only the maintainer
+		// takes it back (a note is anyone's)
+		return refuse(Conflict, "only the maintainer drops or sends back a change they asked the factory to apply")
 	case a.Kind == string(model.AskDeploy) && c.as != "":
 		// Foreman lets anyone who sees the ticket answer it; deploying the
 		// factory, or saying not now, is the maintainer's (a note is anyone's)
@@ -335,7 +395,19 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 				return refuse(Conflict, "there is nothing to retry from; drop it or add a note")
 			}
 			need, act = value == "retry_note", move(rc)
-		case "notice:done", "draft:applied":
+		case "draft:apply":
+			act = func() error { return c.requestApply(t) }
+		case "draft:applied":
+			n := ticket.Items(t)
+			if n.New+n.Requested > 0 {
+				// closing now would drop what the factory has still to run
+				return refuse(Conflict, "the factory is still applying the manager's changes; wait for the tick")
+			}
+			if n.ByHand == 0 && len(t.Drafts)+len(t.Actions) > 0 {
+				return refuse(BadRequest, "no draft here is yours to apply by hand")
+			}
+			act = func() error { return c.move(ctx, t, string(model.ColDone), unapplied(t)) }
+		case "notice:done":
 			act = move(string(model.ColDone))
 		case "notice:verify":
 			act = func() error { return c.verify(t) }

@@ -1,8 +1,8 @@
-// Package paths names every file and directory the factory uses
-// (ARCHITECTURE.md §4.1). FromEnv is the only place in the module that reads
-// FACTORY_ROOT and HOME, but for helper.Main (factory-remote does not link
-// this package, §2.2 rule 5); every other package is handed the Paths value
-// it needs, so nothing reads the environment or a global.
+// Package paths names every file and directory the factory uses. FromEnv
+// is the only place in the module that reads FACTORY_ROOT and HOME, but
+// for helper.Main (factory-remote does not link this package); every other
+// package is handed the Paths value it needs, so nothing reads the
+// environment or a global.
 package paths
 
 import (
@@ -141,7 +141,7 @@ func (p Paths) ProjectContext(project string) string { return filepath.Join(p.Co
 // os.Executable() (inside Foreman that is foreman).
 func (p Paths) FactoryBin() string { return filepath.Join(p.Bin, "factory") }
 
-// ForemanState is Root/foreman-state, Foreman's own writable state (§6.2).
+// ForemanState is Root/foreman-state, Foreman's own writable state.
 func (p Paths) ForemanState() string { return filepath.Join(p.Root, "foreman-state") }
 
 // ForemanLog is Root/foreman-state/foreman.log, Foreman's own log: logs/
@@ -155,7 +155,7 @@ func (p Paths) ForemanLog() string { return filepath.Join(p.ForemanState(), "for
 func (p Paths) ProjectSwitches() string { return filepath.Join(p.ForemanState(), "projects.json") }
 
 // WakeTrigger is Root/foreman-state/wake: Foreman writes it to wake the
-// tick, and the factory-wake.path user unit starts one (§5.5, §6.2).
+// tick, and the factory-wake.path user unit starts one.
 func (p Paths) WakeTrigger() string { return filepath.Join(p.ForemanState(), "wake") }
 
 // Watching is Root/foreman-state/watching: Foreman touches it while Live is
@@ -212,6 +212,10 @@ func (p Paths) CoreMirror() string { return filepath.Join(p.Deploys(), "core.git
 // ConfigMirror is Root/deploys/config.git, the bare mirror of config's main.
 func (p Paths) ConfigMirror() string { return filepath.Join(p.Deploys(), "config.git") }
 
+// OperatorWork is Root/operator/work: the temp clones the operator lands
+// a manager's config draft in, one per draft, removed on every exit.
+func (p Paths) OperatorWork() string { return filepath.Join(p.Root, "operator", "work") }
+
 // DeployHold is Root/foreman-state/deploy-hold.json: present while the
 // maintainer holds automatic deploys (they become Deploy? asks). Foreman
 // writes it, as `factory deploy hold` does.
@@ -222,7 +226,7 @@ func (p Paths) DeployHold() string { return filepath.Join(p.ForemanState(), "dep
 func (p Paths) AcceptInstalls() string { return filepath.Join(p.Root, "accept-installs") }
 
 // ImagesState is Root/images.json, the agent versions the weekly rebuild
-// installed (§15.1). A deploy never writes it.
+// installed. A deploy never writes it.
 func (p Paths) ImagesState() string { return filepath.Join(p.Root, "images.json") }
 
 // Mailbox is Root/mailbox: the jobs queued for pull hosts, one directory
@@ -235,15 +239,15 @@ func (p Paths) SecretsDir() string { return filepath.Join(p.Home, ".config", "fa
 // AnthropicKey is ~/.config/factory/anthropic-api-key (pi-run's key).
 func (p Paths) AnthropicKey() string { return filepath.Join(p.SecretsDir(), "anthropic-api-key") }
 
-// BackupKey is ~/.config/factory/backup-key, the backups' AES-256 key (§15.2).
+// BackupKey is ~/.config/factory/backup-key, the backups' AES-256 key.
 func (p Paths) BackupKey() string { return filepath.Join(p.SecretsDir(), "backup-key") }
 
 // BackupCredentials is ~/.config/factory/r2-credentials, the default file
-// holding the R2 access key pair (§15.2).
+// holding the R2 access key pair.
 func (p Paths) BackupCredentials() string { return filepath.Join(p.SecretsDir(), "r2-credentials") }
 
 // Sealed are the credential files Foreman's process must never be able to
-// open (§6.2): the unit's InaccessiblePaths and /healthz's check.
+// open: the unit's InaccessiblePaths and /healthz's check.
 func (p Paths) Sealed() []string {
 	return []string{p.AppKey, p.OAuthToken, p.AnthropicKey(), p.BackupKey(), p.BackupCredentials()}
 }

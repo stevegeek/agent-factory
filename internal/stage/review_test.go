@@ -140,7 +140,7 @@ func TestReviewChangesRetriesOnceThenNeedsHuman(t *testing.T) {
 }
 
 func TestReworkRoundsResetAfterAPassedReview(t *testing.T) {
-	// D17: after the review passed, a GitHub "changes requested" rework
+	// after the review passed, a GitHub "changes requested" rework
 	// starts a new round, so the reviewer may still send it back once
 	afterPass := func(reworks int) *ticket.Ticket {
 		tk := reviewing(t, 1)

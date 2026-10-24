@@ -149,7 +149,7 @@ func gitOut(t *testing.T, r *Repo, args ...string) string {
 	return out
 }
 
-// Every git call is Python's, word for word (§4.8: same argv as Python).
+// Every git call is Python's, word for word.
 func TestTheGitCallsArePythons(t *testing.T) {
 	rec := &recorder{}
 	s := newStore(t, rec)

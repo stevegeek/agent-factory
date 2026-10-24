@@ -23,7 +23,7 @@ const systemdRunTimeout = 60 * time.Second
 // maxMetaBytes bounds the meta.json read back from the job dir.
 const maxMetaBytes = 1 << 20
 
-// start is the start verb (R:127): refuse an existing job, a draining
+// start is the start verb: refuse an existing job, a draining
 // host, a full host or a full disk; extract the input tar into
 // jobs/<job>/work, move meta.json out of the agent's reach and check it
 // (a harness it names must be this host's agent);

@@ -27,7 +27,7 @@ const (
 	rmTimeout       = 60 * time.Second
 )
 
-// status is the status verb (R:192): done once the job's exit file exists,
+// status is the status verb: done once the job's exit file exists,
 // running while its dir exists and its unit is active, missing otherwise.
 func (s *Server) status(ctx context.Context, job string) error {
 	d, err := s.jobDir(job)
@@ -54,7 +54,7 @@ func (s *Server) status(ctx context.Context, job string) error {
 	return err
 }
 
-// collect is the collect verb (R:203): a tar on stdout of what the job
+// collect is the collect verb: a tar on stdout of what the job
 // left, each member within its cap (jobproto.CollectCaps). report.json
 // comes from home/ (the agent's ~), the rest from work/. A member over its
 // cap is left out, except agent.log, which is cut to its tail; a member
@@ -142,7 +142,7 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// tail is the tail verb (R:228): the last TailBytes of work/agent.log, or
+// tail is the tail verb: the last TailBytes of work/agent.log, or
 // nothing when it is missing, not a regular file or reached through a link.
 func (s *Server) tail(job string) error {
 	d, err := s.jobDir(job)
@@ -203,7 +203,7 @@ func readJobFile(dir, sub, name string, max int64, tail bool) (data []byte, ok b
 
 func max64(a, b int64) int64 { return max(a, b) }
 
-// remove is the remove verb (R:240): stop the unit, remove the container,
+// remove is the remove verb: stop the unit, remove the container,
 // delete the job's files (also directories an agent made unreadable).
 // Failures of the stop and the rm are ignored, as in Python.
 func (s *Server) remove(ctx context.Context, job string) error {
@@ -220,7 +220,7 @@ func (s *Server) remove(ctx context.Context, job string) error {
 	return err
 }
 
-// list is the list verb (R:248): every name in the jobs dir, sorted.
+// list is the list verb: every name in the jobs dir, sorted.
 func (s *Server) list() error {
 	entries, err := os.ReadDir(s.jobs())
 	if err != nil {

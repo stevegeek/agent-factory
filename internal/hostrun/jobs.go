@@ -63,7 +63,7 @@ func HostOf(p paths.Paths, h config.HostCfg) jobproto.Host {
 // Host is the helper's [hosts.<name>] key.
 func (h *Jobs) Host() string { return h.Remote.Name }
 
-// Start is start_remote (F:889). No-branch stages work on a branch named
+// Start is start_remote. No-branch stages work on a branch named
 // after the stage, starting from the base ("none" with no project; a task
 // whose ref exists starts from the ref). Branch stages work on the
 // ticket's branch, starting from it if it exists, otherwise from the base.
@@ -245,7 +245,7 @@ func (h *Jobs) Poll(ctx context.Context, name string) (string, error) {
 	return jobproto.ParseStatus(out)
 }
 
-// Collect is the collect half of poll_remote (F:954): the job's files,
+// Collect is the collect half of poll_remote: the job's files,
 // flat and regular only, with report.json, agent.log and prompt.md
 // archived to logs/<id>/<name>/ (the last MaxArchivedBytes of each).
 func (h *Jobs) Collect(ctx context.Context, id ticket.ID, name string) (*Result, error) {
@@ -277,7 +277,7 @@ func (h *Jobs) Remove(ctx context.Context, name string) error {
 	return markRemote(err)
 }
 
-// Tail is the helper half of look() (F:4537): ScreenText of the job's
+// Tail is the helper half of look(): ScreenText of the job's
 // output tail. A helper that cannot be read is shown inline, "(could not
 // read the job on <host>: <error>)", as Python does; only an ssh that
 // could not run is an error.
@@ -332,7 +332,7 @@ func (r *Result) MemoryTar() ([]byte, bool) {
 }
 
 // LimitText is what a job with no report is searched for a usage limit
-// (poll_remote, F:983): the last hosts.RemoteLimitChars characters of its
+// (poll_remote): the last hosts.RemoteLimitChars characters of its
 // decoded agent.log; the caller takes hosts.HitLimit(text, 40).
 func (r *Result) LimitText(chars int) string {
 	return lastRunes(jobproto.DecodeText(r.Files[jobproto.MemberLog]), chars)

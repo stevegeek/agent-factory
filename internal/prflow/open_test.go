@@ -164,7 +164,7 @@ func TestAReworkUpdatesTheOpenPRAndItsDraftState(t *testing.T) {
 }
 
 // The worker's summary answers the review: a rework after reviews posts
-// "Updated after your review." (§10.7 S14), and a failed comment is only an
+// "Updated after your review.", and a failed comment is only an
 // event.
 func TestAReworkAfterAReviewSaysWhatChanged(t *testing.T) {
 	for _, fail := range []bool{false, true} {
@@ -199,8 +199,8 @@ func TestAReworkAfterAReviewSaysWhatChanged(t *testing.T) {
 }
 
 // A 422 on create means the branch already has an open PR (opened by hand,
-// or by a run that crashed before saving): it is adopted and updated
-// (§10.7 S14). A 422 with no such PR is the error.
+// or by a run that crashed before saving): it is adopted and updated.
+// A 422 with no such PR is the error.
 func TestA422AdoptsTheOpenPROnTheBranch(t *testing.T) {
 	h := newHarness(t)
 	cfg := parseConfig(t, testConfig)
@@ -268,8 +268,8 @@ func TestAGoneOrClosedPRIsReplaced(t *testing.T) {
 	}
 }
 
-// A failed review request leaves the PR open with an error event (§10.7
-// S14); with no reviewers configured nobody is asked.
+// A failed review request leaves the PR open with an error event;
+// with no reviewers configured nobody is asked.
 func TestAFailedReviewRequestIsTolerated(t *testing.T) {
 	for _, c := range []struct {
 		name   string

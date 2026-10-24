@@ -10,7 +10,7 @@ import (
 )
 
 // AskFor is the question a ticket in needs_human, ready_for_pr or pr_open
-// puts to the maintainer, or nil anywhere else (ask_for, F:361). old is the
+// puts to the maintainer, or nil anywhere else (ask_for). old is the
 // column it left ("" for a new ticket), detail the move's detail, since the
 // stamp the ask is dated. reason is the move's typed reason; older history
 // has only the detail, read by its wording ("" reason).
@@ -84,14 +84,20 @@ func AskFor(t *Ticket, old, detail, since string, reason model.Reason) *Ask {
 		return a(model.AskDesign, "Approve the design for "+title+" and its "+strconv.Itoa(len(t.Proposed))+" proposed tickets, or send it back?",
 			or(t.report("design", "summary"), detail), none)
 	}
-	if kind == string(model.KindManage) && said("manager drafted", model.ReasonManagerDrafted) {
+	if kind == string(model.KindManage) && said("manager drafted", model.ReasonManagerDrafted, model.ReasonOperatorSettled) {
+		summary := or(t.report("manage", "summary"), detail)
+		if k, q, why, ok := operatorAsk(t, summary); ok {
+			return a(k, q, why, none)
+		}
 		n := len(t.Drafts)
+		if c := Items(t); c.ByHand > 0 {
+			n = c.ByHand
+		}
 		plural := "s"
 		if n == 1 {
 			plural = ""
 		}
-		return a(model.AskDraft, "Apply the manager's "+strconv.Itoa(n)+" config change"+plural+"?",
-			or(t.report("manage", "summary"), detail), none)
+		return a(model.AskDraft, "Apply the manager's "+strconv.Itoa(n)+" config change"+plural+"?", summary, none)
 	}
 	if kind == string(model.KindManage) && said("manager answered", model.ReasonManagerAnswered) {
 		return a(model.AskNotice, "Read the manager's answer and close it?", orString(t.Result.Or(""), detail), none)

@@ -15,7 +15,7 @@ import (
 
 // port: TF ConfigTest.test_gate_uses_configured_env_mounts_and_memory
 //
-// With §10.7 S10 (security): the gate's container has no network, runs as
+// Security: the gate's container has no network, runs as
 // the keep-id user, and gets the project's gate_memory; the real podman
 // argv is checked.
 func TestGateUsesConfiguredEnvMountsAndMemory(t *testing.T) {
@@ -101,7 +101,7 @@ func TestChecksRunOnAFreshCloneOfTheRef(t *testing.T) {
 	}
 }
 
-// §10.7 S10 (security): pinned_untracked files and directories are copied
+// Security: pinned_untracked files and directories are copied
 // into the checkout, a directory's inner links as links; a link is never
 // followed, neither in the project (so a planted link cannot pull a secret
 // into the container) nor in the checkout (so a link the branch commits
@@ -249,8 +249,8 @@ func TestMergeCheckRunsWithTheBaseMergedIn(t *testing.T) {
 	}
 }
 
-// Quirk 6: a missing install, test or lint is a dispatcher error naming the
-// key, not the string "None" in the gate's shell.
+// A missing install, test or lint is a dispatcher error naming the key,
+// not the string "None" in the gate's shell.
 func TestMissingCommandIsRefused(t *testing.T) {
 	r := newRig(t)
 	r.repo.BranchWith("b", map[string]string{"README.md": "x\n"})

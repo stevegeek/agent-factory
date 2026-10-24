@@ -349,7 +349,7 @@ func TestRootStepsNotice(t *testing.T) {
 
 func TestRootStepsNoticeWithUnknownBase(t *testing.T) {
 	f := newFixture(t)
-	f.install("fedcba987654") // the desktop deployed a commit off main
+	f.install("fedcba987654") // a deploy by hand put a commit off main
 	st := f.runRequest(deployrec.Request{Rev: "main"})
 	if st.Result != deployrec.ResultOK {
 		t.Fatalf("state %+v", st)
@@ -392,8 +392,8 @@ func TestRunKeepsTenLogs(t *testing.T) {
 func TestRunRefusesAConfigThatMovesDeploy(t *testing.T) {
 	for _, c := range []struct{ name, from, to string }{
 		{"core", `core = "example/agent-factory"`, `core = "someone/else"`},
-		{"config", `config = "example/factory-config"`, `config = "someone/config"`},
-		{"config_dir", `config = "example/factory-config"`, "config = \"example/factory-config\"\nconfig_dir = \"elsewhere\""},
+		{"config", `config = "example/config-repo"`, `config = "someone/config"`},
+		{"config_dir", `config = "example/config-repo"`, "config = \"example/config-repo\"\nconfig_dir = \"elsewhere\""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture(t)

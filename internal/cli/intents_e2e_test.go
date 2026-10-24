@@ -11,7 +11,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// §6.3, S23: Foreman's answer records an intent, and the next tick carries
+// Foreman's answer records an intent, and the next tick carries
 // it out. Foreman answers through ops with ops.Intents as its PRActions
 // (cmd/foreman wires exactly that; its wiring test checks the web half),
 // and the CLI's own tick, with its real wiring and a fake GitHub, drains

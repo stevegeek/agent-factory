@@ -18,7 +18,7 @@ import (
 // raises (a missing title, a report that is not an object), AuditText is
 // an error.
 //
-// The audit is code rather than a text/template (§8.4 planned one): every
+// The audit is code rather than a text/template (as first planned): every
 // line is conditional on loosely typed report values, and matching
 // Python's f-strings and rstrip() is easier to review as code.
 func AuditText(t *ticket.Ticket) (string, error) {

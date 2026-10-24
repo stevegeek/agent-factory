@@ -122,3 +122,23 @@ func TestSelfHostKeysMistyped(t *testing.T) {
 		})
 	}
 }
+
+func TestSelfDeployProject(t *testing.T) {
+	c := mustParse(t, selfHostProject+"self_deploy = \"core\"\n\n[projects.conf]\npath = \"/p/conf\"\ngithub = \"example/conf\"\nself_deploy = \"config\"\n\n[projects.gem]\npath = \"/p/gem\"\n")
+	if p, ok := c.SelfDeployProject(SelfDeployConfig); !ok || p.Key != "conf" {
+		t.Errorf("config: %v %v", p, ok)
+	}
+	if p, ok := c.SelfDeployProject(SelfDeployCore); !ok || p.Key != "core" {
+		t.Errorf("core: %v %v", p, ok)
+	}
+	if _, ok := c.SelfDeployProject(""); ok {
+		t.Error("an ordinary project is no self-deploy project")
+	}
+	if _, ok := mustParse(t, "[projects.gem]\npath = \"/p/gem\"\n").SelfDeployProject(SelfDeployConfig); ok {
+		t.Error("no config project")
+	}
+	// a board project never merges, so it is not the one
+	if _, ok := mustParse(t, "[projects.conf]\nmode = \"board\"\ngithub = \"example/conf\"\nself_deploy = \"config\"\n").SelfDeployProject(SelfDeployConfig); ok {
+		t.Error("a board project")
+	}
+}

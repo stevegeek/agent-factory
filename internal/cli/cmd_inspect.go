@@ -15,7 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/memstore"
 )
 
-// The inspect commands (§7.3, slice S15b): look, audit, memory, github and
+// The inspect commands: look, audit, memory, github and
 // gate-workflow. They print; only `memory --revert` changes anything (one
 // memory store). The command table (commands.go) names their runners:
 //
@@ -66,7 +66,7 @@ func (o opsCLI) audit(_ context.Context, e *Env, a Args) error {
 // memory is cmd_memory: each matching store's last 20 commits, or with
 // --revert one commit undone in the store named by project and role. A
 // store that does not exist is a clean refusal (Python printed a
-// traceback, §13.2).
+// traceback).
 func (o opsCLI) memory(ctx context.Context, e *Env, a Args) error {
 	if err := e.Git(ctx); err != nil {
 		return err

@@ -33,7 +33,7 @@ func TestOutcome(t *testing.T) {
 		{name: "no answers to the tier's seven questions", tier: 4,
 			report: Report{Verdict: "fail"}, why: "0 answers for 7 questions",
 			rule: "security: tier 4 (input reaches a sink, and build or dependencies); 7 questions, 0 answers for 7 questions"},
-		// §10.7 S10: every answer clean, but the agent did not pass it.
+		// every answer clean, but the agent did not pass it.
 		{name: "reviewer did not pass it", tier: 1, questions: two,
 			report: Report{Verdict: "fail", Answers: []Answer{answer("none"), answer("low")}}, why: "reviewer did not pass it",
 			rule: "security: tier 1 (plain code); 2 questions, reviewer did not pass it"},

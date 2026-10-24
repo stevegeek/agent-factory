@@ -128,7 +128,7 @@ func withFlow(h *harness, gh *ghFake) Deps {
 	return d
 }
 
-// §6.3: a PR sent back from pr_open to ready is put back to draft by the
+// a PR sent back from pr_open to ready is put back to draft by the
 // next tick, whatever its column now.
 func TestASendBackDraftsThePR(t *testing.T) {
 	h := newHarness(t)
@@ -166,7 +166,7 @@ func openPR() map[string]any {
 		"mergeable_state": "clean", "head": map[string]any{"ref": "bot/x", "sha": "abc"}}
 }
 
-// §5.2, §6.3: a merge asked for with too little of the tick left waits for
+// a merge asked for with too little of the tick left waits for
 // the next tick and keeps its intent; with time left it merges.
 func TestADeferredMergeKeepsItsIntent(t *testing.T) {
 	h := newHarness(t)

@@ -1,8 +1,7 @@
-// Package fizzy moves a maintainer's boards from Fizzy to board projects
-// (docs/DESIGN-tickets.md "Migration from Fizzy"), in two halves that run
-// on different machines:
+// Package fizzy moves a maintainer's boards from Fizzy to board
+// projects, in two halves that run on different machines:
 //
-//   - Export, on the maintainer's desktop, drives the `fizzy` CLI (which
+//   - Export, on a workstation, drives the `fizzy` CLI (which
 //     holds the credentials: this package never sees or prints a token)
 //     and writes what it answers to a dump directory.
 //   - Import, on the dispatcher, reads a dump and files or refreshes one

@@ -1,9 +1,8 @@
-// Package boardread reads the board (ARCHITECTURE.md §4.1, §4.5): ticket
-// files, the index, Foreman's change-aware snapshot and the board checks of
-// `factory check --board` and `--asks`. No write method exists in this
-// package; package store writes.
+// Package boardread reads the board: ticket files, the index, Foreman's
+// change-aware snapshot and the board checks of `factory check --board` and
+// `--asks`. No write method exists in this package; package store writes.
 //
-// Every reader goes through it, so the quirk-1 decision lives in one place:
+// Every reader goes through it, so this decision lives in one place:
 // a ticket file that will not read is skipped and logged (once per state of
 // the file), never fatal, where Python's all_tickets crashed the whole tick.
 package boardread

@@ -1,9 +1,8 @@
-// Package imagebuild rebuilds the agent images (ARCHITECTURE.md §2.3,
-// inventory-features §14): build a candidate at the pinned version with
-// fresh OS packages, smoke-test it without network, run the projects'
-// checks in it for the gate image, and only then tag the old image
-// :previous and the candidate as the image. The candidate is always
-// removed and dangling images pruned.
+// Package imagebuild rebuilds the agent images: build a candidate at the
+// pinned version with fresh OS packages, smoke-test it without network,
+// run the projects' checks in it for the gate image, and only then tag the
+// old image :previous and the candidate as the image. The candidate is
+// always removed and dangling images pruned.
 //
 // It holds no board, GitHub or config code: upkeep (the dispatcher) and
 // helper (a helper host) build its Specs and handle the outcome (the
@@ -38,7 +37,7 @@ type Kind struct {
 	Changelog string
 }
 
-// Kinds is the IMAGES table (F:2787), in Python's order: a fresh copy.
+// Kinds is the IMAGES table, in Python's order: a fresh copy.
 func Kinds() []Kind {
 	return []Kind{
 		{Kind: "claude", Name: "Claude Code", Dir: "scion-agent", Arg: "CLAUDE_VERSION", Check: "claude --version",
@@ -51,7 +50,7 @@ func Kinds() []Kind {
 // DefaultPiImage is [remote] image when config leaves it out.
 const DefaultPiImage = "localhost/factory-pi:dev"
 
-// TagFor is image_tag (F:2805): the claude image is the top-level `image`,
+// TagFor is image_tag: the claude image is the top-level `image`,
 // the pi image is [remote] image (default localhost/factory-pi:dev).
 func TagFor(kind, image, remoteImage string) string {
 	switch kind {
@@ -94,10 +93,10 @@ type Spec struct {
 	// project checks (only for the top-level image, and only projects with
 	// a checkout on this host). nil for the others. A project that fails
 	// in the candidate is run again in the live image, and blocks the swap
-	// only if it passes there: only a regression blocks (§15.1).
+	// only if it passes there: only a regression blocks.
 	Projects []ProjectCheck
 	// Update: Pinned is a newer release than From, the version the live
-	// image has (§15.1); the caller records it once promoted.
+	// image has; the caller records it once promoted.
 	Update bool
 	From   string
 	// Trial: a latest-toolchain trial (the BuildArgs carry newer
@@ -190,7 +189,7 @@ func smokeScript(check string) string {
 	return "ruby -v && bundle -v && crystal --version && ameba --version && git --version && " + check
 }
 
-// Rebuild rebuilds one image (rebuild_image, F:2868). It never returns an
+// Rebuild rebuilds one image (rebuild_image). It never returns an
 // error: what Python raised is the Err of a Result whose Summary is
 // "error: <first 200 characters>" and whose Log is the error alone.
 func (r Runner) Rebuild(ctx context.Context, s Spec) Result {
@@ -355,7 +354,7 @@ func orNone(v string) string {
 	return v
 }
 
-// All rebuilds each image this host has (rebuild, F:2928), under Lock:
+// All rebuilds each image this host has (rebuild), under Lock:
 // a Spec with no tag, or whose tag podman does not have, is skipped. Each
 // rebuilt image gets logs/rebuild-<kind>.log (overwritten) and one
 // factory.log line. The error is for a host where podman does not run, a

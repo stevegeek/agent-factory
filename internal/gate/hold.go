@@ -70,7 +70,7 @@ func (r Runner) StillHoldsOnMain(ctx context.Context, in HoldIn) (ok bool, out s
 var ErrNoRoom = errors.New("no room on this host for the merge check")
 
 // Fits reports whether a gate of project p may run on this host beside
-// agents running agents (quirk 2): it takes one of max_agents' slots, and
+// agents running agents: it takes one of max_agents' slots, and
 // a heavy one (config.HeavyGate) needs the host to itself.
 func Fits(cfg *config.Config, p config.Project, agents int) bool {
 	if agents >= cfg.MaxAgents {

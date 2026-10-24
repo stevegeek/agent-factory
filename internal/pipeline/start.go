@@ -21,7 +21,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// start is start_stage (F:1757): what the stage records before it runs
+// start is start_stage: what the stage records before it runs
 // (a worker's branch, a reviewer's starting head, the security tier and
 // questions), the prompt, the run's memory, the write-ahead save, the
 // launch here or on a helper, and the start's move and event.

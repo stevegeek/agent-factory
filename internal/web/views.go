@@ -78,7 +78,7 @@ type TicketView struct {
 	FindingsAsk             bool // the findings are ticked and filed from the answer form
 	NoteLabel, NoteSub      string
 	Callout                 *present.Callout
-	Pending                 *present.Callout // an intent the tick has still to carry out (§6.3)
+	Pending                 *present.Callout // an intent the tick has still to carry out
 	Next                    string
 	CanNote                 bool
 	Story                   present.Story
@@ -96,6 +96,9 @@ type TicketView struct {
 	Reply     bool
 	Questions []QuestionView // a board ticket's questions, oldest first
 	Walls     []string       // the files the change touches in its project's walls
+	// Operator is a manager ticket's drafts and actions, each with the
+	// tier the tick found and where it stands
+	Operator []present.OperatorItem
 }
 
 // QuestionView is one question an agent asked on a board ticket, and its
@@ -186,7 +189,7 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 	a := present.AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: present.BuildStory(t, all), Facts: present.Facts(t, a, all),
 		Answers: s.answersFor(t, a), Callout: present.PRCallout(t), Pending: present.Pending(t), Children: t.Children, ChildrenLabel: "Filed",
-		ParentID: t.Parent.Or(""), CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t)}
+		ParentID: t.Parent.Or(""), CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t)}
 	if pr, ok := t.PanelResult.Get(); ok {
 		// a prospect's proposals, kept and dropped, each a ticket of its own
 		v.ChildrenLabel, v.Children = "Proposals", nil

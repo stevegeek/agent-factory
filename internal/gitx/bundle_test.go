@@ -76,7 +76,7 @@ func TestBundleRoundTripUpdatesOnlyTheBranch(t *testing.T) {
 	}
 }
 
-// §10.7 S7a (security): a bundle with a malformed object is refused.
+// Security: a bundle with a malformed object is refused.
 func TestFetchBundleChecksObjects(t *testing.T) {
 	f := newFixture(t)
 	ctx := ctxT(t)

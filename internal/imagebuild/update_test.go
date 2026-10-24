@@ -15,7 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/execx"
 )
 
-// §15.1: what the weekly rebuild builds for one tool.
+// what the weekly rebuild builds for one tool.
 func TestDecide(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -89,7 +89,7 @@ func (g *tagger) Tag(_ context.Context, src, dst string) (execx.Result, error) {
 	return execx.Result{}, nil
 }
 
-// §15.1: rollback retags :previous and holds the version it leaves; unhold
+// rollback retags :previous and holds the version it leaves; unhold
 // clears that.
 func TestRollbackAndUnhold(t *testing.T) {
 	st := State{"claude": {Version: "2.1.302", Since: "x", Previous: "2.1.296"}}

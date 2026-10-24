@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Retention is how many archives are kept (§15.2): the newest Daily days,
+// Retention is how many archives are kept: the newest Daily days,
 // the newest Weekly Sundays and the newest Monthly 1sts of a month, each
 // day counted once (its newest archive).
 type Retention struct {

@@ -97,7 +97,7 @@ func TestNPMLatestAsksTheRegistry(t *testing.T) {
 	}
 }
 
-// The seam tests of S0p (tests/test_seams.py GitHubSeamTest, NpmSeamTest):
+// The seam tests (the Python tests GitHubSeamTest, NpmSeamTest):
 // every call goes to the base it names, and the defaults are the real ones.
 func TestEveryCallGoesToTheBaseItNames(t *testing.T) {
 	f := newFake(t)

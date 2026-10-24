@@ -217,7 +217,7 @@ func (f *fakeS3) list(w http.ResponseWriter, q map[string][]string) {
 	fmt.Fprint(w, b.String())
 }
 
-// §15.2: the S3 client against the fake server: PUT, LIST (several pages),
+// the S3 client against the fake server: PUT, LIST (several pages),
 // GET, DELETE, and a refusal as an S3Error.
 func TestS3PutListGetDelete(t *testing.T) {
 	f := newFakeS3(t)

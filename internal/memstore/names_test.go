@@ -10,7 +10,7 @@ import (
 )
 
 // The memory_key cases of the regex corpus (written from Python's
-// MEMORY_KEY by tools/goldens.py into textx's testdata).
+// MEMORY_KEY by the Python goldens tool into textx's testdata).
 func TestKeyOKMatchesTheRegexGolden(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join("..", "textx", "testdata", "py", "regex.json"))
 	if err != nil {

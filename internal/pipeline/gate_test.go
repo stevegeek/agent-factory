@@ -47,7 +47,7 @@ func TestGateInTheTickMovesWithItsRule(t *testing.T) {
 	}
 }
 
-// §10.7 S17: a gate waits for a free slot here (it runs on this host).
+// a gate waits for a free slot here (it runs on this host).
 func TestAGateWaitsForAFreeSlot(t *testing.T) {
 	h := newHarness(t)
 	h.gate.result = passedGate()
@@ -65,10 +65,10 @@ func TestAGateWaitsForAFreeSlot(t *testing.T) {
 	}
 }
 
-// Quirk 2: a gate heavier than [gate] heavy_memory needs this host to
-// itself. While an agent runs here it waits, and no new agent starts here
-// meanwhile, so the host drains for it; on an idle host it runs, and what
-// waits starts after it.
+// A gate heavier than [gate] heavy_memory needs this host to itself. While
+// an agent runs here it waits, and no new agent starts here meanwhile, so
+// the host drains for it; on an idle host it runs, and what waits starts
+// after it.
 func TestAHeavyGateWaitsForAnIdleHost(t *testing.T) {
 	h := newHarness(t)
 	h.config(strings.Replace(defaultConfig, "lint = \"true\"\n", "lint = \"true\"\ngate_memory = \"1800m\"\n", 1) + "\n[memory]\nenabled = false\n")
@@ -119,7 +119,7 @@ base = "main"
 github = "o/gem"
 `
 
-// §10.7 S17: a gate pass on an open PR updates it at once, so GitHub never
+// a gate pass on an open PR updates it at once, so GitHub never
 // shows a stale commit that could be approved.
 func TestAGatePassOnAnOpenPRUpdatesItAtOnce(t *testing.T) {
 	h := newHarness(t)
@@ -150,9 +150,9 @@ func TestAGatePassOnAnOpenPRUpdatesItAtOnce(t *testing.T) {
 	}
 }
 
-// §5.2: the tick's deadline during a rework's push loses only the push:
+// the tick's deadline during a rework's push loses only the push:
 // the gate's outcome is saved first, with an open intent, so the gate is
-// not run again and the next tick's GitHub pass updates the PR (§6.3).
+// not run again and the next tick's GitHub pass updates the PR.
 func TestADeadlineDuringThePushKeepsTheGate(t *testing.T) {
 	h := newHarness(t)
 	h.config(withGitHub)
@@ -173,7 +173,7 @@ func TestADeadlineDuringThePushKeepsTheGate(t *testing.T) {
 	}
 }
 
-// §5.2: a gate does not start with too little of the tick's time left;
+// a gate does not start with too little of the tick's time left;
 // the ticket is left as it is for the next tick.
 func TestAGateIsDeferredUnderTheDeadline(t *testing.T) {
 	h := newHarness(t)
