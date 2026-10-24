@@ -79,6 +79,8 @@ func TestKindsJSONStable(t *testing.T) {
 		`{"name": "ruby-gem", "source": "config", "toolchain": "ruby", "from": ""}, ` +
 		`{"name": "rails-gem", "source": "core", "toolchain": "ruby", "from": ""}, ` +
 		`{"name": "crystal-shard", "source": "core", "toolchain": "crystal", "from": ""}, ` +
+		`{"name": "go-module", "source": "core", "toolchain": "go", "from": ""}, ` +
+		`{"name": "docs", "source": "core", "toolchain": "none", "from": ""}, ` +
 		`{"name": "ext-shard", "source": "config", "toolchain": "crystal", "from": "crystal-shard"}], ` +
 		`"projects": [` +
 		`{"project": "gem", "kind": "ruby-gem", "inferred": true, "toolchain": "ruby", "language": "Ruby gem", ` +

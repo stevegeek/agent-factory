@@ -394,15 +394,19 @@ A config directory may also hold `context/<project>/` (an `INDEX.md` plus topic 
 
 ### Project kinds
 
-A factory project's `kind` names its toolchain and supplies the defaults for the keys its own table leaves out: `language`, `install`, `test`, `lint`, `gate_memory` and `pinned_untracked`. A key the table sets always wins, even `pinned_untracked = []`. Core has three kinds, none of which sets `gate_memory` (so `[gate] memory` applies):
+A factory project's `kind` names its toolchain and supplies the defaults for the keys its own table leaves out: `language`, `install`, `test`, `lint`, `gate_memory` and `pinned_untracked`. A key the table sets always wins, even `pinned_untracked = []`. Core has five kinds, none of which sets `gate_memory` (so `[gate] memory` applies):
 
 | kind | toolchain | language | install | test | lint | pinned_untracked |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ruby-gem` | ruby | Ruby gem | `bundle check` | `bundle exec rake test` | `bundle exec standardrb` | `Gemfile.lock` |
 | `rails-gem` | ruby | Ruby gem for Rails | `bundle check` | `bundle exec rake test` | `bundle exec standardrb` | `Gemfile.lock` |
 | `crystal-shard` | crystal | Crystal shard | `shards check \|\| shards install` | `crystal spec` | `crystal tool format --check src spec && ameba src spec` | `lib`, `shard.lock` |
+| `go-module` | go | Go module | `go version` | `go vet ./... && go test -count=1 ./...` | `gofmt -l .` must print nothing | none |
+| `docs` | none | Config and documentation | `true` | `true` | `true` | none |
 
-`[kinds.<name>]` overrides a built-in kind key by key (`[kinds.ruby-gem]` with only `lint` keeps the rest), or adds a kind: `from` names the built-in it starts from, or it sets its own `toolchain` (`ruby` or `crystal`). There is one level: `from` must name a built-in.
+`docs` is for a repository of config, notes and documents: there is nothing to build, so its commands pass and the review stages (and public review, with `hygiene = true`) do the work.
+
+`[kinds.<name>]` overrides a built-in kind key by key (`[kinds.ruby-gem]` with only `lint` keeps the rest), or adds a kind: `from` names the built-in it starts from, or it sets its own `toolchain` (`ruby`, `crystal`, `go` or `none`). There is one level: `from` must name a built-in.
 
 ```toml
 [kinds.framework-shard]
@@ -416,7 +420,7 @@ github = "example-org/example_shard"
 base = "main"
 ```
 
-A project with no `kind` behaves as before: nothing is filled in, and its toolchain (which picks the gate workflow's Crystal setup and the Crystal and ameba version notices) is inferred from `language`: `crystal-shard` when it says "crystal", else `ruby-gem`. `factory check` reports an unknown `kind`, a bad `toolchain` or `from`, and a kind with no toolchain. `factory kinds [--json]` lists every kind (where it comes from, its toolchain, its `from`) and, for each factory project, its kind (`(inferred)` when it has none), toolchain and the effective language, commands, gate memory and pinned files.
+A project with no `kind` behaves as before: nothing is filled in, and its toolchain (which picks the gate workflow's Crystal setup and the Crystal and ameba version notices) is inferred from `language`: `crystal-shard` when it says "crystal", `go-module` when it starts "Go module", else `ruby-gem`. `factory check` reports an unknown `kind`, a bad `toolchain` or `from`, and a kind with no toolchain. `factory kinds [--json]` lists every kind (where it comes from, its toolchain, its `from`) and, for each factory project, its kind (`(inferred)` when it has none), toolchain and the effective language, commands, gate memory and pinned files.
 
 `factory onboard <project>` checks whether a factory project is ready to switch on, and prints one line per check: `kind` (a warning when inferred), `commands` (install, test and lint, from the table or the kind), `checkout` (the base's head in `path`), `context` (`context/<project>/INDEX.md`; a warning), `github` (the App can reach the repository; a warning with no `github`), `rules` (the base requires pull requests; a warning otherwise, or when the rules cannot be read) and `main`. Each is `ok`, `warn`, `fail` or `skip` (with the reason); it exits 1 when one fails. It only reads, except with `--checks`, which runs the gate's checks on the base's head in the gate image, holding the tick's lock (it waits for a running tick); without it `main` is skipped. `--json` prints the report as one object (`project`, `kind`, `inferred`, `ok`, `items`: `check`, `status`, `detail`) for the operator.
 

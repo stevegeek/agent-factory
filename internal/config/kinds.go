@@ -42,11 +42,20 @@ func BuiltinKinds() []ProjectKind {
 			Install: "shards check || shards install", Test: "crystal spec",
 			Lint:            "crystal tool format --check src spec && ameba src spec",
 			PinnedUntracked: []string{"lib", "shard.lock"}, PinnedSet: true, Source: KindCore},
+		{Name: "go-module", Toolchain: "go", Language: "Go module",
+			Install: "go version", Test: "go vet ./... && go test -count=1 ./...",
+			Lint:            `out=$(gofmt -l .); [ -z "$out" ] || { echo "gofmt: $out"; exit 1; }`,
+			PinnedUntracked: []string{}, PinnedSet: true, Source: KindCore},
+		// a repository of config and documents: nothing to build, so the
+		// commands pass and the review stages do the work
+		{Name: "docs", Toolchain: "none", Language: "Config and documentation",
+			Install: "true", Test: "true", Lint: "true",
+			PinnedUntracked: []string{}, PinnedSet: true, Source: KindCore},
 	}
 }
 
-// ToolchainNames are the toolchains a kind may name.
-func ToolchainNames() []string { return []string{"ruby", "crystal"} }
+// ToolchainNames are the toolchains a kind may name; "none" builds nothing.
+func ToolchainNames() []string { return []string{"ruby", "crystal", "go", "none"} }
 
 func builtinKind(name string) (ProjectKind, bool) {
 	for _, k := range BuiltinKinds() {
@@ -84,7 +93,8 @@ func (c *Config) KindNamed(name string) (ProjectKind, bool) {
 }
 
 // KindOf is the project's kind: its `kind`, or with none the kind its
-// language suggests (crystal-shard when it says "crystal", else ruby-gem),
+// language suggests (crystal-shard when it says "crystal", go-module when
+// it starts "go module", else ruby-gem),
 // with inferred true. An unknown kind is the zero ProjectKind (Problems
 // reports it). An inferred kind fills no keys; it only answers Toolchain,
 // and it is always the built-in, so a [kinds] override cannot change a
@@ -95,8 +105,11 @@ func (c *Config) KindOf(p Project) (k ProjectKind, inferred bool) {
 		return k, false
 	}
 	name := "ruby-gem"
-	if strings.Contains(textx.Lower(p.Language), "crystal") {
+	switch lang := textx.Lower(p.Language); {
+	case strings.Contains(lang, "crystal"):
 		name = "crystal-shard"
+	case strings.HasPrefix(lang, "go module"):
+		name = "go-module"
 	}
 	k, _ = builtinKind(name)
 	return k, true

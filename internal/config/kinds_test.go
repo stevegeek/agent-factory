@@ -28,7 +28,8 @@ func TestBuiltinKinds(t *testing.T) {
 			t.Errorf("%s: %+v", k.Name, k)
 		}
 	}
-	if !reflect.DeepEqual(names, []string{"ruby-gem", "rails-gem", "crystal-shard"}) || !reflect.DeepEqual(tcs, []string{"ruby", "ruby", "crystal"}) {
+	if !reflect.DeepEqual(names, []string{"ruby-gem", "rails-gem", "crystal-shard", "go-module", "docs"}) ||
+		!reflect.DeepEqual(tcs, []string{"ruby", "ruby", "crystal", "go", "none"}) {
 		t.Errorf("names %q toolchains %q", names, tcs)
 	}
 	ks[0].Name, ks[2].PinnedUntracked[0] = "changed", "changed"
@@ -36,7 +37,7 @@ func TestBuiltinKinds(t *testing.T) {
 	if again[0].Name != "ruby-gem" || again[2].PinnedUntracked[0] != "lib" {
 		t.Errorf("a caller's change reached the next call: %+v", again)
 	}
-	if !reflect.DeepEqual(ToolchainNames(), []string{"ruby", "crystal"}) {
+	if !reflect.DeepEqual(ToolchainNames(), []string{"ruby", "crystal", "go", "none"}) {
 		t.Errorf("ToolchainNames = %q", ToolchainNames())
 	}
 }
@@ -108,7 +109,7 @@ func TestConfigKindOverridesBuiltin(t *testing.T) {
 		t.Errorf("kind %+v %v", k, ok)
 	}
 	ks := c.Kinds()
-	if len(ks) != 3 || ks[0].Name != "ruby-gem" || ks[0].Source != "config" || ks[1].Source != "core" {
+	if len(ks) != 5 || ks[0].Name != "ruby-gem" || ks[0].Source != "config" || ks[1].Source != "core" {
 		t.Errorf("Kinds %+v", ks)
 	}
 	if p := kindProject(t, c, "g"); p.Lint != "true" || p.Test != "bundle exec rake test" {
@@ -126,7 +127,7 @@ func TestConfigKindFrom(t *testing.T) {
 	if !ok || k.Toolchain != "crystal" || k.From != "crystal-shard" || k.Source != "config" || k.Test != "crystal spec" {
 		t.Errorf("kind %+v %v", k, ok)
 	}
-	if ks := c.Kinds(); len(ks) != 4 || ks[3].Name != "ext-shard" {
+	if ks := c.Kinds(); len(ks) != 6 || ks[5].Name != "ext-shard" {
 		t.Errorf("Kinds %+v", ks)
 	}
 	p := kindProject(t, c, "s")
@@ -144,7 +145,7 @@ func TestKindProblems(t *testing.T) {
 	problems, warnings := c.Problems(nil)
 	for _, want := range []string{
 		`[projects.p] kind = "x": no such kind (factory kinds lists them)`,
-		`[kinds.a] toolchain = "cobol": one of ruby, crystal`,
+		`[kinds.a] toolchain = "cobol": one of ruby, crystal, go, none`,
 		`[kinds.b] from = "bigproj": not a built-in kind`,
 		`[kinds.c]: no toolchain (set toolchain or from)`,
 	} {
@@ -239,5 +240,23 @@ kind = "ruby-gem"
 	}
 	if k, inferred := c.KindOf(kindProject(t, c, "g")); !inferred || k.Source != KindCore {
 		t.Errorf("inferred kind %+v (inferred %v)", k, inferred)
+	}
+}
+
+func TestGoModuleAndDocsKinds(t *testing.T) {
+	c := mustParse(t, "[projects.f]\nlanguage = \"Go module, standard library only\"\npath = \"/f\"\n\n"+
+		"[projects.n]\nkind = \"docs\"\npath = \"/n\"\n\n[projects.m]\nkind = \"go-module\"\npath = \"/m\"\n")
+	if k, inferred := c.KindOf(kindProject(t, c, "f")); k.Name != "go-module" || !inferred || k.Toolchain != "go" {
+		t.Errorf("a Go module's language infers %+v %v", k, inferred)
+	}
+	if p := kindProject(t, c, "m"); p.Install != "go version" || p.Test != "go vet ./... && go test -count=1 ./..." ||
+		!strings.Contains(p.Lint, "gofmt -l .") || len(p.PinnedUntracked) != 0 || c.Toolchain(p) != "go" {
+		t.Errorf("go-module project %+v", p)
+	}
+	if p := kindProject(t, c, "n"); p.Install != "true" || p.Test != "true" || p.Lint != "true" || c.Toolchain(p) != "none" {
+		t.Errorf("docs project %+v", p)
+	}
+	if problems, _ := c.Problems(nil); slices.ContainsFunc(problems, func(s string) bool { return strings.Contains(s, "kind") }) {
+		t.Errorf("problems %q", problems)
 	}
 }
