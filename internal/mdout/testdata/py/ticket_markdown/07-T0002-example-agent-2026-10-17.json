@@ -1,0 +1,99 @@
+{
+  "view": {
+    "id": "T0002",
+    "project": "sandbox",
+    "mode": "board",
+    "kind": "item",
+    "title": "Second ticket with a break",
+    "body": "",
+    "column": "inbox",
+    "column_label": "Inbox",
+    "assignee": null,
+    "labels": [
+      "api",
+      "later"
+    ],
+    "parent": null,
+    "children": [],
+    "links": [
+      {
+        "rel": "url",
+        "url": "https://example.test/a",
+        "title": "A `ticked` title"
+      },
+      {
+        "rel": "related",
+        "ticket": "T0001"
+      },
+      {
+        "rel": "factory",
+        "ticket": "T0005",
+        "column": "triage",
+        "column_label": "Triage",
+        "pr": null
+      }
+    ],
+    "created": "2026-10-17T08:01:00+00:00",
+    "updated": "2026-10-18T09:03:00+00:00",
+    "by": "alice",
+    "waiting": null,
+    "questions": [],
+    "conversation": [],
+    "result": null,
+    "history": [
+      {
+        "at": "2026-10-17T08:01:00+00:00",
+        "type": "created",
+        "by": "alice",
+        "detail": "door=human column=inbox"
+      },
+      {
+        "at": "2026-10-18T09:01:00+00:00",
+        "type": "linked",
+        "by": "example-agent",
+        "detail": "related T0001"
+      },
+      {
+        "at": "2026-10-18T09:01:00+00:00",
+        "type": "edited",
+        "by": "example-agent",
+        "detail": "example-agent changed labels"
+      },
+      {
+        "at": "2026-10-18T09:03:00+00:00",
+        "type": "sent_to_factory",
+        "by": "example-agent",
+        "detail": "sent to fac as T0005"
+      },
+      {
+        "at": "2026-10-18T09:03:00+00:00",
+        "type": "linked",
+        "by": "example-agent",
+        "detail": "factory T0005"
+      }
+    ],
+    "factory": {
+      "column": "triage",
+      "column_label": "Triage",
+      "pr": null
+    }
+  },
+  "caller": {
+    "name": "example-agent",
+    "person": false,
+    "projects": [
+      "sandbox",
+      "fac"
+    ],
+    "can": [
+      "read",
+      "file",
+      "talk",
+      "work",
+      "plan"
+    ],
+    "tickets": null,
+    "expires": null
+  },
+  "today": "2026-10-17"
+}

@@ -1,0 +1,209 @@
+# Copy to your own config repo; deploy.sh renders templates from it and installs it
+# on the host as ~/factory/config.toml.
+
+image = "localhost/factory-agent:scion"
+max_agents = 2               # agents running at once; ~500 MB each for Claude Code
+agent_timeout_minutes = 45
+
+# Pinned agent versions for the image builds. `factory rebuild` (weekly timer) rebuilds
+# with fresh OS packages at these versions; `factory versions` (via clock, weekly) files
+# a needs_human notice when a newer release exists.
+[images]
+claude = "2.1.296"
+pi = "1.2.0"
+
+[upkeep]
+rebuild_at = "Sun *-*-* 02:30:00"     # systemd calendar; add a time zone name to pin it
+
+# GitHub out, through a GitHub App (Contents + Pull requests: write, Issues: read, no
+# Workflows; installed on the project repos only). The private key lives on the host at
+# ~/.config/factory/github-app.pem (mode 600). The factory pushes bot/* branches and opens
+# PRs; it never merges, and main needs a ruleset (PR + review + CI, no bypass).
+# [github]
+# app_client_id = "Iv23..."
+# installation_id = 12345678
+# open_prs = "manual"        # or "auto": open PRs for ready_for_pr tickets on each tick
+# reviewers = ["you"]        # review requested on every PR the factory opens
+
+# Self-deploy (`factory deploy`): the master deploys core main with config main itself,
+# building on [build] host. Core is fetched with no credential (it is public); config
+# with an App token for that one repo (contents: read), so the App must be installed
+# on the config repo too. Needs [github] installation_id and [build] host.
+# [deploy]
+# core = "example/agent-factory"
+# config = "example/factory-config"
+# config_dir = "config"      # the directory of the config repo that holds config.toml
+
+# Public-repo hygiene: on a project with `hygiene = true`, Gate 1 fails a change whose
+# paths, added lines, commit messages, branch or PR text contain one of these terms
+# (case-insensitive; 3 characters or more). Keep the real list in your private config.
+# [hygiene]
+# deny = ["hostx", "10.9.8.7", "example.ts.net"]
+
+# The daily encrypted backup to R2 (`factory backup`). Archives are named
+# factory-<name>-<stamp>; retention and the Sunday restore check keep to that one line.
+# [backup]
+# endpoint = "https://<account>.r2.cloudflarestorage.com"
+# bucket = "factory-backups"
+# name = "master"            # default: this machine's host name; set it so the line survives a move
+
+# Commit identity and PR attribution for every agent.
+[identity]
+git_name = "Your Name"
+git_email = "you@example.com"
+pr_footer = "Opened by a maintenance bot (Claude Code)."
+
+# The unprivileged account the agents run as (created by host/setup.sh).
+[host]
+factory_user = "factory"
+factory_uid = 1001
+factory_home = "/home/factory"
+
+# Stage -> Scion template name on the host. deploy.sh installs the ruby-gem flavour
+# under these names.
+[templates]
+triage = "gem-triage"
+work = "gem-worker"
+review = "gem-reviewer"
+security = "gem-security"
+task = "gem-task"
+design = "gem-designer"
+prospect = "gem-prospector"
+vote = "gem-voter"
+verify = "gem-verifier"
+
+[models]                     # per stage; empty = harness default
+triage = ""
+work = ""
+review = ""
+security = ""
+
+# Gate 1: deterministic, no model. All must hold for auto-merge eligibility.
+[gate]
+max_changed_lines = 10
+allowed_paths = ["*.md", "docs/*", "CHANGELOG*", ".standard.yml", ".rubocop.yml", "test/*", "spec/*"]
+memory = "900m"
+mounts = ["{root}/cache/bundle:/home/scion/.bundle-cache:ro"]   # {root} = ~/factory
+env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
+
+[panel]                      # blind voting on prospecting proposals
+voters = 3
+
+[findings]                   # what a finding task's verified findings become
+auto_file = "none"           # "confirmed-safe": confirmed findings that change no behaviour are filed as changes at once
+
+[foreman]                    # the web app (systemd/foreman.service)
+listen = "127.0.0.1:8790"    # loopback; put `tailscale serve` in front to reach it from elsewhere
+# hosts = ["box.example.ts.net"]            # names it answers to besides IPs and localhost
+# trust_tailscale = true                    # a tailnet login below counts as logged in (via tailscale serve)
+# tailscale_users = ["you@example.com"]
+
+[triage.auto_accept]         # accepted triage goes straight to "ready" for these doors
+github = false               # otherwise it waits in needs_human
+clock = true
+# agent = false              # tickets an agent's token files (factory ticket create / send); untrusted
+
+[board]                      # tickets for projects the factory doesn't run (mode = "board" below)
+people = ["alice"]           # who tickets are assigned to and questions put to; the first is the maintainer
+
+# Helper hosts (optional), reached over an SSH key forced to bin/factory-remote
+# (host/allow-dispatcher.sh); they run Pi jobs. Stages run here first; a helper takes
+# the stages it lists only when max_agents is reached here. A ticket pinned with
+# `factory add --host NAME` / `factory host T0001 NAME` runs every stage there and
+# waits while it is busy or unreachable.
+# [hosts.helper]
+# ssh = "factory@192.0.2.11"
+# slots = 1
+# stages = ["triage", "review"]    # overflow when this host is full
+# prefer = ["task"]                # taken here first: light single-run tasks
+# notes = "what this host is good for"
+# model = "claude-sonnet-5-5"
+# key = "~/.ssh/factory-remote"
+
+# On a helper host: what each job gets beyond its own directory. The dispatcher
+# sends only the branch, model and timeout; but a helper with ~/factory/accept-installs
+# takes the master's whole config.toml at each self-deploy, these settings included.
+[remote]
+image = "localhost/factory-pi:dev"
+memory = "800m"
+mounts = ["{root}/cache/bundle:/home/scion/.bundle-cache:ro"]   # {root} = ~/factory
+env = { BUNDLE_PATH = "/home/scion/.bundle-cache" }
+# agent = "pi"         # or "claude" (Claude Code, needs SSE4.2+)
+# auth = "api-key"     # ~/.config/factory/anthropic-api-key; claude also "subscription" (its default):
+#                      # ~/.config/factory/claude-oauth-token. A job gets only that one.
+# cpus = 2
+# max_jobs = 4
+# deps = false         # true: bundle/shards install before the agent, into a writable cache
+
+# One helper's own settings, over [remote], read only on the helper whose short
+# hostname (`hostname -s`, lowercased) is the table's name. env adds to [remote] env;
+# the other keys replace. Every helper gets this same file.
+# [remote.helperb]
+# agent = "claude"
+# image = "localhost/factory-agent:scion"
+# memory = "3g"
+# cpus = 4
+# max_jobs = 2
+# deps = true          # every stage, gems included, without a hand-seeded cache
+# mounts = ["{root}/cache/bundle:/home/scion/.bundle-cache"]   # writable, for deps
+
+[projects.my_gem]
+path = "/home/factory/projects/my_gem"
+github = "owner/my_gem"      # enables the github door (factory sweep)
+base = "main"
+install = "bundle check"
+test = "bundle exec rake test"
+lint = "bundle exec standardrb"
+pinned_untracked = ["Gemfile.lock"]   # copied into the gate checkout
+# tier3_paths / text_paths override the security-tier file patterns
+
+# another language: every agent is told `language`, the commands and `notes`; the images carry Crystal
+[projects.my_shard]
+path = "/home/factory/projects/my_shard"
+github = "you/my_shard"
+base = "main"
+language = "Crystal shard"
+install = "shards install"
+test = "crystal spec"
+lint = "crystal tool format --check src spec && ameba src spec"
+notes = "Anything every agent on this project should know."
+# gate_memory = "1500m"               # overrides [gate] memory for this project
+
+# [projects.notes_app]
+# mode = "board"     # tickets only: people and their own agents do the work; no pipeline, no gate
+
+# the factory as its own project: a merge deploys core (self_deploy = "core"; a config
+# repo's project says "config"), a change to a wall never merges without you, and the
+# public repo's changes are scanned against [hygiene] deny
+# [projects.agent-factory]
+# path = "/home/factory/projects/agent-factory"
+# github = "example/agent-factory"
+# base = "main"
+# language = "Go module, standard library only"
+# install = "go version"
+# test = "go vet ./... && go test -count=1 ./..."
+# lint = 'out=$(gofmt -l .); [ -z "$out" ] || { echo "gofmt: $out"; exit 1; }'
+# walls = ["internal/gate/*", "deploy.sh", "images/*"]   # fnmatch, as allowed_paths
+# hygiene = true
+# self_deploy = "core"
+
+[[schedules]]                # the clock door
+name = "rails-release-check"
+every_days = 30
+title = "Check compatibility with the latest Rails release"
+body = """Check whether a Rails version newer than the ones covered by Appraisals and the CI matrix has been released. If so, add it to Appraisals and the CI matrix, run the suite against it, and fix any incompatibility. If nothing newer exists, reject this ticket."""
+
+[[schedules]]                # a finding task: its findings go to a verifier, then to you, then become tickets
+name = "bug-hunt"
+every_days = 30
+kind = "task"
+findings = true
+title = "Bug hunt"
+body = """Look for bugs in this library and report them; change nothing in the repository. Confirm each one with a small script in scratch space, run against the current code."""
+
+[[schedules]]                # prospecting: proposals, scored by a blind panel ([panel] voters)
+name = "prospecting"
+every_days = 30
+kind = "prospect"
+title = "Look for improvements worth the maintainer's attention"
+body = """Look across the code, tests and docs for improvements with concrete evidence."""

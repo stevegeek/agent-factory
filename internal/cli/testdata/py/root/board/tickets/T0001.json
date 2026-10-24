@@ -1,0 +1,26 @@
+{
+  "id": "T0001",
+  "project": "gem",
+  "title": "A change waiting to start",
+  "body": "",
+  "door": "human",
+  "by": "alice",
+  "column": "ready",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "alice"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Agent factory: scheduling pass every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+Unit=factory@tick.service
+
+[Install]
+WantedBy=timers.target

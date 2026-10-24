@@ -1,0 +1,13 @@
+# Foreman's wake (ARCHITECTURE.md §5.5, §6.2), as a user unit of the factory user. Foreman's
+# sandbox hides the user manager's bus, so it cannot start a tick itself: it writes
+# foreman-state/wake, and this unit starts factory-wake.service, outside the sandbox.
+# deploy.sh installs it into ~/.config/systemd/user/ and enables it.
+[Unit]
+Description=Agent factory: a tick when Foreman asks for one
+
+[Path]
+PathModified=%h/factory/foreman-state/wake
+Unit=factory-wake.service
+
+[Install]
+WantedBy=default.target

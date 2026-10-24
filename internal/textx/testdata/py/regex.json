@@ -1,0 +1,6460 @@
+{
+  "about": "every regex the Python code uses, with the operation it applies (re.search/match/fullmatch: group 0 then the groups, null when no match or for a group that did not take part; findall; sub with repl; split) over a corpus with non-ASCII letters and digits, NEL, LS, PS, \\x1c-\\x1f and trailing newlines",
+  "patterns": [
+    {
+      "name": "tier2_content",
+      "where": "bin/factory TIER2_CONTENT",
+      "pattern": "\\b(eval|instance_eval|class_eval|send|public_send|constantize|system|exec|spawn|Marshal|YAML\\.(unsafe_)?load|JSON\\.parse|open\\(|html_safe|raw\\(|sanitize|find_by_sql|to_sql|Regexp\\.new|Kernel\\.|Process\\.(run|exec|new)|from_json|from_yaml|YAML\\.parse|pointerof|Pointer|unsafe_as|\\.unsafe_)",
+      "py": "\\b(eval|instance_eval|class_eval|send|public_send|constantize|system|exec|spawn|Marshal|YAML\\.(unsafe_)?load|JSON\\.parse|open\\(|html_safe|raw\\(|sanitize|find_by_sql|to_sql|Regexp\\.new|Kernel\\.|Process\\.(run|exec|new)|from_json|from_yaml|YAML\\.parse|pointerof|Pointer|unsafe_as|\\.unsafe_)",
+      "flags": [],
+      "op": "search",
+      "cases": [
+        {
+          "in": "x.send(:a)",
+          "out": [
+            "send",
+            "send",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "resend",
+          "out": null
+        },
+        {
+          "in": "eval(x)",
+          "out": [
+            "eval",
+            "eval",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "  system 'ls'",
+          "out": [
+            "system",
+            "system",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "YAML.unsafe_load(x)",
+          "out": [
+            "YAML.unsafe_load",
+            "YAML.unsafe_load",
+            "unsafe_",
+            null
+          ]
+        },
+        {
+          "in": "YAML.load(y)",
+          "out": [
+            "YAML.load",
+            "YAML.load",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "JSON.parse(s)",
+          "out": [
+            "JSON.parse",
+            "JSON.parse",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "open(f)",
+          "out": [
+            "open(",
+            "open(",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "reopen(",
+          "out": null
+        },
+        {
+          "in": "Kernel.exec",
+          "out": [
+            "Kernel.",
+            "Kernel.",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "Process.run",
+          "out": [
+            "Process.run",
+            "Process.run",
+            null,
+            "run"
+          ]
+        },
+        {
+          "in": "Process.spawn",
+          "out": [
+            "spawn",
+            "spawn",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "pointerof(x)",
+          "out": [
+            "pointerof",
+            "pointerof",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "obj.unsafe_as(Int32)",
+          "out": [
+            ".unsafe_",
+            ".unsafe_",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "x.unsafe_y",
+          "out": [
+            ".unsafe_",
+            ".unsafe_",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "\u00e9valuer",
+          "out": null
+        },
+        {
+          "in": "\u00e9val(x)",
+          "out": null
+        },
+        {
+          "in": "\u00e9send",
+          "out": null
+        },
+        {
+          "in": "_eval",
+          "out": null
+        },
+        {
+          "in": "evaluate",
+          "out": [
+            "eval",
+            "eval",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "html_safe",
+          "out": [
+            "html_safe",
+            "html_safe",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "x.raw(y)",
+          "out": [
+            "raw(",
+            "raw(",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "Regexp.new(s)",
+          "out": [
+            "Regexp.new",
+            "Regexp.new",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "Marshal.load",
+          "out": [
+            "Marshal",
+            "Marshal",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "MarshalX",
+          "out": [
+            "Marshal",
+            "Marshal",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "sanitize",
+          "out": [
+            "sanitize",
+            "sanitize",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "\u043d\u0430\u0439\u0442\u0438 send",
+          "out": [
+            "send",
+            "send",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "send\n",
+          "out": [
+            "send",
+            "send",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "\uff13send",
+          "out": null
+        },
+        {
+          "in": "constantize",
+          "out": [
+            "constantize",
+            "constantize",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "find_by_sql",
+          "out": [
+            "find_by_sql",
+            "find_by_sql",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "Pointer(UInt8)",
+          "out": [
+            "Pointer",
+            "Pointer",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "from_json",
+          "out": [
+            "from_json",
+            "from_json",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "YAML.parse",
+          "out": [
+            "YAML.parse",
+            "YAML.parse",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "tier2_path",
+      "where": "bin/factory TIER2_PATH",
+      "pattern": "(pars|render|serial|encod|decod|request|response|http|json|yaml|sql|html|escap|input)",
+      "py": "(pars|render|serial|encod|decod|request|response|http|json|yaml|sql|html|escap|input)",
+      "flags": [
+        "I"
+      ],
+      "op": "search",
+      "cases": [
+        {
+          "in": "lib/parser.rb",
+          "out": [
+            "pars",
+            "pars"
+          ]
+        },
+        {
+          "in": "lib/PARSER.rb",
+          "out": [
+            "PARS",
+            "PARS"
+          ]
+        },
+        {
+          "in": "app/views/x.html.erb",
+          "out": [
+            "html",
+            "html"
+          ]
+        },
+        {
+          "in": "lib/\u0130nput.rb",
+          "out": [
+            "\u0130nput",
+            "\u0130nput"
+          ]
+        },
+        {
+          "in": "lib/\u0131nput.rb",
+          "out": [
+            "\u0131nput",
+            "\u0131nput"
+          ]
+        },
+        {
+          "in": "lib/\u017fql.rb",
+          "out": [
+            "\u017fql",
+            "\u017fql"
+          ]
+        },
+        {
+          "in": "lib/\u212aey.rb",
+          "out": null
+        },
+        {
+          "in": "lib/thing.rb",
+          "out": null
+        },
+        {
+          "in": "spec/serializer_spec.rb",
+          "out": [
+            "serial",
+            "serial"
+          ]
+        },
+        {
+          "in": "src/Escaping.cr",
+          "out": [
+            "Escap",
+            "Escap"
+          ]
+        },
+        {
+          "in": "lib/requests.rb",
+          "out": [
+            "request",
+            "request"
+          ]
+        },
+        {
+          "in": "lib/\uff2ason.rb",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "ticket_id_fullmatch",
+      "where": "bin/factory changing(), asked_on()",
+      "pattern": "T\\d{4,6}",
+      "py": "T\\d{4,6}",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "T0001",
+          "out": [
+            "T0001"
+          ]
+        },
+        {
+          "in": "T123",
+          "out": null
+        },
+        {
+          "in": "T123456",
+          "out": [
+            "T123456"
+          ]
+        },
+        {
+          "in": "T1234567",
+          "out": null
+        },
+        {
+          "in": "t0001",
+          "out": null
+        },
+        {
+          "in": "T\u0660\u0660\u0660\u0661",
+          "out": [
+            "T\u0660\u0660\u0660\u0661"
+          ]
+        },
+        {
+          "in": "T\uff10\uff10\uff10\uff11",
+          "out": [
+            "T\uff10\uff10\uff10\uff11"
+          ]
+        },
+        {
+          "in": "T0001\n",
+          "out": null
+        },
+        {
+          "in": " T0001",
+          "out": null
+        },
+        {
+          "in": "T00a1",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "not_digit_sub",
+      "where": "bin/factory next_id()",
+      "pattern": "\\D",
+      "py": "\\D",
+      "flags": [],
+      "op": "sub",
+      "repl": "",
+      "cases": [
+        {
+          "in": "T0042.json",
+          "out": "0042"
+        },
+        {
+          "in": "T\u0660\u0660\u0664\u0662.json",
+          "out": "\u0660\u0660\u0664\u0662"
+        },
+        {
+          "in": "T\uff11\uff12.json",
+          "out": "\uff11\uff12"
+        },
+        {
+          "in": "T0042.json.tmp",
+          "out": "0042"
+        },
+        {
+          "in": "",
+          "out": ""
+        },
+        {
+          "in": "a",
+          "out": ""
+        },
+        {
+          "in": "abc",
+          "out": ""
+        },
+        {
+          "in": "ABC",
+          "out": ""
+        },
+        {
+          "in": "a b",
+          "out": ""
+        },
+        {
+          "in": "a\n",
+          "out": ""
+        },
+        {
+          "in": "a\nb",
+          "out": ""
+        },
+        {
+          "in": "\n",
+          "out": ""
+        },
+        {
+          "in": "a\r\n",
+          "out": ""
+        },
+        {
+          "in": "\u00e9",
+          "out": ""
+        },
+        {
+          "in": "e\u0301",
+          "out": ""
+        },
+        {
+          "in": "\u00df",
+          "out": ""
+        },
+        {
+          "in": "\u0130",
+          "out": ""
+        },
+        {
+          "in": "\u0131",
+          "out": ""
+        },
+        {
+          "in": "\u017f",
+          "out": ""
+        },
+        {
+          "in": "\u212a",
+          "out": ""
+        },
+        {
+          "in": "\u03a9",
+          "out": ""
+        },
+        {
+          "in": "\u0663",
+          "out": "\u0663"
+        },
+        {
+          "in": "\uff13",
+          "out": "\uff13"
+        },
+        {
+          "in": "\u00b2",
+          "out": ""
+        },
+        {
+          "in": "\u216b",
+          "out": ""
+        },
+        {
+          "in": "\u00bd",
+          "out": ""
+        },
+        {
+          "in": "_",
+          "out": ""
+        },
+        {
+          "in": "-",
+          "out": ""
+        },
+        {
+          "in": ".",
+          "out": ""
+        },
+        {
+          "in": "a.b",
+          "out": ""
+        },
+        {
+          "in": "a\u0085b",
+          "out": ""
+        },
+        {
+          "in": "a\u2028b",
+          "out": ""
+        },
+        {
+          "in": "a\u2029b",
+          "out": ""
+        },
+        {
+          "in": "a\u001cb",
+          "out": ""
+        },
+        {
+          "in": "a\u001fb",
+          "out": ""
+        },
+        {
+          "in": "a\u00a0b",
+          "out": ""
+        },
+        {
+          "in": "a\u3000b",
+          "out": ""
+        },
+        {
+          "in": "a\tb",
+          "out": ""
+        },
+        {
+          "in": "a\u000bb",
+          "out": ""
+        },
+        {
+          "in": "a\fb",
+          "out": ""
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": ""
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": ""
+        },
+        {
+          "in": " ",
+          "out": ""
+        },
+        {
+          "in": "\u200b",
+          "out": ""
+        }
+      ]
+    },
+    {
+      "name": "sentence_split",
+      "where": "bin/factory sentence()",
+      "pattern": "(?<=[.?!])\\s+",
+      "py": "(?<=[.?!])\\s+",
+      "flags": [],
+      "op": "split",
+      "cases": [
+        {
+          "in": "One. Two? Three! Four.",
+          "out": [
+            "One.",
+            "Two?",
+            "Three!",
+            "Four."
+          ]
+        },
+        {
+          "in": "a.  b",
+          "out": [
+            "a.",
+            "b"
+          ]
+        },
+        {
+          "in": "a.\u2028b",
+          "out": [
+            "a.",
+            "b"
+          ]
+        },
+        {
+          "in": "a.\u0085b",
+          "out": [
+            "a.",
+            "b"
+          ]
+        },
+        {
+          "in": "a.\u00a0b",
+          "out": [
+            "a.",
+            "b"
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a. ",
+          "out": [
+            "a.",
+            ""
+          ]
+        },
+        {
+          "in": "?! x",
+          "out": [
+            "?!",
+            "x"
+          ]
+        },
+        {
+          "in": "a.\u001cb",
+          "out": [
+            "a.",
+            "b"
+          ]
+        },
+        {
+          "in": "",
+          "out": [
+            ""
+          ]
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": [
+            "a b"
+          ]
+        },
+        {
+          "in": "a\n",
+          "out": [
+            "a\n"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": [
+            "a\nb"
+          ]
+        },
+        {
+          "in": "\n",
+          "out": [
+            "\n"
+          ]
+        },
+        {
+          "in": "a\r\n",
+          "out": [
+            "a\r\n"
+          ]
+        },
+        {
+          "in": "\u00e9",
+          "out": [
+            "\u00e9"
+          ]
+        },
+        {
+          "in": "e\u0301",
+          "out": [
+            "e\u0301"
+          ]
+        },
+        {
+          "in": "\u00df",
+          "out": [
+            "\u00df"
+          ]
+        },
+        {
+          "in": "\u0130",
+          "out": [
+            "\u0130"
+          ]
+        },
+        {
+          "in": "\u0131",
+          "out": [
+            "\u0131"
+          ]
+        },
+        {
+          "in": "\u017f",
+          "out": [
+            "\u017f"
+          ]
+        },
+        {
+          "in": "\u212a",
+          "out": [
+            "\u212a"
+          ]
+        },
+        {
+          "in": "\u03a9",
+          "out": [
+            "\u03a9"
+          ]
+        },
+        {
+          "in": "\u0663",
+          "out": [
+            "\u0663"
+          ]
+        },
+        {
+          "in": "\uff13",
+          "out": [
+            "\uff13"
+          ]
+        },
+        {
+          "in": "\u00b2",
+          "out": [
+            "\u00b2"
+          ]
+        },
+        {
+          "in": "\u216b",
+          "out": [
+            "\u216b"
+          ]
+        },
+        {
+          "in": "\u00bd",
+          "out": [
+            "\u00bd"
+          ]
+        },
+        {
+          "in": "_",
+          "out": [
+            "_"
+          ]
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": [
+            "a\u0085b"
+          ]
+        },
+        {
+          "in": "a\u2028b",
+          "out": [
+            "a\u2028b"
+          ]
+        },
+        {
+          "in": "a\u2029b",
+          "out": [
+            "a\u2029b"
+          ]
+        },
+        {
+          "in": "a\u001cb",
+          "out": [
+            "a\u001cb"
+          ]
+        },
+        {
+          "in": "a\u001fb",
+          "out": [
+            "a\u001fb"
+          ]
+        },
+        {
+          "in": "a\u00a0b",
+          "out": [
+            "a\u00a0b"
+          ]
+        },
+        {
+          "in": "a\u3000b",
+          "out": [
+            "a\u3000b"
+          ]
+        },
+        {
+          "in": "a\tb",
+          "out": [
+            "a\tb"
+          ]
+        },
+        {
+          "in": "a\u000bb",
+          "out": [
+            "a\u000bb"
+          ]
+        },
+        {
+          "in": "a\fb",
+          "out": [
+            "a\fb"
+          ]
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": [
+            "\ud83d\ude00"
+          ]
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": [
+            "x\ud83d\ude00y"
+          ]
+        },
+        {
+          "in": " ",
+          "out": [
+            " "
+          ]
+        },
+        {
+          "in": "\u200b",
+          "out": [
+            "\u200b"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "repo_config_ok",
+      "where": "bin/factory REPO_CONFIG_OK",
+      "pattern": "^(core\\.(repositoryformatversion|filemode|bare|logallrefupdates)|remote\\.origin\\.fetch|remote\\.origin\\.url|branch\\..+\\.(remote|merge)|extensions\\.relativeworktrees)$",
+      "py": "^(core\\.(repositoryformatversion|filemode|bare|logallrefupdates)|remote\\.origin\\.fetch|remote\\.origin\\.url|branch\\..+\\.(remote|merge)|extensions\\.relativeworktrees)$",
+      "flags": [],
+      "op": "match",
+      "cases": [
+        {
+          "in": "core.bare",
+          "out": [
+            "core.bare",
+            "core.bare",
+            "bare",
+            null
+          ]
+        },
+        {
+          "in": "core.hookspath",
+          "out": null
+        },
+        {
+          "in": "core.repositoryformatversion",
+          "out": [
+            "core.repositoryformatversion",
+            "core.repositoryformatversion",
+            "repositoryformatversion",
+            null
+          ]
+        },
+        {
+          "in": "core.filemode",
+          "out": [
+            "core.filemode",
+            "core.filemode",
+            "filemode",
+            null
+          ]
+        },
+        {
+          "in": "core.logallrefupdates",
+          "out": [
+            "core.logallrefupdates",
+            "core.logallrefupdates",
+            "logallrefupdates",
+            null
+          ]
+        },
+        {
+          "in": "remote.origin.url",
+          "out": [
+            "remote.origin.url",
+            "remote.origin.url",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "remote.origin.fetch",
+          "out": [
+            "remote.origin.fetch",
+            "remote.origin.fetch",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "remote.origin.pushurl",
+          "out": null
+        },
+        {
+          "in": "branch.main.remote",
+          "out": [
+            "branch.main.remote",
+            "branch.main.remote",
+            null,
+            "remote"
+          ]
+        },
+        {
+          "in": "branch.main.merge",
+          "out": [
+            "branch.main.merge",
+            "branch.main.merge",
+            null,
+            "merge"
+          ]
+        },
+        {
+          "in": "branch..remote",
+          "out": null
+        },
+        {
+          "in": "branch.a.b.merge",
+          "out": [
+            "branch.a.b.merge",
+            "branch.a.b.merge",
+            null,
+            "merge"
+          ]
+        },
+        {
+          "in": "branch.main.rebase",
+          "out": null
+        },
+        {
+          "in": "extensions.relativeworktrees",
+          "out": [
+            "extensions.relativeworktrees",
+            "extensions.relativeworktrees",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "core.bare\n",
+          "out": [
+            "core.bare",
+            "core.bare",
+            "bare",
+            null
+          ]
+        },
+        {
+          "in": "remote.origin.urlx",
+          "out": null
+        },
+        {
+          "in": "core.filemodex",
+          "out": null
+        },
+        {
+          "in": "core.fsmonitor",
+          "out": null
+        },
+        {
+          "in": "include.path",
+          "out": null
+        },
+        {
+          "in": "core.bare\nx",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "slugify_sub",
+      "where": "bin/factory slugify()",
+      "pattern": "[^a-z0-9]+",
+      "py": "[^a-z0-9]+",
+      "flags": [],
+      "op": "sub",
+      "repl": "-",
+      "cases": [
+        {
+          "in": "fix the parser!",
+          "out": "fix-the-parser-"
+        },
+        {
+          "in": "i\u0307stanbul caf\u00e9",
+          "out": "i-stanbul-caf-"
+        },
+        {
+          "in": "--weird__title--",
+          "out": "-weird-title-"
+        },
+        {
+          "in": "\u00fcn\u00efc\u00f6d\u00e9",
+          "out": "-n-c-d-"
+        },
+        {
+          "in": "a1-b2",
+          "out": "a1-b2"
+        },
+        {
+          "in": "",
+          "out": ""
+        },
+        {
+          "in": "a",
+          "out": "a"
+        },
+        {
+          "in": "abc",
+          "out": "abc"
+        },
+        {
+          "in": "ABC",
+          "out": "-"
+        },
+        {
+          "in": "a b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\n",
+          "out": "a-"
+        },
+        {
+          "in": "a\nb",
+          "out": "a-b"
+        },
+        {
+          "in": "\n",
+          "out": "-"
+        },
+        {
+          "in": "a\r\n",
+          "out": "a-"
+        },
+        {
+          "in": "\u00e9",
+          "out": "-"
+        },
+        {
+          "in": "e\u0301",
+          "out": "e-"
+        },
+        {
+          "in": "\u00df",
+          "out": "-"
+        },
+        {
+          "in": "\u0130",
+          "out": "-"
+        },
+        {
+          "in": "\u0131",
+          "out": "-"
+        },
+        {
+          "in": "\u017f",
+          "out": "-"
+        },
+        {
+          "in": "\u212a",
+          "out": "-"
+        },
+        {
+          "in": "\u03a9",
+          "out": "-"
+        },
+        {
+          "in": "\u0663",
+          "out": "-"
+        },
+        {
+          "in": "\uff13",
+          "out": "-"
+        },
+        {
+          "in": "\u00b2",
+          "out": "-"
+        },
+        {
+          "in": "\u216b",
+          "out": "-"
+        },
+        {
+          "in": "\u00bd",
+          "out": "-"
+        },
+        {
+          "in": "_",
+          "out": "-"
+        },
+        {
+          "in": "-",
+          "out": "-"
+        },
+        {
+          "in": ".",
+          "out": "-"
+        },
+        {
+          "in": "a.b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u0085b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u2028b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u2029b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u001cb",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u001fb",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u00a0b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u3000b",
+          "out": "a-b"
+        },
+        {
+          "in": "a\tb",
+          "out": "a-b"
+        },
+        {
+          "in": "a\u000bb",
+          "out": "a-b"
+        },
+        {
+          "in": "a\fb",
+          "out": "a-b"
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": "-"
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": "x-y"
+        },
+        {
+          "in": " ",
+          "out": "-"
+        },
+        {
+          "in": "\u200b",
+          "out": "-"
+        }
+      ]
+    },
+    {
+      "name": "limit_text",
+      "where": "bin/factory LIMIT_TEXT",
+      "pattern": "(usage limit reached|limit reached\\W+resets?\\b|your limit will reset|you've hit your (usage )?limit|out of extra usage|credit balance is too low|Claude AI usage limit|(weekly|5-hour|session) limit reached)",
+      "py": "(usage limit reached|limit reached\\W+resets?\\b|your limit will reset|you've hit your (usage )?limit|out of extra usage|credit balance is too low|Claude AI usage limit|(weekly|5-hour|session) limit reached)",
+      "flags": [
+        "I"
+      ],
+      "op": "search",
+      "cases": [
+        {
+          "in": "Claude AI usage limit reached|1700000000",
+          "out": [
+            "Claude AI usage limit",
+            "Claude AI usage limit",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "You've hit your limit \u00b7 resets 3pm",
+          "out": [
+            "You've hit your limit",
+            "You've hit your limit",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "limit reached - resets",
+          "out": [
+            "limit reached - resets",
+            "limit reached - resets",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "limit reached\u2026 resets",
+          "out": [
+            "limit reached\u2026 resets",
+            "limit reached\u2026 resets",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "5-hour limit reached",
+          "out": [
+            "5-hour limit reached",
+            "5-hour limit reached",
+            null,
+            "5-hour"
+          ]
+        },
+        {
+          "in": "weekly limit reached",
+          "out": [
+            "weekly limit reached",
+            "weekly limit reached",
+            null,
+            "weekly"
+          ]
+        },
+        {
+          "in": "Session limit reached",
+          "out": [
+            "Session limit reached",
+            "Session limit reached",
+            null,
+            "Session"
+          ]
+        },
+        {
+          "in": "Credit balance is too low",
+          "out": [
+            "Credit balance is too low",
+            "Credit balance is too low",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "out of extra usage",
+          "out": [
+            "out of extra usage",
+            "out of extra usage",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "your limit will reset at 5",
+          "out": [
+            "your limit will reset",
+            "your limit will reset",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "limit reached\nresets",
+          "out": [
+            "limit reached\nresets",
+            "limit reached\nresets",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "limit reached resetsX",
+          "out": null
+        },
+        {
+          "in": "limit reached reset",
+          "out": [
+            "limit reached reset",
+            "limit reached reset",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "LIMIT REACHED RESETS",
+          "out": [
+            "LIMIT REACHED RESETS",
+            "LIMIT REACHED RESETS",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "you\u2019ve hit your limit",
+          "out": null
+        },
+        {
+          "in": "you've hit your usage limit",
+          "out": [
+            "you've hit your usage limit",
+            "you've hit your usage limit",
+            "usage ",
+            null
+          ]
+        },
+        {
+          "in": "usage limit reached",
+          "out": [
+            "usage limit reached",
+            "usage limit reached",
+            null,
+            null
+          ]
+        },
+        {
+          "in": "the limit reached a reset",
+          "out": null
+        },
+        {
+          "in": "\u0130imit reached resets",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "memory_key",
+      "where": "bin/factory MEMORY_KEY",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$",
+      "py": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$",
+      "flags": [],
+      "op": "match",
+      "cases": [
+        {
+          "in": "worker",
+          "out": [
+            "worker"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "-x",
+          "out": null
+        },
+        {
+          "in": "x\n",
+          "out": [
+            "x"
+          ]
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "my-gem.v2",
+          "out": [
+            "my-gem.v2"
+          ]
+        },
+        {
+          "in": "My_Gem",
+          "out": [
+            "My_Gem"
+          ]
+        },
+        {
+          "in": "a/b",
+          "out": null
+        },
+        {
+          "in": ".git",
+          "out": null
+        },
+        {
+          "in": "1x",
+          "out": [
+            "1x"
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "version_digits",
+      "where": "bin/factory version_tuple()",
+      "pattern": "\\d+",
+      "py": "\\d+",
+      "flags": [],
+      "op": "findall",
+      "cases": [
+        {
+          "in": "1.2.3",
+          "out": [
+            "1",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "in": "v1.20.1",
+          "out": [
+            "1",
+            "20",
+            "1"
+          ]
+        },
+        {
+          "in": "2.0.0-beta.1",
+          "out": [
+            "2",
+            "0",
+            "0",
+            "1"
+          ]
+        },
+        {
+          "in": "\uff11.\uff12",
+          "out": [
+            "\uff11",
+            "\uff12"
+          ]
+        },
+        {
+          "in": "\u0661.\u0662.\u0663",
+          "out": [
+            "\u0661",
+            "\u0662",
+            "\u0663"
+          ]
+        },
+        {
+          "in": "1.2.3.4",
+          "out": [
+            "1",
+            "2",
+            "3",
+            "4"
+          ]
+        },
+        {
+          "in": "x",
+          "out": []
+        },
+        {
+          "in": "1\u00b2",
+          "out": [
+            "1"
+          ]
+        },
+        {
+          "in": "",
+          "out": []
+        },
+        {
+          "in": "a",
+          "out": []
+        },
+        {
+          "in": "abc",
+          "out": []
+        },
+        {
+          "in": "ABC",
+          "out": []
+        },
+        {
+          "in": "a b",
+          "out": []
+        },
+        {
+          "in": "a\n",
+          "out": []
+        },
+        {
+          "in": "a\nb",
+          "out": []
+        },
+        {
+          "in": "\n",
+          "out": []
+        },
+        {
+          "in": "a\r\n",
+          "out": []
+        },
+        {
+          "in": "\u00e9",
+          "out": []
+        },
+        {
+          "in": "e\u0301",
+          "out": []
+        },
+        {
+          "in": "\u00df",
+          "out": []
+        },
+        {
+          "in": "\u0130",
+          "out": []
+        },
+        {
+          "in": "\u0131",
+          "out": []
+        },
+        {
+          "in": "\u017f",
+          "out": []
+        },
+        {
+          "in": "\u212a",
+          "out": []
+        },
+        {
+          "in": "\u03a9",
+          "out": []
+        },
+        {
+          "in": "\u0663",
+          "out": [
+            "\u0663"
+          ]
+        },
+        {
+          "in": "\uff13",
+          "out": [
+            "\uff13"
+          ]
+        },
+        {
+          "in": "\u00b2",
+          "out": []
+        },
+        {
+          "in": "\u216b",
+          "out": []
+        },
+        {
+          "in": "\u00bd",
+          "out": []
+        },
+        {
+          "in": "_",
+          "out": []
+        },
+        {
+          "in": "-",
+          "out": []
+        },
+        {
+          "in": ".",
+          "out": []
+        },
+        {
+          "in": "a.b",
+          "out": []
+        },
+        {
+          "in": "a\u0085b",
+          "out": []
+        },
+        {
+          "in": "a\u2028b",
+          "out": []
+        },
+        {
+          "in": "a\u2029b",
+          "out": []
+        },
+        {
+          "in": "a\u001cb",
+          "out": []
+        },
+        {
+          "in": "a\u001fb",
+          "out": []
+        },
+        {
+          "in": "a\u00a0b",
+          "out": []
+        },
+        {
+          "in": "a\u3000b",
+          "out": []
+        },
+        {
+          "in": "a\tb",
+          "out": []
+        },
+        {
+          "in": "a\u000bb",
+          "out": []
+        },
+        {
+          "in": "a\fb",
+          "out": []
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": []
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": []
+        },
+        {
+          "in": " ",
+          "out": []
+        },
+        {
+          "in": "\u200b",
+          "out": []
+        }
+      ]
+    },
+    {
+      "name": "token_name",
+      "where": "bin/factory TOKEN_NAME",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "py": "^[a-z][a-z0-9-]{0,31}$",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "example-agent",
+          "out": [
+            "example-agent"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "A",
+          "out": null
+        },
+        {
+          "in": "1a",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "a_b",
+          "out": null
+        },
+        {
+          "in": "a-",
+          "out": [
+            "a-"
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "label",
+      "where": "bin/factory LABEL",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+      "py": "^[a-z0-9][a-z0-9-]{0,31}$",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "ui",
+          "out": [
+            "ui"
+          ]
+        },
+        {
+          "in": "1x",
+          "out": [
+            "1x"
+          ]
+        },
+        {
+          "in": "-x",
+          "out": null
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "UI",
+          "out": null
+        },
+        {
+          "in": "x\n",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "idempotency_key",
+      "where": "bin/factory IDEM_KEY",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+      "py": "^[A-Za-z0-9._:-]{1,128}$",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "k1",
+          "out": [
+            "k1"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "a.b_c:d-e",
+          "out": [
+            "a.b_c:d-e"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "#1",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": [
+            "_"
+          ]
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "ticket_id",
+      "where": "bin/factory TICKET_ID",
+      "pattern": "^T\\d{4,6}$",
+      "py": "^T\\d{4,6}$",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "T0001",
+          "out": [
+            "T0001"
+          ]
+        },
+        {
+          "in": "T123",
+          "out": null
+        },
+        {
+          "in": "T1234567",
+          "out": null
+        },
+        {
+          "in": "T0001\n",
+          "out": null
+        },
+        {
+          "in": "T\u0660\u0660\u0660\u0661",
+          "out": [
+            "T\u0660\u0660\u0660\u0661"
+          ]
+        },
+        {
+          "in": "t0001",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "link_url",
+      "where": "bin/factory clean_link()",
+      "pattern": "https?://[^\\s<>\\\"]+",
+      "py": "https?://[^\\s<>\\\"]+",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "https://x.test/a",
+          "out": [
+            "https://x.test/a"
+          ]
+        },
+        {
+          "in": "http://a b",
+          "out": null
+        },
+        {
+          "in": "https://x\u2028y",
+          "out": null
+        },
+        {
+          "in": "https://x\u0085y",
+          "out": null
+        },
+        {
+          "in": "https://x\u00a0y",
+          "out": null
+        },
+        {
+          "in": "https://x\u001cy",
+          "out": null
+        },
+        {
+          "in": "ftp://x",
+          "out": null
+        },
+        {
+          "in": "https://",
+          "out": null
+        },
+        {
+          "in": "https://x<y",
+          "out": null
+        },
+        {
+          "in": "https://x\"y",
+          "out": null
+        },
+        {
+          "in": "HTTPS://x",
+          "out": null
+        },
+        {
+          "in": "https://x\n",
+          "out": null
+        },
+        {
+          "in": "https://\u00e9.test/\u00fc",
+          "out": [
+            "https://\u00e9.test/\u00fc"
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "backticks",
+      "where": "bin/factory fenced(), code()",
+      "pattern": "`+",
+      "py": "`+",
+      "flags": [],
+      "op": "findall",
+      "cases": [
+        {
+          "in": "no ticks",
+          "out": []
+        },
+        {
+          "in": "`one`",
+          "out": [
+            "`",
+            "`"
+          ]
+        },
+        {
+          "in": "``two``",
+          "out": [
+            "``",
+            "``"
+          ]
+        },
+        {
+          "in": "a ```` b ` c",
+          "out": [
+            "````",
+            "`"
+          ]
+        },
+        {
+          "in": "`",
+          "out": [
+            "`"
+          ]
+        },
+        {
+          "in": "\u02cb not a tick",
+          "out": []
+        },
+        {
+          "in": "",
+          "out": []
+        },
+        {
+          "in": "a",
+          "out": []
+        },
+        {
+          "in": "abc",
+          "out": []
+        },
+        {
+          "in": "ABC",
+          "out": []
+        },
+        {
+          "in": "a b",
+          "out": []
+        },
+        {
+          "in": "a\n",
+          "out": []
+        },
+        {
+          "in": "a\nb",
+          "out": []
+        },
+        {
+          "in": "\n",
+          "out": []
+        },
+        {
+          "in": "a\r\n",
+          "out": []
+        },
+        {
+          "in": "\u00e9",
+          "out": []
+        },
+        {
+          "in": "e\u0301",
+          "out": []
+        },
+        {
+          "in": "\u00df",
+          "out": []
+        },
+        {
+          "in": "\u0130",
+          "out": []
+        },
+        {
+          "in": "\u0131",
+          "out": []
+        },
+        {
+          "in": "\u017f",
+          "out": []
+        },
+        {
+          "in": "\u212a",
+          "out": []
+        },
+        {
+          "in": "\u03a9",
+          "out": []
+        },
+        {
+          "in": "\u0663",
+          "out": []
+        },
+        {
+          "in": "\uff13",
+          "out": []
+        },
+        {
+          "in": "\u00b2",
+          "out": []
+        },
+        {
+          "in": "\u216b",
+          "out": []
+        },
+        {
+          "in": "\u00bd",
+          "out": []
+        },
+        {
+          "in": "_",
+          "out": []
+        },
+        {
+          "in": "-",
+          "out": []
+        },
+        {
+          "in": ".",
+          "out": []
+        },
+        {
+          "in": "a.b",
+          "out": []
+        },
+        {
+          "in": "a\u0085b",
+          "out": []
+        },
+        {
+          "in": "a\u2028b",
+          "out": []
+        },
+        {
+          "in": "a\u2029b",
+          "out": []
+        },
+        {
+          "in": "a\u001cb",
+          "out": []
+        },
+        {
+          "in": "a\u001fb",
+          "out": []
+        },
+        {
+          "in": "a\u00a0b",
+          "out": []
+        },
+        {
+          "in": "a\u3000b",
+          "out": []
+        },
+        {
+          "in": "a\tb",
+          "out": []
+        },
+        {
+          "in": "a\u000bb",
+          "out": []
+        },
+        {
+          "in": "a\fb",
+          "out": []
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": []
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": []
+        },
+        {
+          "in": " ",
+          "out": []
+        },
+        {
+          "in": "\u200b",
+          "out": []
+        }
+      ]
+    },
+    {
+      "name": "line_break",
+      "where": "bin/factory LINE_BREAK",
+      "pattern": "[\r\n\u000b\f\u0085\u2028\u2029]",
+      "py": "[\\r\\n\\x0b\\x0c\\x85\\u2028\\u2029]",
+      "flags": [],
+      "op": "search",
+      "cases": [
+        {
+          "in": "one line",
+          "out": null
+        },
+        {
+          "in": "a\rb",
+          "out": [
+            "\r"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": [
+            "\n"
+          ]
+        },
+        {
+          "in": "a\u000bb",
+          "out": [
+            "\u000b"
+          ]
+        },
+        {
+          "in": "a\fb",
+          "out": [
+            "\f"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": [
+            "\u0085"
+          ]
+        },
+        {
+          "in": "a\u2028b",
+          "out": [
+            "\u2028"
+          ]
+        },
+        {
+          "in": "a\u2029b",
+          "out": [
+            "\u2029"
+          ]
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": [
+            "\n"
+          ]
+        },
+        {
+          "in": "\n",
+          "out": [
+            "\n"
+          ]
+        },
+        {
+          "in": "a\r\n",
+          "out": [
+            "\r"
+          ]
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "scion_noise",
+      "where": "bin/factory SCION_NOISE",
+      "pattern": "^\\d{4}/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d WARN ",
+      "py": "^\\d{4}/\\d\\d/\\d\\d \\d\\d:\\d\\d:\\d\\d WARN ",
+      "flags": [],
+      "op": "match",
+      "cases": [
+        {
+          "in": "2026/10/17 08:00:00 WARN something",
+          "out": [
+            "2026/10/17 08:00:00 WARN "
+          ]
+        },
+        {
+          "in": "2026/10/17 08:00:00 INFO x",
+          "out": null
+        },
+        {
+          "in": "\u0662\u0660\u0662\u0666/\u0661\u0660/\u0661\u0667 \u0660\u0668:\u0660\u0660:\u0660\u0660 WARN x",
+          "out": [
+            "\u0662\u0660\u0662\u0666/\u0661\u0660/\u0661\u0667 \u0660\u0668:\u0660\u0660:\u0660\u0660 WARN "
+          ]
+        },
+        {
+          "in": " 2026/10/17 08:00:00 WARN x",
+          "out": null
+        },
+        {
+          "in": "2026/10/17 08:00:00 WARN",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "move_detail",
+      "where": "bin/factory MOVE_DETAIL",
+      "pattern": "(\\w+) -> (\\w+)(?:: (.*))?",
+      "py": "(\\w+) -> (\\w+)(?:: (.*))?",
+      "flags": [
+        "S"
+      ],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "ready -> working",
+          "out": [
+            "ready -> working",
+            "ready",
+            "working",
+            null
+          ]
+        },
+        {
+          "in": "needs_human -> ready: by human",
+          "out": [
+            "needs_human -> ready: by human",
+            "needs_human",
+            "ready",
+            "by human"
+          ]
+        },
+        {
+          "in": "a -> b: x\ny",
+          "out": [
+            "a -> b: x\ny",
+            "a",
+            "b",
+            "x\ny"
+          ]
+        },
+        {
+          "in": "ready->working",
+          "out": null
+        },
+        {
+          "in": "\u00e9 -> \u00fc",
+          "out": [
+            "\u00e9 -> \u00fc",
+            "\u00e9",
+            "\u00fc",
+            null
+          ]
+        },
+        {
+          "in": "ready -> working:",
+          "out": null
+        },
+        {
+          "in": "ready -> working: ",
+          "out": [
+            "ready -> working: ",
+            "ready",
+            "working",
+            ""
+          ]
+        },
+        {
+          "in": "ready -> working: a: b",
+          "out": [
+            "ready -> working: a: b",
+            "ready",
+            "working",
+            "a: b"
+          ]
+        },
+        {
+          "in": "ready -> ",
+          "out": null
+        },
+        {
+          "in": "1 -> 2",
+          "out": [
+            "1 -> 2",
+            "1",
+            "2",
+            null
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "index_name",
+      "where": "bin/factory ticket_index()",
+      "pattern": "(T\\d{4,6})\\.json",
+      "py": "(T\\d{4,6})\\.json",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "T0001.json",
+          "out": [
+            "T0001.json",
+            "T0001"
+          ]
+        },
+        {
+          "in": "T0001.json.123.tmp",
+          "out": null
+        },
+        {
+          "in": "T\u0661\u0662\u0663\u0664.json",
+          "out": [
+            "T\u0661\u0662\u0663\u0664.json",
+            "T\u0661\u0662\u0663\u0664"
+          ]
+        },
+        {
+          "in": "x.json",
+          "out": null
+        },
+        {
+          "in": "T0001.JSON",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": null
+        },
+        {
+          "in": "abc",
+          "out": null
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "job_name",
+      "where": "bin/factory-remote JOB_NAME",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,40}$",
+      "py": "^[a-z0-9][a-z0-9-]{0,40}$",
+      "flags": [],
+      "op": "match",
+      "cases": [
+        {
+          "in": "t0001-w1",
+          "out": [
+            "t0001-w1"
+          ]
+        },
+        {
+          "in": "t0001-w1\n",
+          "out": [
+            "t0001-w1"
+          ]
+        },
+        {
+          "in": "-x",
+          "out": null
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "T0001",
+          "out": null
+        },
+        {
+          "in": "a_b",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": null
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": null
+        },
+        {
+          "in": ".",
+          "out": null
+        },
+        {
+          "in": "a.b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "branch_name",
+      "where": "bin/factory-remote BRANCH_NAME",
+      "pattern": "^[A-Za-z0-9._/-]{1,100}$",
+      "py": "^[A-Za-z0-9._/-]{1,100}$",
+      "flags": [],
+      "op": "match",
+      "cases": [
+        {
+          "in": "bot/fix-it",
+          "out": [
+            "bot/fix-it"
+          ]
+        },
+        {
+          "in": "main",
+          "out": [
+            "main"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "bot/x\n",
+          "out": [
+            "bot/x"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "v1.2",
+          "out": [
+            "v1.2"
+          ]
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "a..b",
+          "out": [
+            "a..b"
+          ]
+        },
+        {
+          "in": "-x",
+          "out": [
+            "-x"
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a\n",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": [
+            "_"
+          ]
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "model_name",
+      "where": "bin/factory-remote MODEL_NAME",
+      "pattern": "^[A-Za-z0-9._:/-]{1,80}$",
+      "py": "^[A-Za-z0-9._:/-]{1,80}$",
+      "flags": [],
+      "op": "match",
+      "cases": [
+        {
+          "in": "claude-sonnet-5-5",
+          "out": [
+            "claude-sonnet-5-5"
+          ]
+        },
+        {
+          "in": "provider/model:tag",
+          "out": [
+            "provider/model:tag"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        },
+        {
+          "in": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "out": null
+        },
+        {
+          "in": "m\n",
+          "out": [
+            "m"
+          ]
+        },
+        {
+          "in": "m m",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": [
+            "_"
+          ]
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "render_placeholder",
+      "where": "bin/render PLACEHOLDER",
+      "pattern": "\\{\\{([a-z_]+)\\}\\}",
+      "py": "\\{\\{([a-z_]+)\\}\\}",
+      "flags": [],
+      "op": "findall",
+      "cases": [
+        {
+          "in": "{{git_name}}",
+          "out": [
+            "git_name"
+          ]
+        },
+        {
+          "in": "{{ git_name }}",
+          "out": []
+        },
+        {
+          "in": "{{Git}}",
+          "out": []
+        },
+        {
+          "in": "{{a}}{{b_c}}",
+          "out": [
+            "a",
+            "b_c"
+          ]
+        },
+        {
+          "in": "{{}}",
+          "out": []
+        },
+        {
+          "in": "{{{x}}}",
+          "out": [
+            "x"
+          ]
+        },
+        {
+          "in": "{{\u00e9}}",
+          "out": []
+        },
+        {
+          "in": "",
+          "out": []
+        },
+        {
+          "in": "a",
+          "out": []
+        },
+        {
+          "in": "abc",
+          "out": []
+        },
+        {
+          "in": "ABC",
+          "out": []
+        },
+        {
+          "in": "a b",
+          "out": []
+        },
+        {
+          "in": "a\n",
+          "out": []
+        },
+        {
+          "in": "a\nb",
+          "out": []
+        },
+        {
+          "in": "\n",
+          "out": []
+        },
+        {
+          "in": "a\r\n",
+          "out": []
+        },
+        {
+          "in": "\u00e9",
+          "out": []
+        },
+        {
+          "in": "e\u0301",
+          "out": []
+        },
+        {
+          "in": "\u00df",
+          "out": []
+        },
+        {
+          "in": "\u0130",
+          "out": []
+        },
+        {
+          "in": "\u0131",
+          "out": []
+        },
+        {
+          "in": "\u017f",
+          "out": []
+        },
+        {
+          "in": "\u212a",
+          "out": []
+        },
+        {
+          "in": "\u03a9",
+          "out": []
+        },
+        {
+          "in": "\u0663",
+          "out": []
+        },
+        {
+          "in": "\uff13",
+          "out": []
+        },
+        {
+          "in": "\u00b2",
+          "out": []
+        },
+        {
+          "in": "\u216b",
+          "out": []
+        },
+        {
+          "in": "\u00bd",
+          "out": []
+        },
+        {
+          "in": "_",
+          "out": []
+        },
+        {
+          "in": "-",
+          "out": []
+        },
+        {
+          "in": ".",
+          "out": []
+        },
+        {
+          "in": "a.b",
+          "out": []
+        },
+        {
+          "in": "a\u0085b",
+          "out": []
+        },
+        {
+          "in": "a\u2028b",
+          "out": []
+        },
+        {
+          "in": "a\u2029b",
+          "out": []
+        },
+        {
+          "in": "a\u001cb",
+          "out": []
+        },
+        {
+          "in": "a\u001fb",
+          "out": []
+        },
+        {
+          "in": "a\u00a0b",
+          "out": []
+        },
+        {
+          "in": "a\u3000b",
+          "out": []
+        },
+        {
+          "in": "a\tb",
+          "out": []
+        },
+        {
+          "in": "a\u000bb",
+          "out": []
+        },
+        {
+          "in": "a\fb",
+          "out": []
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": []
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": []
+        },
+        {
+          "in": " ",
+          "out": []
+        },
+        {
+          "in": "\u200b",
+          "out": []
+        }
+      ]
+    },
+    {
+      "name": "render_placeholder_sub",
+      "where": "bin/render render_file()",
+      "pattern": "\\{\\{([a-z_]+)\\}\\}",
+      "py": "\\{\\{([a-z_]+)\\}\\}",
+      "flags": [],
+      "op": "sub",
+      "repl": "<\\1>",
+      "cases": [
+        {
+          "in": "a {{x}} b {{y_z}}",
+          "out": "a <x> b <y_z>"
+        },
+        {
+          "in": "{{}}",
+          "out": "{{}}"
+        },
+        {
+          "in": "{{{x}}}",
+          "out": "{<x>}"
+        },
+        {
+          "in": "",
+          "out": ""
+        },
+        {
+          "in": "a",
+          "out": "a"
+        },
+        {
+          "in": "abc",
+          "out": "abc"
+        },
+        {
+          "in": "ABC",
+          "out": "ABC"
+        },
+        {
+          "in": "a b",
+          "out": "a b"
+        },
+        {
+          "in": "a\n",
+          "out": "a\n"
+        },
+        {
+          "in": "a\nb",
+          "out": "a\nb"
+        },
+        {
+          "in": "\n",
+          "out": "\n"
+        },
+        {
+          "in": "a\r\n",
+          "out": "a\r\n"
+        },
+        {
+          "in": "\u00e9",
+          "out": "\u00e9"
+        },
+        {
+          "in": "e\u0301",
+          "out": "e\u0301"
+        },
+        {
+          "in": "\u00df",
+          "out": "\u00df"
+        },
+        {
+          "in": "\u0130",
+          "out": "\u0130"
+        },
+        {
+          "in": "\u0131",
+          "out": "\u0131"
+        },
+        {
+          "in": "\u017f",
+          "out": "\u017f"
+        },
+        {
+          "in": "\u212a",
+          "out": "\u212a"
+        },
+        {
+          "in": "\u03a9",
+          "out": "\u03a9"
+        },
+        {
+          "in": "\u0663",
+          "out": "\u0663"
+        },
+        {
+          "in": "\uff13",
+          "out": "\uff13"
+        },
+        {
+          "in": "\u00b2",
+          "out": "\u00b2"
+        },
+        {
+          "in": "\u216b",
+          "out": "\u216b"
+        },
+        {
+          "in": "\u00bd",
+          "out": "\u00bd"
+        },
+        {
+          "in": "_",
+          "out": "_"
+        },
+        {
+          "in": "-",
+          "out": "-"
+        },
+        {
+          "in": ".",
+          "out": "."
+        },
+        {
+          "in": "a.b",
+          "out": "a.b"
+        },
+        {
+          "in": "a\u0085b",
+          "out": "a\u0085b"
+        },
+        {
+          "in": "a\u2028b",
+          "out": "a\u2028b"
+        },
+        {
+          "in": "a\u2029b",
+          "out": "a\u2029b"
+        },
+        {
+          "in": "a\u001cb",
+          "out": "a\u001cb"
+        },
+        {
+          "in": "a\u001fb",
+          "out": "a\u001fb"
+        },
+        {
+          "in": "a\u00a0b",
+          "out": "a\u00a0b"
+        },
+        {
+          "in": "a\u3000b",
+          "out": "a\u3000b"
+        },
+        {
+          "in": "a\tb",
+          "out": "a\tb"
+        },
+        {
+          "in": "a\u000bb",
+          "out": "a\u000bb"
+        },
+        {
+          "in": "a\fb",
+          "out": "a\fb"
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": "\ud83d\ude00"
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": "x\ud83d\ude00y"
+        },
+        {
+          "in": " ",
+          "out": " "
+        },
+        {
+          "in": "\u200b",
+          "out": "\u200b"
+        }
+      ]
+    },
+    {
+      "name": "render_project",
+      "where": "bin/render foreman_flags()",
+      "pattern": "[A-Za-z0-9_.-]+",
+      "py": "[A-Za-z0-9_.-]+",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "gem",
+          "out": [
+            "gem"
+          ]
+        },
+        {
+          "in": "my_gem.v2",
+          "out": [
+            "my_gem.v2"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": [
+            "_"
+          ]
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "render_host",
+      "where": "bin/render foreman_flags()",
+      "pattern": "[A-Za-z0-9.-]+",
+      "py": "[A-Za-z0-9.-]+",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "box.example.test",
+          "out": [
+            "box.example.test"
+          ]
+        },
+        {
+          "in": "box_1",
+          "out": null
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": null
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "e\u0301",
+          "out": null
+        },
+        {
+          "in": "\u00df",
+          "out": null
+        },
+        {
+          "in": "\u0130",
+          "out": null
+        },
+        {
+          "in": "\u0131",
+          "out": null
+        },
+        {
+          "in": "\u017f",
+          "out": null
+        },
+        {
+          "in": "\u212a",
+          "out": null
+        },
+        {
+          "in": "\u03a9",
+          "out": null
+        },
+        {
+          "in": "\u0663",
+          "out": null
+        },
+        {
+          "in": "\uff13",
+          "out": null
+        },
+        {
+          "in": "\u00b2",
+          "out": null
+        },
+        {
+          "in": "\u216b",
+          "out": null
+        },
+        {
+          "in": "\u00bd",
+          "out": null
+        },
+        {
+          "in": "_",
+          "out": null
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": null
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": null
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": null
+        }
+      ]
+    },
+    {
+      "name": "render_login",
+      "where": "bin/render foreman_flags()",
+      "pattern": "[^\\s\\\"'\\\\%$]+",
+      "py": "[^\\s\\\"'\\\\%$]+",
+      "flags": [],
+      "op": "fullmatch",
+      "cases": [
+        {
+          "in": "user@example.com",
+          "out": [
+            "user@example.com"
+          ]
+        },
+        {
+          "in": "a b",
+          "out": null
+        },
+        {
+          "in": "a\u2028b",
+          "out": null
+        },
+        {
+          "in": "a\u0085b",
+          "out": null
+        },
+        {
+          "in": "a\u00a0b",
+          "out": null
+        },
+        {
+          "in": "a'b",
+          "out": null
+        },
+        {
+          "in": "a%b",
+          "out": null
+        },
+        {
+          "in": "a$b",
+          "out": null
+        },
+        {
+          "in": "a\\b",
+          "out": null
+        },
+        {
+          "in": "\u00e9@x",
+          "out": [
+            "\u00e9@x"
+          ]
+        },
+        {
+          "in": "",
+          "out": null
+        },
+        {
+          "in": "a",
+          "out": [
+            "a"
+          ]
+        },
+        {
+          "in": "abc",
+          "out": [
+            "abc"
+          ]
+        },
+        {
+          "in": "ABC",
+          "out": [
+            "ABC"
+          ]
+        },
+        {
+          "in": "a\n",
+          "out": null
+        },
+        {
+          "in": "a\nb",
+          "out": null
+        },
+        {
+          "in": "\n",
+          "out": null
+        },
+        {
+          "in": "a\r\n",
+          "out": null
+        },
+        {
+          "in": "\u00e9",
+          "out": [
+            "\u00e9"
+          ]
+        },
+        {
+          "in": "e\u0301",
+          "out": [
+            "e\u0301"
+          ]
+        },
+        {
+          "in": "\u00df",
+          "out": [
+            "\u00df"
+          ]
+        },
+        {
+          "in": "\u0130",
+          "out": [
+            "\u0130"
+          ]
+        },
+        {
+          "in": "\u0131",
+          "out": [
+            "\u0131"
+          ]
+        },
+        {
+          "in": "\u017f",
+          "out": [
+            "\u017f"
+          ]
+        },
+        {
+          "in": "\u212a",
+          "out": [
+            "\u212a"
+          ]
+        },
+        {
+          "in": "\u03a9",
+          "out": [
+            "\u03a9"
+          ]
+        },
+        {
+          "in": "\u0663",
+          "out": [
+            "\u0663"
+          ]
+        },
+        {
+          "in": "\uff13",
+          "out": [
+            "\uff13"
+          ]
+        },
+        {
+          "in": "\u00b2",
+          "out": [
+            "\u00b2"
+          ]
+        },
+        {
+          "in": "\u216b",
+          "out": [
+            "\u216b"
+          ]
+        },
+        {
+          "in": "\u00bd",
+          "out": [
+            "\u00bd"
+          ]
+        },
+        {
+          "in": "_",
+          "out": [
+            "_"
+          ]
+        },
+        {
+          "in": "-",
+          "out": [
+            "-"
+          ]
+        },
+        {
+          "in": ".",
+          "out": [
+            "."
+          ]
+        },
+        {
+          "in": "a.b",
+          "out": [
+            "a.b"
+          ]
+        },
+        {
+          "in": "a\u2029b",
+          "out": null
+        },
+        {
+          "in": "a\u001cb",
+          "out": null
+        },
+        {
+          "in": "a\u001fb",
+          "out": null
+        },
+        {
+          "in": "a\u3000b",
+          "out": null
+        },
+        {
+          "in": "a\tb",
+          "out": null
+        },
+        {
+          "in": "a\u000bb",
+          "out": null
+        },
+        {
+          "in": "a\fb",
+          "out": null
+        },
+        {
+          "in": "\ud83d\ude00",
+          "out": [
+            "\ud83d\ude00"
+          ]
+        },
+        {
+          "in": "x\ud83d\ude00y",
+          "out": [
+            "x\ud83d\ude00y"
+          ]
+        },
+        {
+          "in": " ",
+          "out": null
+        },
+        {
+          "in": "\u200b",
+          "out": [
+            "\u200b"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "T0002",
+  "project": "gem",
+  "title": "Idea",
+  "body": "idea",
+  "door": "human",
+  "by": "factory",
+  "column": "ready",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T10:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "factory"
+    }
+  ],
+  "kind": "intent",
+  "ask": null,
+  "updated": "2026-10-18T10:00:00+00:00"
+}

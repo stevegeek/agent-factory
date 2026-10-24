@@ -1,0 +1,26 @@
+schema_version: "1"
+description: "works one ticket on a library, commits on its own branch, never pushes"
+agent_instructions: agents.md
+default_harness_config: claude
+max_duration: "45m"
+resources:
+  limits:
+    memory: 900Mi
+    cpu: "2"
+  requests:
+    memory: 400Mi
+env:
+  # Scion's agent instructions read these before any git history change; local mode leaves them unset
+  SCION_WORKSPACE_MODE: worktree-per-agent
+  SCION_WORKSPACE_GIT: "true"
+  BUNDLE_PATH: /home/scion/.bundle-cache
+  BUNDLE_JOBS: "2"
+  GIT_AUTHOR_NAME: "Your Name"
+  GIT_AUTHOR_EMAIL: "you@example.com"
+  GIT_COMMITTER_NAME: "Your Name"
+  GIT_COMMITTER_EMAIL: "you@example.com"
+volumes:
+  - type: local
+    source: /home/factory/factory/cache/bundle
+    target: /home/scion/.bundle-cache
+    read_only: true      # one project's agent must not change the gems another project's gate trusts

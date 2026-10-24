@@ -1,0 +1,44 @@
+{
+  "id": "T0002",
+  "project": "gem",
+  "title": "A task with a result",
+  "body": "",
+  "door": "human",
+  "by": "alice",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "move",
+      "detail": "ready -> needs_human: task done: answered",
+      "type": "moved",
+      "from": "ready",
+      "to": "needs_human",
+      "reason": "task_done",
+      "by": "factory"
+    }
+  ],
+  "kind": "task",
+  "ask": {
+    "kind": "notice",
+    "question": "Read the task's result and close it?",
+    "why": "The answer. With a second paragraph.",
+    "since": "2026-10-17T08:00:00+00:00",
+    "retry_column": null
+  },
+  "updated": "2026-10-17T08:00:00+00:00",
+  "result": "The answer.\n\nWith a second paragraph."
+}

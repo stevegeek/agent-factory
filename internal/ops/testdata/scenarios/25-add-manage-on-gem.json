@@ -1,0 +1,26 @@
+{
+ "name": "add-manage-on-gem",
+ "now": "2026-10-18T10:00:00+00:00",
+ "config": "[board]\npeople = [\"sam\", \"alex\"]\n\n[hosts.helper]\nssh = \"factory@helper.example\"\n\n[projects.gem]\npath = \"/nonexistent/gem\"\nbase = \"main\"\ngithub = \"example/gem\"\n\n[projects.widgets]\npath = \"/nonexistent/widgets\"\nbase = \"main\"\n\n[projects.notes]\nmode = \"board\"\n\n[[schedules]]\nname = \"bug-hunt\"\nevery_days = 30\nkind = \"task\"\ntitle = \"Bug hunt\"\nbody = \"Look in {github} for bugs.\"\n\n[[recipes]]\nname = \"docs-pass\"\ntitle = \"Tidy the docs\"\nbody = \"Read the README.\"\nprojects = [\"widgets\"]\n\n[[recipes]]\nname = \"scan\"\nkind = \"prospect\"\ntitle = \"Scan\"\nbody = \"Look around {github}.\"\n",
+ "op": "add",
+ "args": {
+  "project": "gem",
+  "title": "x",
+  "body": null,
+  "body_file": null,
+  "door": "human",
+  "triage": false,
+  "host": null,
+  "task": false,
+  "intent": false,
+  "manage": true,
+  "timeout": null,
+  "recipe": null
+ },
+ "before": {},
+ "stdout": "",
+ "error": "the manager works on the factory project",
+ "wakes": 0,
+ "logs": [],
+ "after": {}
+}

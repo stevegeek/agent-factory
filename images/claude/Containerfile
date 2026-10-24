@@ -1,0 +1,71 @@
+# Scion-compatible slim Claude Code agent image (Ubuntu 26.04: Ruby, Crystal and Go toolchains).
+# Contract (Scion local mode, Claude harness): user 'scion' uid 1000 home /home/scion,
+# entrypoint 'sciontool init --', container starts as root (sciontool drops privileges),
+# tmux + python3 + claude on PATH, git >= 2.48 (worktrees use extensions.relativeworktrees).
+# Ubuntu 26.04 = same git (2.53) as the host that creates the worktrees. No sudo for 'scion'.
+FROM docker.io/library/ubuntu:26.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ruby ruby-dev ruby-bundler build-essential pkg-config git curl ca-certificates \
+      libyaml-dev libsqlite3-dev libffi-dev zlib1g-dev \
+      procps tmux python3 less \
+ && rm -rf /var/lib/apt/lists/*
+
+# Crystal, for Crystal projects: the official tarball (its bin/crystal wrapper finds the embedded libgc)
+# and ameba built from source. Pinned; [images] crystal / ameba in config.toml override.
+ARG CRYSTAL_VERSION=1.20.1
+ARG AMEBA_VERSION=1.7.0
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      gcc libpcre2-dev libevent-dev libssl-dev libxml2-dev libgmp-dev \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /opt/crystal \
+ && curl -fsSL "https://github.com/crystal-lang/crystal/releases/download/${CRYSTAL_VERSION}/crystal-${CRYSTAL_VERSION}-1-linux-x86_64.tar.gz" \
+    | tar -xz -C /opt/crystal --strip-components=1 \
+ && ln -s /opt/crystal/bin/crystal /opt/crystal/bin/shards /usr/local/bin/ \
+ && git clone -q --depth 1 -b "v${AMEBA_VERSION}" https://github.com/crystal-ameba/ameba /tmp/ameba \
+ && cd /tmp/ameba && shards build ameba --release --no-debug --without-development \
+ && install -m 755 bin/ameba /usr/local/bin/ameba \
+ && cd / && rm -rf /tmp/ameba /root/.cache
+
+# Go, for the factory's own core: the official tarball at the toolchain build.sh
+# pins (go.mod's toolchain line; GO_SHA256 is build/go.sha256's linux-amd64
+# line, which internal/archtest checks). No module downloads (GOPROXY=off) and
+# no toolchain switch; the build cache starts empty in each fresh container.
+ARG GO_VERSION=1.27.1
+ARG GO_SHA256=63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445
+RUN curl -fsSL --retry 3 -o /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+ && echo "${GO_SHA256}  /tmp/go.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/go.tar.gz -C /usr/local \
+ && rm /tmp/go.tar.gz \
+ && /usr/local/go/bin/go version
+ENV PATH=/usr/local/go/bin:$PATH GOTOOLCHAIN=local GOFLAGS=-mod=readonly GOPROXY=off \
+    GOCACHE=/tmp/go-build GOPATH=/tmp/go GOTELEMETRY=off
+
+# Claude Code native binary, copied out of root's home so the per-agent
+# /home/scion mount cannot hide it. Pinned; `factory rebuild` passes [images] claude_code.
+ARG CLAUDE_VERSION=2.1.296
+RUN curl -fsSL https://claude.ai/install.sh | bash -s "$CLAUDE_VERSION" \
+ && cp -L /root/.local/bin/claude /usr/local/bin/claude \
+ && rm -rf /root/.local/share/claude /root/.local/bin/claude /root/.claude*
+ENV DISABLE_AUTOUPDATER=1
+
+# ubuntu images ship user 'ubuntu' with uid 1000; Scion needs 'scion' at 1000.
+COPY sciontool /usr/local/bin/sciontool
+RUN chmod 755 /usr/local/bin/sciontool \
+ && (userdel -r ubuntu 2>/dev/null || true) \
+ && useradd --create-home --uid 1000 --shell /bin/bash scion \
+ && mkdir -p /home/scion/.scion /home/scion/.claude \
+ && chown -R scion:scion /home/scion
+
+# Rules for every agent role, loaded by Claude Code as managed instructions.
+# Root-owned, so agents cannot change them.
+COPY agent-rules.md /etc/claude-code/CLAUDE.md
+COPY managed-settings.json /etc/claude-code/managed-settings.json
+RUN chmod 644 /etc/claude-code/CLAUDE.md /etc/claude-code/managed-settings.json
+
+ENV BUNDLE_JOBS=2 MAKEFLAGS=-j2
+ENTRYPOINT ["sciontool", "init", "--"]
+CMD ["bash"]

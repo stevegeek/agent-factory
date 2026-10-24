@@ -1,0 +1,44 @@
+{
+  "stage": "triage",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0003-t1",
+  "ticket": {
+    "id": "T0003",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "New enquiry:\n\n> hello",
+    "door": "watch",
+    "by": "factory",
+    "column": "triage",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=watch column=triage",
+        "type": "created",
+        "door": "watch",
+        "column": "triage",
+        "by": "factory"
+      }
+    ],
+    "kind": null,
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0003-t1",
+    "-t",
+    "triage",
+    "--message-mode",
+    "none"
+  ]
+}

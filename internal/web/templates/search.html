@@ -1,0 +1,23 @@
+{{define "content" -}}
+{{with .Search}}
+<main class="pane">
+  <form class="search" method="get" action="/search" role="search">
+    <input type="search" name="q" value="{{.Query.Q}}" placeholder="Search titles, bodies, notes and conversations" aria-label="Search" autofocus>
+    <select name="project" aria-label="Project"><option value="">Every project</option>
+      {{- $p := .Query.Project}}{{range .Projects}}<option value="{{.}}"{{if eq . $p}} selected{{end}}>{{.}}</option>{{end}}</select>
+    <select name="column" aria-label="Column"><option value="">Every column</option>
+      {{- $c := .Query.Column}}{{range .Columns}}<option value="{{.}}"{{if eq . $c}} selected{{end}}>{{.}}</option>{{end}}</select>
+    <select name="kind" aria-label="Kind"><option value="">Every kind</option>
+      {{- $k := .Query.Kind}}{{range .Kinds}}<option value="{{.}}"{{if eq . $k}} selected{{end}}>{{.}}</option>{{end}}</select>
+    <button type="submit">Search</button>
+  </form>
+  {{if .Searched}}
+  <div class="results">
+    {{range .Hits}}<a class="tk" href="{{.Href}}"><span class="mono">{{.ID}}</span> {{mdt .Title}} <span class="meta">{{.Project}} · {{.Column}} · {{.Kind}}</span></a>
+    {{else}}<p class="quiet">No ticket matches.</p>{{end}}
+    {{if .More}}<p class="quiet">Only the newest matches are shown; narrow the search to see the rest.</p>{{end}}
+  </div>
+  {{end}}
+</main>
+{{end}}
+{{- end}}

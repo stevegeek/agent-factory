@@ -1,0 +1,4 @@
+[github]
+app_slug = "example-factory"
+[projects.gem]
+path = "/srv/gem"

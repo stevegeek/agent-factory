@@ -1,0 +1,156 @@
+{
+  "id": "T0001",
+  "project": "gem",
+  "title": "Caf\u00e9 parser \ud83d\ude00 drops the last line",
+  "body": "Lone surrogate kept: \udc80; tab\tand <html> & quotes \"",
+  "door": "github",
+  "by": "factory",
+  "column": "pr_open",
+  "branch": "bot/caf-parser",
+  "agent": {
+    "name": "t0001-w2",
+    "x_unknown_agent": true,
+    "stage": "work",
+    "started": "2026-10-17T09:00:00+00:00",
+    "host": "local",
+    "memory": {
+      "role": "worker",
+      "x_unknown_memory": 1,
+      "base": "abc1234",
+      "context": false
+    }
+  },
+  "reports": {
+    "security": {
+      "verdict": "pass",
+      "answers": [
+        {
+          "q": "q1",
+          "concern": "none"
+        }
+      ]
+    },
+    "work": {
+      "status": "done",
+      "summary": "Kept the last line.",
+      "ratio": 4.0,
+      "tiny": 1e-05,
+      "big": 1e+16
+    },
+    "review": {
+      "verdict": "pass",
+      "runtime_behaviour": "none",
+      "nested": {
+        "z": 1,
+        "a": 2
+      }
+    }
+  },
+  "created": "2026-10-17T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage",
+      "type": "created",
+      "door": "github",
+      "column": "triage",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "start",
+      "detail": "work t0001-w1 on bot/caf-parser @helper (model-x)"
+    },
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "move",
+      "detail": "working -> review",
+      "type": "moved",
+      "x_unknown_entry": "keep me",
+      "from": "working",
+      "to": "review",
+      "reason": "work_done",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "pr",
+      "detail": "approved; not merged yet: checks pending"
+    },
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "move",
+      "detail": "ready_for_pr -> pr_open: PR https://github.com/example/gem/pull/7",
+      "rule": "open_prs = auto",
+      "type": "moved",
+      "from": "ready_for_pr",
+      "to": "pr_open",
+      "reason": "pr_opened",
+      "by": "factory"
+    }
+  ],
+  "ask": {
+    "kind": "review",
+    "question": "Review and merge PR #7?",
+    "why": "Kept the last line.",
+    "since": "2026-10-17T09:00:00+00:00",
+    "retry_column": null
+  },
+  "updated": "2026-10-17T09:00:00+00:00",
+  "x_unknown_top": {
+    "b": [
+      1,
+      2.5,
+      "\u2028"
+    ],
+    "a": null
+  },
+  "security_tier": "high",
+  "gate": {
+    "checks_pass": true,
+    "x_unknown_gate": [
+      1,
+      2
+    ],
+    "files": [
+      "lib/thing.rb"
+    ],
+    "changed_lines": 3,
+    "within_size": true,
+    "outside_allowed_paths": [],
+    "runtime_behaviour": {
+      "says": "none"
+    },
+    "reasoning_stated": true,
+    "head": "abc",
+    "base": "def",
+    "auto_eligible": false,
+    "blockers": [
+      "x"
+    ]
+  },
+  "pr": {
+    "merge_requested": "2026-10-17T09:00:00+00:00",
+    "number": 7,
+    "x_unknown_pr": {
+      "keep": [
+        1,
+        2
+      ]
+    },
+    "url": "https://github.com/example/gem/pull/7",
+    "merge_wait": "checks pending",
+    "draft": false,
+    "reviews_seen": [
+      11,
+      12
+    ]
+  },
+  "notes": [
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "text": "keep the old API"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "id": "T0007",
+  "title": "Fix the parser",
+  "door": "github",
+  "project": "gem",
+  "branch": "bot/fix-the-parser",
+  "original": {
+    "title": "x",
+    "body": "y"
+  },
+  "parent": "T0003",
+  "security_tier": 2,
+  "reports": {
+    "triage": {
+      "reason": "A real bug.  "
+    },
+    "work": {
+      "status": "done",
+      "category": "fix",
+      "tests": "pass",
+      "lint": "pass",
+      "summary": "Kept the last line."
+    },
+    "review": {
+      "verdict": "pass",
+      "runtime_behaviour": "no",
+      "summary": "Fine.",
+      "findings": [
+        "One nit.",
+        "Two nits."
+      ]
+    },
+    "security": {
+      "answers": {
+        "a": 1
+      }
+    }
+  },
+  "gate": {
+    "checks_pass": true,
+    "changed_lines": 3,
+    "files": [
+      "lib/a.rb"
+    ],
+    "auto_eligible": true,
+    "blockers": []
+  },
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage"
+    },
+    {
+      "at": "2026-10-17T08:01:00+00:00",
+      "event": "move",
+      "detail": "triage -> ready: triage accepted"
+    },
+    {
+      "at": "2026-10-17T08:02:00+00:00",
+      "event": "note",
+      "detail": ""
+    }
+  ]
+}

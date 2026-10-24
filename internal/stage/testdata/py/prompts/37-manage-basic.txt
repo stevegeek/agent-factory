@@ -1,0 +1,11 @@
+The maintainer asks the manager: Add a project
+
+Add example/new as a factory project.
+
+You run in a scratch directory; what you may read is under /factory (see your instructions).
+
+## If you need a decision
+If you can't go on without a decision only the maintainer can make (not something you can find out), stop
+and write `~/report.json` with `"status": "question"`, `"question"`: one clear question with the options
+you see, and `"summary"`: where you stopped. Write your handover first if you have a memory. The
+maintainer's answer comes back as a note, and a new run carries on from there.

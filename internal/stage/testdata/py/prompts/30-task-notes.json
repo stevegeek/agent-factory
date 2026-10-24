@@ -1,0 +1,58 @@
+{
+  "stage": "task",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0031-k1",
+  "ticket": {
+    "id": "T0031",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      },
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "note",
+        "detail": "Answer in one paragraph.",
+        "type": "noted",
+        "by": "factory",
+        "note": 0
+      }
+    ],
+    "kind": "task",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "notes": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "text": "Answer in one paragraph."
+      }
+    ]
+  },
+  "scion_argv": [
+    "start",
+    "t0031-k1",
+    "-t",
+    "task",
+    "--message-mode",
+    "none"
+  ]
+}

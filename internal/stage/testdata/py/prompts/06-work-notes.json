@@ -1,0 +1,74 @@
+{
+  "stage": "work",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0007-w1",
+  "ticket": {
+    "id": "T0007",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      },
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "note",
+        "detail": "Keep the public API.",
+        "type": "noted",
+        "by": "factory",
+        "note": 0
+      },
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "note",
+        "detail": "Use the existing helper in lib/x.rb.",
+        "type": "noted",
+        "by": "factory",
+        "note": 1
+      }
+    ],
+    "kind": null,
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "notes": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "text": "Keep the public API."
+      },
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "text": "Use the existing helper in lib/x.rb."
+      }
+    ]
+  },
+  "scion_argv": [
+    "start",
+    "t0007-w1",
+    "-t",
+    "worker",
+    "--message-mode",
+    "none",
+    "-b",
+    "bot/parser-drops-the-last-line",
+    "--model",
+    "model-w"
+  ]
+}

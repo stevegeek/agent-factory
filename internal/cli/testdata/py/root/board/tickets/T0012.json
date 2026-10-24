@@ -1,0 +1,39 @@
+{
+  "id": "T0012",
+  "schema": 1,
+  "mode": "board",
+  "project": "notes",
+  "title": "A board ticket",
+  "body": "",
+  "door": "human",
+  "by": "alice",
+  "column": "inbox",
+  "kind": "item",
+  "assignee": "alice",
+  "labels": [],
+  "parent": null,
+  "children": [],
+  "links": [],
+  "waiting": null,
+  "questions": [],
+  "comments": [],
+  "result": null,
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=inbox",
+      "type": "created",
+      "door": "human",
+      "column": "inbox",
+      "by": "alice"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

@@ -1,0 +1,55 @@
+{
+  "about": "screen_text(text, lines) (bin/factory): scion's noise lines dropped, trailing blanks cut, the last lines",
+  "rows": [
+    {
+      "in": "2026/10/17 08:00:00 WARN noise\nreal line  \n\n\n",
+      "lines": 2,
+      "out": "real line"
+    },
+    {
+      "in": "2026/10/17 08:00:00 WARN noise\nreal line  \n\n\n",
+      "lines": 200,
+      "out": "real line"
+    },
+    {
+      "in": "a\r\nb\r\n",
+      "lines": 2,
+      "out": "a\nb"
+    },
+    {
+      "in": "a\r\nb\r\n",
+      "lines": 200,
+      "out": "a\nb"
+    },
+    {
+      "in": "only\nonly\nonly\nonly\nonly\n",
+      "lines": 2,
+      "out": "only\nonly"
+    },
+    {
+      "in": "only\nonly\nonly\nonly\nonly\n",
+      "lines": 200,
+      "out": "only\nonly\nonly\nonly\nonly"
+    },
+    {
+      "in": "",
+      "lines": 2,
+      "out": ""
+    },
+    {
+      "in": "",
+      "lines": 200,
+      "out": ""
+    },
+    {
+      "in": "x\u2028y\n",
+      "lines": 2,
+      "out": "x\ny"
+    },
+    {
+      "in": "x\u2028y\n",
+      "lines": 200,
+      "out": "x\ny"
+    }
+  ]
+}

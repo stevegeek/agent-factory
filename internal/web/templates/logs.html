@@ -1,0 +1,9 @@
+{{define "content" -}}
+<main class="pane live-page">
+  <h2 class="page-h">Logs</h2>
+  <section class="screen-card">
+    <header><b>Factory log</b> <span class="quiet">starts, moves, gates and PRs, newest last</span></header>
+    <pre class="screen log" data-poll="/live/log" data-every="10" tabindex="0" aria-label="Factory log">Loading…</pre>
+  </section>
+</main>
+{{- end}}

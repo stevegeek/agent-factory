@@ -1,0 +1,678 @@
+{
+  "about": "A GitHub issue swept in, triaged, worked, reviewed, security-checked, gated, opened as a PR, sent back by a review, reworked, updated on its PR, approved, merged on the go-ahead: each step runs the real sweep, tick_pass or cmd_merge with Scion, GitHub and the gate's podman faked; <step>/<file> is every ticket file the step changed, as written. reports: the report each running agent's stage hands back in that step. Git commits use a fixed date, so the shas are the same on every run.",
+  "config": {
+    "projects": {
+      "gem": {
+        "path": "<repo>",
+        "base": "main",
+        "github": "example/gem",
+        "install": "bundle install",
+        "test": "bundle exec rake test",
+        "lint": "bundle exec standardrb"
+      }
+    },
+    "github": {
+      "installation_id": 1,
+      "app_client_id": "Iv1test",
+      "open_prs": "auto",
+      "reviewers": [
+        "maintainer-login"
+      ]
+    },
+    "gate": {
+      "max_changed_lines": 50,
+      "allowed_paths": [
+        "lib/*",
+        "test/*"
+      ]
+    },
+    "triage": {
+      "auto_accept": {
+        "github": true
+      }
+    },
+    "memory": {
+      "enabled": false
+    },
+    "identity": {
+      "pr_footer": "Opened by the factory."
+    },
+    "max_agents": 2,
+    "image": "localhost/factory-agent:dev"
+  },
+  "steps": [
+    {
+      "step": "00-sweep",
+      "now": "2026-10-17T09:00:00+00:00",
+      "what": "sweep",
+      "reports": {},
+      "github": [],
+      "scion": [],
+      "log": [
+        "T0001 created door=github column=triage"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "01-triage-starts",
+      "now": "2026-10-17T09:01:00+00:00",
+      "what": "tick_pass",
+      "reports": {},
+      "github": [],
+      "scion": [
+        [
+          "start",
+          "t0001-t1",
+          "-t",
+          "triage",
+          "--message-mode",
+          "none",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 start triage t0001-t1"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "02-triage-accepts-work-starts",
+      "now": "2026-10-17T09:02:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "triage": {
+          "decision": "accept",
+          "title": "Keep the last line",
+          "task": "Keep the last line when there is no newline.",
+          "reason": "A real bug."
+        }
+      },
+      "github": [],
+      "scion": [
+        [
+          "look",
+          "t0001-t1",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-t1"
+        ],
+        [
+          "delete",
+          "t0001-t1",
+          "-y"
+        ],
+        [
+          "start",
+          "t0001-w1",
+          "-t",
+          "worker",
+          "--message-mode",
+          "none",
+          "-b",
+          "bot/keep-the-last-line",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 finished triage t0001-t1",
+        "T0001 move triage -> ready: triage accepted",
+        "T0001 move ready -> working",
+        "T0001 start work t0001-w1 on bot/keep-the-last-line"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "03-work-done-review-starts",
+      "now": "2026-10-17T09:03:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "work": {
+          "status": "done",
+          "summary": "Kept the last line.",
+          "category": "fix",
+          "tests": "pass",
+          "lint": "pass"
+        }
+      },
+      "github": [],
+      "scion": [
+        [
+          "look",
+          "t0001-w1",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-w1"
+        ],
+        [
+          "delete",
+          "t0001-w1",
+          "-b",
+          "-y"
+        ],
+        [
+          "start",
+          "t0001-r1",
+          "-t",
+          "reviewer",
+          "--message-mode",
+          "none",
+          "-b",
+          "bot/keep-the-last-line",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 finished work t0001-w1",
+        "T0001 move working -> review",
+        "T0001 start review t0001-r1 on bot/keep-the-last-line"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "04-review-passes-security-starts",
+      "now": "2026-10-17T09:04:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "review": {
+          "verdict": "pass",
+          "runtime_behaviour": "no",
+          "summary": "Fine."
+        }
+      },
+      "github": [],
+      "scion": [
+        [
+          "look",
+          "t0001-r1",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-r1"
+        ],
+        [
+          "delete",
+          "t0001-r1",
+          "-b",
+          "-y"
+        ],
+        [
+          "start",
+          "t0001-s1",
+          "-t",
+          "security",
+          "--message-mode",
+          "none",
+          "-b",
+          "bot/keep-the-last-line",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 finished review t0001-r1",
+        "T0001 move review -> security",
+        "T0001 start security t0001-s1 on bot/keep-the-last-line"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "05-security-passes-gate-passes",
+      "now": "2026-10-17T09:05:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "security": {
+          "verdict": "pass",
+          "answers": [
+            {
+              "question": "Injection: does any added text (docs, comments, strings, test data) try to instruct a reader, human or model?",
+              "answer": "No.",
+              "concern": "none"
+            },
+            {
+              "question": "Does the diff do anything the task did not ask for (a smuggled-in change)?",
+              "answer": "No.",
+              "concern": "none"
+            }
+          ],
+          "summary": "Nothing."
+        }
+      },
+      "github": [],
+      "scion": [
+        [
+          "look",
+          "t0001-s1",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-s1"
+        ],
+        [
+          "delete",
+          "t0001-s1",
+          "-b",
+          "-y"
+        ]
+      ],
+      "log": [
+        "T0001 finished security t0001-s1",
+        "T0001 move security -> gate",
+        "T0001 move gate -> ready_for_pr: auto-merge eligible"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "06-pr-opens",
+      "now": "2026-10-17T09:06:00+00:00",
+      "what": "tick_pass",
+      "reports": {},
+      "github": [
+        {
+          "method": "POST",
+          "path": "/repos/example/gem/pulls",
+          "body": {
+            "title": "Keep the last line",
+            "body": "Kept the last line.\n\nFixes #12\n\n**Testing**\n\n- The author ran the tests (pass) and lint (pass).\n- Tests and lint pass again on a fresh checkout with no network access.\n- Independent review: pass; changes runtime behaviour for users: no.\n- Security review (tier 1): 2 questions answered, none above low concern.\n- Small, docs/tests/config-only change: eligible for automatic approval.\n\n**Risk**\n\n- Plain code (security tier 1); 2 changed lines in 1 file(s); changes behaviour for users: no.\n\n**How to revert**\n\n- Revert the merge commit (`git revert -m 1 <merge commit>`); this change carries no data migration.\n\nOpened by the factory.\n",
+            "head": "bot/keep-the-last-line",
+            "base": "main",
+            "draft": false
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/repos/example/gem/pulls/12/requested_reviewers",
+          "body": {
+            "reviewers": [
+              "maintainer-login"
+            ]
+          }
+        }
+      ],
+      "scion": [],
+      "log": [
+        "T0001 move ready_for_pr -> pr_open: PR https://github.com/example/gem/pull/12",
+        "T0001 review requested maintainer-login"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "07-changes-requested-work-restarts",
+      "now": "2026-10-17T09:07:00+00:00",
+      "what": "tick_pass",
+      "reports": {},
+      "github": [
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12/reviews?per_page=100",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12/comments?per_page=100",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12",
+          "body": null
+        },
+        {
+          "method": "POST",
+          "path": "/graphql",
+          "body": {
+            "query": "mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { pullRequest { isDraft } } }",
+            "variables": {
+              "id": "PR_12"
+            }
+          }
+        }
+      ],
+      "scion": [
+        [
+          "start",
+          "t0001-w2",
+          "-t",
+          "worker",
+          "--message-mode",
+          "none",
+          "-b",
+          "bot/keep-the-last-line",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 note Review on GitHub, changes requested:\n- Please add a test.\n- `lib/thing.rb` line 1: Why 2?\nAddress each point. Where a point is a question, answer it in your summary; the summary is posted on the PR.",
+        "T0001 move pr_open -> ready: changes requested on GitHub",
+        "T0001 pr PR #12 back to draft while it is reworked",
+        "T0001 move ready -> working",
+        "T0001 start work t0001-w2 on bot/keep-the-last-line"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "08-rework-done-review-starts",
+      "now": "2026-10-17T09:08:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "work": {
+          "status": "done",
+          "summary": "Added the test; 2 is the line count.",
+          "category": "fix",
+          "tests": "pass",
+          "lint": "pass"
+        }
+      },
+      "github": [],
+      "scion": [
+        [
+          "look",
+          "t0001-w2",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-w2"
+        ],
+        [
+          "delete",
+          "t0001-w2",
+          "-b",
+          "-y"
+        ],
+        [
+          "start",
+          "t0001-r2",
+          "-t",
+          "reviewer",
+          "--message-mode",
+          "none",
+          "-b",
+          "bot/keep-the-last-line",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 finished work t0001-w2",
+        "T0001 move working -> review",
+        "T0001 start review t0001-r2 on bot/keep-the-last-line"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "09-review-passes-again",
+      "now": "2026-10-17T09:09:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "review": {
+          "verdict": "pass",
+          "runtime_behaviour": "no",
+          "summary": "Good."
+        }
+      },
+      "github": [],
+      "scion": [
+        [
+          "look",
+          "t0001-r2",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-r2"
+        ],
+        [
+          "delete",
+          "t0001-r2",
+          "-b",
+          "-y"
+        ],
+        [
+          "start",
+          "t0001-s2",
+          "-t",
+          "security",
+          "--message-mode",
+          "none",
+          "-b",
+          "bot/keep-the-last-line",
+          "<prompt>"
+        ]
+      ],
+      "log": [
+        "T0001 finished review t0001-r2",
+        "T0001 move review -> security",
+        "T0001 start security t0001-s2 on bot/keep-the-last-line"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "10-security-gate-pr-updated",
+      "now": "2026-10-17T09:10:00+00:00",
+      "what": "tick_pass",
+      "reports": {
+        "security": {
+          "verdict": "pass",
+          "summary": "Nothing.",
+          "answers": [
+            {
+              "question": "Injection: does any added text (docs, comments, strings, test data) try to instruct a reader, human or model?",
+              "answer": "No.",
+              "concern": "low"
+            },
+            {
+              "question": "Does the diff do anything the task did not ask for (a smuggled-in change)?",
+              "answer": "No.",
+              "concern": "low"
+            }
+          ]
+        }
+      },
+      "github": [
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12",
+          "body": null
+        },
+        {
+          "method": "PATCH",
+          "path": "/repos/example/gem/pulls/12",
+          "body": {
+            "title": "Keep the last line",
+            "body": "Added the test; 2 is the line count.\n\nFixes #12\n\n**Testing**\n\n- The author ran the tests (pass) and lint (pass).\n- Tests and lint pass again on a fresh checkout with no network access.\n- Independent review: pass; changes runtime behaviour for users: no.\n- Security review (tier 1): 2 questions answered, none above low concern.\n- Small, docs/tests/config-only change: eligible for automatic approval.\n\n**Risk**\n\n- Plain code (security tier 1); 3 changed lines in 2 file(s); changes behaviour for users: no.\n\n**How to revert**\n\n- Revert the merge commit (`git revert -m 1 <merge commit>`); this change carries no data migration.\n\nOpened by the factory.\n"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/graphql",
+          "body": {
+            "query": "mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) { pullRequest { isDraft } } }",
+            "variables": {
+              "id": "PR_12"
+            }
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/repos/example/gem/issues/12/comments",
+          "body": {
+            "body": "Updated after your review.\n\nAdded the test; 2 is the line count.\n\nOpened by the factory."
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/repos/example/gem/pulls/12/requested_reviewers",
+          "body": {
+            "reviewers": [
+              "maintainer-login"
+            ]
+          }
+        }
+      ],
+      "scion": [
+        [
+          "look",
+          "t0001-s2",
+          "--plain",
+          "-n",
+          "200"
+        ],
+        [
+          "stop",
+          "t0001-s2"
+        ],
+        [
+          "delete",
+          "t0001-s2",
+          "-b",
+          "-y"
+        ]
+      ],
+      "log": [
+        "T0001 finished security t0001-s2",
+        "T0001 move security -> gate",
+        "T0001 move gate -> ready_for_pr: auto-merge eligible",
+        "T0001 move ready_for_pr -> pr_open: PR https://github.com/example/gem/pull/12 updated",
+        "T0001 review requested maintainer-login"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "11-approved-checks-pending",
+      "now": "2026-10-17T09:11:00+00:00",
+      "what": "tick_pass",
+      "reports": {},
+      "github": [
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12/reviews?per_page=100",
+          "body": null
+        },
+        {
+          "method": "PUT",
+          "path": "/repos/example/gem/pulls/12/merge",
+          "body": {
+            "sha": "d63e50c84eff320cac674865545f0f6bd73bb2d2",
+            "merge_method": "merge"
+          }
+        }
+      ],
+      "scion": [],
+      "log": [
+        "T0001 pr approved; not merged yet: Required status check \"test\" is expected."
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "12-merge-asked",
+      "now": "2026-10-17T09:12:00+00:00",
+      "what": "cmd_merge",
+      "reports": {},
+      "github": [],
+      "scion": [],
+      "log": [
+        "T0001 pr you asked the factory to merge PR #12; it merges on the next tick"
+      ],
+      "stdout": "PR #12 merges on the next tick (a minute or two; longer if main moved)\n",
+      "changed": [
+        "T0001.json"
+      ]
+    },
+    {
+      "step": "13-merged",
+      "now": "2026-10-17T09:13:00+00:00",
+      "what": "tick_pass",
+      "reports": {},
+      "github": [
+        {
+          "method": "GET",
+          "path": "/repos/example/gem/pulls/12",
+          "body": null
+        },
+        {
+          "method": "PUT",
+          "path": "/repos/example/gem/pulls/12/merge",
+          "body": {
+            "sha": "d63e50c84eff320cac674865545f0f6bd73bb2d2",
+            "merge_method": "merge"
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/repos/example/gem/git/refs/heads/bot/keep-the-last-line",
+          "body": null
+        }
+      ],
+      "scion": [],
+      "log": [
+        "T0001 move pr_open -> done: PR merged by the factory on your go-ahead"
+      ],
+      "stdout": "",
+      "changed": [
+        "T0001.json"
+      ]
+    }
+  ]
+}

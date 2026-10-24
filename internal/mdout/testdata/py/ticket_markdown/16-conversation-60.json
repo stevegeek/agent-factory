@@ -1,0 +1,574 @@
+{
+  "view": {
+    "id": "T0001",
+    "project": "sandbox",
+    "mode": "board",
+    "kind": "item",
+    "title": "Date picker",
+    "body": "Pick a date.\n\nWith ``` fences ``` inside and a `tick`.",
+    "column": "waiting",
+    "column_label": "Waiting",
+    "assignee": "example-agent",
+    "labels": [
+      "ui"
+    ],
+    "parent": null,
+    "children": [
+      {
+        "id": "T0003",
+        "title": "Child one",
+        "column": "waiting"
+      },
+      {
+        "id": "T0004",
+        "title": "Child two",
+        "column": "done"
+      }
+    ],
+    "links": [],
+    "created": "2026-10-17T08:00:00+00:00",
+    "updated": "2026-10-18T09:02:00+00:00",
+    "by": "example-agent",
+    "waiting": {
+      "reason": "question",
+      "question": 2,
+      "from": "doing",
+      "since": "2026-10-17T08:05:00+00:00",
+      "text": "Two\nlines?"
+    },
+    "questions": [
+      {
+        "n": 1,
+        "by": "example-agent",
+        "recipient": "alice",
+        "to_person": true,
+        "text": "Which locale?",
+        "options": [
+          "en-GB",
+          "en-US",
+          "`raw`"
+        ],
+        "at": "2026-10-17T08:04:00+00:00",
+        "answer": "en-GB",
+        "answered_by": "alice",
+        "answered_at": "2026-10-18T09:00:00+00:00"
+      },
+      {
+        "n": 2,
+        "by": "example-agent",
+        "recipient": "bob",
+        "to_person": true,
+        "text": "Two\nlines?",
+        "options": [],
+        "at": "2026-10-17T08:05:00+00:00",
+        "answer": null,
+        "answered_by": null,
+        "answered_at": null
+      }
+    ],
+    "conversation": [
+      {
+        "at": "2026-10-18T08:00:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 0 xxxxxxxxxx",
+        "n": 1
+      },
+      {
+        "at": "2026-10-18T08:01:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 1 xxxxxxxxxx",
+        "n": 2
+      },
+      {
+        "at": "2026-10-18T08:02:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 2 xxxxxxxxxx",
+        "n": 3
+      },
+      {
+        "at": "2026-10-18T08:03:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 3 xxxxxxxxxx",
+        "n": 4
+      },
+      {
+        "at": "2026-10-18T08:04:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 4 xxxxxxxxxx",
+        "n": 5
+      },
+      {
+        "at": "2026-10-18T08:05:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 5 xxxxxxxxxx",
+        "n": 6
+      },
+      {
+        "at": "2026-10-18T08:06:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 6 xxxxxxxxxx",
+        "n": 7
+      },
+      {
+        "at": "2026-10-18T08:07:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 7 xxxxxxxxxx",
+        "n": 8
+      },
+      {
+        "at": "2026-10-18T08:08:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 8 xxxxxxxxxx",
+        "n": 9
+      },
+      {
+        "at": "2026-10-18T08:09:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 9 xxxxxxxxxx",
+        "n": 10
+      },
+      {
+        "at": "2026-10-18T08:10:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 10 xxxxxxxxxx",
+        "n": 11
+      },
+      {
+        "at": "2026-10-18T08:11:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 11 xxxxxxxxxx",
+        "n": 12
+      },
+      {
+        "at": "2026-10-18T08:12:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 12 xxxxxxxxxx",
+        "n": 13
+      },
+      {
+        "at": "2026-10-18T08:13:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 13 xxxxxxxxxx",
+        "n": 14
+      },
+      {
+        "at": "2026-10-18T08:14:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 14 xxxxxxxxxx",
+        "n": 15
+      },
+      {
+        "at": "2026-10-18T08:15:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 15 xxxxxxxxxx",
+        "n": 16
+      },
+      {
+        "at": "2026-10-18T08:16:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 16 xxxxxxxxxx",
+        "n": 17
+      },
+      {
+        "at": "2026-10-18T08:17:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 17 xxxxxxxxxx",
+        "n": 18
+      },
+      {
+        "at": "2026-10-18T08:18:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 18 xxxxxxxxxx",
+        "n": 19
+      },
+      {
+        "at": "2026-10-18T08:19:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 19 xxxxxxxxxx",
+        "n": 20
+      },
+      {
+        "at": "2026-10-18T08:20:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 20 xxxxxxxxxx",
+        "n": 21
+      },
+      {
+        "at": "2026-10-18T08:21:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 21 xxxxxxxxxx",
+        "n": 22
+      },
+      {
+        "at": "2026-10-18T08:22:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 22 xxxxxxxxxx",
+        "n": 23
+      },
+      {
+        "at": "2026-10-18T08:23:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 23 xxxxxxxxxx",
+        "n": 24
+      },
+      {
+        "at": "2026-10-18T08:24:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 24 xxxxxxxxxx",
+        "n": 25
+      },
+      {
+        "at": "2026-10-18T08:25:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 25 xxxxxxxxxx",
+        "n": 26
+      },
+      {
+        "at": "2026-10-18T08:26:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 26 xxxxxxxxxx",
+        "n": 27
+      },
+      {
+        "at": "2026-10-18T08:27:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 27 xxxxxxxxxx",
+        "n": 28
+      },
+      {
+        "at": "2026-10-18T08:28:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 28 xxxxxxxxxx",
+        "n": 29
+      },
+      {
+        "at": "2026-10-18T08:29:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 29 xxxxxxxxxx",
+        "n": 30
+      },
+      {
+        "at": "2026-10-18T08:30:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 30 xxxxxxxxxx",
+        "n": 31
+      },
+      {
+        "at": "2026-10-18T08:31:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 31 xxxxxxxxxx",
+        "n": 32
+      },
+      {
+        "at": "2026-10-18T08:32:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 32 xxxxxxxxxx",
+        "n": 33
+      },
+      {
+        "at": "2026-10-18T08:33:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 33 xxxxxxxxxx",
+        "n": 34
+      },
+      {
+        "at": "2026-10-18T08:34:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 34 xxxxxxxxxx",
+        "n": 35
+      },
+      {
+        "at": "2026-10-18T08:35:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 35 xxxxxxxxxx",
+        "n": 36
+      },
+      {
+        "at": "2026-10-18T08:36:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 36 xxxxxxxxxx",
+        "n": 37
+      },
+      {
+        "at": "2026-10-18T08:37:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 37 xxxxxxxxxx",
+        "n": 38
+      },
+      {
+        "at": "2026-10-18T08:38:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 38 xxxxxxxxxx",
+        "n": 39
+      },
+      {
+        "at": "2026-10-18T08:39:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 39 xxxxxxxxxx",
+        "n": 40
+      },
+      {
+        "at": "2026-10-18T08:40:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 40 xxxxxxxxxx",
+        "n": 41
+      },
+      {
+        "at": "2026-10-18T08:41:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 41 xxxxxxxxxx",
+        "n": 42
+      },
+      {
+        "at": "2026-10-18T08:42:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 42 xxxxxxxxxx",
+        "n": 43
+      },
+      {
+        "at": "2026-10-18T08:43:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 43 xxxxxxxxxx",
+        "n": 44
+      },
+      {
+        "at": "2026-10-18T08:44:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 44 xxxxxxxxxx",
+        "n": 45
+      },
+      {
+        "at": "2026-10-18T08:45:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 45 xxxxxxxxxx",
+        "n": 46
+      },
+      {
+        "at": "2026-10-18T08:46:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 46 xxxxxxxxxx",
+        "n": 47
+      },
+      {
+        "at": "2026-10-18T08:47:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 47 xxxxxxxxxx",
+        "n": 48
+      },
+      {
+        "at": "2026-10-18T08:48:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 48 xxxxxxxxxx",
+        "n": 49
+      },
+      {
+        "at": "2026-10-18T08:49:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 49 xxxxxxxxxx",
+        "n": 50
+      },
+      {
+        "at": "2026-10-18T08:50:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 50 xxxxxxxxxx",
+        "n": 51
+      },
+      {
+        "at": "2026-10-18T08:51:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 51 xxxxxxxxxx",
+        "n": 52
+      },
+      {
+        "at": "2026-10-18T08:52:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 52 xxxxxxxxxx",
+        "n": 53
+      },
+      {
+        "at": "2026-10-18T08:53:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 53 xxxxxxxxxx",
+        "n": 54
+      },
+      {
+        "at": "2026-10-18T08:54:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 54 xxxxxxxxxx",
+        "n": 55
+      },
+      {
+        "at": "2026-10-18T08:55:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 55 xxxxxxxxxx",
+        "n": 56
+      },
+      {
+        "at": "2026-10-18T08:56:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 56 xxxxxxxxxx",
+        "n": 57
+      },
+      {
+        "at": "2026-10-18T08:57:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 57 xxxxxxxxxx",
+        "n": 58
+      },
+      {
+        "at": "2026-10-18T08:58:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "comment 58 xxxxxxxxxx",
+        "n": 59
+      },
+      {
+        "at": "2026-10-18T08:59:00+00:00",
+        "by": "alice",
+        "type": "comment",
+        "text": "comment 59 xxxxxxxxxx",
+        "n": 60
+      }
+    ],
+    "result": null,
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "type": "created",
+        "by": "example-agent",
+        "detail": "door=agent column=inbox"
+      },
+      {
+        "at": "2026-10-17T08:02:00+00:00",
+        "type": "claimed",
+        "by": "example-agent",
+        "detail": "claimed by example-agent"
+      },
+      {
+        "at": "2026-10-17T08:02:00+00:00",
+        "type": "moved",
+        "by": "example-agent",
+        "from": "inbox",
+        "to": "doing",
+        "reason": "claimed",
+        "detail": "inbox -> doing: claimed by example-agent"
+      },
+      {
+        "at": "2026-10-17T08:03:00+00:00",
+        "type": "commented",
+        "by": "example-agent",
+        "detail": "example-agent: Started on it."
+      },
+      {
+        "at": "2026-10-17T08:04:00+00:00",
+        "type": "question_asked",
+        "by": "example-agent",
+        "detail": "example-agent asks alice: Which locale?"
+      },
+      {
+        "at": "2026-10-17T08:04:00+00:00",
+        "type": "moved",
+        "by": "example-agent",
+        "from": "doing",
+        "to": "waiting",
+        "reason": "question_asked",
+        "detail": "doing -> waiting: question 1 to alice"
+      },
+      {
+        "at": "2026-10-17T08:05:00+00:00",
+        "type": "question_asked",
+        "by": "example-agent",
+        "detail": "example-agent asks bob: Two lines?"
+      },
+      {
+        "at": "2026-10-18T09:00:00+00:00",
+        "type": "question_answered",
+        "by": "alice",
+        "detail": "alice answered question 1: en-GB"
+      },
+      {
+        "at": "2026-10-18T09:02:00+00:00",
+        "type": "split",
+        "by": "example-agent",
+        "detail": "example-agent split it into T0003, T0004"
+      }
+    ],
+    "factory": null
+  },
+  "caller": {
+    "name": "example-agent",
+    "person": false,
+    "projects": [
+      "sandbox",
+      "fac"
+    ],
+    "can": [
+      "read",
+      "file",
+      "talk",
+      "work",
+      "plan"
+    ],
+    "tickets": null,
+    "expires": null
+  },
+  "today": "2026-10-18"
+}

@@ -1,0 +1,169 @@
+{
+  "about": "index_entry for every ticket of ticketapi/testdata/py/board (ticket_index without ino, mtime_ns and size, which depend on the files on disk)",
+  "version": 2,
+  "tickets": {
+    "T0007": {
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "column": "inbox",
+      "assignee": null,
+      "labels": [],
+      "parent": null,
+      "title": "Inbox one",
+      "created": "2026-10-18T09:09:00+00:00",
+      "updated": "2026-10-18T09:09:00+00:00",
+      "by": "example-agent",
+      "idem": null,
+      "open_for": [],
+      "open_questions": 0,
+      "answers_for": [],
+      "wrote": {
+        "example-agent": 160
+      },
+      "waiting_reason": null
+    },
+    "T0006": {
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "column": "next",
+      "assignee": "bob",
+      "labels": [],
+      "parent": null,
+      "title": "Assigned to bob",
+      "created": "2026-10-18T09:06:00+00:00",
+      "updated": "2026-10-18T09:08:00+00:00",
+      "by": "example-agent",
+      "idem": null,
+      "open_for": [],
+      "open_questions": 0,
+      "answers_for": [],
+      "wrote": {
+        "example-agent": 166,
+        "alice": 291
+      },
+      "waiting_reason": null
+    },
+    "T0004": {
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "column": "done",
+      "assignee": null,
+      "labels": [],
+      "parent": "T0001",
+      "title": "Child two",
+      "created": "2026-10-18T09:02:00+00:00",
+      "updated": "2026-10-18T09:05:00+00:00",
+      "by": "example-agent",
+      "idem": null,
+      "open_for": [],
+      "open_questions": 0,
+      "answers_for": [],
+      "wrote": {
+        "example-agent": 525
+      },
+      "waiting_reason": null
+    },
+    "T0003": {
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "column": "waiting",
+      "assignee": null,
+      "labels": [],
+      "parent": "T0001",
+      "title": "Child one",
+      "created": "2026-10-18T09:02:00+00:00",
+      "updated": "2026-10-18T09:04:00+00:00",
+      "by": "example-agent",
+      "idem": null,
+      "open_for": [],
+      "open_questions": 0,
+      "answers_for": [],
+      "wrote": {
+        "example-agent": 340
+      },
+      "waiting_reason": "other"
+    },
+    "T0002": {
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "column": "inbox",
+      "assignee": null,
+      "labels": [
+        "api",
+        "later"
+      ],
+      "parent": null,
+      "title": "Second ticket with a break",
+      "created": "2026-10-17T08:01:00+00:00",
+      "updated": "2026-10-18T09:03:00+00:00",
+      "by": "alice",
+      "idem": null,
+      "open_for": [],
+      "open_questions": 0,
+      "answers_for": [],
+      "wrote": {
+        "alice": 177,
+        "example-agent": 586
+      },
+      "waiting_reason": null
+    },
+    "T0005": {
+      "project": "fac",
+      "mode": "factory",
+      "kind": "change",
+      "column": "triage",
+      "assignee": null,
+      "labels": [],
+      "parent": null,
+      "title": "Second ticket with a break",
+      "created": "2026-10-18T09:03:00+00:00",
+      "updated": "2026-10-18T09:03:00+00:00",
+      "by": "example-agent",
+      "idem": null,
+      "open_for": [],
+      "open_questions": 0,
+      "answers_for": [],
+      "wrote": {
+        "example-agent": 261
+      },
+      "waiting_reason": null
+    },
+    "T0001": {
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "column": "waiting",
+      "assignee": "example-agent",
+      "labels": [
+        "ui"
+      ],
+      "parent": null,
+      "title": "Date picker",
+      "created": "2026-10-17T08:00:00+00:00",
+      "updated": "2026-10-18T09:02:00+00:00",
+      "by": "example-agent",
+      "idem": [
+        "example-agent",
+        "k1",
+        "504c52eec4a1871c3320196710139c37684d476fcbd2595cbbfc9f745e9becbd"
+      ],
+      "open_for": [
+        "bob"
+      ],
+      "open_questions": 1,
+      "answers_for": [
+        "example-agent"
+      ],
+      "wrote": {
+        "example-agent": 1712,
+        "alice": 165
+      },
+      "waiting_reason": "question"
+    }
+  }
+}

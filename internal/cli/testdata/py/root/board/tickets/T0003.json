@@ -1,0 +1,54 @@
+{
+  "id": "T0003",
+  "project": "gem",
+  "title": "An idea with a design",
+  "body": "",
+  "door": "human",
+  "by": "alice",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "move",
+      "detail": "ready -> needs_human: design ready (2 tickets proposed): x",
+      "type": "moved",
+      "from": "ready",
+      "to": "needs_human",
+      "reason": "design_ready",
+      "by": "factory"
+    }
+  ],
+  "kind": "intent",
+  "ask": {
+    "kind": "design",
+    "question": "Approve the design for \u201cAn idea with a design\u201d and its 2 proposed tickets, or send it back?",
+    "why": "design ready (2 tickets proposed): x.",
+    "since": "2026-10-17T08:00:00+00:00",
+    "retry_column": null
+  },
+  "updated": "2026-10-17T08:00:00+00:00",
+  "design": "The design.\n\n  Indented.\n",
+  "proposed": [
+    {
+      "title": "First part",
+      "body": "Do one.\nThen two."
+    },
+    {
+      "title": "Second part",
+      "body": "Do three."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "stage": "work",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0013-w1",
+  "ticket": {
+    "id": "T0013",
+    "project": "gem",
+    "title": "Fix \u201cquotes\u201d \u2014 and \u00e9moji \ud83d\ude00",
+    "body": "Line one.  \r\n\r\nTrailing   \n\n",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": null,
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0013-w1",
+    "-t",
+    "worker",
+    "--message-mode",
+    "none",
+    "-b",
+    "bot/fix-quotes-and-moji",
+    "--model",
+    "model-w"
+  ]
+}

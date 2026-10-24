@@ -1,0 +1,12 @@
+# The screen relay Foreman's Live tab starts (factory-screens.path), as a user unit of the factory
+# user, outside Foreman's sandbox. It runs while foreman-state/watching was touched in the last
+# 20 s, a round every 2.5 s (scion look for each running local agent, two at a time), writes
+# ~/factory/screens/<agent>.txt, then exits; a touch while it runs keeps it going.
+[Unit]
+Description=Agent factory: the agents' screens for Foreman's Live tab
+
+[Service]
+Type=exec
+ExecStart=%h/factory/bin/factory screens
+TimeoutStopSec=30
+Nice=10

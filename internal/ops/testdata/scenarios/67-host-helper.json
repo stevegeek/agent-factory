@@ -1,0 +1,24 @@
+{
+ "name": "host-helper",
+ "now": "2026-10-18T10:00:00+00:00",
+ "config": "[board]\npeople = [\"sam\", \"alex\"]\n\n[hosts.helper]\nssh = \"factory@helper.example\"\n\n[projects.gem]\npath = \"/nonexistent/gem\"\nbase = \"main\"\ngithub = \"example/gem\"\n\n[projects.widgets]\npath = \"/nonexistent/widgets\"\nbase = \"main\"\n\n[projects.notes]\nmode = \"board\"\n\n[[schedules]]\nname = \"bug-hunt\"\nevery_days = 30\nkind = \"task\"\ntitle = \"Bug hunt\"\nbody = \"Look in {github} for bugs.\"\n\n[[recipes]]\nname = \"docs-pass\"\ntitle = \"Tidy the docs\"\nbody = \"Read the README.\"\nprojects = [\"widgets\"]\n\n[[recipes]]\nname = \"scan\"\nkind = \"prospect\"\ntitle = \"Scan\"\nbody = \"Look around {github}.\"\n",
+ "op": "host",
+ "args": {
+  "ticket": "T0001",
+  "host": "helper"
+ },
+ "before": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"gem\",\n  \"title\": \"Fix the parser\",\n  \"body\": \"It drops the last line.\",\n  \"door\": \"human\",\n  \"by\": \"factory\",\n  \"column\": \"ready\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {},\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready\",\n      \"by\": \"factory\"\n    }\n  ],\n  \"ask\": null,\n  \"updated\": \"2026-10-18T10:00:00+00:00\"\n}"
+ },
+ "stdout": "",
+ "error": null,
+ "wakes": 0,
+ "logs": [
+  "T0001 host helper"
+ ],
+ "after": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"gem\",\n  \"title\": \"Fix the parser\",\n  \"body\": \"It drops the last line.\",\n  \"door\": \"human\",\n  \"by\": \"factory\",\n  \"column\": \"ready\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {},\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"host\",\n      \"detail\": \"helper\"\n    }\n  ],\n  \"ask\": null,\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"host\": \"helper\"\n}"
+ }
+}

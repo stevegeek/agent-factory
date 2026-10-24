@@ -1,0 +1,22 @@
+{
+  "ticket": {
+    "id": "T0042",
+    "title": "Tidy README",
+    "body": "",
+    "door": "github",
+    "column": "ready_for_pr",
+    "branch": "bot/x",
+    "history": [],
+    "source": {
+      "issue": 7
+    },
+    "reports": {},
+    "security_tier": null,
+    "gate": {
+      "auto_eligible": false
+    }
+  },
+  "config": {
+    "identity": {}
+  }
+}

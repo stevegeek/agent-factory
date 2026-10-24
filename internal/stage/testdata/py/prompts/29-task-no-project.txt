@@ -1,0 +1,15 @@
+Task: Summarise the week
+
+When the input has no trailing newline, the last line is lost.
+
+Steps:
+1. parse
+2. look
+
+There is no repository for this task; the current directory is scratch space.
+
+## If you need a decision
+If you can't go on without a decision only the maintainer can make (not something you can find out), stop
+and write `~/report.json` with `"status": "question"`, `"question"`: one clear question with the options
+you see, and `"summary"`: where you stopped. Write your handover first if you have a memory. The
+maintainer's answer comes back as a note, and a new run carries on from there.

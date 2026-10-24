@@ -1,0 +1,30 @@
+{
+  "id": "T0001",
+  "project": "gem",
+  "title": "Parser drops the last line",
+  "body": "Reported as example/gem#12.\n\nWhen the input has no trailing newline the last line is lost.",
+  "door": "github",
+  "by": "factory",
+  "column": "triage",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage",
+      "type": "created",
+      "door": "github",
+      "column": "triage",
+      "by": "factory"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T09:00:00+00:00",
+  "source": {
+    "issue": 12,
+    "url": "https://github.com/example/gem/issues/12"
+  }
+}

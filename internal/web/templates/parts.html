@@ -1,0 +1,162 @@
+{{define "detail" -}}
+{{$p := .}}{{with .Ticket}}
+<div class="live-part" id="tk-head" data-live data-stamp="{{.T.ID}} {{.T.Column}}{{with .Ask}} {{.Kind}} {{.Since}}{{end}}">
+{{if $p.Desk}}<a class="back" href="/{{with .Filter}}?kind={{.}}{{end}}">← All asks</a>{{else}}<a class="back show" href="/b/{{.T.Project}}">← {{.T.Project}}</a>{{end}}
+<header class="ask-head">
+  <div class="eyebrow">
+    <span class="badge k-{{.Kind}}">{{.KindLabel}}</span>
+    <span class="mono">{{.T.ID}}</span>
+    <a href="/b/{{.T.Project}}">{{.T.Project}}</a>
+    {{with .Age}}<span>{{.}}</span>{{end}}
+    {{with .ParentID}}<span>from <a class="mono" href="/t/{{.}}">{{.}}</a></span>{{end}}
+    {{if .Walls}}<span class="badge small walls">Touches the walls</span>{{end}}
+  </div>
+  <h2>{{mdi .Headline}}</h2>
+  {{with .Subtitle}}<p class="sub">{{mdi .}}</p>{{end}}
+  <nav class="subtabs" aria-label="Views of {{.T.ID}}"><a href="/t/{{.T.ID}}" aria-current="page">Ticket</a><a href="/t/{{.T.ID}}/talk">Conversation</a></nav>
+</header>
+{{with .Next}}<p class="next"><b>Waiting for you</b> {{.}}</p>{{end}}
+{{with .Answer}}<section class="answered" aria-label="Answer to your question">
+  <h3 class="panel-h">Answer to your question <a class="mono" href="/t/{{.ID}}">{{.ID}}</a></h3>
+  <p class="asked">“{{mdt .Question}}”</p>
+  <div class="text md">{{md .Lead}}</div>
+  {{if ne .Lead .Full}}<details class="more" data-key="answer-{{.ID}}"><summary>Read the whole answer</summary><div class="text md">{{md .Full}}</div></details>{{end}}
+</section>{{end}}
+{{with .Why}}<p class="why">{{mdi .}}</p>{{end}}
+{{with .Pending}}<div class="callout {{.Tone}}" role="status"><b>{{.Title}}</b>
+  {{if .Lines}}<ul>{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}
+</div>{{end}}
+{{with .Callout}}<div class="callout {{.Tone}}"><b>{{.Title}}</b>
+  {{if .Lines}}<ul>{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}
+</div>{{end}}
+{{if .Facts}}<dl class="facts">
+  {{range .Facts}}<div class="fact"><dt>{{.Label}}</dt><dd class="{{.Tone}}">
+    {{- if .Votes}}<span class="votes">{{range .Votes}}<span class="vote {{if low .}}low{{end}}">{{.}}</span>{{end}}</span>
+    {{- else if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Value}}</a>
+    {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
+</dl>{{end}}
+{{with .Walls}}<section class="walls" aria-label="Touches the walls">
+  <h3 class="panel-h">Touches the walls</h3>
+  <p class="quiet">These files hold the factory's own safety: the change never merges without you.</p>
+  <ul>{{range .}}<li><code>{{.}}</code></li>{{end}}</ul>
+</section>{{end}}
+{{range $i, $d := .T.Drafts}}<section class="draft" aria-label="Draft {{inc $i}}">
+  <h3 class="panel-h">Draft {{inc $i}}: {{$d.Title}}</h3>
+  <div class="text md">{{md $d.Why}}</div>
+  <div class="patch-head"><span class="quiet">Apply it in the config repo on your machine (<code>git apply</code>), then deploy.</span>
+    <button type="button" class="btn quiet" data-copy="patch-{{$.Ticket.T.ID}}-{{$i}}">Copy the diff</button></div>
+  <pre class="patch" id="patch-{{$.Ticket.T.ID}}-{{$i}}">{{$d.Patch}}</pre>
+</section>{{end}}
+{{if and .Findings (not .FindingsAsk)}}<section class="picks findings" aria-label="Findings">
+  <h3 class="panel-h">Findings</h3>
+  {{range .Findings}}{{template "finding" .}}{{end}}
+</section>{{end}}
+{{if .Children}}<p class="sub">{{.ChildrenLabel}}: {{range $i, $c := .Children}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$c}}">{{$c}}</a>{{end}}</p>{{end}}
+{{with .Questions}}<section class="picks findings" aria-label="Questions">
+  <h3 class="panel-h">Questions</h3>
+  {{range .}}<div class="pick finding{{if not .Open}} off{{end}}"><div>
+    <p class="finding-meta">{{.N}}. {{.By}} asked {{.To}}{{if .Options}} · options: {{range $i, $o := .Options}}{{if $i}}, {{end}}{{$o}}{{end}}{{end}}</p>
+    <div class="text md">{{md .Text}}</div>
+    {{if .AnsweredBy}}<p class="finding-meta">{{.AnsweredBy}} answered</p><div class="text md">{{md .Answer}}</div>
+    {{- else if .Withdrawn}}<p class="finding-meta">Withdrawn when the ticket closed</p>
+    {{- else}}<p class="finding-meta">Not answered yet</p>{{end}}
+  </div></div>{{end}}
+</section>{{end}}
+</div>
+{{if or .Answers .CanNote .Reply}}
+<form class="act" method="post" action="/t/{{.T.ID}}/act">
+  <input type="hidden" name="csrf" value="{{$p.CSRF}}">
+  <input type="hidden" name="filter" value="{{.Filter}}">
+  {{with .Ask}}<input type="hidden" name="ask" value="{{.Kind}}"><input type="hidden" name="since" value="{{.Since}}">{{end}}
+  {{if or .Answers .Reply}}<h3 class="panel-h">Your answer</h3>{{end}}
+  {{if .Picks}}<div class="picks">
+    {{range .Picks}}<div class="pick"><input type="checkbox" name="pick" value="{{.N}}" id="pick-{{.N}}" checked>
+      <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{mdi .Title}}</label>
+      <details class="more" data-key="pick-{{.N}}"><summary>Read it</summary><div class="text md">{{md .Body}}</div></details></div></div>{{end}}
+  </div>{{end}}
+  {{if .FindingsAsk}}<div class="picks findings">
+    {{range .Findings}}{{template "finding" .}}{{end}}
+  </div>{{end}}
+  {{if .Answers}}<div class="answers">
+    {{range .Answers}}{{if .Href}}<a class="btn{{if .Primary}} primary{{end}}{{if .Danger}} danger{{end}} ext" href="{{.Href}}" target="_blank" rel="noopener noreferrer" hx-boost="false"><span>{{.Label}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</a>
+    {{- else}}<button class="btn{{if .Primary}} primary{{end}}{{if .Danger}} danger{{end}}" type="submit" name="answer" value="{{.Value}}" {{if .NeedsNote}}data-needs-note{{end}}><span>{{.Label}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</button>{{end}}
+    {{end}}
+  </div>{{end}}
+  {{if .CanNote}}{{template "note" .}}{{end}}
+  {{if .Reply}}{{template "reply" .}}{{end}}
+</form>
+{{end}}
+<div class="live-part" id="tk-more" data-live>
+{{if .More}}<div class="disclosures">{{range .More}}<details class="more" data-key="more-{{.Summary}}"><summary>{{.Summary}}</summary><div class="text md">{{md .Text}}</div></details>{{end}}</div>{{end}}
+{{template "story" .Story}}
+{{if or .AgentName .Logs}}<p class="logs">{{with .AgentName}}<a href="/live#{{$.Ticket.T.ID}}">Watch the {{.}} agent live</a>{{if $.Ticket.Logs}} · {{end}}{{end}}
+  {{- if .Logs}}Agent logs: {{range $i, $n := .Logs}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$.Ticket.T.ID}}/logs/{{$n}}" target="_blank" rel="noopener" hx-boost="false">{{$n}}</a>{{end}}{{end}}</p>{{end}}
+</div>
+{{end}}
+{{- end}}
+
+{{define "finding" -}}
+<div class="pick finding{{if not .Open}} off{{end}}">
+  {{- if .Choose}}<input type="checkbox" name="pick" value="{{.N}}" id="finding-{{.N}}" checked>{{end}}
+  <div>{{if .Choose}}<label for="finding-{{.N}}"><b>{{.N}}.</b> {{mdi .Title}}</label>{{else}}<p class="finding-title"><b>{{.N}}.</b> {{mdi .Title}}</p>{{end}}
+    <p class="finding-meta">{{.Meta}}</p>
+    {{if .Choose}}<label class="finding-as">File as <select name="as-{{.N}}">
+      <option value="change"{{if eq .DefaultAs "change"}} selected{{end}}>a change (triage, then a worker)</option>
+      <option value="intent"{{if eq .DefaultAs "intent"}} selected{{end}}>an idea to design first</option>
+    </select></label>{{end}}
+    <details class="more" data-key="finding-{{.N}}"><summary>Read it</summary><div class="text md">{{md .Body}}</div>
+      {{- with .Evidence}}<p class="finding-meta">The verifier's evidence</p><div class="text md">{{md .}}</div>{{end}}</details>
+  </div>
+</div>
+{{- end}}
+
+{{define "note" -}}
+<div class="composer">
+  <label for="note-{{.T.ID}}">{{.NoteLabel}}</label>
+  <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" rows="3" placeholder="A question for the agent, or a note for the next one" data-draft="{{.T.ID}}"></textarea>
+  <div class="composer-foot">
+    <p class="hint">{{.NoteSub}}</p>
+    <div class="composer-actions">
+      <button class="btn quiet" type="submit" name="answer" value="ask" data-needs-note data-busy="Asking…"><span>Ask the agent</span></button>
+      <button class="btn quiet" type="submit" name="answer" value="note" data-needs-note data-busy="Saving…"><span>Save note</span></button>
+    </div>
+  </div>
+</div>
+{{- end}}
+
+{{define "reply" -}}
+<div class="composer">
+  <label for="note-{{.T.ID}}">{{if .Answers}}Or write your answer{{else}}Write your answer{{end}}</label>
+  <textarea id="note-{{.T.ID}}" name="note" maxlength="16000" rows="3" placeholder="Your answer to the agent's question" data-draft="{{.T.ID}}"></textarea>
+  <div class="composer-foot">
+    <p class="hint">{{.NoteSub}}</p>
+    <div class="composer-actions">
+      <button class="btn{{if not .Answers}} primary{{end}}" type="submit" name="answer" value="answer" data-needs-note data-busy="Sending…"><span>Send the answer</span></button>
+    </div>
+  </div>
+</div>
+{{- end}}
+
+{{define "story" -}}
+{{if .Steps}}<section class="story">
+  <h3>How it got here</h3>
+  {{with .Earlier}}<details class="earlier" data-key="earlier"><summary>{{len .}} earlier steps</summary>
+  <ol class="steps">{{range .}}{{template "step" .}}{{end}}</ol>
+  </details>{{end}}
+  <ol class="steps">{{range .Recent}}{{template "step" .}}{{end}}</ol>
+  {{with .Caveat}}<p class="caveat">{{.}}</p>{{end}}
+</section>{{end}}
+{{- end}}
+
+{{define "step" -}}
+<li class="step {{.Tone}}"><time>{{.When}}</time><div><span class="who-did">{{.Who}}</span> · {{mdi .What}}
+  {{- if .Quotes}}<div class="quotes">{{range .Quotes}}<div class="quote"><span class="vote {{if low .Score}}low{{end}}">{{.Score}}</span><span>{{mdi .Text}}</span></div>{{end}}</div>{{end}}</div></li>
+{{- end}}
+
+{{define "searchbox" -}}
+<form class="search mini" method="get" action="/search" role="search">
+  <input type="search" name="q" placeholder="Search tickets" aria-label="Search tickets">
+  {{- with .}}<input type="hidden" name="project" value="{{.}}">{{end}}
+  <button type="submit">Search</button>
+</form>
+{{- end}}

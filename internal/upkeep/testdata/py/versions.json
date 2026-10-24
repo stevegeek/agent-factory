@@ -1,0 +1,219 @@
+{
+  "about": "check_versions(cfg) against a recorded GitHub (FACTORY_GITHUB_API=<url>/gh) and npm registry (FACTORY_NPM_REGISTRY=<url>/npm): the requests, the log lines and the notice tickets it files",
+  "rows": [
+    {
+      "name": "newer",
+      "config": "[images]\nclaude = \"2.0.0\"\npi = \"0.5.0\"\ncrystal = \"1.20.1\"\n[projects.shard]\npath = \"/x\"\nlanguage = \"Crystal shard\"\n",
+      "registry": {
+        "/gh/repos/crystal-lang/crystal/releases/latest": {
+          "status": 200,
+          "body": {
+            "tag_name": "v1.21.0"
+          }
+        },
+        "/gh/repos/crystal-ameba/ameba/releases/latest": {
+          "status": 200,
+          "body": {
+            "tag_name": "v1.7.0"
+          }
+        },
+        "/npm/@anthropic-ai/claude-code/latest": {
+          "status": 200,
+          "body": {
+            "version": "2.1.0"
+          }
+        },
+        "/npm/@earendil-works/pi-coding-agent/latest": {
+          "status": 200,
+          "body": {
+            "version": "0.5.0"
+          }
+        }
+      },
+      "open_notices": [],
+      "requests": [
+        {
+          "path": "/gh/repos/crystal-lang/crystal/releases/latest",
+          "user_agent": "agent-factory",
+          "accept": "application/vnd.github+json"
+        },
+        {
+          "path": "/gh/repos/crystal-ameba/ameba/releases/latest",
+          "user_agent": "agent-factory",
+          "accept": "application/vnd.github+json"
+        },
+        {
+          "path": "/npm/@anthropic-ai/claude-code/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        },
+        {
+          "path": "/npm/@earendil-works/pi-coding-agent/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        }
+      ],
+      "log": [],
+      "filed": [
+        {
+          "project": "factory",
+          "title": "Update Crystal 1.20.1 -> 1.21.0",
+          "body": "Crystal 1.21.0 is out; the images have 1.20.1.\n\nRelease notes: https://github.com/crystal-lang/crystal/releases\n\nTo take it: set [images] crystal = \"1.21.0\" in config.toml and deploy. The weekly rebuild runs every project's tests in the new image, so it is also the check that each Crystal project builds and passes on 1.21.0. If one fails, the old image stays and the rebuild log says which; file a fix ticket for it. Then move this ticket to done.",
+          "door": "clock",
+          "column": "needs_human"
+        },
+        {
+          "project": "factory",
+          "title": "Update Claude Code 2.0.0 -> 2.1.0",
+          "body": "Claude Code 2.1.0 is out; the images pin 2.0.0.\n\nChangelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md\n\nTo take it: set [images] claude = \"2.1.0\" in config.toml and deploy. The weekly rebuild picks it up and keeps the old image if the new one fails its checks (or run `factory rebuild` on the host now). Then move this ticket to done.",
+          "door": "clock",
+          "column": "needs_human"
+        }
+      ]
+    },
+    {
+      "name": "older-or-equal",
+      "config": "[images]\nclaude = \"2.10.0\"\npi = \"1.0\"\n[projects.gem]\npath = \"/x\"\n",
+      "registry": {
+        "/npm/@anthropic-ai/claude-code/latest": {
+          "status": 200,
+          "body": {
+            "version": "2.9.99"
+          }
+        },
+        "/npm/@earendil-works/pi-coding-agent/latest": {
+          "status": 200,
+          "body": {
+            "version": "1.0.0-beta"
+          }
+        }
+      },
+      "open_notices": [],
+      "requests": [
+        {
+          "path": "/npm/@anthropic-ai/claude-code/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        },
+        {
+          "path": "/npm/@earendil-works/pi-coding-agent/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        }
+      ],
+      "log": [],
+      "filed": [
+        {
+          "project": "factory",
+          "title": "Update Pi 1.0 -> 1.0.0-beta",
+          "body": "Pi 1.0.0-beta is out; the images pin 1.0.\n\nChangelog: https://www.npmjs.com/package/@earendil-works/pi-coding-agent?activeTab=versions\n\nTo take it: set [images] pi = \"1.0.0-beta\" in config.toml and deploy. The weekly rebuild picks it up and keeps the old image if the new one fails its checks (or run `factory rebuild` on the host now). Then move this ticket to done.",
+          "door": "clock",
+          "column": "needs_human"
+        }
+      ]
+    },
+    {
+      "name": "errors",
+      "config": "[images]\nclaude = \"2.0.0\"\n[projects.shard]\npath = \"/x\"\nlanguage = \"crystal\"\n",
+      "registry": {
+        "/gh/repos/crystal-ameba/ameba/releases/latest": {
+          "status": 200,
+          "body": {
+            "tag_name": "1.8.0"
+          }
+        },
+        "/npm/@anthropic-ai/claude-code/latest": {
+          "status": 500,
+          "body": {
+            "message": "boom"
+          }
+        }
+      },
+      "open_notices": [],
+      "requests": [
+        {
+          "path": "/gh/repos/crystal-lang/crystal/releases/latest",
+          "user_agent": "agent-factory",
+          "accept": "application/vnd.github+json"
+        },
+        {
+          "path": "/gh/repos/crystal-ameba/ameba/releases/latest",
+          "user_agent": "agent-factory",
+          "accept": "application/vnd.github+json"
+        },
+        {
+          "path": "/npm/@anthropic-ai/claude-code/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        }
+      ],
+      "log": [
+        "versions Crystal: HTTP Error 404: Not Found",
+        "versions Claude Code: HTTP Error 500: Internal Server Error"
+      ],
+      "filed": [
+        {
+          "project": "factory",
+          "title": "Update ameba 1.7.0 -> 1.8.0",
+          "body": "ameba 1.8.0 is out; the images have 1.7.0.\n\nRelease notes: https://github.com/crystal-ameba/ameba/releases\n\nTo take it: set [images] ameba = \"1.8.0\" in config.toml and deploy. The weekly rebuild runs every project's tests in the new image, so it is also the check that each Crystal project builds and passes on 1.8.0. If one fails, the old image stays and the rebuild log says which; file a fix ticket for it. Then move this ticket to done.",
+          "door": "clock",
+          "column": "needs_human"
+        }
+      ]
+    },
+    {
+      "name": "board-project-languages-ignored",
+      "config": "[images]\npi = \"0.4.0\"\n[projects.notes]\nmode = \"board\"\nlanguage = \"Crystal shard\"\n",
+      "registry": {
+        "/npm/@earendil-works/pi-coding-agent/latest": {
+          "status": 200,
+          "body": {
+            "version": "0.4.1"
+          }
+        }
+      },
+      "open_notices": [],
+      "requests": [
+        {
+          "path": "/npm/@earendil-works/pi-coding-agent/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        }
+      ],
+      "log": [],
+      "filed": [
+        {
+          "project": "factory",
+          "title": "Update Pi 0.4.0 -> 0.4.1",
+          "body": "Pi 0.4.1 is out; the images pin 0.4.0.\n\nChangelog: https://www.npmjs.com/package/@earendil-works/pi-coding-agent?activeTab=versions\n\nTo take it: set [images] pi = \"0.4.1\" in config.toml and deploy. The weekly rebuild picks it up and keeps the old image if the new one fails its checks (or run `factory rebuild` on the host now). Then move this ticket to done.",
+          "door": "clock",
+          "column": "needs_human"
+        }
+      ]
+    },
+    {
+      "name": "open-notice-not-filed-twice",
+      "config": "[images]\nclaude = \"2.0.0\"\n",
+      "registry": {
+        "/npm/@anthropic-ai/claude-code/latest": {
+          "status": 200,
+          "body": {
+            "version": "2.1.0"
+          }
+        }
+      },
+      "open_notices": [
+        "Update Claude Code 2.0.0 -> 2.1.0"
+      ],
+      "requests": [
+        {
+          "path": "/npm/@anthropic-ai/claude-code/latest",
+          "user_agent": "agent-factory",
+          "accept": null
+        }
+      ],
+      "log": [],
+      "filed": []
+    }
+  ]
+}

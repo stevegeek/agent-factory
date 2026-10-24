@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent factory: daily check for due recurring tickets
+
+[Timer]
+OnCalendar=*-*-* 05:30
+Persistent=true
+RandomizedDelaySec=30min
+Unit=factory@clock.service
+
+[Install]
+WantedBy=timers.target

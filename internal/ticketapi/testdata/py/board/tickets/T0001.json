@@ -1,0 +1,172 @@
+{
+  "id": "T0001",
+  "schema": 1,
+  "mode": "board",
+  "project": "sandbox",
+  "title": "Date picker",
+  "body": "Pick a date.\n\nWith ``` fences ``` inside and a `tick`.",
+  "door": "agent",
+  "by": "example-agent",
+  "column": "waiting",
+  "kind": "item",
+  "assignee": "example-agent",
+  "labels": [
+    "ui"
+  ],
+  "parent": null,
+  "children": [
+    "T0003",
+    "T0004"
+  ],
+  "links": [],
+  "waiting": {
+    "reason": "question",
+    "question": 2,
+    "from": "doing",
+    "since": "2026-10-17T08:05:00+00:00",
+    "text": "Two\nlines?"
+  },
+  "questions": [
+    {
+      "n": 1,
+      "by": "example-agent",
+      "recipient": "alice",
+      "to_person": true,
+      "text": "Which locale?",
+      "options": [
+        "en-GB",
+        "en-US",
+        "`raw`"
+      ],
+      "at": "2026-10-17T08:04:00+00:00",
+      "answer": "en-GB",
+      "answered_by": "alice",
+      "answered_at": "2026-10-18T09:00:00+00:00"
+    },
+    {
+      "n": 2,
+      "by": "example-agent",
+      "recipient": "bob",
+      "to_person": true,
+      "text": "Two\nlines?",
+      "options": [],
+      "at": "2026-10-17T08:05:00+00:00",
+      "answer": null,
+      "answered_by": null,
+      "answered_at": null
+    }
+  ],
+  "comments": [
+    {
+      "n": 1,
+      "at": "2026-10-17T08:03:00+00:00",
+      "by": "example-agent",
+      "type": "comment",
+      "text": "Started on it."
+    }
+  ],
+  "result": null,
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=inbox",
+      "type": "created",
+      "door": "agent",
+      "column": "inbox",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T08:02:00+00:00",
+      "event": "claim",
+      "detail": "claimed by example-agent",
+      "type": "claimed",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T08:02:00+00:00",
+      "event": "move",
+      "detail": "inbox -> doing: claimed by example-agent",
+      "type": "moved",
+      "from": "inbox",
+      "to": "doing",
+      "reason": "claimed",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T08:03:00+00:00",
+      "event": "comment",
+      "detail": "example-agent: Started on it.",
+      "type": "commented",
+      "by": "example-agent",
+      "n": 1
+    },
+    {
+      "at": "2026-10-17T08:04:00+00:00",
+      "event": "question",
+      "detail": "example-agent asks alice: Which locale?",
+      "type": "question_asked",
+      "by": "example-agent",
+      "recipient": "alice",
+      "n": 1
+    },
+    {
+      "at": "2026-10-17T08:04:00+00:00",
+      "event": "move",
+      "detail": "doing -> waiting: question 1 to alice",
+      "type": "moved",
+      "from": "doing",
+      "to": "waiting",
+      "reason": "question_asked",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T08:05:00+00:00",
+      "event": "question",
+      "detail": "example-agent asks bob: Two lines?",
+      "type": "question_asked",
+      "by": "example-agent",
+      "recipient": "bob",
+      "n": 2
+    },
+    {
+      "at": "2026-10-18T09:00:00+00:00",
+      "event": "answer",
+      "detail": "alice answered question 1: en-GB",
+      "type": "question_answered",
+      "by": "alice",
+      "n": 1
+    },
+    {
+      "at": "2026-10-18T09:02:00+00:00",
+      "event": "split",
+      "detail": "example-agent split it into T0003, T0004",
+      "type": "split",
+      "by": "example-agent",
+      "children": [
+        "T0003",
+        "T0004"
+      ]
+    }
+  ],
+  "idempotency": {
+    "by": "example-agent",
+    "key": "k1",
+    "digest": "504c52eec4a1871c3320196710139c37684d476fcbd2595cbbfc9f745e9becbd"
+  },
+  "ask": {
+    "kind": "question",
+    "question": "Two\nlines?",
+    "why": "example-agent asks bob.",
+    "since": "2026-10-17T08:05:00+00:00",
+    "retry_column": null,
+    "options": [],
+    "n": 2
+  },
+  "updated": "2026-10-18T09:02:00+00:00"
+}

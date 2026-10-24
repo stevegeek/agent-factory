@@ -1,0 +1,28 @@
+{{define "content" -}}
+{{with .Board}}
+<main class="pane">
+  <div class="week"><h3>{{.Name}}{{if .Paused}} <span class="badge small paused">paused</span>{{end}}{{if .Board}} <span class="badge small board">board</span>{{end}}</h3><p><a class="btn primary add-card" href="/new?project={{.Name}}">{{if .Board}}＋ Add a card to this board{{else}}＋ New ticket for this project{{end}}</a> <a href="/boards">All boards</a></p></div>
+  {{if .Paused}}<p class="quiet">Paused: <code>enabled = false</code> in config. No agents, gates, schedules or sweeps run for it; open PRs are still followed.</p>{{end}}
+  {{if .Board}}<p class="quiet">Agents work this board through the ticket API and MCP and move its tickets there; their questions to you come to your desk.</p>{{end}}
+  {{template "searchbox" .Name}}
+  {{if .Lanes}}<div class="lane-grid">
+    {{$name := .Name}}{{range .Lanes}}
+    <section class="lane">
+      <h3>{{.Label}} <span>{{len .Tickets}}{{if .More}}+{{.More}}{{end}}</span></h3>
+      {{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{mdt .Title}}
+        {{- if .Ask}} <span class="badge small k-{{.Ask}}">{{.AskLabel}}</span>{{end}}
+        {{- with .Agent}} <span class="running-tag">{{.}}</span>{{end}}
+        {{- if or .Assignee .Labels}}<span class="card-meta">{{with .Assignee}}{{.}}{{end}}{{if and .Assignee .Labels}} · {{end}}{{range $i, $l := .Labels}}{{if $i}}, {{end}}{{$l}}{{end}}</span>{{end}}</a>{{end}}
+      {{if .More}}<p class="more-cards"><a href="/search?project={{$name}}&amp;column={{.Column}}">{{.More}} more</a></p>{{end}}
+    </section>
+    {{end}}
+  </div>{{else}}<p class="quiet">Nothing open.</p>{{end}}
+  {{range .Closed}}
+  <details class="more closed" data-key="closed-{{.Label}}">
+    <summary>{{.Label}} · {{len .Tickets}}</summary>
+    <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{mdt .Title}}</a>{{end}}</div>
+  </details>
+  {{end}}
+</main>
+{{end}}
+{{- end}}

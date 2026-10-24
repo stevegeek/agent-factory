@@ -1,0 +1,55 @@
+{
+  "stage": "verify",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0029-f1",
+  "ticket": {
+    "id": "T0029",
+    "project": "gem",
+    "title": "Bug hunt",
+    "body": "Look for bugs in this library and report them; change nothing.",
+    "door": "clock",
+    "by": "factory",
+    "column": "verifying",
+    "branch": null,
+    "agent": null,
+    "reports": {
+      "task": {
+        "status": "done",
+        "summary": "One bug",
+        "result": "## Bugs\n\n1. The parser drops the last line.",
+        "findings": [
+          {
+            "title": "Keep the last line when the input has no trailing newline",
+            "severity": "medium",
+            "kind": "bug",
+            "behaviour_change": false,
+            "repro": "Parser.parse(\"a\\nb\") # => [\"a\"]",
+            "evidence": "ran it on main",
+            "suggested_fix": "flush the buffer at EOF"
+          }
+        ]
+      }
+    },
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=clock column=ready",
+        "type": "created",
+        "door": "clock",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": "task",
+    "ask": null,
+    "result": "## Bugs\n\n1. The parser drops the last line.",
+    "findings_asked": true,
+    "updated": "2026-10-17T08:00:00+00:00"
+  }
+}

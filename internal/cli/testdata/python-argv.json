@@ -1,0 +1,104 @@
+{
+  "add": [
+    "project",
+    "title",
+    "--recipe",
+    "--body",
+    "--body-file",
+    "--door",
+    "--triage",
+    "--host",
+    "--task",
+    "--timeout",
+    "--intent",
+    "--manage"
+  ],
+  "approve": [
+    "ticket",
+    "--only"
+  ],
+  "ask": [
+    "ticket",
+    "question"
+  ],
+  "audit": [
+    "ticket"
+  ],
+  "check": [],
+  "clock": [],
+  "gate-workflow": [
+    "project"
+  ],
+  "github": [],
+  "host": [
+    "ticket",
+    "host"
+  ],
+  "look": [
+    "ticket",
+    "--lines"
+  ],
+  "ls": [
+    "--all"
+  ],
+  "memory": [
+    "project",
+    "role",
+    "--revert"
+  ],
+  "merge": [
+    "ticket"
+  ],
+  "migrate": [],
+  "model": [],
+  "move": [
+    "ticket",
+    "column",
+    "--note"
+  ],
+  "note": [
+    "ticket",
+    "text"
+  ],
+  "pr": [
+    "ticket"
+  ],
+  "proposals": [],
+  "rebuild": [],
+  "recipes": [
+    "--json"
+  ],
+  "redirect": [
+    "ticket",
+    "--note"
+  ],
+  "reply": [
+    "ticket",
+    "text"
+  ],
+  "result": [
+    "ticket"
+  ],
+  "show": [
+    "ticket"
+  ],
+  "sweep": [],
+  "tick": [],
+  "ticket": [
+    "verb",
+    "args",
+    "--as",
+    "--wait",
+    "--json",
+    "--project"
+  ],
+  "tokens": [
+    "verb",
+    "name",
+    "--project",
+    "--can",
+    "--json"
+  ],
+  "versions": [],
+  "wake": []
+}

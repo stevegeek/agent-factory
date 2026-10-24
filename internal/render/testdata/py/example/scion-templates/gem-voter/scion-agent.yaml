@@ -1,0 +1,11 @@
+schema_version: "1"
+description: "Scores proposals for worth, independently of the other panel members; never commits"
+agent_instructions: agents.md
+default_harness_config: claude
+max_duration: "30m"
+resources:
+  limits:
+    memory: 900Mi
+    cpu: "2"
+  requests:
+    memory: 300Mi

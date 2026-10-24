@@ -1,0 +1,109 @@
+{
+  "id": "T0001",
+  "project": "gem",
+  "title": "Fix",
+  "body": "b",
+  "door": "human",
+  "by": "alice",
+  "column": "ready",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T10:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "move",
+      "detail": "ready -> needs_human: triage accepted; move to ready to start work",
+      "type": "moved",
+      "from": "ready",
+      "to": "needs_human",
+      "reason": "triage_accepted",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "note",
+      "detail": "handle the empty case",
+      "type": "noted",
+      "by": "alice",
+      "note": 0
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "note",
+      "detail": "which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? wh",
+      "type": "noted",
+      "by": "maintainer",
+      "note": 1,
+      "question": "which one?"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "move",
+      "detail": "needs_human -> ready: by human",
+      "type": "moved",
+      "from": "needs_human",
+      "to": "ready",
+      "reason": "by_human",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "start",
+      "detail": "work t0001-w1 on bot/fix @helper (claude-opus-5-5)",
+      "type": "started",
+      "stage": "work",
+      "agent": "t0001-w1",
+      "host": "helper",
+      "model": "claude-opus-5-5",
+      "branch": "bot/fix"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "start",
+      "detail": "triage t0001-t1",
+      "type": "started",
+      "stage": "triage",
+      "agent": "t0001-t1",
+      "host": "local"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "finished",
+      "detail": "work t0001-w1",
+      "type": "finished",
+      "stage": "work",
+      "agent": "t0001-w1"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "error",
+      "detail": "dispatcher error: boom",
+      "rule": "a rule"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-18T10:00:00+00:00",
+  "notes": [
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "text": "handle the empty case"
+    },
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "text": "which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? which one? ",
+      "question": "which one?",
+      "answer": null
+    }
+  ]
+}

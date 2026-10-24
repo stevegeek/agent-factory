@@ -1,0 +1,93 @@
+{
+  "about": "start_stage(cfg, project, ticket, stage, host) builds each <case>.txt prompt from <case>.json: the ticket as it was before the start, the project (review_md: REVIEW.md exists at the base), the security tier classify() gave, the memory prepare_memory() gave (null: none), and the agent's name; scion_argv is `scion start` without the prompt (local runs)",
+  "config": {
+    "models": {
+      "work": "model-w"
+    },
+    "memory": {
+      "enabled": false
+    },
+    "hosts": {
+      "helper": {
+        "ssh": "factory@helper.test",
+        "slots": 1,
+        "model": "model-h"
+      }
+    }
+  },
+  "projects": {
+    "gem": {
+      "path": "<repo>",
+      "base": "main",
+      "github": "example/gem",
+      "install": "bundle install",
+      "test": "bundle exec rake test",
+      "lint": "bundle exec standardrb"
+    },
+    "gem-review": {
+      "path": "<repo>",
+      "base": "main",
+      "github": "example/gem",
+      "install": "bundle install",
+      "test": "bundle exec rake test",
+      "lint": "bundle exec standardrb"
+    },
+    "shard": {
+      "path": "<repo>",
+      "base": "main",
+      "language": "Crystal shard",
+      "install": "shards install",
+      "test": "crystal spec",
+      "lint": "bin/ameba",
+      "notes": "  Uses the C bindings in src/ext.\nDon't touch the generated files.  \n"
+    },
+    "bare": {
+      "path": "<repo>",
+      "base": "develop",
+      "test": "make test"
+    }
+  },
+  "cases": [
+    "00-triage-human",
+    "01-triage-github",
+    "02-triage-watch",
+    "03-triage-agent",
+    "04-triage-empty-body",
+    "05-work-basic",
+    "06-work-notes",
+    "07-work-review-changes",
+    "08-work-review-pass",
+    "09-work-github-notes",
+    "10-work-shard",
+    "11-work-bare",
+    "12-work-unicode",
+    "13-work-memory-local",
+    "14-work-memory-local-context",
+    "15-work-memory-helper",
+    "16-review-plain",
+    "17-review-with-review-md",
+    "18-review-rereview",
+    "19-review-rereview-no-head",
+    "20-review-github",
+    "21-security-tier-0",
+    "22-security-tier-1",
+    "23-security-tier-2",
+    "24-security-tier-3",
+    "25-security-tier-4",
+    "26-security-github",
+    "27-task-project",
+    "28-task-ref",
+    "29-task-no-project",
+    "30-task-notes",
+    "31-task-memory-helper-context",
+    "32-design-basic",
+    "33-design-feedback",
+    "34-prospect-basic",
+    "35-vote-three",
+    "36-vote-none",
+    "37-manage-basic",
+    "38-manage-previous",
+    "39-manage-result-only",
+    "40-verify-findings"
+  ]
+}

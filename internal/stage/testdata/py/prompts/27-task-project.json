@@ -1,0 +1,44 @@
+{
+  "stage": "task",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0028-k1",
+  "ticket": {
+    "id": "T0028",
+    "project": "gem",
+    "title": "What does the parser do with BOMs?",
+    "body": "Find out.",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": "task",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0028-k1",
+    "-t",
+    "task",
+    "--message-mode",
+    "none"
+  ]
+}

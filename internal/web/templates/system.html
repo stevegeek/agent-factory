@@ -1,0 +1,88 @@
+{{define "content" -}}
+{{with .System}}
+<main class="pane settings">
+  <h2 class="page-h">System status</h2>
+  <section class="set system" id="system">
+    {{if .Missing}}<p class="sys-age stale">No snapshot yet: the tick writes one at the end of every pass. If this stays, the tick is not running.</p>
+    {{else if .Error}}<p class="sys-age stale">The tick's snapshot could not be read: {{.Error}}</p>
+    {{else}}
+    <p class="sys-age{{if .Stale}} stale{{end}}">As of <time title="{{.Taken}}">{{.Age}}</time>{{if .Stale}}: older than 15 minutes, so the tick is not running{{end}}.</p>
+    <dl class="sys-facts">
+      {{with .Host}}<dt>Host</dt><dd>{{.}}</dd>{{end}}
+      {{if .Load}}<dt>Load</dt><dd class="lvl-{{.LoadLvl}}">{{.Load}}</dd>{{end}}
+      {{if .Temp}}<dt>CPU</dt><dd class="lvl-{{.TempLvl}}">{{.Temp}}</dd>{{end}}
+      <dt>Version</dt><dd class="mono">{{.Versions}}</dd>
+    </dl>
+    {{with .Bars}}<div class="meters">{{range .}}{{template "sysbar" .}}{{end}}</div>{{end}}
+    {{with .Hosts}}
+    <h4>Hosts</h4>
+    <ul class="sys-list">{{range .}}<li><b>{{.Name}}</b> <span class="{{if .Busy}}busy{{else}}muted{{end}}">{{.Agents}} agents</span>{{with .Paused}} <span class="out waiting">{{.}}</span>{{end}}</li>{{end}}</ul>
+    {{end}}
+    <h4>Containers</h4>
+    {{if .Containers}}<ul class="sys-list mono">{{range .Containers}}<li>{{.}}</li>{{end}}</ul>{{else if .Podman}}<p class="muted">None running.</p>{{else}}<p class="muted">podman did not answer.</p>{{end}}
+    {{with .Images}}<h4>Images</h4><ul class="sys-list">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    {{with .Rebuilds}}
+    <h4>Last rebuild</h4>
+    <ul class="sys-list">{{range .}}<li><b>{{.Kind}}</b> {{.When}}{{if .Verdict}} <span class="out {{if .Failed}}failed{{else}}merged{{end}}">{{.Verdict}}</span>{{end}}{{with .Summary}} <span class="muted">{{.}}</span>{{end}}</li>{{end}}</ul>
+    {{end}}
+    {{with .Problems}}<details class="sys-problems"><summary>{{len .}} thing{{if ne (len .) 1}}s{{end}} the tick could not read</summary><ul class="sys-list mono">{{range .}}<li>{{.}}</li>{{end}}</ul></details>{{end}}
+    {{range .Workers}}
+    <div class="sys-worker">
+      <h4>{{.Name}}</h4>
+      {{if .Reported}}
+      <p class="sys-age{{if .Stale}} stale{{end}}">Reported <time title="{{.Taken}}">{{.Age}}</time>{{if .Stale}}: older than 15 minutes{{end}}.</p>
+      <dl class="sys-facts">
+        {{with .Host}}<dt>Host</dt><dd>{{.}}</dd>{{end}}
+        {{with .Version}}<dt>Version</dt><dd class="mono">{{.}}</dd>{{end}}
+        {{if .Load}}<dt>Load</dt><dd class="lvl-{{.LoadLvl}}">{{.Load}}</dd>{{end}}
+        {{if .Temp}}<dt>CPU</dt><dd class="lvl-{{.TempLvl}}">{{.Temp}}</dd>{{end}}
+        {{if .Podman}}<dt>Containers</dt><dd>{{len .Containers}} running</dd>{{end}}
+        {{with .Images}}<dt>Images</dt><dd>{{range $i, $l := .}}{{if $i}} · {{end}}{{$l}}{{end}}</dd>{{end}}
+      </dl>
+      {{with .Bars}}<div class="meters">{{range .}}{{template "sysbar" .}}{{end}}</div>{{end}}
+      {{with .Containers}}<ul class="sys-list mono">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}
+      {{with .Problems}}<details class="sys-problems"><summary>{{len .}} thing{{if ne (len .) 1}}s{{end}} it could not read</summary><ul class="sys-list mono">{{range .}}<li>{{.}}</li>{{end}}</ul></details>{{end}}
+      {{with .Error}}<p class="sys-age stale">No report this pass: {{.}}; this is its last.</p>{{end}}
+      {{else if .Error}}<p class="sys-age stale">No report: {{.Error}}</p>
+      {{else}}<p class="muted">No report yet.</p>{{end}}
+    </div>
+    {{end}}
+    {{end}}
+    <h4>Seen by Foreman now</h4>
+    <div class="meters">{{range .Live}}{{template "sysbar" .}}{{end}}</div>
+    <p class="hint"><a href="/system.json">As JSON</a></p>
+  </section>
+  {{with .Deploys}}
+  <section class="set system" id="deploys">
+    <h3>Deploys</h3>
+    <p class="sys-age">{{.Hold}}</p>
+    {{- if .CanHold}}
+    <form class="switch" method="post" action="/system/deploys/hold">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      {{if .Held}}<button class="btn quiet" type="submit" name="held" value="no">Release</button>
+      {{else}}<input type="text" name="note" maxlength="500" placeholder="Why hold (optional)" aria-label="Why hold"> <button class="btn quiet" type="submit" name="held" value="yes">Hold</button>{{end}}
+    </form>
+    {{- end}}
+    {{with .Error}}<p class="sys-age stale">The deploy state could not be read: {{.}}</p>{{end}}
+    {{if .Running}}{{with .Deploy}}
+    <p class="out waiting">Deploying {{.Rev}} ({{.Commit}}) since {{.Started}}{{with .Step}}: {{.}}{{end}}</p>
+    {{end}}{{else}}{{with .Deploy}}
+    <dl class="sys-facts">
+      <dt>Last</dt><dd class="mono">{{.Commit}} <span class="out {{if .Failed}}failed{{else}}merged{{end}}">{{.Result}}</span> {{.Finished}}</dd>
+      <dt>Config</dt><dd class="mono">{{.ConfigCommit}}</dd>
+      <dt>From</dt><dd class="mono">{{.From}}</dd>
+    </dl>
+    {{with .Helpers}}<ul class="sys-list">{{range .}}<li><b>{{.Name}}</b> <span class="{{if .OK}}muted{{else}}lvl-warn{{end}}">{{.Outcome}}</span></li>{{end}}</ul>{{end}}
+    {{with .Tail}}<details class="sys-problems" open><summary>The end of its log</summary><pre class="mono">{{.}}</pre></details>{{end}}
+    {{else}}<p class="muted">No deploy yet.</p>{{end}}{{end}}
+    {{with .Waiting}}<p class="muted">A deploy of {{.}} waits for the runner (since {{$.System.Deploys.WaitedAt}}): <code>factory deploy start</code> runs it.</p>{{end}}
+  </section>
+  {{end}}
+</main>
+{{end}}
+{{- end}}
+
+{{define "sysbar" -}}
+<div class="meter-row"><div class="meter-h"><span>{{.Label}}</span><span class="lvl-{{.Lvl}}">{{.Detail}}</span></div>
+{{- if or .Pct .High}}<meter class="gauge" min="0" max="100" low="{{.Low}}" high="{{.High}}" optimum="0" value="{{.Pct}}">{{.Pct}}%</meter>{{end}}</div>
+{{- end}}

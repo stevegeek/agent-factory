@@ -1,0 +1,46 @@
+{
+  "id": "T0004",
+  "schema": 1,
+  "mode": "board",
+  "project": "b",
+  "title": "Board item",
+  "body": "body",
+  "door": "agent",
+  "by": "agent-a",
+  "column": "inbox",
+  "kind": "item",
+  "assignee": null,
+  "labels": [
+    "x"
+  ],
+  "parent": "T0001",
+  "children": [],
+  "links": [],
+  "waiting": null,
+  "questions": [],
+  "comments": [],
+  "result": null,
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T10:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=inbox",
+      "type": "created",
+      "door": "agent",
+      "column": "inbox",
+      "by": "agent-a"
+    }
+  ],
+  "idempotency": {
+    "by": "agent-a",
+    "key": "k1",
+    "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "ask": null,
+  "updated": "2026-10-18T10:00:00+00:00"
+}

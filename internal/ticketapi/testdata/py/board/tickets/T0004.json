@@ -1,0 +1,65 @@
+{
+  "id": "T0004",
+  "schema": 1,
+  "mode": "board",
+  "project": "sandbox",
+  "title": "Child two",
+  "body": "x",
+  "door": "agent",
+  "by": "example-agent",
+  "column": "done",
+  "kind": "item",
+  "assignee": null,
+  "labels": [],
+  "parent": "T0001",
+  "children": [],
+  "links": [],
+  "waiting": null,
+  "questions": [],
+  "comments": [
+    {
+      "n": 1,
+      "at": "2026-10-18T09:05:00+00:00",
+      "by": "example-agent",
+      "type": "result",
+      "text": "Shipped."
+    }
+  ],
+  "result": "Shipped.",
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T09:02:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T09:02:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=inbox",
+      "type": "created",
+      "door": "agent",
+      "column": "inbox",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-18T09:05:00+00:00",
+      "event": "comment",
+      "detail": "example-agent: Shipped.",
+      "type": "commented",
+      "by": "example-agent",
+      "n": 1
+    },
+    {
+      "at": "2026-10-18T09:05:00+00:00",
+      "event": "move",
+      "detail": "inbox -> done",
+      "type": "moved",
+      "from": "inbox",
+      "to": "done",
+      "reason": "finished",
+      "by": "example-agent"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-18T09:05:00+00:00"
+}

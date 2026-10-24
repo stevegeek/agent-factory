@@ -1,0 +1,40 @@
+{
+  "stage": "task",
+  "host": "helper",
+  "project": "gem",
+  "tier": null,
+  "memory": {
+    "role": "task",
+    "base": "0000000000000000000000000000000000000000",
+    "context": true
+  },
+  "review_md": false,
+  "agent": "t0032-k1",
+  "ticket": {
+    "id": "T0032",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": "task",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  }
+}

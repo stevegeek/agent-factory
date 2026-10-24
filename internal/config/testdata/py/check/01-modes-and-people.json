@@ -1,0 +1,20 @@
+{
+  "exit": 1,
+  "stdout": "warning: [projects.b] is a board project; path, github, test are not used\nwarning: [[watches]] w names b, a board project: the pipeline never works on one\nwarning: [[schedules]] s names b, a board project: the pipeline never works on one\nwarning: [[recipes]] r names b, a board project: the pipeline never works on one\n[projects.a] mode = 'weird': it is one of factory, board\n[board] people: 'Bob' is not a name a person can have here\n[board] people: 'factory' is not a name a person can have here\n[board] people: 3 is not a name a person can have here\n[board] people: a name is there twice\ntoken alice names gone, not in config\ntoken alice has a person's name\n",
+  "stderr": "",
+  "problems": [
+    "[projects.a] mode = 'weird': it is one of factory, board",
+    "[board] people: 'Bob' is not a name a person can have here",
+    "[board] people: 'factory' is not a name a person can have here",
+    "[board] people: 3 is not a name a person can have here",
+    "[board] people: a name is there twice",
+    "token alice names gone, not in config",
+    "token alice has a person's name"
+  ],
+  "warnings": [
+    "[projects.b] is a board project; path, github, test are not used",
+    "[[watches]] w names b, a board project: the pipeline never works on one",
+    "[[schedules]] s names b, a board project: the pipeline never works on one",
+    "[[recipes]] r names b, a board project: the pipeline never works on one"
+  ]
+}

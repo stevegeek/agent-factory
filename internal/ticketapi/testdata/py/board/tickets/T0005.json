@@ -1,0 +1,33 @@
+{
+  "id": "T0005",
+  "project": "fac",
+  "title": "Second ticket with a break",
+  "body": "Sent from T0002 on sandbox by example-agent.\n\nNote from example-agent: Please look.",
+  "door": "agent",
+  "by": "example-agent",
+  "column": "triage",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T09:03:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T09:03:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=triage",
+      "type": "created",
+      "door": "agent",
+      "column": "triage",
+      "by": "example-agent"
+    }
+  ],
+  "labels": [],
+  "links": [
+    {
+      "rel": "related",
+      "ticket": "T0002"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-18T09:03:00+00:00"
+}

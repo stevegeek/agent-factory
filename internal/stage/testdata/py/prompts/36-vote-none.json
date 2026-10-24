@@ -1,0 +1,46 @@
+{
+  "stage": "vote",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0037-v1",
+  "ticket": {
+    "id": "T0037",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "voting",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=voting",
+        "type": "created",
+        "door": "human",
+        "column": "voting",
+        "by": "factory"
+      }
+    ],
+    "kind": "prospect",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "proposals": [],
+    "votes": []
+  },
+  "scion_argv": [
+    "start",
+    "t0037-v1",
+    "-t",
+    "voter",
+    "--message-mode",
+    "none"
+  ]
+}

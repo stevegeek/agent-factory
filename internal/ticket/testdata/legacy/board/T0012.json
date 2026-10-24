@@ -1,0 +1,42 @@
+{
+  "id": "T0012",
+  "project": "widgets",
+  "title": "Slow widget job",
+  "body": "Make the widgets better.",
+  "door": "human",
+  "column": "needs_human",
+  "branch": "bot/widget-slow",
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-08T07:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready"
+    },
+    {
+      "at": "2026-10-08T07:01:00+00:00",
+      "event": "move",
+      "detail": "ready -> working"
+    },
+    {
+      "at": "2026-10-08T07:01:00+00:00",
+      "event": "start",
+      "detail": "work t0012-w1 on bot/widget-slow"
+    },
+    {
+      "at": "2026-10-08T07:50:00+00:00",
+      "event": "move",
+      "detail": "working -> needs_human: agent t0012-w1 timed out"
+    }
+  ],
+  "ask": {
+    "kind": "unstick",
+    "question": "An agent ran out of time. Try again?",
+    "why": "Agent t0012-w1 timed out.",
+    "since": "2026-10-08T07:50:00+00:00",
+    "retry_column": "ready"
+  }
+}

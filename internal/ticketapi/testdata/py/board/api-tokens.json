@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "tokens": [
+    {
+      "name": "example-agent",
+      "sha256": "06097fa19edbb3bd9d5dc1f3c52979374a84ffdbd10e9137db6091dc4c594c43",
+      "projects": [
+        "sandbox",
+        "fac"
+      ],
+      "can": [
+        "read",
+        "file",
+        "talk",
+        "work",
+        "plan"
+      ],
+      "added": "2026-10-17T08:00:00+00:00",
+      "expires": null,
+      "tickets": null
+    },
+    {
+      "name": "reader-agent",
+      "sha256": "9440fbdfe25d5d49a0ff88237b10390db5191fef4f7b9fadc194844e29e2358e",
+      "projects": [
+        "sandbox"
+      ],
+      "can": [
+        "read"
+      ],
+      "added": "2026-10-17T08:00:00+00:00",
+      "expires": null,
+      "tickets": null
+    },
+    {
+      "name": "narrow-agent",
+      "sha256": "a31df6dd923d8cf8ff04dadee5331d3dea345360d1d77895376c0947fad60582",
+      "projects": [
+        "sandbox"
+      ],
+      "can": [
+        "read",
+        "file",
+        "talk"
+      ],
+      "added": "2026-10-17T08:00:00+00:00",
+      "expires": null,
+      "tickets": [
+        "T0002"
+      ]
+    }
+  ]
+}

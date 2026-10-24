@@ -1,0 +1,13 @@
+{{define "content" -}}
+<main class="login">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Foreman</div>
+  <form method="post" action="/login" hx-boost="false">
+    <input type="hidden" name="next" value="{{.Next}}">
+    <label for="secret">Secret</label>
+    <input id="secret" name="secret" type="password" autocomplete="current-password" required autofocus>
+    {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+    <button class="btn primary" type="submit">Log in</button>
+    <p class="hint">The secret is in <span class="mono">~/factory/foreman-state/foreman-secret</span> on the factory host.</p>
+  </form>
+</main>
+{{- end}}

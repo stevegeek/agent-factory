@@ -1,0 +1,55 @@
+{
+  "about": "request_digest(req) (bin/factory): sha256 of json.dumps(req without idempotency_key, sort_keys=True, separators=(',', ':')), ensure_ascii",
+  "rows": [
+    {
+      "in": "{\"project\": \"p\", \"title\": \"x\"}",
+      "canonical": "{\"project\":\"p\",\"title\":\"x\"}",
+      "digest": "919f2c0d3296f139c27e117477dd0e7620f4b6bfbbf1ec53afcb3b9780781fe8"
+    },
+    {
+      "in": "{\"title\": \"x\", \"project\": \"p\"}",
+      "canonical": "{\"project\":\"p\",\"title\":\"x\"}",
+      "digest": "919f2c0d3296f139c27e117477dd0e7620f4b6bfbbf1ec53afcb3b9780781fe8"
+    },
+    {
+      "in": "{\"project\": \"p\", \"title\": \"x\", \"idempotency_key\": \"k1\"}",
+      "canonical": "{\"project\":\"p\",\"title\":\"x\"}",
+      "digest": "919f2c0d3296f139c27e117477dd0e7620f4b6bfbbf1ec53afcb3b9780781fe8"
+    },
+    {
+      "in": "{\"project\": \"p\", \"title\": \"Caf\\u00e9 \\ud83d\\ude00\"}",
+      "canonical": "{\"project\":\"p\",\"title\":\"Caf\\u00e9 \\ud83d\\ude00\"}",
+      "digest": "9229dd7bc93b1cc46a3c0bf6d57135767bbd2eae15c479e585f1107e3fa2993c"
+    },
+    {
+      "in": "{\"project\": \"p\", \"title\": \"x\", \"links\": [{\"rel\": \"url\", \"url\": \"https://x.test\"}], \"labels\": [\"b\", \"a\"]}",
+      "canonical": "{\"labels\":[\"b\",\"a\"],\"links\":[{\"rel\":\"url\",\"url\":\"https://x.test\"}],\"project\":\"p\",\"title\":\"x\"}",
+      "digest": "a40864678a718dcaba48325368b247784bfbdd2a6bf05a54853fb36251894f06"
+    },
+    {
+      "in": "{\"parent\": null, \"title\": \"t\", \"project\": \"p\", \"body\": \"a\\u2028b\"}",
+      "canonical": "{\"body\":\"a\\u2028b\",\"parent\":null,\"project\":\"p\",\"title\":\"t\"}",
+      "digest": "7381a6590a4cdc561d3d4d1ff4a447e9ef14c30ee8fa86819f32d374d186f179"
+    },
+    {
+      "in": "{\"b\": [3, 1], \"a\": {\"y\": 1, \"x\": 2}}",
+      "canonical": "{\"a\":{\"x\":2,\"y\":1},\"b\":[3,1]}",
+      "digest": "a9e6e4660f865bd1b2ff6be376b15d3c36d2337dae82273f5a09d1cc043ab29e"
+    },
+    {
+      "in": "{}",
+      "canonical": "{}",
+      "digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "in": "{\"title\": \"x\", \"body\": \"\", \"kind\": \"item\", \"parent\": \"T0001\"}",
+      "canonical": "{\"body\":\"\",\"kind\":\"item\",\"parent\":\"T0001\",\"title\":\"x\"}",
+      "digest": "ad6906f171e632cdb14098f4d0dc56ff5866687001cd4d22cfe90c2c2960a245"
+    },
+    {
+      "in": "{\"n\": 1.5, \"m\": 10, \"k\": true}",
+      "canonical": "{\"k\":true,\"m\":10,\"n\":1.5}",
+      "digest": "805efccd8655c871e21802c265f5af6b19187580d5c42cd973e3f5104b0f3b5e"
+    }
+  ]
+}

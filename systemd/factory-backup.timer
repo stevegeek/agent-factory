@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent factory: daily encrypted backup
+
+[Timer]
+OnCalendar=*-*-* 04:30
+Persistent=true
+RandomizedDelaySec=20min
+Unit=factory-backup.service
+
+[Install]
+WantedBy=timers.target

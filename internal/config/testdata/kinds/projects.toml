@@ -1,0 +1,37 @@
+# Projects as they are written today, with every key set by hand and no
+# kind: TestKindsKeepFixtureProjects checks that a kind changes none of
+# the values the gate and agents see, with or without `kind` set.
+
+[gate]
+memory = "900m"
+heavy_memory = "1200m"
+
+[projects.plain_gem]
+path = "/srv/plain_gem"
+github = "example/plain_gem"
+base = "main"
+install = "bundle check"
+test = "bundle exec rake test"
+lint = "bundle exec standardrb"
+pinned_untracked = ["Gemfile.lock"]
+
+[projects.own_install_shard]
+path = "/srv/own_install_shard"
+github = "example/own_install_shard"
+base = "main"
+language = "Crystal shard"
+install = "shards install --frozen"
+test = "crystal spec"
+lint = "crystal tool format --check src spec && ameba src spec"
+pinned_untracked = ["lib", "shard.lock"]
+
+[projects.heavy_shard]
+path = "/srv/heavy_shard"
+github = "example/heavy_shard"
+base = "main"
+language = "Crystal shard: an extension for a web framework"
+install = "shards check || shards install"
+test = "crystal spec"
+lint = "crystal tool format --check src spec && ameba src spec"
+gate_memory = "1800m"
+pinned_untracked = ["lib", "shard.lock"]

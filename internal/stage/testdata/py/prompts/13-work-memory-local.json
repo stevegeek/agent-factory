@@ -1,0 +1,54 @@
+{
+  "stage": "work",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": {
+    "role": "worker",
+    "base": "0000000000000000000000000000000000000000",
+    "context": false
+  },
+  "review_md": false,
+  "agent": "t0014-w1",
+  "ticket": {
+    "id": "T0014",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": null,
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0014-w1",
+    "-t",
+    "worker",
+    "--message-mode",
+    "none",
+    "--config",
+    "<root>/run/t0014-w1.yaml",
+    "-b",
+    "bot/parser-drops-the-last-line",
+    "--model",
+    "model-w"
+  ]
+}

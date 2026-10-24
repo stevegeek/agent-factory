@@ -1,0 +1,243 @@
+[
+ {
+  "in": "",
+  "out": []
+ },
+ {
+  "in": "   ",
+  "out": []
+ },
+ {
+  "in": "list",
+  "out": [
+   "list"
+  ]
+ },
+ {
+  "in": "status t0001-w1",
+  "out": [
+   "status",
+   "t0001-w1"
+  ]
+ },
+ {
+  "in": "  status   t0001-w1  ",
+  "out": [
+   "status",
+   "t0001-w1"
+  ]
+ },
+ {
+  "in": "run t0001-t1",
+  "out": [
+   "run",
+   "t0001-t1"
+  ]
+ },
+ {
+  "in": "rm -rf /",
+  "out": [
+   "rm",
+   "-rf",
+   "/"
+  ]
+ },
+ {
+  "in": "status ../../etc",
+  "out": [
+   "status",
+   "../../etc"
+  ]
+ },
+ {
+  "in": "status ''",
+  "out": [
+   "status",
+   ""
+  ]
+ },
+ {
+  "in": "status \"\"",
+  "out": [
+   "status",
+   ""
+  ]
+ },
+ {
+  "in": "status \"a b\"",
+  "out": [
+   "status",
+   "a b"
+  ]
+ },
+ {
+  "in": "status a\\ b",
+  "out": [
+   "status",
+   "a b"
+  ]
+ },
+ {
+  "in": "status \"a\\\"b\"",
+  "out": [
+   "status",
+   "a\"b"
+  ]
+ },
+ {
+  "in": "status \"a\\b\"",
+  "out": [
+   "status",
+   "a\\b"
+  ]
+ },
+ {
+  "in": "status 'a\\b'",
+  "out": [
+   "status",
+   "a\\b"
+  ]
+ },
+ {
+  "in": "status a\"b\"c",
+  "out": [
+   "status",
+   "abc"
+  ]
+ },
+ {
+  "in": "x\\",
+  "error": "No escaped character"
+ },
+ {
+  "in": "\"unclosed",
+  "error": "No closing quotation"
+ },
+ {
+  "in": "'unclosed",
+  "error": "No closing quotation"
+ },
+ {
+  "in": "a\tb\nc\rd",
+  "out": [
+   "a",
+   "b",
+   "c",
+   "d"
+  ]
+ },
+ {
+  "in": "status \"\"\"\"",
+  "out": [
+   "status",
+   ""
+  ]
+ },
+ {
+  "in": "a\\\\b",
+  "out": [
+   "a\\b"
+  ]
+ },
+ {
+  "in": "\"a\\\\b\"",
+  "out": [
+   "a\\b"
+  ]
+ },
+ {
+  "in": "a#b",
+  "out": [
+   "a#b"
+  ]
+ },
+ {
+  "in": "#c d",
+  "out": [
+   "#c",
+   "d"
+  ]
+ },
+ {
+  "in": "a\u000bb",
+  "out": [
+   "a\u000bb"
+  ]
+ },
+ {
+  "in": "a\\\nb",
+  "out": [
+   "a\nb"
+  ]
+ },
+ {
+  "in": "status 't0001-w1'",
+  "out": [
+   "status",
+   "t0001-w1"
+  ]
+ },
+ {
+  "in": "start t0001-w1; rm -rf ~",
+  "out": [
+   "start",
+   "t0001-w1;",
+   "rm",
+   "-rf",
+   "~"
+  ]
+ },
+ {
+  "in": "status $(id)",
+  "out": [
+   "status",
+   "$(id)"
+  ]
+ },
+ {
+  "in": "list\u0000x",
+  "out": [
+   "list\u0000x"
+  ]
+ },
+ {
+  "in": "\u00e9 \u00fc",
+  "out": [
+   "\u00e9",
+   "\u00fc"
+  ]
+ },
+ {
+  "in": "a\u00a0b",
+  "out": [
+   "a\u00a0b"
+  ]
+ },
+ {
+  "in": "a\u001cb",
+  "out": [
+   "a\u001cb"
+  ]
+ },
+ {
+  "in": "'' ''",
+  "out": [
+   "",
+   ""
+  ]
+ },
+ {
+  "in": "status a\\'b",
+  "out": [
+   "status",
+   "a'b"
+  ]
+ },
+ {
+  "in": "status \"it's\"",
+  "out": [
+   "status",
+   "it's"
+  ]
+ }
+]

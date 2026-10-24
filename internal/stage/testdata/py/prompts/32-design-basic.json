@@ -1,0 +1,44 @@
+{
+  "stage": "design",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0033-d1",
+  "ticket": {
+    "id": "T0033",
+    "project": "gem",
+    "title": "A plugin system",
+    "body": "Let users add parsers.",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": "intent",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0033-d1",
+    "-t",
+    "designer",
+    "--message-mode",
+    "none"
+  ]
+}

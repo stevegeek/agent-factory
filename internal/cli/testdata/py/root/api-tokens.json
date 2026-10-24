@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "tokens": [
+    {
+      "name": "example-agent",
+      "sha256": "06097fa19edbb3bd9d5dc1f3c52979374a84ffdbd10e9137db6091dc4c594c43",
+      "projects": [
+        "gem"
+      ],
+      "can": [
+        "read",
+        "file"
+      ],
+      "added": "2026-10-17T08:00:00+00:00",
+      "expires": null,
+      "tickets": null
+    },
+    {
+      "name": "later-agent",
+      "sha256": "452272933cf0143d5527bea7f2ac36465832e2d5ffb725b857735cac9d165f1c",
+      "projects": [
+        "gem",
+        "notes"
+      ],
+      "can": [
+        "read",
+        "talk",
+        "work"
+      ],
+      "added": "2026-10-17T08:00:00+00:00",
+      "expires": "2027-01-01T00:00:00+00:00",
+      "tickets": null
+    }
+  ]
+}

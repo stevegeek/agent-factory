@@ -1,0 +1,96 @@
+{
+  "verb": "note",
+  "caller": {
+    "name": "example-agent",
+    "person": false,
+    "projects": [
+      "sandbox",
+      "fac"
+    ],
+    "can": [
+      "read",
+      "file",
+      "talk",
+      "work",
+      "plan"
+    ],
+    "tickets": null,
+    "expires": null
+  },
+  "now": "2026-10-17T08:03:00+00:00",
+  "out": {
+    "ticket": {
+      "id": "T0001",
+      "project": "sandbox",
+      "mode": "board",
+      "kind": "item",
+      "title": "Date picker",
+      "body": "Pick a date.\n\nWith ``` fences ``` inside and a `tick`.",
+      "column": "doing",
+      "column_label": "Doing",
+      "assignee": "example-agent",
+      "labels": [
+        "ui"
+      ],
+      "parent": null,
+      "children": [],
+      "links": [],
+      "created": "2026-10-17T08:00:00+00:00",
+      "updated": "2026-10-17T08:03:00+00:00",
+      "by": "example-agent",
+      "waiting": null,
+      "questions": [],
+      "conversation": [
+        {
+          "at": "2026-10-17T08:03:00+00:00",
+          "by": "example-agent",
+          "type": "comment",
+          "text": "Started on it.",
+          "n": 1
+        }
+      ],
+      "result": null,
+      "history": [
+        {
+          "at": "2026-10-17T08:00:00+00:00",
+          "type": "created",
+          "by": "example-agent",
+          "detail": "door=agent column=inbox"
+        },
+        {
+          "at": "2026-10-17T08:02:00+00:00",
+          "type": "claimed",
+          "by": "example-agent",
+          "detail": "claimed by example-agent"
+        },
+        {
+          "at": "2026-10-17T08:02:00+00:00",
+          "type": "moved",
+          "by": "example-agent",
+          "from": "inbox",
+          "to": "doing",
+          "reason": "claimed",
+          "detail": "inbox -> doing: claimed by example-agent"
+        },
+        {
+          "at": "2026-10-17T08:03:00+00:00",
+          "type": "commented",
+          "by": "example-agent",
+          "detail": "example-agent: Started on it."
+        }
+      ],
+      "factory": null
+    }
+  },
+  "result": {
+    "ticket": {
+      "id": "T0001",
+      "project": "sandbox",
+      "mode": "board",
+      "column": "doing",
+      "column_label": "Doing",
+      "assignee": "example-agent"
+    },
+    "markdown": "## Conversation\n- 08:03 \u00b7 you \u00b7 comment: Started on it.\n"
+  }
+}

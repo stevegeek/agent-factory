@@ -1,0 +1,11 @@
+schema_version: "1"
+description: "Carries out one small task (summary, check, lookup) and reports the answer; never changes the project"
+agent_instructions: agents.md
+default_harness_config: claude
+max_duration: "120m"
+resources:
+  limits:
+    memory: 900Mi
+    cpu: "2"
+  requests:
+    memory: 300Mi

@@ -1,0 +1,31 @@
+{
+  "id": "T0008",
+  "project": "gem",
+  "title": "Running locally",
+  "body": "",
+  "door": "human",
+  "by": "factory",
+  "column": "working",
+  "branch": null,
+  "agent": {
+    "name": "t0008-w1",
+    "stage": "work",
+    "started": "2026-10-17T08:00:00+00:00",
+    "host": "local"
+  },
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=working",
+      "type": "created",
+      "door": "human",
+      "column": "working",
+      "by": "factory"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

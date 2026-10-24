@@ -1,0 +1,71 @@
+{
+  "stage": "manage",
+  "host": "local",
+  "project": "factory",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0039-m1",
+  "ticket": {
+    "id": "T0039",
+    "project": "factory",
+    "title": "Add a project",
+    "body": "",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      },
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "note",
+        "detail": "Use mode board.",
+        "type": "noted",
+        "by": "factory",
+        "note": 0
+      }
+    ],
+    "kind": "manage",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "notes": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "text": "Use mode board."
+      }
+    ],
+    "result": "An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. An answer. ",
+    "drafts": [
+      {
+        "title": "Add the project",
+        "why": "Asked.",
+        "patch": "--- a\n+++ b\n"
+      },
+      {
+        "title": "Pin it",
+        "why": "",
+        "patch": "x"
+      }
+    ]
+  },
+  "scion_argv": [
+    "start",
+    "t0039-m1",
+    "-t",
+    "manager",
+    "--message-mode",
+    "none"
+  ]
+}

@@ -1,0 +1,10 @@
+[github]
+app_slug = "example-factory"
+[gate]
+allowed_paths = ["*.md", "lib/**/*.rb", "a\"b"]
+max_changed_lines = 7
+[projects.gem]
+path = "/srv/gem"
+base = "release/1.x"
+test = "bundle exec rake \"test:unit\" && echo 'ok'"
+lint = "echo café ✓"

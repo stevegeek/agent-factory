@@ -1,0 +1,21 @@
+# factory-pull as a systemd user service on the desktop:
+#   install -Dm644 factory-pull.service ~/.config/systemd/user/factory-pull.service
+#   systemctl --user daemon-reload && systemctl --user enable --now factory-pull
+# It starts with the session (loginctl enable-linger to start at boot) and drains
+# whatever is queued; `systemctl --user stop factory-pull` takes the desktop out:
+# the factory sees no beat for beat_minutes and sends its jobs elsewhere.
+[Unit]
+Description=agent-factory pull worker (claims jobs for the Lever instance)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/factory-pull
+Restart=on-failure
+RestartSec=30
+# lever and ssh are found on this PATH
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

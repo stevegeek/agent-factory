@@ -1,0 +1,27 @@
+{
+ "name": "reply-manager-notice",
+ "now": "2026-10-18T10:00:00+00:00",
+ "config": "[board]\npeople = [\"sam\", \"alex\"]\n\n[hosts.helper]\nssh = \"factory@helper.example\"\n\n[projects.gem]\npath = \"/nonexistent/gem\"\nbase = \"main\"\ngithub = \"example/gem\"\n\n[projects.widgets]\npath = \"/nonexistent/widgets\"\nbase = \"main\"\n\n[projects.notes]\nmode = \"board\"\n\n[[schedules]]\nname = \"bug-hunt\"\nevery_days = 30\nkind = \"task\"\ntitle = \"Bug hunt\"\nbody = \"Look in {github} for bugs.\"\n\n[[recipes]]\nname = \"docs-pass\"\ntitle = \"Tidy the docs\"\nbody = \"Read the README.\"\nprojects = [\"widgets\"]\n\n[[recipes]]\nname = \"scan\"\nkind = \"prospect\"\ntitle = \"Scan\"\nbody = \"Look around {github}.\"\n",
+ "op": "reply",
+ "args": {
+  "ticket": "T0001",
+  "text": [
+   "thanks"
+  ]
+ },
+ "before": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"factory\",\n  \"title\": \"A morning check\",\n  \"body\": \"Every weekday\",\n  \"door\": \"human\",\n  \"by\": \"sam\",\n  \"column\": \"needs_human\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {\n    \"manage\": {\n      \"status\": \"done\",\n      \"summary\": \"Drafted a weekday check.\",\n      \"result\": \"## Plan\\nA schedule.\"\n    }\n  },\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready\",\n      \"by\": \"sam\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"finished\",\n      \"detail\": \"manage t0001-m1\",\n      \"type\": \"finished\",\n      \"stage\": \"manage\",\n      \"agent\": \"t0001-m1\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"ready -> needs_human: manager answered: Drafted a weekday check.\",\n      \"type\": \"moved\",\n      \"from\": \"ready\",\n      \"to\": \"needs_human\",\n      \"reason\": \"manager_answered\",\n      \"by\": \"factory\"\n    }\n  ],\n  \"kind\": \"manage\",\n  \"ask\": {\n    \"kind\": \"notice\",\n    \"question\": \"Read the manager's answer and close it?\",\n    \"why\": \"## Plan A schedule.\",\n    \"since\": \"2026-10-18T10:00:00+00:00\",\n    \"retry_column\": null\n  },\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"host\": \"local\",\n  \"agent_last_host\": \"local\",\n  \"result\": \"## Plan\\nA schedule.\",\n  \"drafts\": []\n}"
+ },
+ "stdout": "T0001: the manager carries on with your reply\n",
+ "error": null,
+ "wakes": 1,
+ "logs": [
+  "T0001 note thanks",
+  "T0001 move needs_human -> ready: the maintainer replied to the manager"
+ ],
+ "after": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"factory\",\n  \"title\": \"A morning check\",\n  \"body\": \"Every weekday\",\n  \"door\": \"human\",\n  \"by\": \"sam\",\n  \"column\": \"ready\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {\n    \"manage\": {\n      \"status\": \"done\",\n      \"summary\": \"Drafted a weekday check.\",\n      \"result\": \"## Plan\\nA schedule.\"\n    }\n  },\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready\",\n      \"by\": \"sam\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"finished\",\n      \"detail\": \"manage t0001-m1\",\n      \"type\": \"finished\",\n      \"stage\": \"manage\",\n      \"agent\": \"t0001-m1\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"ready -> needs_human: manager answered: Drafted a weekday check.\",\n      \"type\": \"moved\",\n      \"from\": \"ready\",\n      \"to\": \"needs_human\",\n      \"reason\": \"manager_answered\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"note\",\n      \"detail\": \"thanks\",\n      \"type\": \"noted\",\n      \"by\": \"sam\",\n      \"note\": 0\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"needs_human -> ready: the maintainer replied to the manager\",\n      \"type\": \"moved\",\n      \"from\": \"needs_human\",\n      \"to\": \"ready\",\n      \"reason\": \"replied\",\n      \"by\": \"sam\"\n    }\n  ],\n  \"kind\": \"manage\",\n  \"ask\": null,\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"host\": \"local\",\n  \"agent_last_host\": \"local\",\n  \"result\": \"## Plan\\nA schedule.\",\n  \"drafts\": [],\n  \"notes\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"text\": \"thanks\"\n    }\n  ]\n}"
+ }
+}

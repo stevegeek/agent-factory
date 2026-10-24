@@ -1,0 +1,21 @@
+Café ünïcode 😀
+
+Two paragraphs.
+
+Fixes #7
+
+**Testing**
+
+- The author ran the tests (?) and lint (?).
+- Tests and lint pass again on a fresh checkout with no network access.
+- Independent review: pass; changes runtime behaviour for users: no.
+- Security review (tier 0): 1 question answered, none above low concern.
+- Small, docs/tests/config-only change: eligible for automatic approval.
+
+**Risk**
+
+- Text only (security tier 0); 4 changed lines in 1 file(s); changes behaviour for users: no.
+
+**How to revert**
+
+- Revert the merge commit (`git revert -m 1 <merge commit>`); this change carries no data migration.

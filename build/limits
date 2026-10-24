@@ -1,0 +1,19 @@
+# The build's memory limits (ARCHITECTURE.md §9.1, §9.4), read by build.sh as key=value lines.
+#
+#   peak_mb      the largest compile or link process `build.sh --measure` allows, in MB
+#   memory_high  MemoryHigh= of the systemd user scope a build on the box runs in
+#   memory_max   MemoryMax= of that scope; the agent wait also needs this plus 200 MB free
+#
+# GOMEMLIMIT for the compiler and linker is in limits.gomemlimit.
+#
+# Measured with the official go1.27.1 and the §9.3 flags (`build.sh --measure`, a cold build of
+# all three binaries):
+#   desktop (x86-64, 2026-10-18), three runs: peak 189-198 MB (compile runtime), links 150-175 MB,
+#   net/http 111-115 MB; cold build about 25 s.
+#   the dispatcher host (a small low-power box), idle and next to one running Claude agent: not measured yet (run `build.sh --measure`
+#   and `build.sh --measure --force` there, then tighten these).
+# The values stay the provisional ones of §9 until the dispatcher host's numbers are in: the peak per process
+# depends on the compiler, not the CPU, so the desktop's ~200 MB leaves the 450 MB limit wide room.
+peak_mb=450
+memory_high=400M
+memory_max=500M

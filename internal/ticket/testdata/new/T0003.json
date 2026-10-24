@@ -1,0 +1,32 @@
+{
+  "id": "T0003",
+  "project": "factory",
+  "title": "Update something",
+  "body": "A newer release is out.",
+  "door": "clock",
+  "by": "factory",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T10:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T10:00:00+00:00",
+      "event": "created",
+      "detail": "door=clock column=needs_human",
+      "type": "created",
+      "door": "clock",
+      "column": "needs_human",
+      "by": "factory"
+    }
+  ],
+  "ask": {
+    "kind": "notice",
+    "question": "Read this notice and close it when it is handled?",
+    "why": "A newer release is out.",
+    "since": "2026-10-18T10:00:00+00:00",
+    "retry_column": null
+  },
+  "updated": "2026-10-18T10:00:00+00:00"
+}

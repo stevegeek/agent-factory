@@ -1,0 +1,136 @@
+{
+  "about": "bin/render examples/config OUT: every file it writes under example/ (bin/ and patch_provision.py left out), with its mode; stdout is the out directory",
+  "config": "examples/config",
+  "stdout": "<out>\n",
+  "files": {
+    "config.toml": {
+      "mode": "0o644"
+    },
+    "images/pi/Containerfile": {
+      "mode": "0o644"
+    },
+    "images/pi/agent-rules.md": {
+      "mode": "0o644"
+    },
+    "images/scion-agent/Containerfile": {
+      "mode": "0o644"
+    },
+    "images/scion-agent/agent-rules.md": {
+      "mode": "0o644"
+    },
+    "images/scion-agent/managed-settings.json": {
+      "mode": "0o644"
+    },
+    "scion-templates/default/system-prompt.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-designer/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-designer/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-prospector/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-prospector/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-reviewer/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-reviewer/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-security/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-security/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-task/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-task/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-triage/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-triage/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-voter/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-voter/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-verifier/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-verifier/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-worker/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/gem-worker/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "scion-templates/manager/agents.md": {
+      "mode": "0o644"
+    },
+    "scion-templates/manager/scion-agent.yaml": {
+      "mode": "0o644"
+    },
+    "systemd/factory-backup-verify.service": {
+      "mode": "0o644"
+    },
+    "systemd/factory-backup-verify.timer": {
+      "mode": "0o644"
+    },
+    "systemd/factory-backup.service": {
+      "mode": "0o644"
+    },
+    "systemd/factory-backup.timer": {
+      "mode": "0o644"
+    },
+    "systemd/factory-clock.timer": {
+      "mode": "0o644"
+    },
+    "systemd/factory-rebuild.service": {
+      "mode": "0o644"
+    },
+    "systemd/factory-rebuild.timer": {
+      "mode": "0o644"
+    },
+    "systemd/factory-screens.path": {
+      "mode": "0o644"
+    },
+    "systemd/factory-screens.service": {
+      "mode": "0o644"
+    },
+    "systemd/factory-sweep.timer": {
+      "mode": "0o644"
+    },
+    "systemd/factory-tick.timer": {
+      "mode": "0o644"
+    },
+    "systemd/factory-wake.path": {
+      "mode": "0o644"
+    },
+    "systemd/factory-wake.service": {
+      "mode": "0o644"
+    },
+    "systemd/factory@.service": {
+      "mode": "0o644"
+    },
+    "systemd/foreman.service": {
+      "mode": "0o644"
+    },
+    "systemd/install-units.sh": {
+      "mode": "0o644"
+    }
+  }
+}

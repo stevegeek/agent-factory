@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# The -toolexec wrapper of `build.sh --measure`: runs one compile, link or
+# asm step and appends "<peak RSS KB> <tool> <package>" to
+# $FACTORY_MEASURE_LOG. It uses GNU time when present; otherwise it samples
+# VmHWM (the kernel's own high-water mark) from /proc every 20 ms, which can
+# miss a peak only in the last moments of a process.
+set -u
+tool=$1
+name=$(basename "$tool")
+case " $* " in
+  *" -V=full "*|*" -V "*) exec "$@" ;; # version queries for the cache key
+esac
+pkg=-
+prev=""
+for a in "$@"; do
+  if [ "$prev" = -p ]; then pkg=$a; fi
+  prev=$a
+done
+[ "$name" = link ] && pkg=link
+log=${FACTORY_MEASURE_LOG:?FACTORY_MEASURE_LOG is not set}
+
+if [ -x /usr/bin/time ] && /usr/bin/time -f %M true >/dev/null 2>&1; then
+  /usr/bin/time -f "%M $name $pkg" -a -o "$log" "$@"
+  exit $?
+fi
+
+"$@" &
+pid=$!
+peak=0
+while kill -0 "$pid" 2>/dev/null; do
+  hwm=$(awk '$1 == "VmHWM:" { print $2 }' "/proc/$pid/status" 2>/dev/null)
+  if [ -n "${hwm:-}" ] && [ "$hwm" -gt "$peak" ]; then peak=$hwm; fi
+  sleep 0.02
+done
+wait "$pid"
+rc=$?
+echo "$peak $name $pkg" >>"$log"
+exit "$rc"

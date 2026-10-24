@@ -1,0 +1,59 @@
+{
+  "id": "T0006",
+  "schema": 1,
+  "mode": "board",
+  "project": "sandbox",
+  "title": "Assigned to bob",
+  "body": "",
+  "door": "agent",
+  "by": "example-agent",
+  "column": "next",
+  "kind": "item",
+  "assignee": "bob",
+  "labels": [],
+  "parent": null,
+  "children": [],
+  "links": [],
+  "waiting": null,
+  "questions": [],
+  "comments": [],
+  "result": null,
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T09:06:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T09:06:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=inbox",
+      "type": "created",
+      "door": "agent",
+      "column": "inbox",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-18T09:07:00+00:00",
+      "event": "edit",
+      "detail": "alice changed assignee",
+      "type": "edited",
+      "by": "alice",
+      "fields": [
+        "assignee"
+      ]
+    },
+    {
+      "at": "2026-10-18T09:08:00+00:00",
+      "event": "move",
+      "detail": "inbox -> next",
+      "type": "moved",
+      "from": "inbox",
+      "to": "next",
+      "reason": "parked",
+      "by": "alice"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-18T09:08:00+00:00"
+}

@@ -1,0 +1,299 @@
+{
+  "ask_kinds": [
+    "question",
+    "unstick",
+    "review",
+    "open",
+    "deploy",
+    "draft",
+    "start",
+    "design",
+    "findings",
+    "proposal",
+    "decide",
+    "notice"
+  ],
+  "board_column_labels": {
+    "doing": "Doing",
+    "done": "Done",
+    "dropped": "Dropped",
+    "inbox": "Inbox",
+    "next": "Next",
+    "waiting": "Waiting"
+  },
+  "board_columns": [
+    "inbox",
+    "next",
+    "doing",
+    "waiting",
+    "done",
+    "dropped"
+  ],
+  "capabilities": [
+    "read",
+    "file",
+    "talk",
+    "work",
+    "plan"
+  ],
+  "column_labels": {
+    "done": "Done",
+    "gate": "the gate",
+    "needs_human": "Needs you",
+    "pr_open": "PR open",
+    "ready": "Ready",
+    "ready_for_pr": "Ready for PR",
+    "rejected": "Closed",
+    "review": "Review",
+    "security": "Security",
+    "triage": "Triage",
+    "verifying": "Verifying",
+    "voting": "Voting",
+    "working": "Working"
+  },
+  "columns": [
+    "triage",
+    "ready",
+    "working",
+    "voting",
+    "verifying",
+    "review",
+    "security",
+    "gate",
+    "ready_for_pr",
+    "pr_open",
+    "needs_human",
+    "done",
+    "rejected"
+  ],
+  "event_types": {
+    "answered": [
+      "ticket",
+      "text"
+    ],
+    "asked": [
+      "ticket",
+      "text"
+    ],
+    "claimed": [
+      "by"
+    ],
+    "commented": [
+      "by",
+      "n"
+    ],
+    "created": [
+      "door",
+      "column",
+      "by"
+    ],
+    "edited": [
+      "by",
+      "fields"
+    ],
+    "errored": [
+      "text"
+    ],
+    "filed": [
+      "ticket"
+    ],
+    "finished": [
+      "stage",
+      "agent"
+    ],
+    "gated": [
+      "base",
+      "commit"
+    ],
+    "linked": [
+      "by",
+      "rel",
+      "ticket?",
+      "url?"
+    ],
+    "memory": [
+      "role",
+      "commit?",
+      "files?",
+      "over_limit_kb?",
+      "lost_on?"
+    ],
+    "moved": [
+      "from",
+      "to",
+      "reason",
+      "by"
+    ],
+    "noted": [
+      "by",
+      "note",
+      "question?"
+    ],
+    "panel": [
+      "kept"
+    ],
+    "pinned": [
+      "host"
+    ],
+    "pr": [
+      "action",
+      "number?",
+      "why?"
+    ],
+    "question_answered": [
+      "by",
+      "n"
+    ],
+    "question_asked": [
+      "by",
+      "recipient",
+      "n"
+    ],
+    "review_requested": [
+      "reviewers"
+    ],
+    "sent_to_factory": [
+      "by",
+      "ticket"
+    ],
+    "split": [
+      "by",
+      "children"
+    ],
+    "started": [
+      "stage",
+      "agent",
+      "host",
+      "model?",
+      "branch?"
+    ],
+    "voted": [
+      "k",
+      "n"
+    ]
+  },
+  "kinds": {
+    "board": [
+      "item",
+      "task"
+    ],
+    "factory": [
+      "change",
+      "task",
+      "intent",
+      "prospect",
+      "proposal",
+      "manage"
+    ]
+  },
+  "modes": [
+    "factory",
+    "board"
+  ],
+  "move_reasons": [
+    "usage_limit",
+    "timed_out",
+    "agent_lost",
+    "no_report",
+    "started",
+    "agent_question",
+    "answered_on",
+    "task_done",
+    "task_blocked",
+    "worker_blocked",
+    "no_commits",
+    "work_done",
+    "reviewer_committed",
+    "review_passed",
+    "review_exhausted",
+    "review_changes",
+    "security_passed",
+    "security_failed",
+    "designer_blocked",
+    "design_ready",
+    "manager_blocked",
+    "manager_drafted",
+    "manager_answered",
+    "prospect_empty",
+    "proposals_ready",
+    "panel_done",
+    "triage_rejected",
+    "triage_unsure",
+    "triage_accepted",
+    "gate_failed",
+    "gate_passed",
+    "dispatcher_error",
+    "pr_opened",
+    "main_moved",
+    "pr_merged",
+    "pr_closed",
+    "conflicts",
+    "changes_requested",
+    "replied",
+    "question_answered",
+    "proposal_approved",
+    "design_approved",
+    "redirected",
+    "by_human",
+    "claimed",
+    "parked",
+    "waiting",
+    "finished",
+    "dropped",
+    "reopened",
+    "question_asked",
+    "findings_reported",
+    "verify_requested",
+    "findings_verified",
+    "verifier_blocked",
+    "findings_filed",
+    "findings_dismissed",
+    "imported",
+    "deploy_held",
+    "deploy_requested",
+    "deploy_started"
+  ],
+  "running_column": {
+    "design": "working",
+    "manage": "working",
+    "prospect": "working",
+    "review": "review",
+    "security": "security",
+    "task": "working",
+    "triage": "triage",
+    "verify": "verifying",
+    "vote": "voting",
+    "work": "working"
+  },
+  "stage_for_column": {
+    "ready": "work",
+    "review": "review",
+    "security": "security",
+    "triage": "triage",
+    "verifying": "verify"
+  },
+  "stage_labels": {
+    "design": "Designer",
+    "manage": "Manager",
+    "prospect": "Prospector",
+    "review": "Reviewer",
+    "security": "Security",
+    "task": "Task agent",
+    "triage": "Triage",
+    "verify": "Verifier",
+    "vote": "Voter",
+    "work": "Worker"
+  },
+  "stages": [
+    "triage",
+    "work",
+    "review",
+    "security",
+    "task",
+    "design",
+    "prospect",
+    "vote",
+    "manage",
+    "verify"
+  ]
+}

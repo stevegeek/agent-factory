@@ -1,0 +1,250 @@
+{
+  "about": "check_meta(meta) (bin/factory-remote): the job's meta.json as the helper accepts it, or why not",
+  "rows": [
+    {
+      "in": {
+        "branch": "bot/x",
+        "start": "main",
+        "model": "m",
+        "bundle": true,
+        "timeout_minutes": 30
+      },
+      "out": {
+        "branch": "bot/x",
+        "start": "main",
+        "model": "m",
+        "bundle": true,
+        "timeout_minutes": 30
+      }
+    },
+    {
+      "in": {
+        "branch": "task",
+        "start": "none"
+      },
+      "out": {
+        "branch": "task",
+        "start": "none",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "branch": "bot/x\n",
+        "start": "main"
+      },
+      "out": {
+        "branch": "bot/x\n",
+        "start": "main",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "branch": "a..b",
+        "start": "main"
+      },
+      "error": "ValueError: bad branch in meta.json"
+    },
+    {
+      "in": {
+        "branch": "-x",
+        "start": "main"
+      },
+      "error": "ValueError: bad branch in meta.json"
+    },
+    {
+      "in": {
+        "branch": "/x",
+        "start": "main"
+      },
+      "error": "ValueError: bad branch in meta.json"
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "model": "-m"
+      },
+      "error": "ValueError: bad model in meta.json"
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "model": "provider/m:1"
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "provider/m:1",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": 500
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 120
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": 0
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 1
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": "30"
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 30
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": "12.5"
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": null
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": true
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 1
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "timeout_minutes": 2.9
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 2
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "bundle": "no"
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": true,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "branch": "x",
+        "start": "y",
+        "model": ""
+      },
+      "out": {
+        "branch": "x",
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": {
+        "start": "y"
+      },
+      "error": "ValueError: bad branch in meta.json"
+    },
+    {
+      "in": {
+        "branch": 12,
+        "start": "y"
+      },
+      "out": {
+        "branch": 12,
+        "start": "y",
+        "model": "claude-sonnet-5-5",
+        "bundle": false,
+        "timeout_minutes": 45
+      }
+    },
+    {
+      "in": [
+        "not",
+        "an",
+        "object"
+      ],
+      "error": "ValueError: meta.json is not an object"
+    },
+    {
+      "in": {
+        "branch": "\u00e9",
+        "start": "y"
+      },
+      "error": "ValueError: bad branch in meta.json"
+    }
+  ]
+}

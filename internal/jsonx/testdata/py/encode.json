@@ -1,0 +1,490 @@
+{
+  "about": "Python json.dumps: floats (input as float.hex()) and ints as json.dumps writes them; strings (input as code points, lone surrogates included) as json.dumps (ensure_ascii) writes them; structures parsed with json.loads and written with indent=2 (save_ticket), the default separators, and the digest form (sort_keys, separators=(',', ':')). numbers_reencoded marks inputs whose numbers Python writes differently from how they were read",
+  "floats": [
+    {
+      "hex": "0x0.0p+0",
+      "json": "0.0"
+    },
+    {
+      "hex": "-0x0.0p+0",
+      "json": "-0.0"
+    },
+    {
+      "hex": "0x1.0000000000000p+0",
+      "json": "1.0"
+    },
+    {
+      "hex": "0x1.0000000000000p+2",
+      "json": "4.0"
+    },
+    {
+      "hex": "0x1.2ae147ae147aep+2",
+      "json": "4.67"
+    },
+    {
+      "hex": "0x1.c000000000000p+1",
+      "json": "3.5"
+    },
+    {
+      "hex": "0x1.4000000000000p+1",
+      "json": "2.5"
+    },
+    {
+      "hex": "0x1.999999999999ap-4",
+      "json": "0.1"
+    },
+    {
+      "hex": "0x1.999999999999ap-3",
+      "json": "0.2"
+    },
+    {
+      "hex": "0x1.3333333333334p-2",
+      "json": "0.30000000000000004"
+    },
+    {
+      "hex": "0x1.5555555555555p-2",
+      "json": "0.3333333333333333"
+    },
+    {
+      "hex": "0x1.5555555555555p-1",
+      "json": "0.6666666666666666"
+    },
+    {
+      "hex": "0x1.9000000000000p+6",
+      "json": "100.0"
+    },
+    {
+      "hex": "0x1.4f8b588e368f1p-17",
+      "json": "1e-05"
+    },
+    {
+      "hex": "0x1.a36e2eb1c432dp-14",
+      "json": "0.0001"
+    },
+    {
+      "hex": "0x1.0624dd2f1a9fcp-10",
+      "json": "0.001"
+    },
+    {
+      "hex": "0x1.1c37937e08000p+53",
+      "json": "1e+16"
+    },
+    {
+      "hex": "0x1.c6bf526340000p+49",
+      "json": "1000000000000000.0"
+    },
+    {
+      "hex": "0x1.1c37937e07fffp+53",
+      "json": "9999999999999998.0"
+    },
+    {
+      "hex": "0x1.d6f34547df3b6p+26",
+      "json": "123456789.123"
+    },
+    {
+      "hex": "0x1.0f0cf064dd592p+73",
+      "json": "1e+22"
+    },
+    {
+      "hex": "0x1.b1ae4d6e2ef50p+69",
+      "json": "1e+21"
+    },
+    {
+      "hex": "0x1.ad7f29abcaf48p-24",
+      "json": "1e-07"
+    },
+    {
+      "hex": "0x0.0000000000001p-1022",
+      "json": "5e-324"
+    },
+    {
+      "hex": "0x1.0000000000000p-1022",
+      "json": "2.2250738585072014e-308"
+    },
+    {
+      "hex": "0x1.fffffffffffffp+1023",
+      "json": "1.7976931348623157e+308"
+    },
+    {
+      "hex": "inf",
+      "json": "Infinity"
+    },
+    {
+      "hex": "-inf",
+      "json": "-Infinity"
+    },
+    {
+      "hex": "nan",
+      "json": "NaN"
+    },
+    {
+      "hex": "0x1.aa3d70a3d70a4p+1",
+      "json": "3.33"
+    },
+    {
+      "hex": "0x1.55c28f5c28f5cp+1",
+      "json": "2.67"
+    },
+    {
+      "hex": "0x1.eb851eb851eb8p-4",
+      "json": "0.12"
+    },
+    {
+      "hex": "-0x1.47ae147ae147bp-7",
+      "json": "-0.01"
+    },
+    {
+      "hex": "0x1.8000000000000p+1",
+      "json": "3.0"
+    },
+    {
+      "hex": "0x1.aa3d70a3d70a4p+1",
+      "json": "3.33"
+    },
+    {
+      "hex": "0x1.151eb851eb852p+2",
+      "json": "4.33"
+    },
+    {
+      "hex": "0x1.e147ae147ae14p-2",
+      "json": "0.47"
+    },
+    {
+      "hex": "0x1.68f5c28f5c28fp+0",
+      "json": "1.41"
+    },
+    {
+      "hex": "0x1.0000000000000p+53",
+      "json": "9007199254740992.0"
+    },
+    {
+      "hex": "0x1.56a95319d63e1p+63",
+      "json": "1.2345678901234567e+19"
+    },
+    {
+      "hex": "-0x1.49da7e361ce4cp-33",
+      "json": "-1.5e-10"
+    },
+    {
+      "hex": "0x1.249ad2594c37dp+332",
+      "json": "1e+100"
+    },
+    {
+      "hex": "0x1.0000000000000p-1",
+      "json": "0.5"
+    },
+    {
+      "hex": "0x1.8000000000000p+0",
+      "json": "1.5"
+    },
+    {
+      "hex": "0x1.d5c28f5c28f5cp+1",
+      "json": "3.67"
+    },
+    {
+      "hex": "0x1.a3d70a3d70a3dp-1",
+      "json": "0.82"
+    }
+  ],
+  "ints": [
+    {
+      "text": "0",
+      "json": "0"
+    },
+    {
+      "text": "-1",
+      "json": "-1"
+    },
+    {
+      "text": "7",
+      "json": "7"
+    },
+    {
+      "text": "2147483648",
+      "json": "2147483648"
+    },
+    {
+      "text": "9007199254740992",
+      "json": "9007199254740992"
+    },
+    {
+      "text": "9007199254740993",
+      "json": "9007199254740993"
+    },
+    {
+      "text": "9223372036854775808",
+      "json": "9223372036854775808"
+    },
+    {
+      "text": "18446744073709551616",
+      "json": "18446744073709551616"
+    },
+    {
+      "text": "-9223372036854775809",
+      "json": "-9223372036854775809"
+    },
+    {
+      "text": "1000000000000000000000000000000",
+      "json": "1000000000000000000000000000000"
+    }
+  ],
+  "strings": [
+    {
+      "cps": [],
+      "json": "\"\""
+    },
+    {
+      "cps": [
+        112,
+        108,
+        97,
+        105,
+        110
+      ],
+      "json": "\"plain\""
+    },
+    {
+      "cps": [
+        34,
+        113,
+        117,
+        111,
+        116,
+        101,
+        34
+      ],
+      "json": "\"\\\"quote\\\"\""
+    },
+    {
+      "cps": [
+        98,
+        97,
+        99,
+        107,
+        92,
+        115,
+        108,
+        97,
+        115,
+        104
+      ],
+      "json": "\"back\\\\slash\""
+    },
+    {
+      "cps": [
+        47,
+        115,
+        108,
+        97,
+        115,
+        104
+      ],
+      "json": "\"/slash\""
+    },
+    {
+      "cps": [
+        60,
+        62,
+        38,
+        39
+      ],
+      "json": "\"<>&'\""
+    },
+    {
+      "cps": [
+        0,
+        1,
+        31,
+        127
+      ],
+      "json": "\"\\u0000\\u0001\\u001f\\u007f\""
+    },
+    {
+      "cps": [
+        9,
+        10,
+        13,
+        8,
+        12
+      ],
+      "json": "\"\\t\\n\\r\\b\\f\""
+    },
+    {
+      "cps": [
+        233
+      ],
+      "json": "\"\\u00e9\""
+    },
+    {
+      "cps": [
+        8232,
+        8233
+      ],
+      "json": "\"\\u2028\\u2029\""
+    },
+    {
+      "cps": [
+        65279
+      ],
+      "json": "\"\\ufeff\""
+    },
+    {
+      "cps": [
+        65535
+      ],
+      "json": "\"\\uffff\""
+    },
+    {
+      "cps": [
+        128512
+      ],
+      "json": "\"\\ud83d\\ude00\""
+    },
+    {
+      "cps": [
+        1114111
+      ],
+      "json": "\"\\udbff\\udfff\""
+    },
+    {
+      "cps": [
+        55296
+      ],
+      "json": "\"\\ud800\""
+    },
+    {
+      "cps": [
+        56448
+      ],
+      "json": "\"\\udc80\""
+    },
+    {
+      "cps": [
+        128512
+      ],
+      "json": "\"\\ud83d\\ude00\""
+    },
+    {
+      "cps": [
+        97,
+        55357,
+        98
+      ],
+      "json": "\"a\\ud83db\""
+    },
+    {
+      "cps": [
+        26085,
+        26412
+      ],
+      "json": "\"\\u65e5\\u672c\""
+    },
+    {
+      "cps": [
+        128,
+        159
+      ],
+      "json": "\"\\u0080\\u009f\""
+    }
+  ],
+  "structures": [
+    {
+      "in": "{}",
+      "indent2": "{}",
+      "default": "{}",
+      "canonical": "{}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "[]",
+      "indent2": "[]",
+      "default": "[]",
+      "canonical": "[]",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"a\": {}}",
+      "indent2": "{\n  \"a\": {}\n}",
+      "default": "{\"a\": {}}",
+      "canonical": "{\"a\":{}}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"a\": []}",
+      "indent2": "{\n  \"a\": []\n}",
+      "default": "{\"a\": []}",
+      "canonical": "{\"a\":[]}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "[[], {}]",
+      "indent2": "[\n  [],\n  {}\n]",
+      "default": "[[], {}]",
+      "canonical": "[[],{}]",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"b\": 1, \"a\": [1, 2.5, \"x\", true, false, null]}",
+      "indent2": "{\n  \"b\": 1,\n  \"a\": [\n    1,\n    2.5,\n    \"x\",\n    true,\n    false,\n    null\n  ]\n}",
+      "default": "{\"b\": 1, \"a\": [1, 2.5, \"x\", true, false, null]}",
+      "canonical": "{\"a\":[1,2.5,\"x\",true,false,null],\"b\":1}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"z\": 1, \"\\u00e9\": 2, \"A\": 3, \"\\ud83d\\ude00\": 4, \"\\uffff\": 5, \"a\": 6, \"B\": 7}",
+      "indent2": "{\n  \"z\": 1,\n  \"\\u00e9\": 2,\n  \"A\": 3,\n  \"\\ud83d\\ude00\": 4,\n  \"\\uffff\": 5,\n  \"a\": 6,\n  \"B\": 7\n}",
+      "default": "{\"z\": 1, \"\\u00e9\": 2, \"A\": 3, \"\\ud83d\\ude00\": 4, \"\\uffff\": 5, \"a\": 6, \"B\": 7}",
+      "canonical": "{\"A\":3,\"B\":7,\"a\":6,\"z\":1,\"\\u00e9\":2,\"\\uffff\":5,\"\\ud83d\\ude00\":4}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"a\": 1, \"a\": 2, \"b\": 3}",
+      "indent2": "{\n  \"a\": 2,\n  \"b\": 3\n}",
+      "default": "{\"a\": 2, \"b\": 3}",
+      "canonical": "{\"a\":2,\"b\":3}",
+      "numbers_reencoded": true
+    },
+    {
+      "in": "\"\\udc80\"",
+      "indent2": "\"\\udc80\"",
+      "default": "\"\\udc80\"",
+      "canonical": "\"\\udc80\"",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"n\": [{\"x\": {\"y\": []}}], \"e\": \"\"}",
+      "indent2": "{\n  \"n\": [\n    {\n      \"x\": {\n        \"y\": []\n      }\n    }\n  ],\n  \"e\": \"\"\n}",
+      "default": "{\"n\": [{\"x\": {\"y\": []}}], \"e\": \"\"}",
+      "canonical": "{\"e\":\"\",\"n\":[{\"x\":{\"y\":[]}}]}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "[1e2, 1E2, 1.0, -0, 0.10, 1.5e300, 10]",
+      "indent2": "[\n  100.0,\n  100.0,\n  1.0,\n  0,\n  0.1,\n  1.5e+300,\n  10\n]",
+      "default": "[100.0, 100.0, 1.0, 0, 0.1, 1.5e+300, 10]",
+      "canonical": "[100.0,100.0,1.0,0,0.1,1.5e+300,10]",
+      "numbers_reencoded": true
+    },
+    {
+      "in": "{\"t\": \"caf\\u00e9 <b> & \\u2028\", \"u\": \"\\u00e9\"}",
+      "indent2": "{\n  \"t\": \"caf\\u00e9 <b> & \\u2028\",\n  \"u\": \"\\u00e9\"\n}",
+      "default": "{\"t\": \"caf\\u00e9 <b> & \\u2028\", \"u\": \"\\u00e9\"}",
+      "canonical": "{\"t\":\"caf\\u00e9 <b> & \\u2028\",\"u\":\"\\u00e9\"}",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "[{\"a\": [{\"b\": [{}]}]}]",
+      "indent2": "[\n  {\n    \"a\": [\n      {\n        \"b\": [\n          {}\n        ]\n      }\n    ]\n  }\n]",
+      "default": "[{\"a\": [{\"b\": [{}]}]}]",
+      "canonical": "[{\"a\":[{\"b\":[{}]}]}]",
+      "numbers_reencoded": false
+    },
+    {
+      "in": "{\"\": null}",
+      "indent2": "{\n  \"\": null\n}",
+      "default": "{\"\": null}",
+      "canonical": "{\"\":null}",
+      "numbers_reencoded": false
+    }
+  ]
+}

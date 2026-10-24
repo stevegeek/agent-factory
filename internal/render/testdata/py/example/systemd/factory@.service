@@ -1,0 +1,17 @@
+[Unit]
+Description=Agent factory: %i
+After=network-online.target user@1001.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=factory
+Group=factory
+Environment=XDG_RUNTIME_DIR=/run/user/1001
+# lets rootless podman create containers through factory's own systemd, so they
+# land in user-1001.slice and its shared memory budget
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
+WorkingDirectory=/home/factory
+ExecStart=/home/factory/factory/bin/factory %i
+TimeoutStartSec=45min
+Nice=5

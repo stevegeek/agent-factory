@@ -1,0 +1,45 @@
+{
+  "stage": "manage",
+  "host": "local",
+  "project": "factory",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0040-m1",
+  "ticket": {
+    "id": "T0040",
+    "project": "factory",
+    "title": "Q",
+    "body": "Why?",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      }
+    ],
+    "kind": "manage",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "result": "Because."
+  },
+  "scion_argv": [
+    "start",
+    "t0040-m1",
+    "-t",
+    "manager",
+    "--message-mode",
+    "none"
+  ]
+}

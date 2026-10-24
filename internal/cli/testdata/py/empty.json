@@ -1,0 +1,67 @@
+{
+  "about": "the same commands on an empty board with one project",
+  "config": "[projects.gem]\npath = \"/nonexistent/gem\"\n",
+  "commands": [
+    {
+      "argv": [
+        "ls"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ls",
+        "--all"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "proposals"
+      ],
+      "exit": 0,
+      "stdout": "no open proposals\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "recipes"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "recipes",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "[]\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "tokens",
+        "list"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "tokens",
+        "list",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "[]\n",
+      "stderr": ""
+    }
+  ]
+}

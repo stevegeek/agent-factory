@@ -1,0 +1,11 @@
+# The weekly restore test of the newest backup (ARCHITECTURE.md §15.2): restores it into a
+# temporary directory and checks it. A user unit, installed and enabled with factory-backup.
+[Unit]
+Description=Agent factory: weekly restore test of the newest backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/factory/bin/factory backup verify
+TimeoutStartSec=1h
+Nice=10

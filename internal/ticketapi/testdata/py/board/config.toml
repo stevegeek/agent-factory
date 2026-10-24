@@ -1,0 +1,12 @@
+[board]
+people = ["alice", "bob"]
+
+[projects.sandbox]
+mode = "board"
+
+[projects.other]
+mode = "board"
+
+[projects.fac]
+path = "/nonexistent/fac"
+github = "example/fac"

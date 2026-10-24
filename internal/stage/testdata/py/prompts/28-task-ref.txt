@@ -1,0 +1,22 @@
+Task: Is this branch safe?
+
+When the input has no trailing newline, the last line is lost.
+
+Steps:
+1. parse
+2. look
+
+The project's repository is checked out in the current directory, for reference only. The question is about the change on branch `bot/parser-fix`. If the current checkout is not that branch, compare it with `git diff main...bot/parser-fix` (in a fresh clone the branch may be `origin/bot/parser-fix`).
+
+## This project
+
+Ruby gem. Run from the repository root:
+- set up: `bundle install`
+- tests: `bundle exec rake test`
+- lint: `bundle exec standardrb`
+
+## If you need a decision
+If you can't go on without a decision only the maintainer can make (not something you can find out), stop
+and write `~/report.json` with `"status": "question"`, `"question"`: one clear question with the options
+you see, and `"summary"`: where you stopped. Write your handover first if you have a memory. The
+maintainer's answer comes back as a note, and a new run carries on from there.

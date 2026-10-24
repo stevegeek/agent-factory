@@ -1,0 +1,79 @@
+{
+  "id": "T0007",
+  "project": "gem",
+  "title": "Proposal 3",
+  "body": "- Noticed: n\n- Change: c\n- Why it is worth it: w\n- Cost: low\n\nPanel: 4: r13; 4: r23; 5: r33",
+  "door": "clock",
+  "by": "factory",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=clock column=needs_human",
+      "type": "created",
+      "door": "clock",
+      "column": "needs_human",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "panel",
+      "detail": "mean 4.33, spread 0.47, scores [4, 4, 5]",
+      "rule": "kept: 3 of 3 voters scored 4 or more (2 needed); mean 4.33 (3.5 needed)"
+    }
+  ],
+  "kind": "proposal",
+  "parent": "T0004",
+  "proposal": {
+    "title": "Proposal 3",
+    "noticed": "n",
+    "change": "c",
+    "why": "w",
+    "cost": "low"
+  },
+  "panel": {
+    "scores": [
+      4,
+      4,
+      5
+    ],
+    "mean": 4.33,
+    "spread": 0.47,
+    "keen": 3,
+    "priority": 4.1,
+    "survives": true,
+    "votes": [
+      {
+        "voter": "t0004-v1",
+        "host": "local",
+        "score": 4,
+        "reason": "r13"
+      },
+      {
+        "voter": "t0004-v2",
+        "host": "local",
+        "score": 4,
+        "reason": "r23"
+      },
+      {
+        "voter": "t0004-v3",
+        "host": "local",
+        "score": 5,
+        "reason": "r33"
+      }
+    ]
+  },
+  "ask": {
+    "kind": "proposal",
+    "question": "File \u201cProposal 3\u201d as a change, or drop it?",
+    "why": "w. The panel scored it 4 \u00b7 4 \u00b7 5, mean 4.33.",
+    "since": "2026-10-17T08:00:00+00:00",
+    "retry_column": null
+  },
+  "updated": "2026-10-17T08:00:00+00:00"
+}

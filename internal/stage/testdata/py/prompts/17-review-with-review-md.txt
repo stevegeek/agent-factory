@@ -1,0 +1,19 @@
+Review the change on this branch against `main` (`git diff main...HEAD`, `git log main..HEAD`).
+
+The change was meant to do this:
+Task: Parser drops the last line
+
+When the input has no trailing newline, the last line is lost.
+
+Steps:
+1. parse
+2. look
+
+This repository has a REVIEW.md written by its maintainer: read it first. It says what failure looks like here and what to skip; follow it.
+
+## This project
+
+Ruby gem. Run from the repository root:
+- set up: `bundle install`
+- tests: `bundle exec rake test`
+- lint: `bundle exec standardrb`

@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent factory: weekly agent image rebuild
+
+[Timer]
+# before the weekly reboot window (host/updates.sh), so the new image is warm by Monday
+OnCalendar=Sun *-*-* 02:30:00
+Persistent=true
+Unit=factory-rebuild.service
+
+[Install]
+WantedBy=timers.target

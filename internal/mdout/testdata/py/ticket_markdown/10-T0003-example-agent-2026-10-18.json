@@ -1,0 +1,65 @@
+{
+  "view": {
+    "id": "T0003",
+    "project": "sandbox",
+    "mode": "board",
+    "kind": "item",
+    "title": "Child one",
+    "body": "",
+    "column": "waiting",
+    "column_label": "Waiting",
+    "assignee": null,
+    "labels": [],
+    "parent": "T0001",
+    "children": [],
+    "links": [],
+    "created": "2026-10-18T09:02:00+00:00",
+    "updated": "2026-10-18T09:04:00+00:00",
+    "by": "example-agent",
+    "waiting": {
+      "reason": "other",
+      "text": "Blocked on the API\nsecond line `x`",
+      "from": "inbox",
+      "since": "2026-10-18T09:04:00+00:00"
+    },
+    "questions": [],
+    "conversation": [],
+    "result": null,
+    "history": [
+      {
+        "at": "2026-10-18T09:02:00+00:00",
+        "type": "created",
+        "by": "example-agent",
+        "detail": "door=agent column=inbox"
+      },
+      {
+        "at": "2026-10-18T09:04:00+00:00",
+        "type": "moved",
+        "by": "example-agent",
+        "from": "inbox",
+        "to": "waiting",
+        "reason": "waiting",
+        "detail": "inbox -> waiting: Blocked on the API\nsecond line `x`"
+      }
+    ],
+    "factory": null
+  },
+  "caller": {
+    "name": "example-agent",
+    "person": false,
+    "projects": [
+      "sandbox",
+      "fac"
+    ],
+    "can": [
+      "read",
+      "file",
+      "talk",
+      "work",
+      "plan"
+    ],
+    "tickets": null,
+    "expires": null
+  },
+  "today": "2026-10-18"
+}

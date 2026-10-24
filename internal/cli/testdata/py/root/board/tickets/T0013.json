@@ -1,0 +1,26 @@
+{
+  "id": "T0013",
+  "project": "gem",
+  "title": "Closed and done",
+  "body": "",
+  "door": "human",
+  "by": "factory",
+  "column": "done",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=done",
+      "type": "created",
+      "door": "human",
+      "column": "done",
+      "by": "factory"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

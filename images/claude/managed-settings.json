@@ -1,0 +1,7 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "{{pr_footer}}"
+  },
+  "includeCoAuthoredBy": false
+}

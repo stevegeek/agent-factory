@@ -1,0 +1,131 @@
+{
+  "id": "T0001",
+  "project": "gem",
+  "title": "Keep the last line",
+  "body": "Keep the last line when there is no newline.",
+  "door": "github",
+  "by": "factory",
+  "column": "review",
+  "branch": "bot/keep-the-last-line",
+  "agent": {
+    "name": "t0001-r1",
+    "stage": "review",
+    "started": "2026-10-17T09:03:00+00:00",
+    "host": "local"
+  },
+  "reports": {
+    "triage": {
+      "decision": "accept",
+      "title": "Keep the last line",
+      "task": "Keep the last line when there is no newline.",
+      "reason": "A real bug."
+    },
+    "work": {
+      "status": "done",
+      "summary": "Kept the last line.",
+      "category": "fix",
+      "tests": "pass",
+      "lint": "pass"
+    }
+  },
+  "created": "2026-10-17T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage",
+      "type": "created",
+      "door": "github",
+      "column": "triage",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:01:00+00:00",
+      "event": "start",
+      "detail": "triage t0001-t1",
+      "type": "started",
+      "stage": "triage",
+      "agent": "t0001-t1",
+      "host": "local"
+    },
+    {
+      "at": "2026-10-17T09:02:00+00:00",
+      "event": "finished",
+      "detail": "triage t0001-t1",
+      "type": "finished",
+      "stage": "triage",
+      "agent": "t0001-t1"
+    },
+    {
+      "at": "2026-10-17T09:02:00+00:00",
+      "event": "move",
+      "detail": "triage -> ready: triage accepted",
+      "rule": "triage accepted; GitHub issues start straight away ([triage.auto_accept] github = true)",
+      "type": "moved",
+      "from": "triage",
+      "to": "ready",
+      "reason": "triage_accepted",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:02:00+00:00",
+      "event": "move",
+      "detail": "ready -> working",
+      "type": "moved",
+      "from": "ready",
+      "to": "working",
+      "reason": "started",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:02:00+00:00",
+      "event": "start",
+      "detail": "work t0001-w1 on bot/keep-the-last-line",
+      "type": "started",
+      "stage": "work",
+      "agent": "t0001-w1",
+      "host": "local",
+      "branch": "bot/keep-the-last-line"
+    },
+    {
+      "at": "2026-10-17T09:03:00+00:00",
+      "event": "finished",
+      "detail": "work t0001-w1",
+      "type": "finished",
+      "stage": "work",
+      "agent": "t0001-w1"
+    },
+    {
+      "at": "2026-10-17T09:03:00+00:00",
+      "event": "move",
+      "detail": "working -> review",
+      "type": "moved",
+      "from": "working",
+      "to": "review",
+      "reason": "work_done",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T09:03:00+00:00",
+      "event": "start",
+      "detail": "review t0001-r1 on bot/keep-the-last-line",
+      "type": "started",
+      "stage": "review",
+      "agent": "t0001-r1",
+      "host": "local",
+      "branch": "bot/keep-the-last-line"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T09:03:00+00:00",
+  "source": {
+    "issue": 12,
+    "url": "https://github.com/example/gem/issues/12"
+  },
+  "agent_last_host": "local",
+  "original": {
+    "title": "Parser drops the last line",
+    "body": "Reported as example/gem#12.\n\nWhen the input has no trailing newline the last line is lost."
+  },
+  "head_before_review": "d86d48e01bd9141363c52c2ad16d7277f53fcf4a"
+}

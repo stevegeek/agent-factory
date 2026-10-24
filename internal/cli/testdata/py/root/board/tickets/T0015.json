@@ -1,0 +1,26 @@
+{
+  "id": "T0015",
+  "project": "gem",
+  "title": "A title that is far longer than sixty characters, so the list cuts it short",
+  "body": "",
+  "door": "human",
+  "by": "factory",
+  "column": "triage",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=triage",
+      "type": "created",
+      "door": "human",
+      "column": "triage",
+      "by": "factory"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

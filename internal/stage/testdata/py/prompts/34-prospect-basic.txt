@@ -1,0 +1,12 @@
+Look for improvements to the project in this repository that are worth the maintainer's attention, and write them up as proposals. Do not implement anything.
+
+Focus: Look for improvements
+
+Focus on speed.
+
+## This project
+
+Ruby gem. Run from the repository root:
+- set up: `bundle install`
+- tests: `bundle exec rake test`
+- lint: `bundle exec standardrb`

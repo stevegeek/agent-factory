@@ -1,0 +1,46 @@
+{
+  "stage": "review",
+  "host": "local",
+  "project": "gem-review",
+  "tier": null,
+  "memory": null,
+  "review_md": true,
+  "agent": "t0018-r1",
+  "ticket": {
+    "id": "T0018",
+    "project": "gem-review",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "review",
+    "branch": "bot/x",
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=review",
+        "type": "created",
+        "door": "human",
+        "column": "review",
+        "by": "factory"
+      }
+    ],
+    "kind": null,
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0018-r1",
+    "-t",
+    "reviewer",
+    "--message-mode",
+    "none",
+    "-b",
+    "bot/x"
+  ]
+}

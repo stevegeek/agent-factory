@@ -1,0 +1,55 @@
+{{define "content" -}}
+<main class="pane live-page">
+  <p class="lede">What runs now, what waits for an agent and what just moved{{if .Live.Screens}}, then each agent's screen. Read-only: nothing here can type into an agent. The factory's log is under <a href="/logs">Logs</a>{{else}}, in your projects{{end}}.</p>
+  {{with .Live}}
+  <section class="inflight" id="in-flight" aria-label="In flight">
+    <h4>In flight</h4>
+    {{with .Stalled}}<p class="fl-stalled" role="status">{{.}}</p>{{end}}
+    <div class="fl-part">
+      <h5>Running <span>{{len .InFlight.Running}}</span></h5>
+      {{range .InFlight.Running}}
+      <div class="fl-row">
+        <a class="fl-t" href="{{if $.Live.Screens}}#{{.T.ID}}{{else}}/t/{{.T.ID}}{{end}}"><span class="mono">{{.T.ID}}</span> {{.T.Title}}</a>
+        <span class="fl-m">{{.T.Project}} · {{or .Role "Agent"}}{{with .Host}} on {{.}}{{end}}{{with .Elapsed}} · {{.}}{{end}}</span>
+      </div>
+      {{else}}<p class="quiet">No agent is running.</p>
+      {{end}}
+    </div>
+    <div class="fl-part">
+      <h5>Waiting to start <span>{{len .InFlight.Waiting}}</span></h5>
+      {{range .InFlight.Waiting}}
+      <div class="fl-row{{if .Held}} held{{end}}">
+        <a class="fl-t" href="/t/{{.T.ID}}"><span class="mono">{{.T.ID}}</span> {{.T.Title}}</a>
+        <span class="fl-m">{{.T.Project}} · waits for {{.For}}{{with .Waited}} · waiting {{.}}{{end}}</span>
+        <span class="fl-why">{{with .Why}}{{.}}{{else}}the next tick takes it (every five minutes){{end}}</span>
+      </div>
+      {{else}}<p class="quiet">Nothing waits for an agent or the gate.</p>
+      {{end}}
+    </div>
+    <div class="fl-part">
+      <h5>Just moved <span>last 24 h</span></h5>
+      {{range .InFlight.Moved}}
+      <div class="fl-row{{if .Mine}} mine{{end}}">
+        <a class="fl-t" href="/t/{{.T.ID}}"><time class="mono" title="{{.Ago}} ago">{{.Time}}</time> <span class="mono">{{.T.ID}}</span> {{.T.Title}}</a>
+        <span class="fl-m">{{.From}} → {{.To}} · {{if .Mine}}<b>you</b>{{else}}{{.Who}}{{end}}{{with .Why}}: {{.}}{{end}}</span>
+      </div>
+      {{else}}<p class="quiet">Nothing moved in the last day.</p>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+  {{if .Live.Screens}}
+  <h4 class="screens-h">Screens</h4>
+  <div class="live-part" id="live-agents" data-live>
+  {{range .Live.Agents}}
+  <section class="screen-card" id="{{.ID}}">
+    <header><span class="mono">{{.ID}}</span> <b>{{.Role}}</b> <span class="quiet">{{.Project}}{{with .Host}} · on {{.}}{{end}} · {{.Age}}</span>
+      <a class="title" href="{{.Href}}">{{.Title}}</a></header>
+    <pre class="screen" data-poll="/live/{{.ID}}/screen" data-every="5" tabindex="0" aria-label="{{.ID}}'s screen">Loading…</pre>
+  </section>
+  {{else}}<div class="cleared"><strong>No agent is running</strong>The next tick starts whatever is ready (every five minutes).</div>
+  {{end}}
+  </div>
+  {{end}}
+</main>
+{{- end}}

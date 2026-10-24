@@ -1,0 +1,92 @@
+{
+  "id": "T0002",
+  "schema": 1,
+  "mode": "board",
+  "project": "sandbox",
+  "title": "Second ticket with a break",
+  "body": "",
+  "door": "human",
+  "by": "alice",
+  "column": "inbox",
+  "kind": "item",
+  "assignee": null,
+  "labels": [
+    "api",
+    "later"
+  ],
+  "parent": null,
+  "children": [],
+  "links": [
+    {
+      "rel": "url",
+      "url": "https://example.test/a",
+      "title": "A `ticked` title"
+    },
+    {
+      "rel": "related",
+      "ticket": "T0001"
+    },
+    {
+      "rel": "factory",
+      "ticket": "T0005"
+    }
+  ],
+  "waiting": null,
+  "questions": [],
+  "comments": [],
+  "result": null,
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:01:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:01:00+00:00",
+      "event": "created",
+      "detail": "door=human column=inbox",
+      "type": "created",
+      "door": "human",
+      "column": "inbox",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-18T09:01:00+00:00",
+      "event": "link",
+      "detail": "related T0001",
+      "type": "linked",
+      "by": "example-agent",
+      "rel": "related",
+      "ticket": "T0001"
+    },
+    {
+      "at": "2026-10-18T09:01:00+00:00",
+      "event": "edit",
+      "detail": "example-agent changed labels",
+      "type": "edited",
+      "by": "example-agent",
+      "fields": [
+        "labels"
+      ]
+    },
+    {
+      "at": "2026-10-18T09:03:00+00:00",
+      "event": "sent",
+      "detail": "sent to fac as T0005",
+      "type": "sent_to_factory",
+      "by": "example-agent",
+      "ticket": "T0005"
+    },
+    {
+      "at": "2026-10-18T09:03:00+00:00",
+      "event": "link",
+      "detail": "factory T0005",
+      "type": "linked",
+      "by": "example-agent",
+      "rel": "factory",
+      "ticket": "T0005"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-18T09:03:00+00:00"
+}

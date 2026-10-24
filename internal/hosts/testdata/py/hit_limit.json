@@ -1,0 +1,70 @@
+{
+  "about": "hit_limit(text, lines) (bin/factory): the limit message in the last `lines` of str.splitlines()",
+  "rows": [
+    {
+      "in": "",
+      "15": null,
+      "40": null
+    },
+    {
+      "in": "working...\nUsage limit reached",
+      "15": "Usage limit reached",
+      "40": "Usage limit reached"
+    },
+    {
+      "in": "Usage limit reached\nline 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14",
+      "15": null,
+      "40": "Usage limit reached"
+    },
+    {
+      "in": "Usage limit reached\nline 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13",
+      "15": "Usage limit reached",
+      "40": "Usage limit reached"
+    },
+    {
+      "in": "a\r\nyou've hit your limit\r\n",
+      "15": "you've hit your limit",
+      "40": "you've hit your limit"
+    },
+    {
+      "in": "x\u001cweekly limit reached",
+      "15": "weekly limit reached",
+      "40": "weekly limit reached"
+    },
+    {
+      "in": "x\u2028Credit balance is too low",
+      "15": "Credit balance is too low",
+      "40": "Credit balance is too low"
+    },
+    {
+      "in": "x\u0085out of extra usage",
+      "15": "out of extra usage",
+      "40": "out of extra usage"
+    },
+    {
+      "in": "5-hour limit reached \u2219 resets 3am\n\n\n",
+      "15": "5-hour limit reached",
+      "40": "5-hour limit reached"
+    },
+    {
+      "in": "LIMIT REACHED, RESETS",
+      "15": "LIMIT REACHED, RESETS",
+      "40": "LIMIT REACHED, RESETS"
+    },
+    {
+      "in": "nothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\nnothing to see\n",
+      "15": null,
+      "40": null
+    },
+    {
+      "in": "limit reached\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+      "15": null,
+      "40": null
+    },
+    {
+      "in": "a\u000bb\fc\u001d\u001elimit reached resets",
+      "15": "limit reached resets",
+      "40": "limit reached resets"
+    }
+  ]
+}

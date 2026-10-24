@@ -1,0 +1,18 @@
+schema_version: "1"
+description: "Re-checks a check's findings on the base branch, independently of the agent that reported them; never commits"
+agent_instructions: agents.md
+default_harness_config: claude
+max_duration: "60m"
+resources:
+  limits:
+    memory: 900Mi
+    cpu: "2"
+  requests:
+    memory: 300Mi
+env:
+  BUNDLE_PATH: /home/scion/.bundle-cache
+volumes:
+  - type: local
+    source: {{factory_root}}/cache/bundle
+    target: /home/scion/.bundle-cache
+    read_only: true      # one project's agent must not change the gems another project's gate trusts

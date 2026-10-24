@@ -1,0 +1,1708 @@
+{
+  "about": "Every corpus document (internal/toml corpus_test.go: the spec table, examples/config/config.toml and 200 generated documents) with repr(tomllib.loads(doc)) or tomllib's error; refused marks a document tomllib reads that the subset refuses on purpose (ARCHITECTURE.md §8.3). Written by go test -tags difftest -run TestTomllib -update ./internal/toml.",
+  "python": "3.14.2",
+  "cases": [
+    {
+      "name": "spec/empty",
+      "repr": "{}"
+    },
+    {
+      "name": "spec/only comments",
+      "toml": "# a\n  # b\n\n",
+      "repr": "{}"
+    },
+    {
+      "name": "spec/crlf",
+      "toml": "a = 1\r\nb = 2\r\n",
+      "repr": "{'a': 1, 'b': 2}"
+    },
+    {
+      "name": "spec/no final newline",
+      "toml": "a = 1",
+      "repr": "{'a': 1}"
+    },
+    {
+      "name": "spec/trailing comment",
+      "toml": "a = 1 # one\n",
+      "repr": "{'a': 1}"
+    },
+    {
+      "name": "spec/tab whitespace",
+      "toml": "\ta\t=\t1\t\n",
+      "repr": "{'a': 1}"
+    },
+    {
+      "name": "spec/lone cr",
+      "toml": "a = 1\rb = 2\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/control in comment",
+      "toml": "# a\u0001b\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x01' (at line 1, column 4)"
+    },
+    {
+      "name": "spec/del in comment",
+      "toml": "# a\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x7f' (at line 1, column 4)"
+    },
+    {
+      "name": "spec/tab in comment",
+      "toml": "# a\tb\n",
+      "repr": "{}"
+    },
+    {
+      "name": "spec/bad utf8",
+      "toml_base64": "YSA9ICL/Igo=",
+      "error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 5: invalid start byte"
+    },
+    {
+      "name": "spec/bom",
+      "toml": "﻿a = 1\n",
+      "error": "TOMLDecodeError: Invalid statement (at line 1, column 1)"
+    },
+    {
+      "name": "spec/bare keys",
+      "toml": "a-b_C9 = 1\n1234 = 2\n-- = 3\n",
+      "repr": "{'a-b_C9': 1, '1234': 2, '--': 3}"
+    },
+    {
+      "name": "spec/quoted keys",
+      "toml": "\"a b\" = 1\n'c.d' = 2\n\"\" = 3\n\"\\u00e9\" = 4\n",
+      "repr": "{'a b': 1, 'c.d': 2, '': 3, 'é': 4}"
+    },
+    {
+      "name": "spec/duplicate key",
+      "toml": "a = 1\na = 2\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 2, column 6)"
+    },
+    {
+      "name": "spec/duplicate quoted key",
+      "toml": "a = 1\n\"a\" = 2\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 2, column 8)"
+    },
+    {
+      "name": "spec/dotted key refused",
+      "toml": "a.b = 1\n",
+      "repr": "{'a': {'b': 1}}",
+      "refused": true
+    },
+    {
+      "name": "spec/dotted key with spaces refused",
+      "toml": "a . b = 1\n",
+      "repr": "{'a': {'b': 1}}",
+      "refused": true
+    },
+    {
+      "name": "spec/no value",
+      "toml": "a =\n",
+      "error": "TOMLDecodeError: Invalid value (at line 1, column 4)"
+    },
+    {
+      "name": "spec/no equals",
+      "toml": "a 1\n",
+      "error": "TOMLDecodeError: Expected '=' after a key in a key/value pair (at line 1, column 3)"
+    },
+    {
+      "name": "spec/two on a line",
+      "toml": "a = 1 b = 2\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 7)"
+    },
+    {
+      "name": "spec/bare key bad char",
+      "toml": "a$ = 1\n",
+      "error": "TOMLDecodeError: Expected '=' after a key in a key/value pair (at line 1, column 2)"
+    },
+    {
+      "name": "spec/multiline key refused",
+      "toml": "\"\"\"a\"\"\" = 1\n",
+      "error": "TOMLDecodeError: Expected '=' after a key in a key/value pair (at line 1, column 3)"
+    },
+    {
+      "name": "spec/table",
+      "toml": "[a]\nb = 1\n",
+      "repr": "{'a': {'b': 1}}"
+    },
+    {
+      "name": "spec/empty table",
+      "toml": "[a]\n",
+      "repr": "{'a': {}}"
+    },
+    {
+      "name": "spec/dotted header",
+      "toml": "[a.b]\nc = 1\n",
+      "repr": "{'a': {'b': {'c': 1}}}"
+    },
+    {
+      "name": "spec/header spaces",
+      "toml": "[ a . \"b c\" . 'd' ]\nx = 1\n",
+      "repr": "{'a': {'b c': {'d': {'x': 1}}}}"
+    },
+    {
+      "name": "spec/implicit then explicit",
+      "toml": "[a.b]\nc = 1\n[a]\nd = 2\n",
+      "repr": "{'a': {'b': {'c': 1}, 'd': 2}}"
+    },
+    {
+      "name": "spec/explicit then sub",
+      "toml": "[a]\nd = 2\n[a.b]\nc = 1\n",
+      "repr": "{'a': {'d': 2, 'b': {'c': 1}}}"
+    },
+    {
+      "name": "spec/table twice",
+      "toml": "[a]\n[a]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 2, column 3)"
+    },
+    {
+      "name": "spec/sub table twice",
+      "toml": "[a.b]\n[a.b]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'b') twice (at line 2, column 5)"
+    },
+    {
+      "name": "spec/table over value",
+      "toml": "a = 1\n[a]\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 2, column 3)"
+    },
+    {
+      "name": "spec/sub table over value",
+      "toml": "[a]\nb = 1\n[a.b]\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 3, column 5)"
+    },
+    {
+      "name": "spec/table into inline",
+      "toml": "a = {b = 1}\n[a.c]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'c') twice (at line 2, column 5)"
+    },
+    {
+      "name": "spec/table over inline",
+      "toml": "a = {}\n[a]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 2, column 3)"
+    },
+    {
+      "name": "spec/table into array",
+      "toml": "a = [1]\n[a.b]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'b') twice (at line 2, column 5)"
+    },
+    {
+      "name": "spec/unclosed header",
+      "toml": "[a\n",
+      "error": "TOMLDecodeError: Expected ']' at the end of a table declaration (at line 1, column 3)"
+    },
+    {
+      "name": "spec/empty header",
+      "toml": "[]\n",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at line 1, column 2)"
+    },
+    {
+      "name": "spec/header then junk",
+      "toml": "[a] x\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 5)"
+    },
+    {
+      "name": "spec/header comment",
+      "toml": "[a] # c\nb = 1\n",
+      "repr": "{'a': {'b': 1}}"
+    },
+    {
+      "name": "spec/order kept",
+      "toml": "z = 1\n[y]\n[x]\n[w.v]\n",
+      "repr": "{'z': 1, 'y': {}, 'x': {}, 'w': {'v': {}}}"
+    },
+    {
+      "name": "spec/root keys after table belong to it",
+      "toml": "[a]\nb = 1\nc = 2\n",
+      "repr": "{'a': {'b': 1, 'c': 2}}"
+    },
+    {
+      "name": "spec/aot",
+      "toml": "[[a]]\nb = 1\n[[a]]\nb = 2\n",
+      "repr": "{'a': [{'b': 1}, {'b': 2}]}"
+    },
+    {
+      "name": "spec/aot empty element",
+      "toml": "[[a]]\n[[a]]\nb = 1\n",
+      "repr": "{'a': [{}, {'b': 1}]}"
+    },
+    {
+      "name": "spec/aot sub table",
+      "toml": "[[a]]\n[a.b]\nc = 1\n[[a]]\n[a.b]\nc = 2\n",
+      "repr": "{'a': [{'b': {'c': 1}}, {'b': {'c': 2}}]}"
+    },
+    {
+      "name": "spec/aot nested",
+      "toml": "[[a]]\nx = 1\n[[a.b]]\ny = 1\n[[a.b]]\ny = 2\n[[a]]\nx = 2\n",
+      "repr": "{'a': [{'x': 1, 'b': [{'y': 1}, {'y': 2}]}, {'x': 2}]}"
+    },
+    {
+      "name": "spec/aot under table",
+      "toml": "[p]\n[[p.q]]\nr = 1\n",
+      "repr": "{'p': {'q': [{'r': 1}]}}"
+    },
+    {
+      "name": "spec/aot implicit parent then explicit",
+      "toml": "[[a.b]]\n[a]\nc = 1\n",
+      "repr": "{'a': {'b': [{}], 'c': 1}}"
+    },
+    {
+      "name": "spec/aot over table",
+      "toml": "[a]\n[[a]]\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 2, column 4)"
+    },
+    {
+      "name": "spec/table over aot",
+      "toml": "[[a]]\n[a]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 2, column 3)"
+    },
+    {
+      "name": "spec/aot over static array",
+      "toml": "a = []\n[[a]]\n",
+      "error": "TOMLDecodeError: Cannot mutate immutable namespace ('a',) (at line 2, column 4)"
+    },
+    {
+      "name": "spec/aot over value",
+      "toml": "a = 1\n[[a]]\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 2, column 4)"
+    },
+    {
+      "name": "spec/aot unclosed",
+      "toml": "[[a]\n",
+      "error": "TOMLDecodeError: Expected ']]' at the end of an array declaration (at line 1, column 4)"
+    },
+    {
+      "name": "spec/aot spaced brackets",
+      "toml": "[ [a]]\n",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at line 1, column 3)"
+    },
+    {
+      "name": "spec/aot spaces inside",
+      "toml": "[[ a ]]\n",
+      "repr": "{'a': [{}]}"
+    },
+    {
+      "name": "spec/basic",
+      "toml": "a = \"x y\"\n",
+      "repr": "{'a': 'x y'}"
+    },
+    {
+      "name": "spec/basic escapes",
+      "toml": "a = \"\\b\\t\\n\\f\\r\\\"\\\\\\u00e9\\U0001F600\"\n",
+      "repr": "{'a': '\\x08\\t\\n\\x0c\\r\"\\\\é😀'}"
+    },
+    {
+      "name": "spec/basic tab",
+      "toml": "a = \"x\ty\"\n",
+      "repr": "{'a': 'x\\ty'}"
+    },
+    {
+      "name": "spec/basic bad escape",
+      "toml": "a = \"\\e\"\n",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 1, column 8)"
+    },
+    {
+      "name": "spec/basic x escape",
+      "toml": "a = \"\\x41\"\n",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 1, column 8)"
+    },
+    {
+      "name": "spec/basic surrogate",
+      "toml": "a = \"\\ud800\"\n",
+      "error": "TOMLDecodeError: Escaped character is not a Unicode scalar value (at line 1, column 12)"
+    },
+    {
+      "name": "spec/basic too big",
+      "toml": "a = \"\\U00110000\"\n",
+      "error": "TOMLDecodeError: Escaped character is not a Unicode scalar value (at line 1, column 16)"
+    },
+    {
+      "name": "spec/basic short u",
+      "toml": "a = \"\\u12\"\n",
+      "error": "TOMLDecodeError: Invalid hex value (at line 1, column 8)"
+    },
+    {
+      "name": "spec/basic control",
+      "toml": "a = \"x\u0001\"\n",
+      "error": "TOMLDecodeError: Illegal character '\\x01' (at line 1, column 7)"
+    },
+    {
+      "name": "spec/basic newline",
+      "toml": "a = \"x\ny\"\n",
+      "error": "TOMLDecodeError: Illegal character '\\n' (at line 1, column 7)"
+    },
+    {
+      "name": "spec/basic unclosed",
+      "toml": "a = \"x\n",
+      "error": "TOMLDecodeError: Illegal character '\\n' (at line 1, column 7)"
+    },
+    {
+      "name": "spec/basic quote repr",
+      "toml": "a = \"it's\"\n",
+      "repr": "{'a': \"it's\"}"
+    },
+    {
+      "name": "spec/basic both quotes repr",
+      "toml": "a = \"it's \\\"q\\\"\"\n",
+      "repr": "{'a': 'it\\'s \"q\"'}"
+    },
+    {
+      "name": "spec/literal",
+      "toml": "a = 'C:\\x\\y'\n",
+      "repr": "{'a': 'C:\\\\x\\\\y'}"
+    },
+    {
+      "name": "spec/literal control",
+      "toml": "a = 'x\u0001'\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x01' (at line 1, column 7)"
+    },
+    {
+      "name": "spec/literal unclosed",
+      "toml": "a = 'x\n",
+      "error": "TOMLDecodeError: Expected \"'\" (at end of document)"
+    },
+    {
+      "name": "spec/ml basic",
+      "toml": "a = \"\"\"\nx\ny\"\"\"\n",
+      "repr": "{'a': 'x\\ny'}"
+    },
+    {
+      "name": "spec/ml basic first newline crlf",
+      "toml": "a = \"\"\"\r\nx\"\"\"\n",
+      "repr": "{'a': 'x'}"
+    },
+    {
+      "name": "spec/ml basic crlf inside",
+      "toml": "a = \"\"\"x\r\ny\"\"\"\n",
+      "repr": "{'a': 'x\\ny'}"
+    },
+    {
+      "name": "spec/ml basic line ending backslash",
+      "toml": "a = \"\"\"x \\\n   \n  y\"\"\"\n",
+      "repr": "{'a': 'x y'}"
+    },
+    {
+      "name": "spec/ml basic backslash spaces",
+      "toml": "a = \"\"\"x\\  \n  y\"\"\"\n",
+      "repr": "{'a': 'xy'}"
+    },
+    {
+      "name": "spec/ml basic backslash then text",
+      "toml": "a = \"\"\"x\\  y\"\"\"\n",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 1, column 12)"
+    },
+    {
+      "name": "spec/ml basic quotes inside",
+      "toml": "a = \"\"\"a \"\" b\"\"\"\n",
+      "repr": "{'a': 'a \"\" b'}"
+    },
+    {
+      "name": "spec/ml basic one closing quote",
+      "toml": "a = \"\"\"a\"\"\"\"\n",
+      "repr": "{'a': 'a\"'}"
+    },
+    {
+      "name": "spec/ml basic two closing quotes",
+      "toml": "a = \"\"\"a\"\"\"\"\"\n",
+      "repr": "{'a': 'a\"\"'}"
+    },
+    {
+      "name": "spec/ml basic three closing quotes",
+      "toml": "a = \"\"\"a\"\"\"\"\"\"\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 14)"
+    },
+    {
+      "name": "spec/ml basic empty",
+      "toml": "a = \"\"\"\"\"\"\n",
+      "repr": "{'a': ''}"
+    },
+    {
+      "name": "spec/ml basic escapes",
+      "toml": "a = \"\"\"\\t\\u0041\"\"\"\n",
+      "repr": "{'a': '\\tA'}"
+    },
+    {
+      "name": "spec/ml basic control",
+      "toml": "a = \"\"\"\u0001\"\"\"\n",
+      "error": "TOMLDecodeError: Illegal character '\\x01' (at line 1, column 8)"
+    },
+    {
+      "name": "spec/ml basic unclosed",
+      "toml": "a = \"\"\"x\n",
+      "error": "TOMLDecodeError: Unterminated string (at end of document)"
+    },
+    {
+      "name": "spec/ml literal",
+      "toml": "a = '''\nx\\n\n'y'\n'''\n",
+      "repr": "{'a': \"x\\\\n\\n'y'\\n\"}"
+    },
+    {
+      "name": "spec/ml literal closing quotes",
+      "toml": "a = '''x'''''\n",
+      "repr": "{'a': \"x''\"}"
+    },
+    {
+      "name": "spec/ml literal control",
+      "toml": "a = '''\u0001'''\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x01' (at line 1, column 8)"
+    },
+    {
+      "name": "spec/ml literal tab",
+      "toml": "a = '''\t'''\n",
+      "repr": "{'a': '\\t'}"
+    },
+    {
+      "name": "spec/non ascii repr",
+      "toml": "a = \"é \u2028\"\n",
+      "error": "TOMLDecodeError: Illegal character '\\x7f' (at line 1, column 9)"
+    },
+    {
+      "name": "spec/non printable repr",
+      "toml": "a = \"é \u2028​\"\n",
+      "repr": "{'a': 'é\\xa0\\u2028\\u200b'}"
+    },
+    {
+      "name": "spec/astral non printable",
+      "toml": "a = \"󠀁\"\n",
+      "repr": "{'a': '\\U000e0001'}"
+    },
+    {
+      "name": "spec/ints",
+      "toml": "a = 1\nb = +2\nc = -3\nd = 0\ne = 1_000\nf = -0\ng = +0\n",
+      "repr": "{'a': 1, 'b': 2, 'c': -3, 'd': 0, 'e': 1000, 'f': 0, 'g': 0}"
+    },
+    {
+      "name": "spec/prefixed ints",
+      "toml": "a = 0xDEAD_beef\nb = 0o755\nc = 0b1101\n",
+      "repr": "{'a': 3735928559, 'b': 493, 'c': 13}"
+    },
+    {
+      "name": "spec/int64 bounds",
+      "toml": "a = 9223372036854775807\nb = -9223372036854775808\n",
+      "repr": "{'a': 9223372036854775807, 'b': -9223372036854775808}"
+    },
+    {
+      "name": "spec/int too big refused",
+      "toml": "a = 9223372036854775808\n",
+      "repr": "{'a': 9223372036854775808}",
+      "refused": true
+    },
+    {
+      "name": "spec/leading zero",
+      "toml": "a = 01\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/double underscore",
+      "toml": "a = 1__0\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/trailing underscore",
+      "toml": "a = 1_\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/leading underscore",
+      "toml": "a = _1\n",
+      "error": "TOMLDecodeError: Invalid value (at line 1, column 5)"
+    },
+    {
+      "name": "spec/signed hex",
+      "toml": "a = +0x1\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 7)"
+    },
+    {
+      "name": "spec/uppercase prefix",
+      "toml": "a = 0X1\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/hex no digits",
+      "toml": "a = 0x\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/floats",
+      "toml": "a = 1.5\nb = -0.0\nc = 1e3\nd = 6.26e-34\ne = 1_0.0_1\nf = 5E+22\ng = 1.0\n",
+      "repr": "{'a': 1.5, 'b': -0.0, 'c': 1000.0, 'd': 6.26e-34, 'e': 10.01, 'f': 5e+22, 'g': 1.0}"
+    },
+    {
+      "name": "spec/float repr range",
+      "toml": "a = 1e16\nb = 1e15\nc = 0.0001\nd = 0.00001\ne = 123456789.123\n",
+      "repr": "{'a': 1e+16, 'b': 1000000000000000.0, 'c': 0.0001, 'd': 1e-05, 'e': 123456789.123}"
+    },
+    {
+      "name": "spec/special floats",
+      "toml": "a = inf\nb = +inf\nc = -inf\nd = nan\ne = +nan\nf = -nan\n",
+      "repr": "{'a': inf, 'b': inf, 'c': -inf, 'd': nan, 'e': nan, 'f': nan}"
+    },
+    {
+      "name": "spec/float overflow",
+      "toml": "a = 1e400\n",
+      "repr": "{'a': inf}"
+    },
+    {
+      "name": "spec/float no int part",
+      "toml": "a = .5\n",
+      "error": "TOMLDecodeError: Invalid value (at line 1, column 5)"
+    },
+    {
+      "name": "spec/float no frac",
+      "toml": "a = 1.\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/float exp no digits",
+      "toml": "a = 1e\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/float leading zero",
+      "toml": "a = 01.5\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 6)"
+    },
+    {
+      "name": "spec/float zero exp",
+      "toml": "a = 0e0\nb = 0.0\n",
+      "repr": "{'a': 0.0, 'b': 0.0}"
+    },
+    {
+      "name": "spec/bools",
+      "toml": "a = true\nb = false\n",
+      "repr": "{'a': True, 'b': False}"
+    },
+    {
+      "name": "spec/bool case",
+      "toml": "a = True\n",
+      "error": "TOMLDecodeError: Invalid value (at line 1, column 5)"
+    },
+    {
+      "name": "spec/bool suffix",
+      "toml": "a = truex\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 1, column 9)"
+    },
+    {
+      "name": "spec/date refused",
+      "toml": "a = 1979-05-27\n",
+      "repr": "{'a': datetime.date(1979, 5, 27)}",
+      "refused": true
+    },
+    {
+      "name": "spec/datetime refused",
+      "toml": "a = 1979-05-27T07:32:00Z\n",
+      "repr": "{'a': datetime.datetime(1979, 5, 27, 7, 32, tzinfo=datetime.timezone.utc)}",
+      "refused": true
+    },
+    {
+      "name": "spec/time refused",
+      "toml": "a = 07:32:00\n",
+      "repr": "{'a': datetime.time(7, 32)}",
+      "refused": true
+    },
+    {
+      "name": "spec/date in array refused",
+      "toml": "a = [1979-05-27]\n",
+      "repr": "{'a': [datetime.date(1979, 5, 27)]}",
+      "refused": true
+    },
+    {
+      "name": "spec/arrays",
+      "toml": "a = [1, 2]\nb = []\nc = [ ]\nd = [\"x\", 'y']\n",
+      "repr": "{'a': [1, 2], 'b': [], 'c': [], 'd': ['x', 'y']}"
+    },
+    {
+      "name": "spec/array multiline",
+      "toml": "a = [\n  1, # one\n  2,\n  # two\n]\n",
+      "repr": "{'a': [1, 2]}"
+    },
+    {
+      "name": "spec/array mixed",
+      "toml": "a = [1, 'x', 1.5, [true], {b = 1}]\n",
+      "repr": "{'a': [1, 'x', 1.5, [True], {'b': 1}]}"
+    },
+    {
+      "name": "spec/array nested",
+      "toml": "a = [[1, 2], [[]]]\n",
+      "repr": "{'a': [[1, 2], [[]]]}"
+    },
+    {
+      "name": "spec/array trailing comma",
+      "toml": "a = [1,]\n",
+      "repr": "{'a': [1]}"
+    },
+    {
+      "name": "spec/array double comma",
+      "toml": "a = [1,,2]\n",
+      "error": "TOMLDecodeError: Invalid value (at line 1, column 8)"
+    },
+    {
+      "name": "spec/array leading comma",
+      "toml": "a = [,1]\n",
+      "error": "TOMLDecodeError: Invalid value (at line 1, column 6)"
+    },
+    {
+      "name": "spec/array unclosed",
+      "toml": "a = [1\n",
+      "error": "TOMLDecodeError: Unclosed array (at end of document)"
+    },
+    {
+      "name": "spec/array no comma",
+      "toml": "a = [1 2]\n",
+      "error": "TOMLDecodeError: Unclosed array (at line 1, column 8)"
+    },
+    {
+      "name": "spec/array crlf",
+      "toml": "a = [\r\n1,\r\n2\r\n]\r\n",
+      "repr": "{'a': [1, 2]}"
+    },
+    {
+      "name": "spec/inline",
+      "toml": "a = {b = 1, c = 'x'}\n",
+      "repr": "{'a': {'b': 1, 'c': 'x'}}"
+    },
+    {
+      "name": "spec/inline empty",
+      "toml": "a = {}\nb = { }\n",
+      "repr": "{'a': {}, 'b': {}}"
+    },
+    {
+      "name": "spec/inline nested",
+      "toml": "a = {b = {c = [1]}}\n",
+      "repr": "{'a': {'b': {'c': [1]}}}"
+    },
+    {
+      "name": "spec/inline trailing comma",
+      "toml": "a = {b = 1,}\n",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at line 1, column 12)"
+    },
+    {
+      "name": "spec/inline newline",
+      "toml": "a = {\nb = 1}\n",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at line 1, column 6)"
+    },
+    {
+      "name": "spec/inline duplicate",
+      "toml": "a = {b = 1, b = 2}\n",
+      "error": "TOMLDecodeError: Duplicate inline table key 'b' (at line 1, column 18)"
+    },
+    {
+      "name": "spec/inline dotted refused",
+      "toml": "a = {b.c = 1}\n",
+      "repr": "{'a': {'b': {'c': 1}}}",
+      "refused": true
+    },
+    {
+      "name": "spec/inline unclosed",
+      "toml": "a = {b = 1\n",
+      "error": "TOMLDecodeError: Unclosed inline table (at line 1, column 11)"
+    },
+    {
+      "name": "spec/inline in array",
+      "toml": "a = [{b = 1}, {b = 2}]\n",
+      "repr": "{'a': [{'b': 1}, {'b': 2}]}"
+    },
+    {
+      "name": "spec/inline env",
+      "toml": "env = { BUNDLE_PATH = \"/x\" }\n",
+      "repr": "{'env': {'BUNDLE_PATH': '/x'}}"
+    },
+    {
+      "name": "examples/config/config.toml",
+      "toml": "# Copy to your own config repo; deploy.sh renders templates from it and installs it\n# on the host as ~/factory/config.toml.\n\nimage = \"localhost/factory-agent:scion\"\nmax_agents = 2               # agents running at once; ~500 MB each for Claude Code\nagent_timeout_minutes = 45\n\n# Pinned agent versions for the image builds. `factory rebuild` (weekly timer) rebuilds\n# with fresh OS packages at these versions; `factory versions` (via clock, weekly) files\n# a needs_human notice when a newer release exists.\n[images]\nclaude = \"2.1.296\"\npi = \"1.2.0\"\n\n[upkeep]\nrebuild_at = \"Sun *-*-* 02:30:00\"     # systemd calendar; add a time zone name to pin it\n\n# GitHub out, through a GitHub App (Contents + Pull requests: write, Issues: read, no\n# Workflows; installed on the project repos only). The private key lives on the host at\n# ~/.config/factory/github-app.pem (mode 600). The factory pushes bot/* branches and opens\n# PRs; it never merges, and main needs a ruleset (PR + review + CI, no bypass).\n# [github]\n# app_client_id = \"Iv23...\"\n# installation_id = 12345678\n# open_prs = \"manual\"        # or \"auto\": open PRs for ready_for_pr tickets on each tick\n# reviewers = [\"you\"]        # review requested on every PR the factory opens\n\n# Self-deploy (`factory deploy`): the master deploys core main with config main itself,\n# building on [build] host. Core is fetched with no credential (it is public); config\n# with an App token for that one repo (contents: read), so the App must be installed\n# on the config repo too. Needs [github] installation_id and [build] host.\n# [deploy]\n# core = \"example/agent-factory\"\n# config = \"example/factory-config\"\n# config_dir = \"config\"      # the directory of the config repo that holds config.toml\n\n# Public-repo hygiene: on a project with `hygiene = true`, Gate 1 fails a change whose\n# paths, added lines, commit messages, branch or PR text contain one of these terms\n# (case-insensitive; 3 characters or more). Keep the real list in your private config.\n# [hygiene]\n# deny = [\"hostx\", \"10.9.8.7\", \"example.ts.net\"]\n\n# The daily encrypted backup to R2 (`factory backup`). Archives are named\n# factory-<name>-<stamp>; retention and the Sunday restore check keep to that one line.\n# [backup]\n# endpoint = \"https://<account>.r2.cloudflarestorage.com\"\n# bucket = \"factory-backups\"\n# name = \"master\"            # default: this machine's host name; set it so the line survives a move\n\n# Commit identity and PR attribution for every agent.\n[identity]\ngit_name = \"Your Name\"\ngit_email = \"you@example.com\"\npr_footer = \"Opened by a maintenance bot (Claude Code).\"\n\n# The unprivileged account the agents run as (created by host/setup.sh).\n[host]\nfactory_user = \"factory\"\nfactory_uid = 1001\nfactory_home = \"/home/factory\"\n\n# Stage -\u003e Scion template name on the host. deploy.sh installs the ruby-gem flavour\n# under these names.\n[templates]\ntriage = \"gem-triage\"\nwork = \"gem-worker\"\nreview = \"gem-reviewer\"\nsecurity = \"gem-security\"\ntask = \"gem-task\"\ndesign = \"gem-designer\"\nprospect = \"gem-prospector\"\nvote = \"gem-voter\"\nverify = \"gem-verifier\"\n\n[models]                     # per stage; empty = harness default\ntriage = \"\"\nwork = \"\"\nreview = \"\"\nsecurity = \"\"\n\n# Gate 1: deterministic, no model. All must hold for auto-merge eligibility.\n[gate]\nmax_changed_lines = 10\nallowed_paths = [\"*.md\", \"docs/*\", \"CHANGELOG*\", \".standard.yml\", \".rubocop.yml\", \"test/*\", \"spec/*\"]\nmemory = \"900m\"\nmounts = [\"{root}/cache/bundle:/home/scion/.bundle-cache:ro\"]   # {root} = ~/factory\nenv = { BUNDLE_PATH = \"/home/scion/.bundle-cache\" }\n\n[panel]                      # blind voting on prospecting proposals\nvoters = 3\n\n[findings]                   # what a finding task's verified findings become\nauto_file = \"none\"           # \"confirmed-safe\": confirmed findings that change no behaviour are filed as changes at once\n\n[foreman]                    # the web app (systemd/foreman.service)\nlisten = \"127.0.0.1:8790\"    # loopback; put `tailscale serve` in front to reach it from elsewhere\n# hosts = [\"box.example.ts.net\"]            # names it answers to besides IPs and localhost\n# trust_tailscale = true                    # a tailnet login below counts as logged in (via tailscale serve)\n# tailscale_users = [\"you@example.com\"]\n\n[triage.auto_accept]         # accepted triage goes straight to \"ready\" for these doors\ngithub = false               # otherwise it waits in needs_human\nclock = true\n# agent = false              # tickets an agent's token files (factory ticket create / send); untrusted\n\n[board]                      # tickets for projects the factory doesn't run (mode = \"board\" below)\npeople = [\"alice\"]           # who tickets are assigned to and questions put to; the first is the maintainer\n\n# Helper hosts (optional), reached over an SSH key forced to bin/factory-remote\n# (host/allow-dispatcher.sh); they run Pi jobs. Stages run here first; a helper takes\n# the stages it lists only when max_agents is reached here. A ticket pinned with\n# `factory add --host NAME` / `factory host T0001 NAME` runs every stage there and\n# waits while it is busy or unreachable.\n# [hosts.helper]\n# ssh = \"factory@192.0.2.11\"\n# slots = 1\n# stages = [\"triage\", \"review\"]    # overflow when this host is full\n# prefer = [\"task\"]                # taken here first: light single-run tasks\n# notes = \"what this host is good for\"\n# model = \"claude-sonnet-5-5\"\n# key = \"~/.ssh/factory-remote\"\n\n# On a helper host: what each job gets beyond its own directory. The dispatcher\n# sends only the branch, model and timeout; but a helper with ~/factory/accept-installs\n# takes the master's whole config.toml at each self-deploy, these settings included.\n[remote]\nimage = \"localhost/factory-pi:dev\"\nmemory = \"800m\"\nmounts = [\"{root}/cache/bundle:/home/scion/.bundle-cache:ro\"]   # {root} = ~/factory\nenv = { BUNDLE_PATH = \"/home/scion/.bundle-cache\" }\n# agent = \"pi\"         # or \"claude\" (Claude Code, needs SSE4.2+)\n# auth = \"api-key\"     # ~/.config/factory/anthropic-api-key; claude also \"subscription\" (its default):\n#                      # ~/.config/factory/claude-oauth-token. A job gets only that one.\n# cpus = 2\n# max_jobs = 4\n# deps = false         # true: bundle/shards install before the agent, into a writable cache\n\n# One helper's own settings, over [remote], read only on the helper whose short\n# hostname (`hostname -s`, lowercased) is the table's name. env adds to [remote] env;\n# the other keys replace. Every helper gets this same file.\n# [remote.helperb]\n# agent = \"claude\"\n# image = \"localhost/factory-agent:scion\"\n# memory = \"3g\"\n# cpus = 4\n# max_jobs = 2\n# deps = true          # every stage, gems included, without a hand-seeded cache\n# mounts = [\"{root}/cache/bundle:/home/scion/.bundle-cache\"]   # writable, for deps\n\n[projects.my_gem]\npath = \"/home/factory/projects/my_gem\"\ngithub = \"owner/my_gem\"      # enables the github door (factory sweep)\nbase = \"main\"\ninstall = \"bundle check\"\ntest = \"bundle exec rake test\"\nlint = \"bundle exec standardrb\"\npinned_untracked = [\"Gemfile.lock\"]   # copied into the gate checkout\n# tier3_paths / text_paths override the security-tier file patterns\n\n# another language: every agent is told `language`, the commands and `notes`; the images carry Crystal\n[projects.my_shard]\npath = \"/home/factory/projects/my_shard\"\ngithub = \"you/my_shard\"\nbase = \"main\"\nlanguage = \"Crystal shard\"\ninstall = \"shards install\"\ntest = \"crystal spec\"\nlint = \"crystal tool format --check src spec \u0026\u0026 ameba src spec\"\nnotes = \"Anything every agent on this project should know.\"\n# gate_memory = \"1500m\"               # overrides [gate] memory for this project\n\n# [projects.notes_app]\n# mode = \"board\"     # tickets only: people and their own agents do the work; no pipeline, no gate\n\n# the factory as its own project: a merge deploys core (self_deploy = \"core\"; a config\n# repo's project says \"config\"), a change to a wall never merges without you, and the\n# public repo's changes are scanned against [hygiene] deny\n# [projects.agent-factory]\n# path = \"/home/factory/projects/agent-factory\"\n# github = \"example/agent-factory\"\n# base = \"main\"\n# language = \"Go module, standard library only\"\n# install = \"go version\"\n# test = \"go vet ./... \u0026\u0026 go test -count=1 ./...\"\n# lint = 'out=$(gofmt -l .); [ -z \"$out\" ] || { echo \"gofmt: $out\"; exit 1; }'\n# walls = [\"internal/gate/*\", \"deploy.sh\", \"images/*\"]   # fnmatch, as allowed_paths\n# hygiene = true\n# self_deploy = \"core\"\n\n[[schedules]]                # the clock door\nname = \"rails-release-check\"\nevery_days = 30\ntitle = \"Check compatibility with the latest Rails release\"\nbody = \"\"\"Check whether a Rails version newer than the ones covered by Appraisals and the CI matrix has been released. If so, add it to Appraisals and the CI matrix, run the suite against it, and fix any incompatibility. If nothing newer exists, reject this ticket.\"\"\"\n\n[[schedules]]                # a finding task: its findings go to a verifier, then to you, then become tickets\nname = \"bug-hunt\"\nevery_days = 30\nkind = \"task\"\nfindings = true\ntitle = \"Bug hunt\"\nbody = \"\"\"Look for bugs in this library and report them; change nothing in the repository. Confirm each one with a small script in scratch space, run against the current code.\"\"\"\n\n[[schedules]]                # prospecting: proposals, scored by a blind panel ([panel] voters)\nname = \"prospecting\"\nevery_days = 30\nkind = \"prospect\"\ntitle = \"Look for improvements worth the maintainer's attention\"\nbody = \"\"\"Look across the code, tests and docs for improvements with concrete evidence.\"\"\"\n",
+      "repr": "{'image': 'localhost/factory-agent:scion', 'max_agents': 2, 'agent_timeout_minutes': 45, 'images': {'claude': '2.1.296', 'pi': '1.2.0'}, 'upkeep': {'rebuild_at': 'Sun *-*-* 02:30:00'}, 'identity': {'git_name': 'Your Name', 'git_email': 'you@example.com', 'pr_footer': 'Opened by a maintenance bot (Claude Code).'}, 'host': {'factory_user': 'factory', 'factory_uid': 1001, 'factory_home': '/home/factory'}, 'templates': {'triage': 'gem-triage', 'work': 'gem-worker', 'review': 'gem-reviewer', 'security': 'gem-security', 'task': 'gem-task', 'design': 'gem-designer', 'prospect': 'gem-prospector', 'vote': 'gem-voter', 'verify': 'gem-verifier'}, 'models': {'triage': '', 'work': '', 'review': '', 'security': ''}, 'gate': {'max_changed_lines': 10, 'allowed_paths': ['*.md', 'docs/*', 'CHANGELOG*', '.standard.yml', '.rubocop.yml', 'test/*', 'spec/*'], 'memory': '900m', 'mounts': ['{root}/cache/bundle:/home/scion/.bundle-cache:ro'], 'env': {'BUNDLE_PATH': '/home/scion/.bundle-cache'}}, 'panel': {'voters': 3}, 'findings': {'auto_file': 'none'}, 'foreman': {'listen': '127.0.0.1:8790'}, 'triage': {'auto_accept': {'github': False, 'clock': True}}, 'board': {'people': ['alice']}, 'remote': {'image': 'localhost/factory-pi:dev', 'memory': '800m', 'mounts': ['{root}/cache/bundle:/home/scion/.bundle-cache:ro'], 'env': {'BUNDLE_PATH': '/home/scion/.bundle-cache'}}, 'projects': {'my_gem': {'path': '/home/factory/projects/my_gem', 'github': 'owner/my_gem', 'base': 'main', 'install': 'bundle check', 'test': 'bundle exec rake test', 'lint': 'bundle exec standardrb', 'pinned_untracked': ['Gemfile.lock']}, 'my_shard': {'path': '/home/factory/projects/my_shard', 'github': 'you/my_shard', 'base': 'main', 'language': 'Crystal shard', 'install': 'shards install', 'test': 'crystal spec', 'lint': 'crystal tool format --check src spec \u0026\u0026 ameba src spec', 'notes': 'Anything every agent on this project should know.'}}, 'schedules': [{'name': 'rails-release-check', 'every_days': 30, 'title': 'Check compatibility with the latest Rails release', 'body': 'Check whether a Rails version newer than the ones covered by Appraisals and the CI matrix has been released. If so, add it to Appraisals and the CI matrix, run the suite against it, and fix any incompatibility. If nothing newer exists, reject this ticket.'}, {'name': 'bug-hunt', 'every_days': 30, 'kind': 'task', 'findings': True, 'title': 'Bug hunt', 'body': 'Look for bugs in this library and report them; change nothing in the repository. Confirm each one with a small script in scratch space, run against the current code.'}, {'name': 'prospecting', 'every_days': 30, 'kind': 'prospect', 'title': \"Look for improvements worth the maintainer's attention\", 'body': 'Look across the code, tests and docs for improvements with concrete evidence.'}]}"
+    },
+    {
+      "name": "gen/000",
+      "toml": "\"\\\"ß\"\t=  '''''x'''''\r\nb={ZZxzA = 123.456}\r\n",
+      "repr": "{'\"ß': \"''x''\", 'b': {'ZZxzA': 123.456}}"
+    },
+    {
+      "name": "gen/001",
+      "toml": "'󠀁Z'='Z'\n\n[hosts.one]\n90a = {'\"' = inf, yz9x_ = \"\\u00a0\"}\n\n[[a]]\nAcy_Zc = ['\t,', 1e15, -17]\n",
+      "repr": "{'\\U000e0001Z': 'Z', 'hosts': {'one': {'90a': {'\"': inf, 'yz9x_': '\\xa0'}}}, 'a': [{'Acy_Zc': ['\\t,', 1000000000000000.0, -17]}]}"
+    },
+    {
+      "name": "gen/002",
+      "toml": "Aa9z = {} # ́{\nxA-b_={c = \"​#a\"} # １éa\n-\t=  {} # ﻿​\n\n[projects.gem]\n9zz9 = []\n\n[a.x]\n",
+      "repr": "{'Aa9z': {}, 'xA-b_': {'c': '\\u200b#a'}, '-': {}, 'projects': {'gem': {'9zz9': []}}, 'a': {'x': {}}}"
+    },
+    {
+      "name": "gen/003",
+      "toml": "\n[[projects.gem]]\nAAa=1e15\ncx_b-0=-0.0\n9-a_Aa\t=  [{_9Zb = ['a', \"b\"]}, '\" \t]', -9223372036854775808,] #  \n",
+      "repr": "{'projects': {'gem': [{'AAa': 1000000000000000.0, 'cx_b-0': -0.0, '9-a_Aa': [{'_9Zb': ['a', 'b']}, '\"\\xa0\\t]', -9223372036854775808]}]}}"
+    },
+    {
+      "name": "gen/004",
+      "toml": "\"󠀁󠀁'\"\t=  ',ßZ\\}\u2028'\n']{'=\"\\u001Fß'﻿\" # Z]٣\n\na = 1\na = 2",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at end of document)"
+    },
+    {
+      "name": "gen/005",
+      "repr": "{}"
+    },
+    {
+      "name": "gen/006",
+      "toml": "Z = 1e16\nZ9_Az\t=  \"\"\"a\"\"\"\"\n",
+      "repr": "{'Z': 1e+16, 'Z9_Az': 'a\"'}"
+    },
+    {
+      "name": "gen/007",
+      "toml": "Z0=\"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\ny_aacx = [ ]\n-c\t=  [\"﻿\\u0009é\", \"\"\"\\u00e9\\t\"\"\", '''\nraw \\n 'x'\n''',]\n\n[c.\"q k\".d]\n\"\" = false # [0\nb=\"'é󠀁' \\u0009\" # １٣\nbz\t=  ['\\0ß😀 ﻿٣a', {\"#0\" = [\n  1, # c\n  2,\n]},]\n",
+      "repr": "{'Z0': 'line one\\nline \"two\" continued', 'y_aacx': [], '-c': ['\\ufeff\\té', 'é\\t', \"raw \\\\n 'x'\\n\"], 'c': {'q k': {'d': {'': False, 'b': \"'é\\U000e0001' \\t\", 'bz': ['\\\\0ß😀\\xa0\\ufeff٣a', {'#0': [1, 2]}]}}}}"
+    },
+    {
+      "name": "gen/008",
+      "toml": "a_c = ''\n-_zx = nan # 󠀁😀\nab0- = 0b101 # \u2028\n\n[c.\"q k\".d]\n",
+      "repr": "{'a_c': '', '-_zx': nan, 'ab0-': 5, 'c': {'q k': {'d': {}}}}"
+    },
+    {
+      "name": "gen/009",
+      "toml": "\"\" = 0b101\n\n[[projects.gem]]\n\n[projects.gem]\n\"\u2029 １\"\t=  1e15 # １Z１﻿\n9\t=  {Z = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\", za-az9 = \"٣{[\"}\n\n[",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 5, column 14)"
+    },
+    {
+      "name": "gen/010",
+      "toml": "_=1.5\n\n[hosts.one]\nca0b\t=  [false,]\n9yZ_y\t=  \"\"\"\\u00e9\\t\"\"\"\n\n[[c.\"q k\".d]]\nx_ZZc-=1\n\n[projects.gem]\n'0​'=3e2\n",
+      "repr": "{'_': 1.5, 'hosts': {'one': {'ca0b': [False], '9yZ_y': 'é\\t'}}, 'c': {'q k': {'d': [{'x_ZZc-': 1}]}}, 'projects': {'gem': {'0\\u200b': 300.0}}}"
+    },
+    {
+      "name": "gen/011",
+      "toml": "\n[a.x]\n'' = \"\\\"Z''#\\u4e2d\\u001F\"\nxazA_\t=  false\n",
+      "repr": "{'a': {'x': {'': '\"Z\\'\\'#中\\x1f', 'xazA_': False}}}"
+    },
+    {
+      "name": "gen/012",
+      "toml": "aa-\t=  [\n  1, # c\n  2,\n]\nAxcax = \"}\\\\中,,=}é\"\n\n[a]\n'😀ß'='é[a'\nZ = false\n\n[c.\"q k\".d]\nbyxc__\t=  \"=\\u4e2d{\u2028\"\n",
+      "repr": "{'aa-': [1, 2], 'Axcax': '}\\\\中,,=}é', 'a': {'😀ß': 'é[a', 'Z': False}, 'c': {'q k': {'d': {'byxc__': '=中{\\u2028'}}}}"
+    },
+    {
+      "name": "gen/013",
+      "toml": "b\t=  {} # 中é́\na0bzx\t=  9223372036854775807\n",
+      "repr": "{'b': {}, 'a0bzx': 9223372036854775807}"
+    },
+    {
+      "name": "gen/014",
+      "toml": "\r\n['b]\r\ncZaaAy = '\u2028́a'\r\nAzAA\t=  [false, 1.5] # [, a１\r\n'😀 ' = \"\"\"\\u00e9\\t\"\"\"\r\n",
+      "error": "TOMLDecodeError: Found invalid character '\\n' (at line 2, column 5)"
+    },
+    {
+      "name": "gen/015",
+      "toml": "00 = \"\\ufeff\\t​\\u0663 }'\"\n''\t=  nan\n\n[a.x]\n\n[a.x]\n-90y9- = [\n  1, # c\n  2,\n]\n'中'\t=  3e2\n\n[[a.x]]\n-a = \"ß}\\\\﻿  =\"\nzyac\t=  ''\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'x') twice (at line 6, column 5)"
+    },
+    {
+      "name": "gen/016",
+      "toml": "bb = '󠀁[ {'\r\n\r\n[[a.x]]\r\n_- = -9223372036854775808\r\n\r\n[a.x]\r\naxxA = {} # \u2029中[１​\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'x') twice (at line 6, column 5)"
+    },
+    {
+      "name": "gen/017",
+      "repr": "{}"
+    },
+    {
+      "name": "gen/018",
+      "toml": "a-zy9y={}\n0a_\t=  {}\n\n[hosts.one]\nc9-='Z' #  \n9A-\t=  [1_0.0_1, '', 2.5E-3,]\n\n[hosts.one]\nxzAy_ = [['a', \"b\"], [],]\n',﻿\u001f' = {A_ = 1e-7, 9z = [{}]}\nxa-_xZ = {'},\u2028' = '''\nraw \\n 'x'\n'''}\n\n[a]\n'\u2028{é'=[ ]\nAy\t=  \"}\\u00df﻿ \\\\\\u001Fa\"\n",
+      "error": "TOMLDecodeError: Cannot declare ('hosts', 'one') twice (at line 8, column 11)"
+    },
+    {
+      "name": "gen/019",
+      "toml": "x0Z-9=[[ ]] # Ź#\n\"=0\"\t=  '٣]😀}' # {'１\\\n\"\\u200b{0\\\\\" = 'ß\\ß'\n\n[[b]]\n9 = \"\u2028\\u00e9\\u200b\"\n\n[hosts.one]\n9b\t=  [-0.0, \" =0{\\u4e2d,\u2029\",]\n\"\" = false\nb_y0z = 1.5\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 13, column 1)"
+    },
+    {
+      "name": "gen/020",
+      "toml": "aay-\t=  '''''x'''''\ny_9-\t=  [1e-7, 1_000_000] # }{',​\n'中\u001f '\t=  true\n\n[projects.gem]\n\"😀}é \"\t=  '[中#[​' # \"{{\n'１'\t=  -9223372036854775808\n\n[a]\n\n[a.x]\n' a\u001f' = -0.0 # 😀é﻿\nzZz\t=  123.456\n\"[[\"\t=  ['a', \"b\"]\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1f' (at line 3, column 3)"
+    },
+    {
+      "name": "gen/021",
+      "toml": "'\u2029[﻿'\t=  2.5E-3\n\"ß\u2028\" = {'' = [0b101, +42, 1e15,]} # \n",
+      "repr": "{'\\u2029[\\ufeff': 0.0025, 'ß\\u2028': {'': [5, 42, 1000000000000000.0]}}"
+    },
+    {
+      "name": "gen/022",
+      "toml": "Z00x__=[[],] #  '\naxc_\t=  {xzyy = 1}\n\n[[a]]\n_ = ''\nb_c = ['a', \"b\"]\n\n[a]\n\"\u2028Z\"=[[\n  1, # c\n  2,\n], \"'a]a\\uff11#😀\", {\"\" = 1, \"\\\"\" = [1_0.0_1, 1.5, -inf]},] #  #{\\é\nAacA9 = [{}, 1_0.0_1, \"\\u00e9'\\\\'ß\\u2028ß\"]\nz9A = 1e15\n\n[hosts.one]\nc=0o17 # Zé\"\n-y\t=  -9223372036854775808\nAc-zxy = '😀󠀁 [​'\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 8, column 3)"
+    },
+    {
+      "name": "gen/023",
+      "toml": "\"\\u001C\"=2.5E-3 #   １\nZa\t=  \"\"\"a\"\"\"\"\n\n[hosts.one]\n9-a\t=  0xff # =\n- = {}\n\n[projects.gem]\n\"\" = [ ]\nbxy_z\t=  false\n00y9\t=  \"中\\U000e0001#́\\u00a0́{a\" # ]\n\n[projects.gem]\nb = \"\"\"a\"\"\"\"\n-yz\t=  1_000_000 # \u2029=\\﻿中\n",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 13, column 14)"
+    },
+    {
+      "name": "gen/024",
+      "toml": "x9 = '''\nraw \\n 'x'\n'''\nyz9Z0=inf\n9 = 0 # ﻿{１#\n\n[[projects.gem]]\nZ='''''x'''''\n\"\u2028\" = true\nzZA0=' '\n\n[c.\"q k\".d]\n\n[[a]]\ncccazy = [0o17, {AzxxA = \"\"}, ['󠀁中 a中﻿', 1e-7,],]\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 17, column 1)"
+    },
+    {
+      "name": "gen/025",
+      "toml": "by=nan\nccza=false\n0\t=  \"\"\"a\"\"\"\" # \n\n[[a.x]]\nx9a = {'' = [\"\"\"\nline one\nline \"two\" \\\n   continued\"\"\", '', \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\",], \"\\\\0\" = \"{​\\\\\\\"ß﻿=\"}\n0baz\t=  -9223372036854775808 # ß\t[\\​\ny_a\t=  false\n",
+      "repr": "{'by': nan, 'ccza': False, '0': 'a\"', 'a': {'x': [{'x9a': {'': ['line one\\nline \"two\" continued', '', 'line one\\nline \"two\" continued'], '\\\\0': '{\\u200b\\\\\"ß\\ufeff='}, '0baz': -9223372036854775808, 'y_a': False}]}}"
+    },
+    {
+      "name": "gen/026",
+      "toml": "xxzxbx = -9223372036854775808\r\n\r\n[c.\"q k\".d]\r\n_x0yx9 = 123.456\r\n90Z=\"ßé\u2029\\u001F{\"\r\n_accxa\t=  1e-7\r\n",
+      "repr": "{'xxzxbx': -9223372036854775808, 'c': {'q k': {'d': {'_x0yx9': 123.456, '90Z': 'ßé\\u2029\\x1f{', '_accxa': 1e-07}}}}"
+    },
+    {
+      "name": "gen/027",
+      "toml": "0zbc-=\"\\u0663󠀁\\ufeffZé=ß\" # \u2028\r\nzzazy = -17\r\nc = \"0\"\r\n\r\n[a]\r\n\r\n[a]\r\nA_ = '[́\u2029́'\r\nxa_c\t=  1_000_000\r\naxb=false # },\r\n\r\n[c.\"q k\".d]\r\nbxA_aA = 1e16\r\n9-0xy\t=  false\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 7, column 3)"
+    },
+    {
+      "name": "gen/028",
+      "toml": "'\u2029' = \"\u2028=́[﻿​}​\" # １é\n\"󠀁\"='\tß]中٣}\"'\n\n[a.x]\n'٣\t{'=inf\n\n[[a]]\n'\u001f'\t=  {}\nA0='１}{{\u2029中'\n\"\\\"٣\"\t=  -0.0 # Z 󠀁é\n\n[hosts.one]\n\"ß\" = [nan,]\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 7, column 4)"
+    },
+    {
+      "name": "gen/029",
+      "toml": "_0aZyz\t=  0o17\n'' = {'ßé=' = {9aA = 017, z = 'ß😀中Z['}}\n'Z ' = '😀{\u2028' # 😀\"{\n",
+      "error": "TOMLDecodeError: Unclosed inline table (at line 2, column 23)"
+    },
+    {
+      "name": "gen/030",
+      "repr": "{}"
+    },
+    {
+      "name": "gen/031",
+      "toml": "9xa = {}\nz99a-a = ['''\nraw \\n 'x'\n'''] # [a\nbA=false\n\n[c.\"q k\".d]\n\"\"\t=  true\nyb=['\\\t]\"ß', [-inf, 'a{\t\u2028#󠀁', true,],]\n\n[hosts.one]\n99_- = [ ]\nbZ=\"ß\"\n",
+      "repr": "{'9xa': {}, 'z99a-a': [\"raw \\\\n 'x'\\n\"], 'bA': False, 'c': {'q k': {'d': {'': True, 'yb': ['\\\\\\t]\"ß', [-inf, 'a{\\t\\u2028#\\U000e0001', True]]}}}, 'hosts': {'one': {'99_-': [], 'bZ': 'ß'}}}"
+    },
+    {
+      "name": "gen/032",
+      "toml": "\n[a]\n\n[a]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 4, column 3)"
+    },
+    {
+      "name": "gen/033",
+      "toml": "9aZy=-9223372036854775808 # １a\n\n[b]\n",
+      "repr": "{'9aZy': -9223372036854775808, 'b': {}}"
+    },
+    {
+      "name": "gen/034",
+      "toml": "cxxxc=true\n9cx0x_\t=  [\"\"\"\\u00e9\\t\"\"\", [3e2, \"\"\"\\u00e9\\t\"\"\", [\n  1, # c\n  2,\n]], {zZ = true}]\n9-=\" ],ß é\"\n\n[projects.gem]\ncbA\t=  \"\"\"\\u00e9\\t\"\"\"\n\"\"\t=  -0.0\n\n[",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at end of document)"
+    },
+    {
+      "name": "gen/035",
+      "toml": "\n[[b]]\n0_=true\nA=1e-7 # \n\n[[c.\"q k\".d]]\n\n[[b]]\n",
+      "repr": "{'b': [{'0_': True, 'A': 1e-07}, {}], 'c': {'q k': {'d': [{}]}}}"
+    },
+    {
+      "name": "gen/036",
+      "toml": "\r\n[a]\r\n\"😀0\\u001F'\"\t=  true\r\ncc-_c9=3e2 # \u2028１😀\r\nAc-b-y = ['😀１\"]a}',]\r\n\r\n[[c.\"q k\".d]]\r\n\"٣  \\U000e0001\"\t=  ''\r\ncZb9y9=\" \\u001C\"\r\nZ9y9z_ = 1_0.0_1\r\n",
+      "repr": "{'a': {\"😀0\\x1f'\": True, 'cc-_c9': 300.0, 'Ac-b-y': ['😀１\"]a\\x85}']}, 'c': {'q k': {'d': [{'٣ \\xa0\\U000e0001': '', 'cZb9y9': '\\xa0\\x1c', 'Z9y9z_': 10.01}]}}}"
+    },
+    {
+      "name": "gen/037",
+      "toml": "\n[[b]]\n\n[projects.gem]\n\n[projects.gem]\n",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 6, column 14)"
+    },
+    {
+      "name": "gen/038",
+      "toml": "\n[projects.gem]\nZ_-x0z=[1, 2, 3]\nac=1e16\n'\"\u001f' = -9223372036854775808 # '=\\\n\n[c.\"q k\".d]\nzz\t=  0o17\n\"}]\" = false\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1f' (at line 5, column 3)"
+    },
+    {
+      "name": "gen/039",
+      "toml_base64": "J8yBWic9W3RydWUsIFsKICAxLCAjIGMKICAyLApdLCAnJycKcmF3IFxuICd4JwonJycsXSAjIFvCheKACifwn5iAHO+8kV0nCT0gICJbw6lcdTIwMjkwYXvigIsiCg==",
+      "error": "UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 58-59: invalid continuation byte"
+    },
+    {
+      "name": "gen/040",
+      "toml": "yxc\t=  false\nc-Ac='''\nraw \\n 'x'\n'''\n_A=true # Z\n\n[hosts.one]\n'́'=1_000_000\nbz09yA\t=  \"\"\"\\u00e9\\t\"\"\"\n\"]Z\\\"\\U0001f600\"\t=  -0.0 # ﻿\n\n[[b]]\nbA='\u2029[Z}éé'\n\n[a]\n",
+      "repr": "{'yxc': False, 'c-Ac': \"raw \\\\n 'x'\\n\", '_A': True, 'hosts': {'one': {'́': 1000000, 'bz09yA': 'é\\t', ']Z\"😀': -0.0}}, 'b': [{'bA': '\\u2029[Z}éé'}], 'a': {}}"
+    },
+    {
+      "name": "gen/041",
+      "toml": "Ay = {cAAza = [['😀', false, 6.02e+23,], [[\n  1, # c\n  2,\n], '́}', \"\"\"a\"\"\"\",],], a0za_y = -inf} # [{\t\n_0--9y\t=  [\n  1, # c\n  2,\n]\n\n[c.\"q k\".d]\nZz_c\t=  [[1, 2, 3], '''''x''''',]\n','='\"}ßß='\n",
+      "repr": "{'Ay': {'cAAza': [['😀', False, 6.02e+23], [[1, 2], '́}', 'a\"']], 'a0za_y': -inf}, '_0--9y': [1, 2], 'c': {'q k': {'d': {'Zz_c': [[1, 2, 3], \"''x''\"], ',': '\"}ßß='}}}}"
+    },
+    {
+      "name": "gen/042",
+      "toml": "\n[b]\naA\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[c.\"q k\".d]\nZzx_z=true\n9-=\"#中\"\n",
+      "repr": "{'b': {'aA': 'line one\\nline \"two\" continued'}, 'c': {'q k': {'d': {'Zzx_z': True, '9-': '#中'}}}}"
+    },
+    {
+      "name": "gen/043",
+      "toml": "\"é}\" = '\"\u2028'\n''=[] # ,​ \n\n[a.x]\n09-=1e16 # \n",
+      "repr": "{'é}': '\"\\x85\\u2028', '': [], 'a': {'x': {'09-': 1e+16}}}"
+    },
+    {
+      "name": "gen/044",
+      "toml": "\r\n[projects.gem]\r[\n\r\n[[a.x]]\r\n'\u001c=' = 1e16\r\ncA0xz0 = '[٣\t#'\r\n",
+      "error": "TOMLDecodeError: Expected newline or end of document after a statement (at line 2, column 15)"
+    },
+    {
+      "name": "gen/045",
+      "toml": "0--a_\t=  {}\r\n\"\\\\ \"\t=  0b101\r\n",
+      "repr": "{'0--a_': {}, '\\\\\\xa0': 5}"
+    },
+    {
+      "name": "gen/046",
+      "toml": "\"]\" = {0cx = ['a', \"b\"], '' = true}\n\n[[c.\"q k\".d]]\n'\u2028 \"\t' = -9223372036854775808\n\n[[hosts.one]]\n",
+      "repr": "{']': {'0cx': ['a', 'b'], '': True}, 'c': {'q k': {'d': [{'\\u2028\\xa0\"\\t': -9223372036854775808}]}}, 'hosts': {'one': [{}]}}"
+    },
+    {
+      "name": "gen/047",
+      "toml": "\"\\\\aZ\"\t=  1.5\n'{'\t=  [{'a' = {'\"a' = []}, bc = {9z = false}}, true, []] # １中é\n\n[[a]]\n\"\"='a\"a中\",'\n\n[hosts.one]\nxz9az = 0b101\naxZ=\"{٣}'{,\\\\\"\n--0zzb='''\nraw \\n 'x'\n'''\n\n[[a]]\n9xb0=\"\"\"a\"\"\"\"\nz0Ax=3e2 # 0\u2028\u2029\nz=true\n",
+      "repr": "{'\\\\aZ': 1.5, '{': [{'\\x85a': {'\"a': []}, 'bc': {'9z': False}}, True, []], 'a': [{'': 'a\"a中\",'}, {'9xb0': 'a\"', 'z0Ax': 300.0, 'z': True}], 'hosts': {'one': {'xz9az': 5, 'axZ': \"{٣}'{,\\\\\", '--0zzb': \"raw \\\\n 'x'\\n\"}}}"
+    },
+    {
+      "name": "gen/048",
+      "toml": "a=\"\"\"\\u00e9\\t\"\"\"\n'ß\t'='#\u2028٣{'\n9_xZ-=\"\\\\'中\"\n\n[b]\n9zz\t=  false # 󠀁\\\n_09A\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n",
+      "repr": "{'a': 'é\\t', 'ß\\t': '#\\u2028٣{', '9_xZ-': \"\\\\'中\", 'b': {'9zz': False, '_09A': 'line one\\nline \"two\" continued'}}"
+    },
+    {
+      "name": "gen/049",
+      "toml": "'é😀Z ' = {} # ß\r\nAc-Z\t=  '１́#}󠀁' #  ß\t\"#\r\nbx99 = \"\" # ,\té\r",
+      "error": "TOMLDecodeError: Found invalid character '\\r' (at line 3, column 16)"
+    },
+    {
+      "name": "gen/050",
+      "toml": "ayyZ = [false, \"[\\u0085Z,\"] # =\"#\n\",\\u0663\\u001F\\u0301\" = \"́'\u2028[\\u001C１ß\\U000e0001\"\n\n[c.\"q k\".d]\nA=[inf, '''''x''''', 9223372036854775807,]\nyZ-00\t=  \"﻿\\u0301} \"\ncx9\t=  '[\"ß,٣=😀'\n\n[c.\"q k\".d]\nA_xZ\t=  [\"\"\"\\u00e9\\t\"\"\", 'ßß0ß[', [],]\n\n[c.\"q k\".d]\n0zx=1\n",
+      "error": "TOMLDecodeError: Cannot declare ('c', 'q k', 'd') twice (at line 9, column 11)"
+    },
+    {
+      "name": "gen/051",
+      "toml": "\"٣\"\t=  false\n\"\u2028\u20290 \" = \"\\u0085\\\\é\"\nzc\t=  '​=́[[]󠀁'\n\n[projects.gem]\n' \"]'=1.5 # 😀=😀[\ncx=inf\n\n[[c.\"q k\".d]]\n\"[{]\"\t=  \"=\\u001Ć'\"\n",
+      "repr": "{'٣': False, '\\u2028\\u20290 ': '\\x85\\\\é', 'zc': '\\u200b=́[[]\\U000e0001', 'projects': {'gem': {'\\xa0\"]': 1.5, 'cx': inf}}, 'c': {'q k': {'d': [{'[{]': \"=\\x85\\x1ć'\"}]}}}"
+    },
+    {
+      "name": "gen/052",
+      "toml": "A-A-c={}\n\n[a]\nz_0AZz=\"\\u001C󠀁Z中😀\"\nx0zZ = {Z0Z = '٣'} # ﻿​]\n\",\\u0085{\" = [[[\n  1, # c\n  2,\n]]]\n\n[a]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 11, column 3)"
+    },
+    {
+      "name": "gen/053",
+      "toml": "\n[[projects.gem]]\nx=true # 0﻿\n'\u001c\t ٣'\t=  9223372036854775807\n\"\u2029１\\uff11\" = {cxazxb = '}', 9xbc- = -0.0}\n\n[[a]]\nbx0y0Z\t=  \"\"\"\\u00e9\\t\"\"\"\n\n[hosts.one]\n'\u001f󠀁\u001c' = 0xff\nxZ_ZA=\"\"\"a\"\"\"\"\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 4, column 2)"
+    },
+    {
+      "name": "gen/054",
+      "toml": "''\t=  '﻿٣\\\"#{é'\n\n[[projects.gem]]\n\na = 1\na = 2",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at end of document)"
+    },
+    {
+      "name": "gen/055",
+      "toml": "x0b0_ = 1e16\n",
+      "repr": "{'x0b0_': 1e+16}"
+    },
+    {
+      "name": "gen/056",
+      "toml": "''\t=  1_000_000 # 0\u2028\r\nZ0\t=  [1, 2, 3] # 󠀁}0\t\u2028\r\n09 = 1e16\r\n\r\n[hosts.one]\r\nZ\t=  nan #  󠀁\r\n''\t=  []\r\n\r\n[c.\"q k\".d]\r\na=0b101 # ßéa\r\n00=[ ]\r\n\"\u2029中\"\t=  ' }á\u2028' # ]\r\n\r\n[c.\"q k\".d]\r\n-Zxa0 = true\r\n\"\\u0663,\\u2029\" = false #  \\😀=\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('c', 'q k', 'd') twice (at line 14, column 11)"
+    },
+    {
+      "name": "gen/057",
+      "toml": "\n[a.x]\n'{😀'=['😀 \\=\t😀', true, {cxyzcZ = [\"#,Z\\u0663٣\"]}]\n\n[b]\n",
+      "repr": "{'a': {'x': {'{\\x85😀': ['😀\\xa0\\\\=\\t😀', True, {'cxyzcZ': ['#,Z٣٣']}]}}, 'b': {}}"
+    },
+    {
+      "name": "gen/058",
+      "toml": "\"Z\\u0085\"={axyx0 = 0xff}\n\n[c.\"q k\".d]\nc\t=  ['''''x''''', inf, 1e15]\n\n[a]\n'​=󠀁' = {}\n\n[a]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 9, column 3)"
+    },
+    {
+      "name": "gen/059",
+      "toml": "_0- = '''\nraw \\n 'x'\n'''\n\n[[hosts.one]]\n\"中\"\t=  2.5E-3\n0-b0y=-17\na_zZ = 0b101\n\n[a]\nxzya='a =[' # \n'\u2028\\#'\t=  {}\n\"{\\t\u2028 \"\t=  {}\n\n[c.\"q 'k\".d]\n\"0\\u001F\"=2.5E-3\n",
+      "repr": "{'_0-': \"raw \\\\n 'x'\\n\", 'hosts': {'one': [{'中': 0.0025, '0-b0y': -17, 'a_zZ': 5}]}, 'a': {'xzya': 'a\\x85 =[', '\\u2028\\\\#': {}, '{\\t\\u2028 ': {}}, 'c': {\"q 'k\": {'d': {'0\\x1f': 0.0025}}}}"
+    },
+    {
+      "name": "gen/060",
+      "toml": "'\u001fa'=\"=\\t\\\"\\u2028\"\nc0zZ='''\nraw \\n 'x'\n''' # #󠀁=﻿\n-ac\t=  '󠀁\t́😀,'\n\n[hosts.one]\n'１='\t=  ['a', 1.5, \"１٣ ́}[\"]\nb\t=  \"\"\"\\u00e9\\t\"\"\"\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1f' (at line 1, column 2)"
+    },
+    {
+      "name": "gen/061",
+      "toml": "\n[b]\n\n[b]\nab_y = [] # \u2028{'}\t\n",
+      "error": "TOMLDecodeError: Cannot declare ('b',) twice (at line 4, column 3)"
+    },
+    {
+      "name": "gen/062",
+      "toml": "\n[b]\n\"\u2029﻿\"=1e15 # \\,中\n\n[[b]]\n09 = [ ]\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 5, column 4)"
+    },
+    {
+      "name": "gen/063",
+      "toml": "A9 = []\n']}'\t=  \"１﻿{́\u2029\" # {​]１\nyc=-inf # 中a😀󠀁😀\n\n[hosts.one]\n\"{=\"=['ß', '''\nraw \\n 'x'\n''', 0o17,] # Z󠀁],中\n\n[c.\"q k\".d]\n'a  ﻿' = 0xff\n_={\"ß\" = \"\"} # 󠀁# \n",
+      "repr": "{'A9': [], ']}': '１\\ufeff{́\\u2029', 'yc': -inf, 'hosts': {'one': {'{=': ['ß', \"raw \\\\n 'x'\\n\", 15]}}, 'c': {'q k': {'d': {'a\\xa0 \\ufeff': 255, '_': {'ß': ''}}}}}"
+    },
+    {
+      "name": "gen/064",
+      "toml": "c0=\"\"\ncz = [9223372036854775807, '﻿#\"', 0b101]\n\n[[b]]\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 6, column 1)"
+    },
+    {
+      "name": "gen/065",
+      "toml": "\n[[hosts.one]]\nbc\t=  \"\"\na9yc = \"\\u001C\u2028,\u2028\"\n",
+      "repr": "{'hosts': {'one': [{'bc': '', 'a9yc': '\\x1c\\u2028,\\u2028'}]}}"
+    },
+    {
+      "name": "gen/066",
+      "toml": "a9A-_ = \",󠀁\\U000e0001a\\u001C\" # ﻿ \"'\n9x_Z = {}\ncy- = {} # \n\n[c.\"q k\".d]\n\n[[a]]\nZ9x = {}\nZx_b = true #  \\😀\na0z = ' '\n\n[a]\n''\t=  true\n9b0Z = [ ] # ][\nczZ = false # \n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 12, column 3)"
+    },
+    {
+      "name": "gen/067",
+      "toml": "\r\n[a]\r\n'Z'\t=  1_0.0_1\r\n\"\\\\\"\t=  true\r\nAA_0\t=  1_0.0_1\r\n\r\n[hosts.one]\r\n\"=​\\u00e9}\" = -0.0\r\n",
+      "repr": "{'a': {'Z': 10.01, '\\\\': True, 'AA_0': 10.01}, 'hosts': {'one': {'=\\u200bé}': -0.0}}}"
+    },
+    {
+      "name": "gen/068",
+      "toml": "\n[hosts.one]\n'﻿\u2028' = \"\"\nxb9b=0b101\n_9 = false # 中󠀁​\n\n[[c.\"q k\".d]]\nbZ-9AA = +42\nbA9=\"﻿a}{\"\n",
+      "repr": "{'hosts': {'one': {'\\ufeff\\u2028': '', 'xb9b': 5, '_9': False}}, 'c': {'q k': {'d': [{'bZ-9AA': 42, 'bA9': '\\ufeffa}{'}]}}}"
+    },
+    {
+      "name": "gen/069",
+      "toml": "''={bZb = 'a{=中\u2029} # １ \n\n[[a.x]]\n\"[\"=1e-7\na--zy\t=  ['''\nraw \\n 'x'\n''', false]\ny0cxyZ=1e16\n",
+      "error": "TOMLDecodeError: Found invalid character '\\n' (at line 1, column 24)"
+    },
+    {
+      "name": "gen/070",
+      "toml": "yb\t=  {Z = {yy0 = \"\"\"a\"\"\"\"}, 9xc_ = \"\\u2028ß中\"}\n\n[hosts.one]\n\"\"\t=  '中 {0😀' # 󠀁 \nAy = true\n",
+      "repr": "{'yb': {'Z': {'yy0': 'a\"'}, '9xc_': '\\u2028ß中'}, 'hosts': {'one': {'': '中\\xa0{0😀', 'Ay': True}}}"
+    },
+    {
+      "name": "gen/071",
+      "toml": "9Ac-Zy=\"\u2029Z󠀁 {😀a\\u0009\"\n",
+      "repr": "{'9Ac-Zy': '\\u2029Z\\U000e0001 {😀a\\t'}"
+    },
+    {
+      "name": "gen/072",
+      "toml": "0Zc=true\r\n\r\n[a.x]\r\nzxzZA=\"[\\\"0 \"\r\na\t=  ['''\nraw \\n 'x'\n''', 0, true,]\r\n\r\n[projects.gem]\r\n\r\n[projects.gem]\r\n\"ß\\uff11\\\\Z\"=\"\\u001C​\\\"１\\u4e2d\"\r\ny_b\t=  ['a', \"b\"] #  \r\nz9c9 = \"\"\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 11, column 14)"
+    },
+    {
+      "name": "gen/073",
+      "toml": "\r\n[c.\"q k\".d]\r\n_-0ZAA\t=  false\r\n",
+      "repr": "{'c': {'q k': {'d': {'_-0ZAA': False}}}}"
+    },
+    {
+      "name": "gen/074",
+      "toml": "\n[[c.\"q k\".d]]\n\"a=\"=\"\\u01C0\"\n",
+      "repr": "{'c': {'q k': {'d': [{'a=': 'ǀ'}]}}}"
+    },
+    {
+      "name": "gen/075",
+      "toml": "Zx_ = [ ]\r\n\r\n[hosts.one]\r\n'' = [ ]\r\nZ0-9-\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\r\n-byZ\t=  [[], 2.5E-3, [\n  1, # c\n  2,\n],] # a#\r\n",
+      "repr": "{'Zx_': [], 'hosts': {'one': {'': [], 'Z0-9-': 'line one\\nline \"two\" continued', '-byZ': [[], 0.0025, [1, 2]]}}}"
+    },
+    {
+      "name": "gen/076",
+      "toml": "bZ\t=  [ ]\r\n\"\" = \"\u2028\"\r\n\r\n[a]\r\nb0A_A=true\r\nb = [\n  1, # c\n  2,\n]\r\n'\"'=[\n  1, # c\n  2,\n] # \"0٣Z\r\n\r\n[b]\r\n\r\n[[a]]\r\nby-\t=  [1, 2, 3]\r\n'a{]' = '''''x'''''\r\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 17, column 4)"
+    },
+    {
+      "name": "gen/077",
+      "toml": "aZ_c = [ ]\n\n[projects.gem]\nzbb = \"]ß0Z\"\n\n[[c.\"q k\".d]]\n''\t=  true\n\n[[a.x]]\n",
+      "repr": "{'aZ_c': [], 'projects': {'gem': {'zbb': ']\\x85ß0Z'}}, 'c': {'q k': {'d': [{'': True}]}}, 'a': {'x': [{}]}}"
+    },
+    {
+      "name": "gen/078",
+      "toml": "\r\n[[a.x]]\r\n-y_9bZ=-0.0\r\n\r\n[c.\"q k\".d]\r\n\"\\\"󠀁\\u001FZ\"\t=  [ ]\r\n'' = ''\r\nZzA=[]\r\n\r\n[a.x]\r\ncyy\t=  []\r\n\"\" = \"\\t\\U0001f600Z{\\u0301１中0\"\r\nya9 = -17\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'x') twice (at line 10, column 5)"
+    },
+    {
+      "name": "gen/079",
+      "toml_base64": "YmN4WnggPSBbXQp5MFp4CT0gIHsiIiA9IDEyMy40NTYsIGNhYlo5ID0gMV8wMDBfMDAwfQpaeXk5eT1bW11dCgpbaG9zdHMub25lXQoiwoXvvJEjIiA9IDBvMTcKCltbYl1dCnhaCT0gIHsiXHVmZWZmIiA9IHtheF9aID0ge0EwYmJiID0gdHJ1ZSwgIsKFXFwiID0gZmFsc2V9LCAnCScgPSBbMSwgMiwgM119LCAiXFw9fSIgPSBuYW59CiIgMFx1MDY2M+KAqSIJPSAgW1s2LjAyZSsyMywgWye4rSwseyBhJywgJ8KFe8KgWiAnLCAnJycnJ3gnJycnJyxdLCAiIl0sIGZhbHNlLF0K",
+      "error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb8 in position 221: invalid start byte"
+    },
+    {
+      "name": "gen/080",
+      "toml": "b_z=\"\\u00e9#{\\u2029\"\r\n0={}\r\nAaA_\t=  false\r\n\r\n[a.x]\r\n\r\n[a]\r\ncZ\t=  []\r\n\r\n[c.\"q k\".d]\r\n\"\\u4e2d\" = 1\r\ncxaz = [+42, nan]\r\n",
+      "repr": "{'b_z': 'é#{\\u2029', '0': {}, 'AaA_': False, 'a': {'x': {}, 'cZ': []}, 'c': {'q k': {'d': {'中': 1, 'cxaz': [42, nan]}}}}"
+    },
+    {
+      "name": "gen/081",
+      "toml": "9b=1_0.0_1 #  ß\\\"\n\n[c.\"q k\".d]\n_\t=  [\" ß中\\u2029{\", ',ß\u2028'] # \u2029 \\,\nA\t=  9223372036854775807\n",
+      "repr": "{'9b': 10.01, 'c': {'q k': {'d': {'_': [' ß中\\u2029{', ',ß\\u2028'], 'A': 9223372036854775807}}}}"
+    },
+    {
+      "name": "gen/082",
+      "toml": "bA- = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[[a.x]]\n90axa-=[ ] # \nccAbA=[1_0.0_1]\n",
+      "repr": "{'bA-': 'line one\\nline \"two\" continued', 'a': {'x': [{'90axa-': [], 'ccAbA': [10.01]}]}}"
+    },
+    {
+      "name": "gen/083",
+      "toml": "x--Z0b = [1, 2, 3]\n'\u001c​٣'=[\n  1, # c\n  2,\n]\n' #'\t=  1e-7\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 2, column 2)"
+    },
+    {
+      "name": "gen/084",
+      "toml": "9Zc=[]\n',́=0'\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n'}１}\u001c' = {}\n\n[",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 6, column 5)"
+    },
+    {
+      "name": "gen/085",
+      "toml": "Zyby\t=  {9-a = ' ', \"\\u00850é\" = '''\nraw \\n 'x'\n'''}\n\n[[b]]\nz\t=  \"\\\\[\"\n0cayZ0 = \"中,😀\u2028﻿aa\"\ny=false # \n\n[a.x]\nz\t=  ['a', \"b\"]\nc_Ay=1\n",
+      "repr": "{'Zyby': {'9-a': ' ', '\\x850é': \"raw \\\\n 'x'\\n\"}, 'b': [{'z': '\\\\[', '0cayZ0': '中,😀\\u2028\\ufeffaa', 'y': False}], 'a': {'x': {'z': ['a', 'b'], 'c_Ay': 1}}}"
+    },
+    {
+      "name": "gen/086",
+      "toml": "yA-A=['éa１󠀁#]', \"\"\"\\u00e9\\t\"\"\",] # \u2029٣​１﻿\n\n[[projects.gem]]\n''={9a = [true,]}\ncAc={}\n",
+      "repr": "{'yA-A': ['éa１\\U000e0001#]', 'é\\t'], 'projects': {'gem': [{'': {'9a': [True]}, 'cAc': {}}]}}"
+    },
+    {
+      "name": "gen/087",
+      "toml": "\n[a]\n0b = '''\nraw \\n 'x'\n''' # #\nz_Ac\t=  0o17\n\n[a]\n\"]{\"\t=  inf\nA-a0 = 1e-7\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 8, column 3)"
+    },
+    {
+      "name": "gen/088",
+      "toml": "\n[hosts.one]\n\n[[c.\"q k\".d]]\n_Zbaz-\t=  '[a'\n0ay = 1e16\n\"'\\\"}\" = ['a', \"b\"]\n",
+      "repr": "{'hosts': {'one': {}}, 'c': {'q k': {'d': [{'_Zbaz-': '[a', '0ay': 1e+16, '\\'\"}': ['a', 'b']}]}}}"
+    },
+    {
+      "name": "gen/089",
+      "toml": "\"１́\\u0085\" = [-923372036854775808, [ ],]\n",
+      "repr": "{'１́\\x85': [-923372036854775808, []]}"
+    },
+    {
+      "name": "gen/090",
+      "toml": "'\u001c{\u001c１' = \"\"\"\\u00e9\\t\"\"\" # \nZxz-z = 1e-7\n0yc9\t=  1e-7\n\n[hosts.one]\n' 😀[]'=\"[#\"\ncc\t=  true\n\n[a]\n'ß٣' = \"\"\"\\u00e9\\t\"\"\"\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 1, column 2)"
+    },
+    {
+      "name": "gen/091",
+      "toml": "9Z---=0\ny0bxy_\t=  {90 = {}}\ncax\t=  \"\" # \\#\n",
+      "repr": "{'9Z---': 0, 'y0bxy_': {'90': {}}, 'cax': ''}"
+    },
+    {
+      "name": "gen/092",
+      "toml": "_a_ = ['a', \"b\"]\na=0b101\n'​٣ß[' = {}\n\n[c.\"q k\".d]\n",
+      "repr": "{'_a_': ['a', 'b'], 'a': 5, '\\u200b٣ß[': {}, 'c': {'q k': {'d': {}}}}"
+    },
+    {
+      "name": "gen/093",
+      "toml": "\"中\\u001F﻿\"=-inf # ​󠀁Z​\n-y9A\t=  {- = [1, 2, 3]}\n0\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[c.\"q k\".d]\n",
+      "repr": "{'中\\x1f\\ufeff': -inf, '-y9A': {'-': [1, 2, 3]}, '0': 'line one\\nline \"two\" continued', 'c': {'q k': {'d': {}}}}"
+    },
+    {
+      "name": "gen/094",
+      "toml": "\n[b]\n- = true\n9 = ]\"ß\u2028\\\\﻿中１中\"\n\" Z\"\t=  '\t0 \"{\u2029٣,'\n",
+      "error": "TOMLDecodeError: Invalid value (at line 4, column 5)"
+    },
+    {
+      "name": "gen/095",
+      "toml": "z = '' # ́=٣]\n'='=[9223372036854775807, 1.5]\n\n[hosts.one]\n\"'\\u001F\"\t=  []\nc-yb0 = [123.456, \"\"\"a\"\"\"\", true] #  ]}\n\n[b]\ny_yA=true\nb_z-\t=  [ ]\n",
+      "repr": "{'z': '', '=': [9223372036854775807, 1.5], 'hosts': {'one': {\"'\\x1f\": [], 'c-yb0': [123.456, 'a\"', True]}}, 'b': {'y_yA': True, 'b_z-': []}}"
+    },
+    {
+      "name": "gen/096",
+      "toml": "\n[c.\"q k\".d]\nazz_ = \"[0#\u2028Z\"\nZ = '='\n",
+      "repr": "{'c': {'q k': {'d': {'azz_': '[0#\\u2028Z', 'Z': '='}}}}"
+    },
+    {
+      "name": "gen/097",
+      "toml": "bxA\t=  false # \nc_Ac-=\"\"\"a\"\"\"\"\n\n[c.\"q k\".d]\n00xx0 = 0b101\n\"ßß\"\t=  {\"ß}[ \" = [true,]} # ﻿,{\u2028１\n'٣\u2028﻿' = \"\\\"\"\n\n[a.x]\n__ = '''''x''''' # \nb0xc9 = \"\"\"\\u00e9\\t\"\"\"\n\n[[a.x]]\ncAby0Z=1e-7\n\"[\"\t=  \",１\" # 😀\nyA__99=\"\\u200bZ\\u0009a\\uff11\\u0009\"\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 13, column 6)"
+    },
+    {
+      "name": "gen/098",
+      "toml": "'[[' = 1\n99a = {\"\\u2029٣\\\"#\" = 1_0.0_1}\nxz0=\" é\\u001F{#\\u001F]\\u0085\"\n\n[a]\n\n[projects.gem]\n\n[a]\nb-abz0\t=  \"\"\"a\"\"\"\" # \n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 9, column 3)"
+    },
+    {
+      "name": "gen/099",
+      "toml": "c_=\"\"\"\\u00e9\\t\"\"\"\n\n[[b]]\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 5, column 1)"
+    },
+    {
+      "name": "gen/100",
+      "toml": "xz=[]\r\n_a9cAx=0\r\nZ9c0Z=false # \u2029\r\n\r\n[a]\r\nxy=\"{=中​\\u0301\"\r\nx_zby = {}\r\n0yxx = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\" # [\r\n\r\n[a]\r\n\r\n[[b]]\r\n_A = true\r\nxx-xy- = [[123.456, 0o17, 'Zé',],]\r\nz9-z\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 13, column 3)"
+    },
+    {
+      "name": "gen/101",
+      "toml": "b\t=  3e2\nbAa={-x9Az = true} # ﻿#0\nbz-A=-9223372036854775808\n",
+      "repr": "{'b': 300.0, 'bAa': {'-x9Az': True}, 'bz-A': -9223372036854775808}"
+    },
+    {
+      "name": "gen/102",
+      "toml": "b-_ = [ ]\n\"Z\"\t=  []\n\n[hosts.one]\nxZ-z=false # \n','\t=  \"\"\n'中' = true\n",
+      "repr": "{'b-_': [], 'Z': [], 'hosts': {'one': {'xZ-z': False, ',': '', '中': True}}}"
+    },
+    {
+      "name": "gen/103",
+      "toml": "__\t=  0\n\n[hosts.one]\n-y = \"a'\"\n'́' = '''''x'''''\n\n[[projects.gem]]\n",
+      "repr": "{'__': 0, 'hosts': {'one': {'-y': \"a\\x85'\", '́': \"''x''\"}}, 'projects': {'gem': [{}]}}"
+    },
+    {
+      "name": "gen/104",
+      "toml": "0z = {9yAc = ['a', \"b\"],, b = {}}\nxxycx\t=  {'' = [ ]}\n''=['a', \"b\"] # ,󠀁󠀁\n\n[c.\"q k\".d]\n",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at line 1, column 25)"
+    },
+    {
+      "name": "gen/105",
+      "toml": "yy_z=false\r\nx-9x-0 = 0xff\r\n",
+      "repr": "{'yy_z': False, 'x-9x-0': 255}"
+    },
+    {
+      "name": "gen/106",
+      "toml": "by0x-_ = 3e2 # \n\"\"\t=  {0 = [ ], acbbxz = -17}\nxzb-0Z\t=  [ ]\n\n[[projects.gem]]\n\n[b]\ncZZcbx = 1 # ﻿,\n\n[projects.gem]\n'́#\u001c'\t=  {9ZccbZ = [], z = 1_0.0_1} # [} \n",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 10, column 14)"
+    },
+    {
+      "name": "gen/107",
+      "toml": "\"\\t😀\\u00e9\"\t=  9223372036854775807 # １0中\n_x_ = [1, 2, 3] # ]0\\\n\n[c.\"q k\".d]\ny9A = '''''x'''''\n\"= \"\t=  false # ​ ​ ﻿\n_Za\t=  true\n",
+      "repr": "{'\\t😀é': 9223372036854775807, '_x_': [1, 2, 3], 'c': {'q k': {'d': {'y9A': \"''x''\", '=\\xa0\\x85': False, '_Za': True}}}}"
+    },
+    {
+      "name": "gen/108",
+      "repr": "{}"
+    },
+    {
+      "name": "gen/109",
+      "toml": "'\\１'\t=  \"0aaZ\u2028\"\n\nx = \"\\q\"",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 3, column 8)"
+    },
+    {
+      "name": "gen/110",
+      "toml": "xa9xy = 1e-7\nA\t=  6.02e+23 # ٣#0a\n\n[[b]]\n\n[projects.gem]\n__zxz- = 1_0.0_1\n\"́\"\t=  false\n",
+      "repr": "{'xa9xy': 1e-07, 'A': 6.02e+23, 'b': [{}], 'projects': {'gem': {'__zxz-': 10.01, '́': False}}}"
+    },
+    {
+      "name": "gen/111",
+      "toml": "xa\t=  '\\́'\n\n[a]\n\n[a.x]\n9zay=[\n  1, # c\n  2,\n]\na90='''''x'''''\n",
+      "repr": "{'xa': '\\\\́', 'a': {'x': {'9zay': [1, 2], 'a90': \"''x''\"}}}"
+    },
+    {
+      "name": "gen/112",
+      "toml": "'ß[ ' = 1_000_000\n0yA9='１１\u2029\t'\n\n[hosts.one]\n\n[c.\"q k\".d]\nZZZ\t=  {}\nAyb0 = [1, 2, 3] # ́#\t󠀁\n\n[[c.\"q k\".d]]\nybx\t=  \"\" # [\u2029😀\nAx9_zZ\t=  ['a٣\u2029#😀 \\',] #  😀 \n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 10, column 12)"
+    },
+    {
+      "name": "gen/113",
+      "toml": "z9 = '''\nraw \\n 'x'\n'''\n\"\" = '0󠀁\u2028'\n\n[[projects.gem]]\n\n[[b]]\n\n[[b]]\n",
+      "repr": "{'z9': \"raw \\\\n 'x'\\n\", '': '0\\U000e0001\\u2028', 'projects': {'gem': [{}]}, 'b': [{}, {}]}"
+    },
+    {
+      "name": "gen/114",
+      "toml": "-9bc = -9223372036854775808\nbcyz=inf\n- = 1.5\n\n[c.\"q k\".d]\n-\t=  {} # \n\n[[projects.gem]]\na_ZZ_=\"\" # \u2029​ \n",
+      "repr": "{'-9bc': -9223372036854775808, 'bcyz': inf, '-': 1.5, 'c': {'q k': {'d': {'-': {}}}}, 'projects': {'gem': [{'a_ZZ_': ''}]}}"
+    },
+    {
+      "name": "gen/115",
+      "toml": "\n[projects.gem]\nZ\t=  {}\n'éaé́'={cZb9x = {}, -bZyAA = \"aé\u2028\\U000e0001é\"}\n' ' = \"󠀁\u2029='\\u0301​\"\n\n[projects.gem]\n09z0 = [6.02e+23]\n-9Ay\t=  ['a', \"b\"] # é​\t \n",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 7, column 14)"
+    },
+    {
+      "name": "gen/116",
+      "toml": "\n[[hosts.one]]\n0 = +42\n\n[hosts.one]\nya\t=  {\"\\u2029́é#\" = \"ß}éa１\", Z-ycxx = \"{\"}\n\n[b]\n",
+      "error": "TOMLDecodeError: Cannot declare ('hosts', 'one') twice (at line 5, column 11)"
+    },
+    {
+      "name": "gen/117",
+      "toml": "\"中\\u4e2d\\\\\"=0\nZ0\t=  true # '﻿] \n",
+      "repr": "{'中中\\\\\\x85': 0, 'Z0': True}"
+    },
+    {
+      "name": "gen/118",
+      "toml": "c-_Z = '''''x'''''\n'a​'\t=  0b101 # ́ 󠀁#\n\n[a]\n'😀́٣'=false # ​ =﻿́\n9='''''x'''''\nZZ=[1, 2, 3] # \\,0​\t\n\n[[hosts.one]]\n\"\\\"\"\t=  -inf\n\"\\uff11\u2028=]\"\t=  \"\"\n\n[a]\n' \"'=true #  \nx\t=  [\" '\\u001F٣\\u0301\\U0001f6000\"]\n0=[{0-zZA = {\"0\u2028１\" = [ ]}, 'ß \\' = [0xff, [ ], [],]}, [1, 2, 3], \" \\u001C}\",]\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 13, column 3)"
+    },
+    {
+      "name": "gen/119",
+      "toml": "x0Ayya='{́00}́='\n'﻿{=' = 0xff # ​'\ta\nc = 'é}ß́' # \n\n[hosts.one]\n\n[[projects.gem]]\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 9, column 1)"
+    },
+    {
+      "name": "gen/120",
+      "toml": "xy_\t=  'Z]'\nb = \" Z中' [\" # [\n\n[[projects.gem]]\n'\"a0中'={\"\" = false, y9x-x = 0}\n\n[c.\"q k\".d]\n_cbz = 1\n\n[[a.x]]\n",
+      "repr": "{'xy_': 'Z]', 'b': \"\\xa0Z中'\\xa0[\\x85\", 'projects': {'gem': [{'\"a0中': {'': False, 'y9x-x': 0}}]}, 'c': {'q k': {'d': {'_cbz': 1}}}, 'a': {'x': [{}]}}"
+    },
+    {
+      "name": "gen/121",
+      "toml": "\"\" = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\" # ́\n'a,'=[]\n'' = {}\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 6, column 8)"
+    },
+    {
+      "name": "gen/122",
+      "toml": "_a0A0=\"ß\\u0009}٣́aZ\"\nxycxyc='中a]ß['\n\n[[projects.gem]]\nxz99-y\t=  {} # [}# \na09 = 1_000_000 # \u2028é\u2029😀\nzbba_\t=  \"\"\"a\"\"\"\"\n\n[[c.\"q k\".d]]\n",
+      "repr": "{'_a0A0': 'ß\\t}٣́aZ', 'xycxyc': '中a]ß[', 'projects': {'gem': [{'xz99-y': {}, 'a09': 1000000, 'zbba_': 'a\"'}]}, 'c': {'q k': {'d': [{}]}}}"
+    },
+    {
+      "name": "gen/123",
+      "toml": "c=\"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\nZZ = '=' # []}１\n9c = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[a.x]\nbc\t=  \"é\"\n'́0\t}'\t=  3e2 # é\n'Z\u2029'\t=  \"󠀁a\\u0663\u2029é\"\n\n[projects.gem]\n\"\\u00df\\\"\\\\\\u001F\"\t=  true #  \t\nbax90a = true\nxa\t=  false # #ß \u2029\n\n[c.\"q k\".d]\n'󠀁' = \"\"\"\\u00e9\\t\"\"\"\n'\u2029=😀' = \"\" # Z\nab_\t=  '0​'\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 21, column 11)"
+    },
+    {
+      "name": "gen/124",
+      "toml": "\n[a.x]\n__AZZZ = '\ta́,󠀁'\n\n[a]\nyZx9ZA = [-inf,]\n'}['\t=  '\u2028'\n\n[pr{ojects.gem]\n",
+      "error": "TOMLDecodeError: Expected ']' at the end of a table declaration (at line 9, column 4)"
+    },
+    {
+      "name": "gen/125",
+      "toml": "cZbcc = -0.0\r\n_9 = {\"#]\" = \"\"\"a\"\"\"\"}\r\n\r\n[projects.gem]\r\n",
+      "repr": "{'cZbcc': -0.0, '_9': {'#]': 'a\"'}, 'projects': {'gem': {}}}"
+    },
+    {
+      "name": "gen/126",
+      "toml": "9_\t=  '''\nraw \\n 'x'\n'''\n'}#中'=-17\n\n[a.x]\n\"﻿a \" = -17\n\n[hosts.one]\n_bAzzy=[\n  1, # c\n  2,\n]\nZycZz\t=  [\"'\u2028ß﻿[\\\\Z\", [\n  1, # c\n  2,\n], {a00 = \"0}0}\\u0009\u2029\\\\１\"}]\n\n[c.\"q k\".d]\n'​ß\t0'=-inf\n",
+      "repr": "{'9_': \"raw \\\\n 'x'\\n\", '}#中': -17, 'a': {'x': {'\\ufeffa ': -17}}, 'hosts': {'one': {'_bAzzy': [1, 2], 'ZycZz': [\"'\\x85\\u2028ß\\ufeff[\\\\Z\", [1, 2], {'a00': '0}0}\\t\\u2029\\\\１'}]}}, 'c': {'q k': {'d': {'\\u200bß\\t0': -inf}}}}"
+    },
+    {
+      "name": "gen/127",
+      "toml": "\"\\u00e9\"\t=  [[[\"0٣٣[[=\u2029\", '中'], -0.0, 9223372036854775807], '中\t́１']\r\n\r\n[[a]]\r\nZ\t=  9223372036854775807 # ]\r\n_9-\t=  ['', ['', \"\\u001C\u2029 a\"], [ ],]\r\nz-x\t=  3e2\r\n\r\n[a]\r\n",
+      "error": "TOMLDecodeError: Cannot declare ('a',) twice (at line 8, column 3)"
+    },
+    {
+      "name": "gen/128",
+      "toml": "_=1e15\r\n\r\n[a.x]\r\nxZ\t=  [{cAZy = '１ß󠀁\u2029,Z}', z_b = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"}, [1, 2, 3], '\u2028{']\r\n\r\n[hosts.one]\r\nxx = [{zya = [ ], 9Z = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"}, \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\",]\r\n'​\u2029\u001c\u2029'\t=  {}\r\n\r\n[[a]]\r\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 17, column 4)"
+    },
+    {
+      "name": "gen/129",
+      "toml": "'['\t=  '''\nraw \\n 'x'\n''' # \nyza=\"́\\uff11é'́'\\ufeff\"\n\n[[a]]\n0 = [[\n  1, # c\n  2,\n],]\nz9c\t=  false # é٣\t\naAAxA=true # \n\n[[a.x]]\n0_9zya={bA0y = {0-AZzZ = [1, 2, 3]}, yczz = \"\\u0301]a {́\"}\na-A9b=['a', \"b\"]\n'}ß'\t=  ''\n\nx = \"\\q\"",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 19, column 8)"
+    },
+    {
+      "name": "gen/130",
+      "toml": "yxZZzA=false\r\n9z = [['a', \"b\"], '', [ ]] # Z{\r\n",
+      "repr": "{'yxZZzA': False, '9z': [['a', 'b'], '', []]}"
+    },
+    {
+      "name": "gen/131",
+      "toml": "\"\\u001C٣\" = \"\"\n'😀=中'\t=  -17\n\n[b]\n09AZ = true\n\n[a]\n'１﻿'\t=  [1e15, [['a', \"b\"],], \"#٣,﻿́\\u001C,\"] # 😀\n",
+      "repr": "{'\\x1c٣': '', '😀=中': -17, 'b': {'09AZ': True}, 'a': {'１\\ufeff': [1000000000000000.0, [['a', 'b']], '#٣,\\ufeff́\\x1c,']}}"
+    },
+    {
+      "name": "gen/132",
+      "toml": "AA\t=  {}\n\"\\u2029=\"\t=  1e-7\n_xxx\t=  '\u2029󠀁😀́ \"'\n",
+      "repr": "{'AA': {}, '\\u2029=': 1e-07, '_xxx': '\\u2029\\U000e0001😀́ \"\\x85'}"
+    },
+    {
+      "name": "gen/133",
+      "toml": "\"0# \"\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[[a]]\n\"ß\\u001C0 \" = true\n",
+      "repr": "{'0# ': 'line one\\nline \"two\" continued', 'a': [{'ß\\x1c0 ': True}]}"
+    },
+    {
+      "name": "gen/134",
+      "toml": "\n[[hosts.one]]\nZca='''\nraw \\n 'x'\n''' # ] #\n\n[a.x]\n_-Aa\t=  '\\́ßa0\t]'\nabZ-A-=[ ]\n_9=false\n\na = 1\na = 2",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at end of document)"
+    },
+    {
+      "name": "gen/135",
+      "toml": "caabba=1e16\n\n[[c.\"q k\".d]]\nc\t=  [\"ZZ\\\"́\",] # \u2029,\n_=1e-7\n'a '\t=  true # éZ😀́é\n",
+      "repr": "{'caabba': 1e+16, 'c': {'q k': {'d': [{'c': ['ZZ\"́'], '_': 1e-07, 'a ': True}]}}}"
+    },
+    {
+      "name": "gen/136",
+      "toml": "bbca\t=  {ZA = {}, ZbZa0x = \"\"\"\\u00e9\\t\"\"\"} # ]\n_ac0_0 = true\nZ = \"́é😀\"\n\n[b]\n'\u2028=é,' = [false, ['a', \"b\"], [],]\n\n[[a.x]]\n",
+      "repr": "{'bbca': {'ZA': {}, 'ZbZa0x': 'é\\t'}, '_ac0_0': True, 'Z': '́é😀', 'b': {'\\u2028=é,': [False, ['a', 'b'], []]}, 'a': {'x': [{}]}}"
+    },
+    {
+      "name": "gen/137",
+      "toml": "A={0yxZb = false}\n",
+      "repr": "{'A': {'0yxZb': False}}"
+    },
+    {
+      "name": "gen/138",
+      "toml": "\"\" = 1e15\nayA = 1e-7\n-_00\t=  {bA099 = [[1_0.0_1,],]}\n\n[projects.gem]\n'Z'\t=  [] # a0\n",
+      "repr": "{'': 1000000000000000.0, 'ayA': 1e-07, '-_00': {'bA099': [[10.01]]}, 'projects': {'gem': {'Z': []}}}"
+    },
+    {
+      "name": "gen/139",
+      "toml": "\n[[c.\"q] k\".d]]\n\n[hosts.one]\n",
+      "repr": "{'c': {'q] k': {'d': [{}]}}, 'hosts': {'one': {}}}"
+    },
+    {
+      "name": "gen/140",
+      "toml": "'\"́'=['0', 0, {_ = ['''\nraw \\n 'x'\n''', \" \", ''], \"[}\" = {_Z = true, '​' = '''\nraw \\n 'x'\n'''}},]\n-Abaz='''\nraw \\n 'x'\n''' # 0#\n\n[[a.x]]\n-z9Az9=[inf]\ny\t=  1_000_000 # \u2029{]a\n-=-17\n",
+      "repr": "{'\"́': ['0\\x85', 0, {'_': [\"raw \\\\n 'x'\\n\", ' ', ''], '[}': {'_Z': True, '\\u200b': \"raw \\\\n 'x'\\n\"}}], '-Abaz': \"raw \\\\n 'x'\\n\", 'a': {'x': [{'-z9Az9': [inf], 'y': 1000000, '-': -17}]}}"
+    },
+    {
+      "name": "gen/141",
+      "toml": "\r\n[b]\r\n\"\\u001CaZ\"=0o17\r\naAb9A\t=  '́٣aa😀'\r\n",
+      "repr": "{'b': {'\\x1caZ': 15, 'aAb9A': '́٣aa😀'}}"
+    },
+    {
+      "name": "gen/142",
+      "toml": "yA0\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\" # =Z}\n",
+      "repr": "{'yA0': 'line one\\nline \"two\" continued'}"
+    },
+    {
+      "name": "gen/143",
+      "toml": "\r\n[hosts.one]\r\nzyb_\t=  [\n  1, # c\n  2,\n]\r\n\"0\"\t=  {yyb = \"１#\\u4e2d#'\"}\r\nZxz\t=  \"\"\"\\u00e9\\t\"\"\" # ß{]\r\n",
+      "repr": "{'hosts': {'one': {'zyb_': [1, 2], '0': {'yyb': \"１\\x85#中#'\"}, 'Zxz': 'é\\t'}}}"
+    },
+    {
+      "name": "gen/144",
+      "toml": ".\"\\u0009\\u2028\"\t=  {-9 = 0o17}\n' 󠀁'=['a', \"b\"]\n9--bz_ = {} # \t\n\n[[hosts.one]]\n",
+      "error": "TOMLDecodeError: Invalid statement (at line 1, column 1)"
+    },
+    {
+      "name": "gen/145",
+      "toml": "\r\n[projects.gem]\r\n_0\t=  []\r\n\r\n[a.x]\r\n9zca = ''\r\nAaz=0b101\r\n\r\n[hosts.one]\r\n9=[\n  1, # c\n  2,\n] # é󠀁😀\r\n",
+      "repr": "{'projects': {'gem': {'_0': []}}, 'a': {'x': {'9zca': '', 'Aaz': 5}}, 'hosts': {'one': {'9': [1, 2]}}}"
+    },
+    {
+      "name": "gen/146",
+      "toml": "0ZcAz-\t=  \"{\\u001F\\u001F\u2029😀\\\"\" # \u2029\"\"\r\n",
+      "repr": "{'0ZcAz-': '{\\x1f\\x1f\\u2029\\x85\\x85😀\"'}"
+    },
+    {
+      "name": "gen/147",
+      "toml": "'́１}'\t=  \"​\"\n",
+      "repr": "{'́１}': '\\u200b'}"
+    },
+    {
+      "name": "gen/148",
+      "toml": "'ß\u2028'=\"\"\"\\u00e9\\t\"\"\"\nA\t=  1e15 # a\u2028ß\n\n[b]\n-c9-\t=  \"٣󠀁\\u001C\\u0009\\t\" # 0\nb-Z90\t=  'a\u2028][0'\n\"\"=0xff\n",
+      "repr": "{'ß\\u2028': 'é\\t', 'A': 1000000000000000.0, 'b': {'-c9-': '٣\\U000e0001\\x1c\\t\\t', 'b-Z90': 'a\\u2028][0', '': 255}}"
+    },
+    {
+      "name": "gen/149",
+      "toml": "\r\n[c.\"q k\".d]\r\ny9 = true\r\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 5, column 1)"
+    },
+    {
+      "name": "gen/150",
+      "toml": "'́ '\t=  '󠀁﻿ '\n\n[a]\nazzx_b\t=  [nan,]\nyy_b=true\n\n[[a]]\n''=1 # '\n\n[[hosts.one]]\n'\u001c\u2029'\t=  true\na0c = {cbzy = {zAAA = \"\"\"a\"\"\"\", '' = 0}}\ny9_cZ=1 # 0'\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 7, column 4)"
+    },
+    {
+      "name": "gen/151",
+      "toml": "\"\u2028\\\"\" = 1e-7\n",
+      "repr": "{'\\u2028\"': 1e-07}"
+    },
+    {
+      "name": "gen/152",
+      "toml": "yZyZ = '''\nraw \\n 'x'\n''' # ,]😀\nx\t=  [ ]\n'﻿'\t=  '''''x'''''\n",
+      "repr": "{'yZyZ': \"raw \\\\n 'x'\\n\", 'x': [], '\\x85\\ufeff': \"''x''\"}"
+    },
+    {
+      "name": "gen/153",
+      "toml": "\n[[c.\"q k\".d]]\nz0_990 = false\n\"́\\u001F\" = 1e16\n",
+      "repr": "{'c': {'q k': {'d': [{'z0_990': False, '́\\x1f': 1e+16}]}}}"
+    },
+    {
+      "name": "gen/154",
+      "toml": "\"\u2029\" = [\"😀٣󠀁\\u00a0\u2029😀\",]\n\n[[projects.gem]]\n\"٣ß\"\t=  ['a', \"b\"]\n''\t=  ''\n\n[a.x]\nax = 3e2\nabZ\t=  {} # \ncby9yZ = false\n\na = 1\na = 2",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at end of document)"
+    },
+    {
+      "name": "gen/155",
+      "toml": "9a\t=  true\nacy-A = [[\n  1, # c\n  2,\n]]\n\n[[a]]\nx=[[true, [ ], {0 = 1.5, z = false},],]\na_Zxy=true\n",
+      "repr": "{'9a': True, 'acy-A': [[1, 2]], 'a': [{'x': [[True, [], {'0': 1.5, 'z': False}]], 'a_Zxy': True}]}"
+    },
+    {
+      "name": "gen/156",
+      "toml": "'\"{'=true\n-A0_x=\"'aé[\\u4e2d0\"\nbz---\t=  \"[\\u00a0Z,\"\n\n[[projects.gem]]\n'\"{\u001f\"'=[]\nyzc-0 = \" \"\n''={\"\" = false}\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1f' (at line 6, column 4)"
+    },
+    {
+      "name": "gen/157",
+      "toml": "z-c0=false\ny\t=  '0\t\\]'\nxZbzA = [\n  1, # c\n  2,\n]\n\n[hosts.one]\n\n[a.x]\n\"\\\"==\" = {0 = [[], [\n  1, # c\n  2,\n]]}\n_Ay_az = 0xff # ٣,{󠀁\t\n",
+      "repr": "{'z-c0': False, 'y': '0\\t\\\\]', 'xZbzA': [1, 2], 'hosts': {'one': {}}, 'a': {'x': {'\"==': {'0': [[], [1, 2]]}, '_Ay_az': 255}}}"
+    },
+    {
+      "name": "gen/158",
+      "toml": "z = false\n\"\" = nan\n'}😀é٣'=[\"[}\\u0663]１\"]\n\n[a.x]\n\n[[b]]\nA9=nan\nAA_\t=  '0#\u2028😀' # 0{{\nyZZ = \"\"\"a\"\"\"\"\n\n[[a.x]]\n9x_Z = '''\nraw \\n 'x'\n''' # \nz_yx9 = 0b101\n_yy\t=  \"'​a=​ \"\n",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 12, column 6)"
+    },
+    {
+      "name": "gen/159",
+      "toml": "\"\"\t=  -9223372036854775808\n\n[projects.gem]\n']\t#\\'\t=  ''\n_bbz_y={}\n\nx = \"\\q\"",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 7, column 8)"
+    },
+    {
+      "name": "gen/160",
+      "repr": "{}"
+    },
+    {
+      "name": "gen/161",
+      "toml": "cacy=[[0o17,]]\n'0'\t=  '''\nraw \\n 'x'\n''' # 😀\t\ny9ba=''\n\n[[hosts.one]]\n'󠀁0'\t=  1_0.0_1\ncbbb- = \"﻿\u2029a\"\n'{' = [false, 1,]\n\n[[b]]\n_-b-bA = -17\n\n[c.\"q k\".d]\n",
+      "repr": "{'cacy': [[15]], '0': \"raw \\\\n 'x'\\n\", 'y9ba': '', 'hosts': {'one': [{'\\U000e00010': 10.01, 'cbbb-': '\\ufeff\\u2029a', '{': [False, 1]}]}, 'b': [{'_-b-bA': -17}], 'c': {'q k': {'d': {}}}}"
+    },
+    {
+      "name": "gen/162",
+      "toml": "9=nan\n-_0yc\t=  1_0.0_1\nZb = \"\"\"a\"\"\"\" # １󠀁\n\n[c.\"q k\".d]\nbzxzxA=['é中ß \u2028😀', [\n  1, # c\n  2,\n], true,]\nxyZAx = '''\nraw \\n 'x'\n'''\n\n[projects.gem]\nyAa = '󠀁\",中﻿Z\u2028' # ́ZZ\n\n[a.x]\nx-_y_=2.5E-3\n",
+      "repr": "{'9': nan, '-_0yc': 10.01, 'Zb': 'a\"', 'c': {'q k': {'d': {'bzxzxA': ['é中ß\\xa0\\u2028😀', [1, 2], True], 'xyZAx': \"raw \\\\n 'x'\\n\"}}}, 'projects': {'gem': {'yAa': '\\U000e0001\",中\\ufeffZ\\u2028'}}, 'a': {'x': {'x-_y_': 0.0025}}}"
+    },
+    {
+      "name": "gen/163",
+      "toml": "00 = {\"́\" = [ ]}\n\n[a.x]\n\n[c.\"q k\".d]\na9 = \"\\u0009\u2029\\\\\\u001C=\u2029=#\" # 0'\u2029ß'\n\"[\\u0009󠀁]\" = \"Z}ß\\u001C\\t\\u001C\\ufeff\" # 󠀁\n",
+      "repr": "{'00': {'́': []}, 'a': {'x': {}}, 'c': {'q k': {'d': {'a9': '\\t\\u2029\\\\\\x1c=\\u2029=#', '[\\t\\U000e0001]': 'Z}ß\\x1c\\t\\x1c\\ufeff'}}}}"
+    },
+    {
+      "name": "gen/164",
+      "toml": "'\u001c\t'\t=  1e-7\r\n\na = 1\na = 2",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 1, column 2)"
+    },
+    {
+      "name": "gen/165",
+      "toml": "'\u001c'\t=  {x = \"\\\\１\u2029]́😀\"}\nbcyZ=\"é\"\n\n[[a.x]]\n'\u2029'=[\"\\u0663{[\u2029\u2028\\\"\u2029\\u00df\", false]\na\t=  ['''''x''''', [false,], {}]\nbay = nan\n\n[hosts.one]\nzyc9='''\nraw \\n 'x'\n'''\n'' = {cbxcx = -9223372036854775808, \"\\uff11﻿\" = '１=#aZ﻿a'}\n'0１'=true\n\n[a.x]\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1c' (at line 1, column 3)"
+    },
+    {
+      "name": "gen/166",
+      "toml": "aZ\t=  [0, \"\"\"\\u00e9\\t\"\"\",] # \\, ́\r\nA_Z- = '''''x''''' # \r\n\r\n[[b]]\r\n\r\n[projects.gem]\r\n",
+      "repr": "{'aZ': [0, 'é\\t'], 'A_Z-': \"''x''\", 'b': [{}], 'projects': {'gem': {}}}"
+    },
+    {
+      "name": "gen/167",
+      "toml": "_\t=  ''\n",
+      "repr": "{'_': ''}"
+    },
+    {
+      "name": "gen/168",
+      "toml": "c0ca = '\u2029  '\n_yz00x = true\n''=true\n\n[[a.x]]\n\n[[c.\"q k\".d]]\ny9z\t=  -17\n\"﻿=中'\"\t=  []\n",
+      "repr": "{'c0ca': '\\u2029 \\xa0', '_yz00x': True, '': True, 'a': {'x': [{}]}, 'c': {'q k': {'d': [{'y9z': -17, \"\\ufeff=中'\": []}]}}}"
+    },
+    {
+      "name": "gen/169",
+      "toml": "x = {Abx = {bZc- = false, \"ß\\t'\" = '''\nraw \\n 'x'\n'''}}\n\n[[projects.gem]]\nxAz0Z = 1e15\n\n[a.x]\nc_-0Z\t=  ''\n\"é'\" = \"\"\"\\u00e9\\t\"\"\"\n\n[[a]]\n''=true\naaz_ = ['''\nraw \\n 'x'\n''', 0b101]\n\n[",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 12, column 4)"
+    },
+    {
+      "name": "gen/170",
+      "toml": "',\u2028'=false\n",
+      "repr": "{',\\u2028': False}"
+    },
+    {
+      "name": "gen/171",
+      "toml": "00Z = [['a', \"b\"], {ccZAZ = \"\\\"0٣']\", zAx0x9 = false},]\r\n9_x_\t=  true # \r\n'\\,中' = \"][#\"\r\n\r\n[b]\r\nb = [ ] # \u2028\r\n",
+      "repr": "{'00Z': [['a', 'b'], {'ccZAZ': '\"0٣\\']', 'zAx0x9': False}], '9_x_': True, '\\\\,中': '][#', 'b': {'b': []}}"
+    },
+    {
+      "name": "gen/172",
+      "toml": "x\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[[c.\"q k\".d]]\n\n[[b]]\n",
+      "repr": "{'x': 'line one\\nline \"two\" continued', 'c': {'q k': {'d': [{}]}}, 'b': [{}]}"
+    },
+    {
+      "name": "gen/173",
+      "toml": "z9x\t=  [\n  1, # c\n  2,\n]\n'​\u2028﻿' = [true, [true, \"１\u2028\", '=',]]\n\n[hosts.one]\n_0zx\t=  0xff # ​\u2028  \nyy90ca = [{9b = '\"', A_cx = \"\\t0}[}a​[\"}]\n0xZAzZ = '' # \u2028\n\n[a.x]\nZA-99_ = ''\n\"\\u001C=\\\\\\ufeff\"=\"\\u001F,}]\"\n\n[a.x]\nz-\t=  \"['\\u0085a\" # \u2028\naZ0ab_ = \"\"\"a\"\"\"\"\n",
+      "error": "TOMLDecodeError: Cannot declare ('a', 'x') twice (at line 16, column 5)"
+    },
+    {
+      "name": "gen/174",
+      "toml": "z0Ac9 = \"\"\"\\u00e9\\t\"\"\"\n\"\"\t=  {\"Z\\u001F\\u2028'\" = ['a', \"b\"], by = 0b101}\ncy-\t=  inf\n\n[hosts.one]\ny-yc='''''x'''''\n0a_\t=  ['a', \"b\"]\n\n[a.x]\n\n[",
+      "error": "TOMLDecodeError: Invalid initial character for a key part (at end of document)"
+    },
+    {
+      "name": "gen/175",
+      "toml": "_ = true\nzaxyz = 9223372036854775807\nZ-y = {c = ' '}\n\n[a]\n\"\\u200b\"\t=  false # ​,#'󠀁\n9\t=  [\n  1, # c\n  2,\n]\n'#['='''''x'''''\n",
+      "repr": "{'_': True, 'zaxyz': 9223372036854775807, 'Z-y': {'c': '\\xa0'}, 'a': {'\\u200b': False, '9': [1, 2], '#[': \"''x''\"}}"
+    },
+    {
+      "name": "gen/176",
+      "toml": "\"\"=\"\"\"a\"\"\"\"\nca=\"é\\u001Fß中​\u2029Z٣\"\nc_a=\"]ß{\\u0009{\"\n\n[b]\n\"\\\\\\u0009]󠀁\"\t=  [false,]\n\"\\u0301  \\u0301\"\t=  ['a', \"b\"] # １\n",
+      "repr": "{'': 'a\"', 'ca': 'é\\x1fß中\\u200b\\u2029Z٣', 'c_a': ']ß{\\t{\\x85', 'b': {'\\\\\\t]\\U000e0001': [False], '́\\xa0\\xa0́': ['a', 'b']}}"
+    },
+    {
+      "name": "gen/177",
+      "toml": "-ybAA\t=  \"a]１a\"\n\n[a]\n\"Z\"='''''x'''''\n\"󠀁\u2029 \"=2.5E-3\n\n[hosts.one]\nyZ_0Z0 = 2.5E-3\nzy = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n'​'={0AZ = -inf, bc9ZZ = 2.5E-3} # \n\n[a.x]\n",
+      "repr": "{'-ybAA': 'a]１a', 'a': {'Z': \"''x''\", '\\U000e0001\\u2029 ': 0.0025, 'x': {}}, 'hosts': {'one': {'yZ_0Z0': 0.0025, 'zy': 'line one\\nline \"two\" continued', '\\u200b': {'0AZ': -inf, 'bc9ZZ': 0.0025}}}}"
+    },
+    {
+      "name": "gen/178",
+      "toml": "'á '\t=  'aZ１ß{ \"'\n\n[[projects.gem]]\n\n[[a]]\nc0c\t=  {}\n-Ac9ca=true # ٣😀́\n009a=['a', \"b\"]\n",
+      "repr": "{'á ': 'aZ１ß{ \"', 'projects': {'gem': [{}]}, 'a': [{'c0c': {}, '-Ac9ca': True, '009a': ['a', 'b']}]}"
+    },
+    {
+      "name": "gen/179",
+      "toml": "xa\t=  [1e16, [1, 2, 3]]\n-xb = 6.02e+23\ny-ba0y = 2.5E-3 # {\n\n[projects.gem]\n\"0\u2028\" = \"\"\"\\u00e9\\t\"\"\"\nZ0-9_=+42\n\n[[a]]\n'0\u001faa'='[󠀁﻿ '\nzZ0Z0\t=  false # \t]#́\n'​'={ccZA0A = '中Z\"󠀁\t#\t', z = '''''x'''''}\n\n[a.x]\nAy = {'٣\" ' = {\"=\\u0663\" = '0ß\\ß１', 9 = \" \\\"0\\u0085\u2028#\u2028\"}, ZZaa = 'a[}﻿​Z{\\'}\nZZZxcb\t=  {0zx = '''\nraw \\n 'x'\n''', by = [['a', \"\"],]} # #\n",
+      "error": "TOMLDecodeError: Found invalid character '\\x1f' (at line 10, column 3)"
+    },
+    {
+      "name": "gen/180",
+      "toml": "aya\t=  \"\"\"\\u00e9\\t\"\"\"\n09xxb- = ['a', \"b\"] # 'ß[\n",
+      "repr": "{'aya': 'é\\t', '09xxb-': ['a', 'b']}"
+    },
+    {
+      "name": "gen/181",
+      "toml": "'\u2028﻿'\t=  \"'​\\\\é\\u00df󠀁0]\"\n",
+      "repr": "{'\\u2028\\ufeff': \"'\\u200b\\\\éß\\U000e00010]\"}"
+    },
+    {
+      "name": "gen/182",
+      "toml": "9A-_0\t=  \"' \\u001C\" # \t\u2029Z​,\n\n[b]\nAyxy\t=  [\n  1, # c\n  2,\n]\n\n[[a]]\n",
+      "repr": "{'9A-_0': \"'\\xa0\\x1c\", 'b': {'Ayxy': [1, 2]}, 'a': [{}]}"
+    },
+    {
+      "name": "gen/183",
+      "toml": "AAax = true\n'ß}\t'=[false, nan,]\n\n[c.\"q k\".d]\n\n[projects.gem]\nzy0\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\" # {󠀁\n\"\"\t=  {ac9 = '[ '}\n\n[b]\n",
+      "repr": "{'AAax': True, 'ß}\\t': [False, nan], 'c': {'q k': {'d': {}}}, 'projects': {'gem': {'zy0': 'line one\\nline \"two\" continued', '': {'ac9': '[\\xa0'}}}, 'b': {}}"
+    },
+    {
+      "name": "gen/184",
+      "toml": "\n[a.x]\ny_\t=  0xff\n_0b0za=[ ]\n\n[a]\n\" \"={}\ny9bzx0 = \"\"\"\\u00e9\\t\"\"\"\n\n=1",
+      "error": "TOMLDecodeError: Invalid statement (at line 10, column 1)"
+    },
+    {
+      "name": "gen/185",
+      "toml": "a-y-y_ = 1e-7\r\n9Z=['\\{ Z',] # [0\r\ny = 0b101\r\n",
+      "repr": "{'a-y-y_': 1e-07, '9Z': ['\\\\{ Z'], 'y': 5}"
+    },
+    {
+      "name": "gen/186",
+      "toml": "ab-9=false\r\n\r\n[hosts.one]\r\n9c9 = ']٣\t ]中'\r\n'}' = true\r\n\r\n[c.\"q k\".d]\r\n",
+      "repr": "{'ab-9': False, 'hosts': {'one': {'9c9': ']٣\\t ]中', '}': True}}, 'c': {'q k': {'d': {}}}}"
+    },
+    {
+      "name": "gen/187",
+      "toml": "'\u2029󠀁😀{'='{} \u2028ß#​'\n\n[a.x]\n9Az_9Z\t=  0\n\" \u2029\"\t=  \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n_Z='''''x'''''\n\n[a]\n",
+      "repr": "{'\\u2029\\U000e0001😀{': '{}\\x85\\xa0\\u2028ß#\\u200b', 'a': {'x': {'9Az_9Z': 0, ' \\u2029': 'line one\\nline \"two\" continued', '_Z': \"''x''\"}}}"
+    },
+    {
+      "name": "gen/188",
+      "toml": "90c00b\t=  {0b_b = 0b101}\r\n']󠀁'=1e16\r\n\r\n[projects.gem]\r\n",
+      "repr": "{'90c00b': {'0b_b': 5}, ']\\U000e0001': 1e+16, 'projects': {'gem': {}}}"
+    },
+    {
+      "name": "gen/189",
+      "toml": "'\"́中\u2028' = \"\"\"\nline one\nline \"two\" \\\n   continued\"\"\"\n\n[[a.x]]\naa-zZ=-9223372036854775808\n'é﻿'=\"\\uff11é= \\u4e2d\\\"0﻿\" # ​中]\n\"󠀁\\\\\" = 'é󠀁 '\n\n[hosts.one]\n\n[[hosts.one]]\n\"\\\\\"=1e-7\n\"\\u0301\"\t=  [{'#\t😀' = {}}, [],]\nz\t=  \"\"\"\\u00e9\\t\"\"\"\n\n=1",
+      "error": "TOMLDecodeError: Cannot overwrite a value (at line 13, column 12)"
+    },
+    {
+      "name": "gen/190",
+      "toml": "zZaczy\t=  \"\"\"\\u00e9\\t\"\"\"\n",
+      "repr": "{'zZaczy': 'é\\t'}"
+    },
+    {
+      "name": "gen/191",
+      "toml": "''=[\n  1, # c\n  2,\n]\n'Z'\t=  [1, 2, 3]\n\n[b]\n",
+      "repr": "{'': [1, 2], 'Z': [1, 2, 3], 'b': {}}"
+    },
+    {
+      "name": "gen/192",
+      "toml": "\n[[c.\"q k\".d]]\n0x\t=  [{b00 = []}, \"😀\"]\ncy-c99=3e2\nyyAAx=\"\"\n\n[projects.gem]\n",
+      "repr": "{'c': {'q k': {'d': [{'0x': [{'b00': []}, '😀'], 'cy-c99': 300.0, 'yyAAx': ''}]}}, 'projects': {'gem': {}}}"
+    },
+    {
+      "name": "gen/193",
+      "toml": "\n[[projects.gem]]\nZaA9- = '٣['\nZ = '﻿ß'\n'１１\"'=\"ß,{éß,１\"\n\n[projects.gem]\n9cx\t=  \"ßZ}́#\"\na\t=  \"]\\\"😀\\u200b\u2029\"\n\n[a.x]\n0c0\t=  [true, 1e16, {}] #  \n\"a\\uff11a,\"=\"\"\"a\"\"\"\"\n",
+      "error": "TOMLDecodeError: Cannot declare ('projects', 'gem') twice (at line 7, column 14)"
+    },
+    {
+      "name": "gen/194",
+      "toml": "\n[hosts.one]\n\n[c.\"q k\".d]\n\"😀ß\" = \"\"\"\\=u00e9\\t\"\"\"\nzxA_A_\t=  [ ]\n",
+      "error": "TOMLDecodeError: Unescaped '\\' in a string (at line 5, column 13)"
+    },
+    {
+      "name": "gen/195",
+      "toml": "x = 0xff\n",
+      "repr": "{'x': 255}"
+    },
+    {
+      "name": "gen/196",
+      "toml": "\n[b]\nccxy='\u2028,﻿' # a\n-9Ax = 0\n\n[c.\"q k\".d]\n\n[c.\"q k\".d]\n'\t'\t=  \"0=\"\nbca_9\t=  -9223372036854775808\n''\t=  \"\\t\"\n",
+      "error": "TOMLDecodeError: Cannot declare ('c', 'q k', 'd') twice (at line 8, column 11)"
+    },
+    {
+      "name": "gen/197",
+      "toml": "''\t=  '''\nraw \\n 'x'\n'''\nz\t=  {}\nA=true # é[﻿\n",
+      "repr": "{'': \"raw \\\\n 'x'\\n\", 'z': {}, 'A': True}"
+    },
+    {
+      "name": "gen/198",
+      "toml": "\n[b]\nxxaZ-z = 2.5E-3\naaa9a=[1, 2, 3]\n'​é'=[1, 2, 3]\n\n[[c.\"q k\".d]]\n",
+      "repr": "{'b': {'xxaZ-z': 0.0025, 'aaa9a': [1, 2, 3], '\\u200bé': [1, 2, 3]}, 'c': {'q k': {'d': [{}]}}}"
+    },
+    {
+      "name": "gen/199",
+      "toml": "=",
+      "error": "TOMLDecodeError: Invalid statement (at line 1, column 1)"
+    }
+  ]
+}

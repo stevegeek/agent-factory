@@ -1,0 +1,54 @@
+{
+  "id": "T0003",
+  "schema": 1,
+  "mode": "board",
+  "project": "sandbox",
+  "title": "Child one",
+  "body": "",
+  "door": "agent",
+  "by": "example-agent",
+  "column": "waiting",
+  "kind": "item",
+  "assignee": null,
+  "labels": [],
+  "parent": "T0001",
+  "children": [],
+  "links": [],
+  "waiting": {
+    "reason": "other",
+    "text": "Blocked on the API\nsecond line `x`",
+    "from": "inbox",
+    "since": "2026-10-18T09:04:00+00:00"
+  },
+  "questions": [],
+  "comments": [],
+  "result": null,
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-18T09:02:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-18T09:02:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=inbox",
+      "type": "created",
+      "door": "agent",
+      "column": "inbox",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-18T09:04:00+00:00",
+      "event": "move",
+      "detail": "inbox -> waiting: Blocked on the API\nsecond line `x`",
+      "type": "moved",
+      "from": "inbox",
+      "to": "waiting",
+      "reason": "waiting",
+      "by": "example-agent"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-18T09:04:00+00:00"
+}

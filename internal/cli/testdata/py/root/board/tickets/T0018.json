@@ -1,0 +1,27 @@
+{
+  "id": "T0018",
+  "project": "gem",
+  "title": "A task with nothing",
+  "body": "",
+  "door": "human",
+  "by": "factory",
+  "column": "ready",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "factory"
+    }
+  ],
+  "kind": "task",
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

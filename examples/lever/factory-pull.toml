@@ -1,0 +1,13 @@
+# factory-pull's config: ~/.config/factory-pull/config.toml on the desktop.
+ssh = "factory-master"                 # the dispatcher: a Host in ~/.ssh/config (HostName, User factory)
+key = "~/.ssh/factory-pull"            # the key forced to `factory-remote mailbox desktop` there
+host = "desktop"                       # this host's [hosts.<name>] in the factory's config
+instance = "~/lever/factory-worker"    # the Lever instance directory (lever.yaml)
+tree = "tree"                          # lever.yaml's tree:, relative to the instance
+workers = ["fw1", "fw2", "fw3"]        # lever.yaml's workers, each with dir workers/<name>
+# lever = "~/.local/bin/lever"         # when lever is not on the service's PATH
+# poll_seconds = 30                    # ask for a job this often while a worker is idle
+# beat_seconds = 60                    # beat this often while a job runs (keep it under beat_minutes)
+# vitals_seconds = 60                  # post this host's vitals this often, for Foreman (0: never)
+# git_name = "Your Factory Bot"        # the commit identity: the factory's [identity] git_name
+# git_email = "bot@example.com"        # and git_email

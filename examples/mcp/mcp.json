@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "factory": {
+      "type": "http",
+      "url": "https://<host>.ts.net/mcp",
+      "headers": {"Authorization": "Bearer ${FACTORY_TOKEN}"}
+    }
+  }
+}

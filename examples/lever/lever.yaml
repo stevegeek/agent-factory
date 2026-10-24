@@ -1,0 +1,48 @@
+# A Lever instance whose workers take agent-factory jobs (README "Desktop worker
+# (Lever)"). factory-pull claims each job from the factory's mailbox, lays it out
+# in an idle worker's workers/<name>/jobs/<id>/ and messages that worker directly;
+# the manager is not in the loop. Copy into the instance directory and fill in
+# the scion pin and the sizes.
+name: factory-worker
+backend: lima
+tree: tree
+cpus: 12
+memory: 24GiB
+disk: 120GiB
+# open still drops the LAN, RFC1918 and the tailnet: the jail reaches the
+# internet (package registries, Anthropic), never the factory.
+egress: open
+scion:
+  version: PIN   # the pin of the installed lever release
+broker:
+  jail_port: 8453
+  admin_port: 8454
+  # your Claude subscription: the OAuth token is in every agent's environment
+  llm_auth: subscription
+  max_running_workers: 3
+  messaging:
+    worker_to_worker: false
+manager:
+  image: lever.local/lever-claude
+  credential_file: secrets/claude-oauth-token
+  prompt_file: manager.md
+  allow_ports: []
+workers:
+  - name: fw1
+    dir: workers/fw1
+    recyclable: true
+    instructions_file: factory-worker.md
+    claude_settings:
+      auto_compact_window: 120000
+  - name: fw2
+    dir: workers/fw2
+    recyclable: true
+    instructions_file: factory-worker.md
+    claude_settings:
+      auto_compact_window: 120000
+  - name: fw3
+    dir: workers/fw3
+    recyclable: true
+    instructions_file: factory-worker.md
+    claude_settings:
+      auto_compact_window: 120000

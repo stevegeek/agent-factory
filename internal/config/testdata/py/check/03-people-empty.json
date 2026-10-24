@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "stdout": "[board] people: a list of names, the maintainer first\nExpecting value: line 1 column 1 (char 0)\n",
+  "stderr": "",
+  "problems": [
+    "[board] people: a list of names, the maintainer first",
+    "Expecting value: line 1 column 1 (char 0)"
+  ],
+  "warnings": []
+}

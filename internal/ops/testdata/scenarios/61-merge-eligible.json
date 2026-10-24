@@ -1,0 +1,23 @@
+{
+ "name": "merge-eligible",
+ "now": "2026-10-18T10:00:00+00:00",
+ "config": "[board]\npeople = [\"sam\", \"alex\"]\n\n[hosts.helper]\nssh = \"factory@helper.example\"\n\n[projects.gem]\npath = \"/nonexistent/gem\"\nbase = \"main\"\ngithub = \"example/gem\"\n\n[projects.widgets]\npath = \"/nonexistent/widgets\"\nbase = \"main\"\n\n[projects.notes]\nmode = \"board\"\n\n[[schedules]]\nname = \"bug-hunt\"\nevery_days = 30\nkind = \"task\"\ntitle = \"Bug hunt\"\nbody = \"Look in {github} for bugs.\"\n\n[[recipes]]\nname = \"docs-pass\"\ntitle = \"Tidy the docs\"\nbody = \"Read the README.\"\nprojects = [\"widgets\"]\n\n[[recipes]]\nname = \"scan\"\nkind = \"prospect\"\ntitle = \"Scan\"\nbody = \"Look around {github}.\"\n",
+ "op": "merge",
+ "args": {
+  "ticket": "T0001"
+ },
+ "before": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"gem\",\n  \"title\": \"Tidy README\",\n  \"body\": \"Make it tidy.\",\n  \"door\": \"human\",\n  \"by\": \"factory\",\n  \"column\": \"pr_open\",\n  \"branch\": \"bot/tidy-readme\",\n  \"agent\": null,\n  \"reports\": {},\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready_for_pr\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready_for_pr\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"ready_for_pr -> pr_open: PR https://github.com/example/gem/pull/5\",\n      \"type\": \"moved\",\n      \"from\": \"ready_for_pr\",\n      \"to\": \"pr_open\",\n      \"reason\": \"pr_opened\",\n      \"by\": \"factory\"\n    }\n  ],\n  \"ask\": {\n    \"kind\": \"review\",\n    \"question\": \"Review and merge PR #5?\",\n    \"why\": \"PR https://github.com/example/gem/pull/5.\",\n    \"since\": \"2026-10-18T10:00:00+00:00\",\n    \"retry_column\": null\n  },\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"gate\": {\n    \"checks_pass\": true,\n    \"auto_eligible\": true,\n    \"blockers\": [],\n    \"head\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n  },\n  \"pr\": {\n    \"number\": 5,\n    \"url\": \"https://github.com/example/gem/pull/5\",\n    \"draft\": false\n  }\n}"
+ },
+ "stdout": "PR #5 merges on the next tick (a minute or two; longer if main moved)\n",
+ "error": null,
+ "wakes": 1,
+ "logs": [
+  "T0001 pr you asked the factory to merge PR #5; it merges on the next tick"
+ ],
+ "after": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"gem\",\n  \"title\": \"Tidy README\",\n  \"body\": \"Make it tidy.\",\n  \"door\": \"human\",\n  \"by\": \"factory\",\n  \"column\": \"pr_open\",\n  \"branch\": \"bot/tidy-readme\",\n  \"agent\": null,\n  \"reports\": {},\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready_for_pr\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready_for_pr\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"ready_for_pr -> pr_open: PR https://github.com/example/gem/pull/5\",\n      \"type\": \"moved\",\n      \"from\": \"ready_for_pr\",\n      \"to\": \"pr_open\",\n      \"reason\": \"pr_opened\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"pr\",\n      \"detail\": \"you asked the factory to merge PR #5; it merges on the next tick\"\n    }\n  ],\n  \"ask\": {\n    \"kind\": \"review\",\n    \"question\": \"Review and merge PR #5?\",\n    \"why\": \"PR https://github.com/example/gem/pull/5.\",\n    \"since\": \"2026-10-18T10:00:00+00:00\",\n    \"retry_column\": null\n  },\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"gate\": {\n    \"checks_pass\": true,\n    \"auto_eligible\": true,\n    \"blockers\": [],\n    \"head\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n  },\n  \"pr\": {\n    \"number\": 5,\n    \"url\": \"https://github.com/example/gem/pull/5\",\n    \"draft\": false,\n    \"merge_requested\": \"2026-10-18T10:00:00+00:00\"\n  }\n}"
+ }
+}

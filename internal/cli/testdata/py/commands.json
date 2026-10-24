@@ -1,0 +1,172 @@
+{
+  "about": "factory's main() run with argv on the root in root/ (config.toml, api-tokens.json, board/tickets): exit code, stdout, and stderr (a refusal's message)",
+  "commands": [
+    {
+      "argv": [
+        "ls"
+      ],
+      "exit": 0,
+      "stdout": "T0001  ready         gem                         A change waiting to start\nT0002  needs_human   gem          task           A task with a result\nT0003  needs_human   gem          idea           An idea with a design\nT0005  needs_human   gem          prop           Proposal 1\nT0007  needs_human   gem          prop           Proposal 3\nT0008  working       gem               t0008-w1  Running locally\nT0009  working       gem          task t0009-k1@helper Running on the helper\nT0010  ready         gem               (@helper) Pinned to the helper\nT0011  ready         paused            (paused)  On a paused project\nT0012  inbox         notes        item alice     A board ticket\nT0015  triage        gem                         A title that is far longer than sixty characters, so the lis\nT0016  triage        gem                         Unicode t\u00edtle \u2014 \ud83d\ude00\nT0017  ready         gem          task           A task with only a summary\nT0018  ready         gem          task           A task with nothing\nT0019  ready         gem          idea           An idea with no design\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ls",
+        "--all"
+      ],
+      "exit": 0,
+      "stdout": "T0001  ready         gem                         A change waiting to start\nT0002  needs_human   gem          task           A task with a result\nT0003  needs_human   gem          idea           An idea with a design\nT0004  done          gem          scan           Scan for improvements\nT0005  needs_human   gem          prop           Proposal 1\nT0006  rejected      gem          prop           Proposal 2\nT0007  needs_human   gem          prop           Proposal 3\nT0008  working       gem               t0008-w1  Running locally\nT0009  working       gem          task t0009-k1@helper Running on the helper\nT0010  ready         gem               (@helper) Pinned to the helper\nT0011  ready         paused            (paused)  On a paused project\nT0012  inbox         notes        item alice     A board ticket\nT0013  done          gem                         Closed and done\nT0014  rejected      gem                         Closed and rejected\nT0015  triage        gem                         A title that is far longer than sixty characters, so the lis\nT0016  triage        gem                         Unicode t\u00edtle \u2014 \ud83d\ude00\nT0017  ready         gem          task           A task with only a summary\nT0018  ready         gem          task           A task with nothing\nT0019  ready         gem          idea           An idea with no design\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "proposals"
+      ],
+      "exit": 0,
+      "stdout": "T0007  priority 4.1  mean 4.33 scores [4, 4, 5]  Proposal 3\nT0005  priority 3.04 mean 3.67 scores [5, 4, 2]  Proposal 1\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "recipes"
+      ],
+      "exit": 0,
+      "stdout": "deps                     task     gem, paused                    Dependencies, by hand\nscan                     prospect gem                            Look for improvements (also scheduled)\nlegacy                   intent   any project                    Legacy idea (also scheduled)\ndocs                     change   any project                    Tidy the docs\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "recipes",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "[{\"name\": \"deps\", \"title\": \"Dependencies, by hand\", \"body\": \"z\", \"kind\": \"task\", \"projects\": [\"gem\", \"paused\"], \"about\": \"\", \"scheduled\": false}, {\"name\": \"scan\", \"title\": \"Look for improvements\", \"body\": \"Anything worth doing?\", \"kind\": \"prospect\", \"projects\": [\"gem\"], \"about\": \"Monthly scan\", \"scheduled\": true}, {\"name\": \"legacy\", \"title\": \"Legacy idea\", \"body\": \"b\", \"kind\": \"intent\", \"projects\": [], \"about\": \"\", \"scheduled\": true}, {\"name\": \"docs\", \"title\": \"Tidy the docs\", \"body\": \"Make the README match {github}.\", \"kind\": \"change\", \"projects\": [], \"about\": \"Docs pass\", \"scheduled\": false}]\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "tokens",
+        "list"
+      ],
+      "exit": 0,
+      "stdout": "example-agent            read,file                gem                            added 2026-10-17T08:00:00+00:00\nlater-agent              read,talk,work           gem,notes                      added 2026-10-17T08:00:00+00:00, expires 2027-01-01T00:00:00+00:00\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "tokens",
+        "list",
+        "--json"
+      ],
+      "exit": 0,
+      "stdout": "[{\"name\": \"example-agent\", \"projects\": [\"gem\"], \"can\": [\"read\", \"file\"], \"added\": \"2026-10-17T08:00:00+00:00\", \"expires\": null, \"tickets\": null}, {\"name\": \"later-agent\", \"projects\": [\"gem\", \"notes\"], \"can\": [\"read\", \"talk\", \"work\"], \"added\": \"2026-10-17T08:00:00+00:00\", \"expires\": \"2027-01-01T00:00:00+00:00\", \"tickets\": null}]\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "model"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"ask_kinds\": [\n    \"question\",\n    \"unstick\",\n    \"review\",\n    \"open\",\n    \"deploy\",\n    \"draft\",\n    \"start\",\n    \"design\",\n    \"findings\",\n    \"proposal\",\n    \"decide\",\n    \"notice\"\n  ],\n  \"board_column_labels\": {\n    \"doing\": \"Doing\",\n    \"done\": \"Done\",\n    \"dropped\": \"Dropped\",\n    \"inbox\": \"Inbox\",\n    \"next\": \"Next\",\n    \"waiting\": \"Waiting\"\n  },\n  \"board_columns\": [\n    \"inbox\",\n    \"next\",\n    \"doing\",\n    \"waiting\",\n    \"done\",\n    \"dropped\"\n  ],\n  \"capabilities\": [\n    \"read\",\n    \"file\",\n    \"talk\",\n    \"work\",\n    \"plan\"\n  ],\n  \"column_labels\": {\n    \"done\": \"Done\",\n    \"gate\": \"the gate\",\n    \"needs_human\": \"Needs you\",\n    \"pr_open\": \"PR open\",\n    \"ready\": \"Ready\",\n    \"ready_for_pr\": \"Ready for PR\",\n    \"rejected\": \"Closed\",\n    \"review\": \"Review\",\n    \"security\": \"Security\",\n    \"triage\": \"Triage\",\n    \"verifying\": \"Verifying\",\n    \"voting\": \"Voting\",\n    \"working\": \"Working\"\n  },\n  \"columns\": [\n    \"triage\",\n    \"ready\",\n    \"working\",\n    \"voting\",\n    \"verifying\",\n    \"review\",\n    \"security\",\n    \"gate\",\n    \"ready_for_pr\",\n    \"pr_open\",\n    \"needs_human\",\n    \"done\",\n    \"rejected\"\n  ],\n  \"event_types\": {\n    \"answered\": [\n      \"ticket\",\n      \"text\"\n    ],\n    \"asked\": [\n      \"ticket\",\n      \"text\"\n    ],\n    \"claimed\": [\n      \"by\"\n    ],\n    \"commented\": [\n      \"by\",\n      \"n\"\n    ],\n    \"created\": [\n      \"door\",\n      \"column\",\n      \"by\"\n    ],\n    \"edited\": [\n      \"by\",\n      \"fields\"\n    ],\n    \"errored\": [\n      \"text\"\n    ],\n    \"filed\": [\n      \"ticket\"\n    ],\n    \"finished\": [\n      \"stage\",\n      \"agent\"\n    ],\n    \"gated\": [\n      \"base\",\n      \"commit\"\n    ],\n    \"linked\": [\n      \"by\",\n      \"rel\",\n      \"ticket?\",\n      \"url?\"\n    ],\n    \"memory\": [\n      \"role\",\n      \"commit?\",\n      \"files?\",\n      \"over_limit_kb?\",\n      \"lost_on?\"\n    ],\n    \"moved\": [\n      \"from\",\n      \"to\",\n      \"reason\",\n      \"by\"\n    ],\n    \"noted\": [\n      \"by\",\n      \"note\",\n      \"question?\"\n    ],\n    \"panel\": [\n      \"kept\"\n    ],\n    \"pinned\": [\n      \"host\"\n    ],\n    \"pr\": [\n      \"action\",\n      \"number?\",\n      \"why?\"\n    ],\n    \"question_answered\": [\n      \"by\",\n      \"n\"\n    ],\n    \"question_asked\": [\n      \"by\",\n      \"recipient\",\n      \"n\"\n    ],\n    \"review_requested\": [\n      \"reviewers\"\n    ],\n    \"sent_to_factory\": [\n      \"by\",\n      \"ticket\"\n    ],\n    \"split\": [\n      \"by\",\n      \"children\"\n    ],\n    \"started\": [\n      \"stage\",\n      \"agent\",\n      \"host\",\n      \"model?\",\n      \"branch?\"\n    ],\n    \"voted\": [\n      \"k\",\n      \"n\"\n    ]\n  },\n  \"kinds\": {\n    \"board\": [\n      \"item\",\n      \"task\"\n    ],\n    \"factory\": [\n      \"change\",\n      \"task\",\n      \"intent\",\n      \"prospect\",\n      \"proposal\",\n      \"manage\"\n    ]\n  },\n  \"modes\": [\n    \"factory\",\n    \"board\"\n  ],\n  \"move_reasons\": [\n    \"usage_limit\",\n    \"timed_out\",\n    \"agent_lost\",\n    \"no_report\",\n    \"started\",\n    \"agent_question\",\n    \"answered_on\",\n    \"task_done\",\n    \"task_blocked\",\n    \"worker_blocked\",\n    \"no_commits\",\n    \"work_done\",\n    \"reviewer_committed\",\n    \"review_passed\",\n    \"review_exhausted\",\n    \"review_changes\",\n    \"security_passed\",\n    \"security_failed\",\n    \"designer_blocked\",\n    \"design_ready\",\n    \"manager_blocked\",\n    \"manager_drafted\",\n    \"manager_answered\",\n    \"prospect_empty\",\n    \"proposals_ready\",\n    \"panel_done\",\n    \"triage_rejected\",\n    \"triage_unsure\",\n    \"triage_accepted\",\n    \"gate_failed\",\n    \"gate_passed\",\n    \"dispatcher_error\",\n    \"pr_opened\",\n    \"main_moved\",\n    \"pr_merged\",\n    \"pr_closed\",\n    \"conflicts\",\n    \"changes_requested\",\n    \"replied\",\n    \"question_answered\",\n    \"proposal_approved\",\n    \"design_approved\",\n    \"redirected\",\n    \"by_human\",\n    \"claimed\",\n    \"parked\",\n    \"waiting\",\n    \"finished\",\n    \"dropped\",\n    \"reopened\",\n    \"question_asked\",\n    \"findings_reported\",\n    \"verify_requested\",\n    \"findings_verified\",\n    \"verifier_blocked\",\n    \"findings_filed\",\n    \"findings_dismissed\",\n    \"imported\",\n    \"deploy_held\",\n    \"deploy_requested\",\n    \"deploy_started\"\n  ],\n  \"running_column\": {\n    \"design\": \"working\",\n    \"manage\": \"working\",\n    \"prospect\": \"working\",\n    \"review\": \"review\",\n    \"security\": \"security\",\n    \"task\": \"working\",\n    \"triage\": \"triage\",\n    \"verify\": \"verifying\",\n    \"vote\": \"voting\",\n    \"work\": \"working\"\n  },\n  \"stage_for_column\": {\n    \"ready\": \"work\",\n    \"review\": \"review\",\n    \"security\": \"security\",\n    \"triage\": \"triage\",\n    \"verifying\": \"verify\"\n  },\n  \"stage_labels\": {\n    \"design\": \"Designer\",\n    \"manage\": \"Manager\",\n    \"prospect\": \"Prospector\",\n    \"review\": \"Reviewer\",\n    \"security\": \"Security\",\n    \"task\": \"Task agent\",\n    \"triage\": \"Triage\",\n    \"verify\": \"Verifier\",\n    \"vote\": \"Voter\",\n    \"work\": \"Worker\"\n  },\n  \"stages\": [\n    \"triage\",\n    \"work\",\n    \"review\",\n    \"security\",\n    \"task\",\n    \"design\",\n    \"prospect\",\n    \"vote\",\n    \"manage\",\n    \"verify\"\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "check"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "result",
+        "T0002"
+      ],
+      "exit": 0,
+      "stdout": "The answer.\n\nWith a second paragraph.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "result",
+        "T0003"
+      ],
+      "exit": 0,
+      "stdout": "The design.\n\n  Indented.\n\n## Proposed tickets\n\n1. First part\n\n   Do one.\n   Then two.\n\n2. Second part\n\n   Do three.\n\nfactory approve T0003 [--only 1,2]  |  factory redirect T0003 --note \"...\"\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "result",
+        "T0018"
+      ],
+      "exit": 0,
+      "stdout": "T0018 has no task result\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "result",
+        "T0019"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "T0019 has no design yet"
+    },
+    {
+      "argv": [
+        "result",
+        "T0001"
+      ],
+      "exit": 0,
+      "stdout": "T0001 has no task result\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "result",
+        "T0017"
+      ],
+      "exit": 0,
+      "stdout": "Only the summary.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "show",
+        "T0001"
+      ],
+      "exit": 0,
+      "stdout": "{\n  \"id\": \"T0001\",\n  \"project\": \"gem\",\n  \"title\": \"A change waiting to start\",\n  \"body\": \"\",\n  \"door\": \"human\",\n  \"by\": \"alice\",\n  \"column\": \"ready\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {},\n  \"created\": \"2026-10-17T08:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-17T08:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=ready\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"ready\",\n      \"by\": \"alice\"\n    }\n  ],\n  \"ask\": null,\n  \"updated\": \"2026-10-17T08:00:00+00:00\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "audit",
+        "T0001"
+      ],
+      "exit": 0,
+      "stdout": "# T0001: A change waiting to start\n\n- Door: human; project: gem\n\n## History\n\n- 2026-10-17T08:00:00+00:00 created door=human column=ready\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gate-workflow",
+        "notes"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "unknown project notes (a board project has no gate)"
+    },
+    {
+      "argv": [
+        "gate-workflow",
+        "nope"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "unknown project nope"
+    }
+  ]
+}

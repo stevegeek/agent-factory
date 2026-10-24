@@ -1,0 +1,31 @@
+{{define "content" -}}
+<main class="desk {{if .Desk.Open}}open{{end}}">
+  <div class="queue" id="queue" data-live>
+    {{template "searchbox" ""}}
+    {{if .Desk.Total}}<nav class="filters" aria-label="Kinds of ask">
+      {{range .Desk.Filters}}<a class="chip" href="{{.Href}}" {{if .On}}aria-current="true"{{end}}>{{.Label}} {{.N}}</a>{{end}}
+    </nav>{{end}}
+    <div class="qhead"><span>Needs you</span><span>{{len .Desk.Items}}</span></div>
+    {{range .Desk.Items}}{{template "qitem" .}}{{end}}
+    {{if and (not .Desk.Items) .Desk.Done}}<p class="qempty">Nothing new. Everything left is waiting on the factory.</p>{{end}}
+    {{with .Desk.Done}}
+    <div class="qhead done"><span>You've responded</span><span>{{len .}}</span></div>
+    {{range .}}{{template "qitem" .}}{{end}}
+    {{end}}
+  </div>
+  <div class="detail" id="detail">
+    {{if .Ticket}}{{template "detail" .}}
+    {{else}}<div class="cleared"><strong>Nothing needs you</strong>The factory has everything it needs. <a href="/floor">See what it is doing</a>.</div>{{end}}
+  </div>
+</main>
+{{- end}}
+
+{{define "qitem" -}}
+<a class="qitem k-{{.Kind}}{{if .Responded}} responded{{end}}" href="{{.Href}}" {{if .Current}}aria-current="true"{{end}}>
+  <span class="qtop"><span class="proj">{{.Project}}</span>{{if .Walls}}<span class="badge small walls" title="Touches the walls: {{join .Walls ", "}}">walls</span>{{end}}{{with .Age}}<span class="age">{{.}}</span>{{end}}</span>
+  <span class="t">{{mdt .Title}}</span>
+  <span class="qact"><span class="qdo">{{.Action}}</span><span class="mono">{{.ID}}</span></span>
+  {{with .Responded}}<span class="resp">{{.}}</span>{{end}}
+  {{if .Answered}}<span class="resp new">New answer to your question</span>{{end}}
+</a>
+{{- end}}

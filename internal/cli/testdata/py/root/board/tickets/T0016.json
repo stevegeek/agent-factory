@@ -1,0 +1,26 @@
+{
+  "id": "T0016",
+  "project": "gem",
+  "title": "Unicode t\u00edtle \u2014 \ud83d\ude00",
+  "body": "",
+  "door": "github",
+  "by": "factory",
+  "column": "triage",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage",
+      "type": "created",
+      "door": "github",
+      "column": "triage",
+      "by": "factory"
+    }
+  ],
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

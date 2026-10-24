@@ -1,0 +1,129 @@
+{
+  "id": "T0004",
+  "project": "gem",
+  "title": "Scan for improvements",
+  "body": "",
+  "door": "clock",
+  "by": "factory",
+  "column": "done",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=clock column=ready",
+      "type": "created",
+      "door": "clock",
+      "column": "ready",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "move",
+      "detail": "ready -> done: panel kept T0005, T0007; dropped 1",
+      "rule": "panel: kept 2 of 3; 2 voters scoring 4 or more, or a mean of 3.5, keeps a proposal",
+      "type": "moved",
+      "from": "ready",
+      "to": "done",
+      "reason": "panel_done",
+      "by": "factory"
+    }
+  ],
+  "kind": "prospect",
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00",
+  "proposals": [
+    {
+      "title": "Proposal 1",
+      "noticed": "n",
+      "change": "c",
+      "why": "w",
+      "cost": "low"
+    },
+    {
+      "title": "Proposal 2",
+      "noticed": "n",
+      "change": "c",
+      "why": "w",
+      "cost": "low"
+    },
+    {
+      "title": "Proposal 3",
+      "noticed": "n",
+      "change": "c",
+      "why": "w",
+      "cost": "low"
+    }
+  ],
+  "votes": [
+    {
+      "voter": "t0004-v1",
+      "host": "local",
+      "scores": {
+        "1": {
+          "score": 5,
+          "reason": "r11"
+        },
+        "2": {
+          "score": 2,
+          "reason": "r12"
+        },
+        "3": {
+          "score": 4,
+          "reason": "r13"
+        }
+      }
+    },
+    {
+      "voter": "t0004-v2",
+      "host": "local",
+      "scores": {
+        "1": {
+          "score": 4,
+          "reason": "r21"
+        },
+        "2": {
+          "score": 3,
+          "reason": "r22"
+        },
+        "3": {
+          "score": 4,
+          "reason": "r23"
+        }
+      }
+    },
+    {
+      "voter": "t0004-v3",
+      "host": "local",
+      "scores": {
+        "1": {
+          "score": 2,
+          "reason": "r31"
+        },
+        "2": {
+          "score": 1,
+          "reason": "r32"
+        },
+        "3": {
+          "score": 5,
+          "reason": "r33"
+        }
+      }
+    }
+  ],
+  "panel_result": {
+    "kept": [
+      "T0005",
+      "T0007"
+    ],
+    "dropped": [
+      "Proposal 2 ([2, 3, 1])"
+    ],
+    "dropped_tickets": [
+      "T0006"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{{define "content" -}}
+{{with .Floor}}
+<main class="pane">
+  <div class="week">
+    <h3>Floor metrics</h3>
+    <p>Five weeks of counts, up to the week of {{.Start.Format "2 Jan"}}.</p>
+    <nav class="weeknav"><a href="/floor/metrics?week={{.Prev}}">← Week before</a>{{with .Next}} <a href="/floor/metrics?week={{.}}">Week after →</a>{{end}} <a href="/floor{{with .Next}}?week={{$.Floor.Start.Format "2006-01-02"}}{{end}}">The floor</a></nav>
+  </div>
+  {{with .Metrics}}
+  <section class="metrics" aria-label="Floor metrics">
+    {{if .Quiet}}<p class="quiet">Nothing to count in these five weeks.</p>
+    {{else}}
+    {{template "metrics" .Total}}
+    {{range .Projects}}{{template "metrics" .}}{{end}}
+    {{end}}
+  </section>
+  {{end}}
+</main>
+{{end}}
+{{- end}}
+{{define "metrics" -}}
+<details class="mtable" data-key="metrics-{{.Name}}"{{if .Open}} open{{end}}>
+  <summary>{{.Name}}</summary>
+  <div class="mscroll">
+  <table>
+    <thead><tr><td></td>{{range .Weeks}}<th scope="col">{{.}}</th>{{end}}</tr></thead>
+    {{range .Groups}}
+    <tbody>
+      <tr class="mgroup"><th scope="rowgroup" colspan="{{len $.Weeks | inc}}">{{.Title}}{{with .Note}} <span>· {{.}}</span>{{end}}</th></tr>
+      {{range .Rows}}
+      <tr{{if .Sub}} class="msub"{{end}}><th scope="row">{{.Label}}</th>{{if .NotTracked}}<td class="mnot" colspan="{{len $.Weeks}}">{{.NotTracked}}</td>{{else}}{{range .Cells}}<td>{{.}}</td>{{end}}{{end}}</tr>
+      {{end}}
+    </tbody>
+    {{end}}
+  </table>
+  </div>
+</details>
+{{- end}}

@@ -1,0 +1,14 @@
+# Foreman's screen relay, as a user unit of the factory user. Foreman's sandbox hides podman and
+# the user manager, so it cannot run `scion look`: while Live is open it touches
+# foreman-state/watching, and this unit starts factory-screens.service, outside the sandbox, which
+# writes the local agents' screens to ~/factory/screens/ for Foreman to read. Only the marker's
+# mtime reaches the relay. deploy.sh installs it into ~/.config/systemd/user/ and enables it.
+[Unit]
+Description=Agent factory: relay the agents' screens while Foreman's Live tab is open
+
+[Path]
+PathModified=%h/factory/foreman-state/watching
+Unit=factory-screens.service
+
+[Install]
+WantedBy=default.target

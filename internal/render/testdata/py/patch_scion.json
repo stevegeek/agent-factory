@@ -1,0 +1,37 @@
+{
+  "about": "python3 scion/patch_provision.py FILE: the file before and after, the exit code and output",
+  "rows": [
+    {
+      "name": "anchor",
+      "before": "import json\nfrom typing import Any\n\n\ndef provision(ctx):\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n    return new_projects\n",
+      "after": "import json\nfrom typing import Any\n\n\ndef provision(ctx):\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n\n    # agent-factory local patch: in local mode the manifest carries the HOST\n    # worktree path, but the worktree is mounted at /repo-root/... inside the\n    # container, so trust that path too (upstream fix: pass the container path).\n    marker = \"/.scion/agents/\"\n    if marker in ctx.workspace and not ctx.workspace.startswith(\"/repo-root/\"):\n        container_ws = \"/repo-root\" + marker + ctx.workspace.split(marker, 1)[1]\n        new_projects[container_ws] = project_settings\n    return new_projects\n",
+      "exit": 0,
+      "stdout": "patched\n",
+      "stderr": ""
+    },
+    {
+      "name": "already",
+      "before": "import json\nfrom typing import Any\n\n\ndef provision(ctx):\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n\n    # agent-factory local patch: in local mode the manifest carries the HOST\n    # worktree path, but the worktree is mounted at /repo-root/... inside the\n    # container, so trust that path too (upstream fix: pass the container path).\n    marker = \"/.scion/agents/\"\n    if marker in ctx.workspace and not ctx.workspace.startswith(\"/repo-root/\"):\n        container_ws = \"/repo-root\" + marker + ctx.workspace.split(marker, 1)[1]\n        new_projects[container_ws] = project_settings\n    return new_projects\n",
+      "after": "import json\nfrom typing import Any\n\n\ndef provision(ctx):\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n\n    # agent-factory local patch: in local mode the manifest carries the HOST\n    # worktree path, but the worktree is mounted at /repo-root/... inside the\n    # container, so trust that path too (upstream fix: pass the container path).\n    marker = \"/.scion/agents/\"\n    if marker in ctx.workspace and not ctx.workspace.startswith(\"/repo-root/\"):\n        container_ws = \"/repo-root\" + marker + ctx.workspace.split(marker, 1)[1]\n        new_projects[container_ws] = project_settings\n    return new_projects\n",
+      "exit": 0,
+      "stdout": "already patched\n",
+      "stderr": ""
+    },
+    {
+      "name": "no-anchor",
+      "before": "x = 1\n",
+      "after": "x = 1\n",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "anchor not found; provision.py changed upstream, patch by hand\n"
+    },
+    {
+      "name": "two-anchors",
+      "before": "import json\nfrom typing import Any\n\n\ndef provision(ctx):\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n    return new_projects\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n    return new_projects\n",
+      "after": "import json\nfrom typing import Any\n\n\ndef provision(ctx):\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n    return new_projects\n    project_settings = {\"trusted\": True}\n    new_projects: dict[str, Any] = {ctx.workspace: project_settings}\n    return new_projects\n",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "anchor not found; provision.py changed upstream, patch by hand\n"
+    }
+  ]
+}

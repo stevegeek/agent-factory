@@ -1,0 +1,31 @@
+[board]
+people = ["alice", "alice", "Bob", "factory", "maintainer", 3]
+
+[projects.a]
+mode = "weird"
+
+[projects.b]
+mode = "board"
+path = "/x"
+github = "o/b"
+test = "t"
+
+[[watches]]
+name = "w"
+project = "b"
+command = ["true"]
+title = "t"
+body = "b"
+
+[[schedules]]
+name = "s"
+every_days = 1
+title = "t"
+body = "b"
+projects = ["b", "a"]
+
+[[recipes]]
+name = "r"
+title = "t"
+body = "b"
+projects = ["b"]

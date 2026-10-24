@@ -1,0 +1,63 @@
+max_agents = 2
+image = "localhost/factory-agent:dev"
+
+[board]
+people = ["alice"]
+
+[hosts.helper]
+ssh = "factory@helper.test"
+slots = 1
+
+[projects.gem]
+path = "/nonexistent/gem"
+github = "example/gem"
+
+[projects.paused]
+path = "/nonexistent/paused"
+enabled = false
+
+[projects.notes]
+mode = "board"
+
+[[schedules]]
+name = "deps"
+every_days = 7
+title = "Check dependencies"
+body = "Look at {github}"
+kind = "task"
+
+[[schedules]]
+name = "scan"
+every_days = 30
+title = "Look for improvements"
+body = "Anything worth doing?"
+kind = "prospect"
+projects = ["gem"]
+about = "Monthly scan"
+
+[[schedules]]
+name = "legacy"
+every_days = 30
+title = "Legacy idea"
+body = "b"
+intent = true
+
+[[recipes]]
+name = "docs"
+title = "Tidy the docs"
+body = "Make the README match {github}."
+kind = "change"
+about = "Docs pass"
+
+[[recipes]]
+name = "odd"
+title = "x"
+body = "y"
+kind = "weird"
+
+[[recipes]]
+name = "deps"
+title = "Dependencies, by hand"
+body = "z"
+kind = "task"
+projects = ["gem", "paused"]

@@ -1,0 +1,74 @@
+{
+  "view": {
+    "id": "T0004",
+    "project": "sandbox",
+    "mode": "board",
+    "kind": "item",
+    "title": "Child two",
+    "body": "x",
+    "column": "done",
+    "column_label": "Done",
+    "assignee": null,
+    "labels": [],
+    "parent": "T0001",
+    "children": [],
+    "links": [],
+    "created": "2026-10-18T09:02:00+00:00",
+    "updated": "2026-10-18T09:05:00+00:00",
+    "by": "example-agent",
+    "waiting": null,
+    "questions": [],
+    "conversation": [
+      {
+        "at": "2026-10-18T09:05:00+00:00",
+        "by": "example-agent",
+        "type": "result",
+        "text": "Shipped.",
+        "n": 1
+      }
+    ],
+    "result": "Shipped.",
+    "history": [
+      {
+        "at": "2026-10-18T09:02:00+00:00",
+        "type": "created",
+        "by": "example-agent",
+        "detail": "door=agent column=inbox"
+      },
+      {
+        "at": "2026-10-18T09:05:00+00:00",
+        "type": "commented",
+        "by": "example-agent",
+        "detail": "example-agent: Shipped."
+      },
+      {
+        "at": "2026-10-18T09:05:00+00:00",
+        "type": "moved",
+        "by": "example-agent",
+        "from": "inbox",
+        "to": "done",
+        "reason": "finished",
+        "detail": "inbox -> done"
+      }
+    ],
+    "factory": null
+  },
+  "caller": {
+    "name": "example-agent",
+    "person": false,
+    "projects": [
+      "sandbox",
+      "fac"
+    ],
+    "can": [
+      "read",
+      "file",
+      "talk",
+      "work",
+      "plan"
+    ],
+    "tickets": null,
+    "expires": null
+  },
+  "today": "2026-10-17"
+}

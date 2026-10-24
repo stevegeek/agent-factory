@@ -1,0 +1,51 @@
+{
+  "id": "T0002",
+  "project": "widgets",
+  "title": "Cache the widget coder",
+  "body": "Make the widgets better.",
+  "door": "github",
+  "column": "needs_human",
+  "branch": null,
+  "agent": null,
+  "reports": {
+    "triage": {
+      "decision": "accept",
+      "reason": "It is slow; caching helps.",
+      "task": "Cache it."
+    }
+  },
+  "created": "2026-10-05T09:00:00+00:00",
+  "updated": "2026-10-05T09:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-05T09:00:00+00:00",
+      "event": "created",
+      "detail": "door=github column=triage"
+    },
+    {
+      "at": "2026-10-05T09:05:00+00:00",
+      "event": "start",
+      "detail": "triage t0002-t1"
+    },
+    {
+      "at": "2026-10-05T09:08:00+00:00",
+      "event": "finished",
+      "detail": "triage t0002-t1"
+    },
+    {
+      "at": "2026-10-05T09:08:00+00:00",
+      "event": "move",
+      "detail": "triage -> needs_human: triage accepted; move to ready to start work"
+    }
+  ],
+  "source": {
+    "issue": 18,
+    "url": "https://github.com/example/widgets/issues/18"
+  },
+  "ask": {
+    "kind": "start",
+    "question": "Start work on issue #18, \u201cCache the widget coder\u201d?",
+    "why": "It is slow; caching helps.",
+    "since": "2026-10-05T09:08:00+00:00"
+  }
+}

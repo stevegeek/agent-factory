@@ -1,0 +1,70 @@
+{
+  "stage": "design",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0034-d1",
+  "ticket": {
+    "id": "T0034",
+    "project": "gem",
+    "title": "A plugin system",
+    "body": "Let users add parsers.",
+    "door": "human",
+    "by": "factory",
+    "column": "ready",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=ready",
+        "type": "created",
+        "door": "human",
+        "column": "ready",
+        "by": "factory"
+      },
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "note",
+        "detail": "Keep it small.",
+        "type": "noted",
+        "by": "factory",
+        "note": 0
+      }
+    ],
+    "kind": "intent",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "notes": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "text": "Keep it small."
+      }
+    ],
+    "feedback": [
+      {
+        "at": "2026-10-16T08:00:00+00:00",
+        "design": "Design one.\n\nBig.",
+        "note": "Too big."
+      },
+      {
+        "at": "2026-10-16T09:00:00+00:00",
+        "design": "Design two.",
+        "note": "Closer."
+      }
+    ]
+  },
+  "scion_argv": [
+    "start",
+    "t0034-d1",
+    "-t",
+    "designer",
+    "--message-mode",
+    "none"
+  ]
+}

@@ -1,0 +1,12 @@
+# The daily encrypted backup to R2 (ARCHITECTURE.md §15.2), as a user unit of the factory user.
+# deploy.sh installs it into ~/.config/systemd/user/ once the build has `factory backup`, and
+# enables factory-backup.timer once ~/.config/factory/backup-key exists (factory backup keygen).
+[Unit]
+Description=Agent factory: daily encrypted backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/factory/bin/factory backup
+TimeoutStartSec=1h
+Nice=10

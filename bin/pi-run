@@ -1,0 +1,32 @@
+#!/bin/bash
+# Run Pi in a capped container as the factory user.
+#   pi-run [--workdir DIR] [pi args...]
+# The Anthropic key is read from a 600 file into the environment, never argv.
+# Only DIR (default: none) is mounted, read-write, at /work.
+set -euo pipefail
+
+KEY_FILE=$HOME/.config/factory/anthropic-api-key
+IMAGE=${PI_IMAGE:-localhost/factory-pi:dev}
+MEMORY=${PI_MEMORY:-600m}
+MODEL=${PI_MODEL:-claude-sonnet-5-5}
+
+mount=()
+if [[ ${1:-} == --workdir ]]; then
+  mount=(-v "$(realpath "$2")":/work -w /work)
+  shift 2
+fi
+
+model=(--model "$MODEL")
+for a in "$@"; do
+  [[ $a == --model || $a == --model=* ]] && model=()
+done
+
+ANTHROPIC_API_KEY=$(tr -d '\n' < "$KEY_FILE")
+export ANTHROPIC_API_KEY
+cd /
+tty=()
+[[ -t 0 ]] && tty=(-it)
+exec podman run --rm "${tty[@]}" --memory "$MEMORY" --cpus 2 \
+  --userns=keep-id:uid=1000,gid=1000 \
+  -e ANTHROPIC_API_KEY "${mount[@]}" \
+  "$IMAGE" --provider anthropic "${model[@]}" "$@"

@@ -1,0 +1,46 @@
+{
+  "stage": "security",
+  "host": "local",
+  "project": "gem",
+  "tier": 2,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0027-s1",
+  "ticket": {
+    "id": "T0027",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "github",
+    "by": "factory",
+    "column": "security",
+    "branch": "bot/x",
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=github column=security",
+        "type": "created",
+        "door": "github",
+        "column": "security",
+        "by": "factory"
+      }
+    ],
+    "kind": null,
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00"
+  },
+  "scion_argv": [
+    "start",
+    "t0027-s1",
+    "-t",
+    "security",
+    "--message-mode",
+    "none",
+    "-b",
+    "bot/x"
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "id": "T0004",
+  "schema": 1,
+  "mode": "board",
+  "project": "sandbox",
+  "title": "Date picker",
+  "body": "",
+  "door": "agent",
+  "by": "example-agent",
+  "column": "done",
+  "kind": "item",
+  "assignee": "example-agent",
+  "labels": [
+    "ui"
+  ],
+  "parent": null,
+  "children": [],
+  "links": [],
+  "waiting": null,
+  "questions": [
+    {
+      "n": 1,
+      "by": "example-agent",
+      "recipient": "alice",
+      "to_person": true,
+      "text": "Which locale?",
+      "options": [
+        "en-GB",
+        "en-US"
+      ],
+      "at": "2026-10-17T09:22:00+00:00",
+      "answer": "en-GB",
+      "answered_by": "alice",
+      "answered_at": "2026-10-17T09:28:00+00:00"
+    }
+  ],
+  "comments": [
+    {
+      "n": 1,
+      "at": "2026-10-17T09:19:00+00:00",
+      "by": "example-agent",
+      "type": "comment",
+      "text": "Started on it."
+    },
+    {
+      "n": 2,
+      "at": "2026-10-17T09:34:00+00:00",
+      "by": "example-agent",
+      "type": "result",
+      "text": "Uses en-GB."
+    }
+  ],
+  "result": "Uses en-GB.",
+  "notes": [],
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T09:11:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T09:12:00+00:00",
+      "event": "created",
+      "detail": "door=agent column=inbox",
+      "type": "created",
+      "door": "agent",
+      "column": "inbox",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T09:15:00+00:00",
+      "event": "claim",
+      "detail": "claimed by example-agent",
+      "type": "claimed",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T09:16:00+00:00",
+      "event": "move",
+      "detail": "inbox -> doing: claimed by example-agent",
+      "type": "moved",
+      "from": "inbox",
+      "to": "doing",
+      "reason": "claimed",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T09:20:00+00:00",
+      "event": "comment",
+      "detail": "example-agent: Started on it.",
+      "type": "commented",
+      "by": "example-agent",
+      "n": 1
+    },
+    {
+      "at": "2026-10-17T09:23:00+00:00",
+      "event": "question",
+      "detail": "example-agent asks alice: Which locale?",
+      "type": "question_asked",
+      "by": "example-agent",
+      "recipient": "alice",
+      "n": 1
+    },
+    {
+      "at": "2026-10-17T09:25:00+00:00",
+      "event": "move",
+      "detail": "doing -> waiting: question 1 to alice",
+      "type": "moved",
+      "from": "doing",
+      "to": "waiting",
+      "reason": "question_asked",
+      "by": "example-agent"
+    },
+    {
+      "at": "2026-10-17T09:29:00+00:00",
+      "event": "answer",
+      "detail": "alice answered question 1: en-GB",
+      "type": "question_answered",
+      "by": "alice",
+      "n": 1
+    },
+    {
+      "at": "2026-10-17T09:30:00+00:00",
+      "event": "move",
+      "detail": "waiting -> doing: question 1 answered",
+      "type": "moved",
+      "from": "waiting",
+      "to": "doing",
+      "reason": "question_answered",
+      "by": "alice"
+    },
+    {
+      "at": "2026-10-17T09:35:00+00:00",
+      "event": "comment",
+      "detail": "example-agent: Uses en-GB.",
+      "type": "commented",
+      "by": "example-agent",
+      "n": 2
+    },
+    {
+      "at": "2026-10-17T09:36:00+00:00",
+      "event": "move",
+      "detail": "doing -> done",
+      "type": "moved",
+      "from": "doing",
+      "to": "done",
+      "reason": "finished",
+      "by": "example-agent"
+    }
+  ],
+  "idempotency": {
+    "by": "example-agent",
+    "key": "k1",
+    "digest": "ee85993c0611b2e5e4d056500355be84422db498e314208db0dc10c8cf8a6ba5"
+  },
+  "ask": null,
+  "updated": "2026-10-17T09:38:00+00:00"
+}

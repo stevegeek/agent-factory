@@ -1,0 +1,43 @@
+# Foreman, the maintainer's desk, as a user unit of the factory user (lingering, no root).
+# deploy.sh installs it into ~/.config/systemd/user/ and restarts it when enabled; enable it once
+# on the host, as the factory user:
+#   systemctl --user enable --now foreman
+[Unit]
+Description=Foreman: the factory's desk for its maintainer
+After=network-online.target
+
+[Service]
+ExecStart=%h/factory/bin/foreman --root %h/factory --listen 127.0.0.1:8790 --secret-file %h/factory/foreman-state/foreman-secret --api-tokens %h/.config/factory/api-tokens.json --project my_gem --project my_shard
+Restart=on-failure
+RestartSec=5
+# answers, the ticket API and MCP run in this process (ARCHITECTURE.md §6.4)
+MemoryMax=128M
+UMask=0077
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+# Foreman runs as the same user as the tick, so the sandbox keeps the process itself from the
+# credentials (the GitHub App key, the Claude token, the Anthropic key, the backup key and the R2
+# keys), the binaries, the source and the config (§6.2). It writes only the board, the logs and
+# its own state. It cannot reach the user manager either (%t/bus, %t/systemd): through it any
+# process could run any command outside this sandbox. So Foreman wakes the tick by writing
+# foreman-state/wake, and factory-wake.path starts the tick outside the sandbox. deploy.sh
+# applies these lines through systemd-run on the host before installing the unit, checks that
+# nothing in them can reach the user manager. If this user manager cannot apply them all, it
+# installs the unit, with a warning, with the lines that keep the credentials and the user
+# manager out of reach (and the user namespace if that applies), and with none only if not
+# even those apply (D18). A path marked "-" may be missing.
+# sandbox:begin
+PrivateUsers=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/factory/board %h/factory/logs %h/factory/foreman-state
+InaccessiblePaths=-%h/.config/factory/github-app.pem -%h/.config/factory/claude-oauth-token -%h/.config/factory/anthropic-api-key -%h/.config/factory/backup-key -%h/.config/factory/r2-credentials
+InaccessiblePaths=-%t/bus -%t/systemd -%t/podman
+# sandbox:end
+
+[Install]
+WantedBy=default.target

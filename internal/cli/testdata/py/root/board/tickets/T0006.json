@@ -1,0 +1,73 @@
+{
+  "id": "T0006",
+  "project": "gem",
+  "title": "Proposal 2",
+  "body": "- Noticed: n\n- Change: c\n- Why it is worth it: w\n- Cost: low\n\nPanel: 2: r12; 3: r22; 1: r32",
+  "door": "clock",
+  "by": "factory",
+  "column": "rejected",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=clock column=rejected",
+      "type": "created",
+      "door": "clock",
+      "column": "rejected",
+      "by": "factory"
+    },
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "panel",
+      "detail": "mean 2.0, spread 0.82, scores [2, 3, 1]",
+      "rule": "dropped: no voter scored 4 or more; mean 2.0 (3.5 needed)"
+    }
+  ],
+  "kind": "proposal",
+  "parent": "T0004",
+  "proposal": {
+    "title": "Proposal 2",
+    "noticed": "n",
+    "change": "c",
+    "why": "w",
+    "cost": "low"
+  },
+  "panel": {
+    "scores": [
+      2,
+      3,
+      1
+    ],
+    "mean": 2.0,
+    "spread": 0.82,
+    "keen": 0,
+    "priority": 1.59,
+    "survives": false,
+    "votes": [
+      {
+        "voter": "t0004-v1",
+        "host": "local",
+        "score": 2,
+        "reason": "r12"
+      },
+      {
+        "voter": "t0004-v2",
+        "host": "local",
+        "score": 3,
+        "reason": "r22"
+      },
+      {
+        "voter": "t0004-v3",
+        "host": "local",
+        "score": 1,
+        "reason": "r32"
+      }
+    ]
+  },
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

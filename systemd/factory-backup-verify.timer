@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent factory: weekly restore test of the newest backup
+
+[Timer]
+# Sundays, after that day's backup
+OnCalendar=Sun 06:30
+Persistent=true
+Unit=factory-backup-verify.service
+
+[Install]
+WantedBy=timers.target

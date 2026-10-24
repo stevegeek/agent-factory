@@ -1,0 +1,44 @@
+{
+  "ticket": {
+    "id": "T0042",
+    "title": "Tidy README",
+    "body": "",
+    "door": "github",
+    "column": "ready_for_pr",
+    "branch": "bot/x",
+    "history": [],
+    "source": {},
+    "reports": {
+      "work": {
+        "summary": "  Clarify the install steps.\n",
+        "tests": "pass",
+        "lint": "pass"
+      },
+      "review": {
+        "verdict": "pass",
+        "runtime_behaviour": "no"
+      },
+      "security": {
+        "answers": [
+          {},
+          {},
+          {}
+        ]
+      }
+    },
+    "security_tier": 2,
+    "gate": {
+      "auto_eligible": false,
+      "blockers": [
+        "12 changed lines (limit 10)",
+        "reviewer says runtime behaviour changes: yes"
+      ],
+      "changed_lines": 12,
+      "files": [
+        "lib/a.rb",
+        "lib/b.rb"
+      ]
+    }
+  },
+  "config": {}
+}

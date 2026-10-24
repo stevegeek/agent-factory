@@ -1,0 +1,27 @@
+{
+  "id": "T0019",
+  "project": "gem",
+  "title": "An idea with no design",
+  "body": "",
+  "door": "human",
+  "by": "factory",
+  "column": "ready",
+  "branch": null,
+  "agent": null,
+  "reports": {},
+  "created": "2026-10-17T08:00:00+00:00",
+  "history": [
+    {
+      "at": "2026-10-17T08:00:00+00:00",
+      "event": "created",
+      "detail": "door=human column=ready",
+      "type": "created",
+      "door": "human",
+      "column": "ready",
+      "by": "factory"
+    }
+  ],
+  "kind": "intent",
+  "ask": null,
+  "updated": "2026-10-17T08:00:00+00:00"
+}

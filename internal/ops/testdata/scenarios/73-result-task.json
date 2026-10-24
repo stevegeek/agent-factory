@@ -1,0 +1,21 @@
+{
+ "name": "result-task",
+ "now": "2026-10-18T10:00:00+00:00",
+ "config": "[board]\npeople = [\"sam\", \"alex\"]\n\n[hosts.helper]\nssh = \"factory@helper.example\"\n\n[projects.gem]\npath = \"/nonexistent/gem\"\nbase = \"main\"\ngithub = \"example/gem\"\n\n[projects.widgets]\npath = \"/nonexistent/widgets\"\nbase = \"main\"\n\n[projects.notes]\nmode = \"board\"\n\n[[schedules]]\nname = \"bug-hunt\"\nevery_days = 30\nkind = \"task\"\ntitle = \"Bug hunt\"\nbody = \"Look in {github} for bugs.\"\n\n[[recipes]]\nname = \"docs-pass\"\ntitle = \"Tidy the docs\"\nbody = \"Read the README.\"\nprojects = [\"widgets\"]\n\n[[recipes]]\nname = \"scan\"\nkind = \"prospect\"\ntitle = \"Scan\"\nbody = \"Look around {github}.\"\n",
+ "op": "result",
+ "args": {
+  "ticket": "T0001"
+ },
+ "before": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"factory\",\n  \"title\": \"Uptime\",\n  \"body\": \"\",\n  \"door\": \"human\",\n  \"by\": \"factory\",\n  \"column\": \"needs_human\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {\n    \"task\": {\n      \"status\": \"done\",\n      \"summary\": \"up 100%\",\n      \"result\": \"# Uptime\\nall good\"\n    }\n  },\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=working\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"working\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"finished\",\n      \"detail\": \"task t0001-t1\",\n      \"type\": \"finished\",\n      \"stage\": \"task\",\n      \"agent\": \"t0001-t1\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"working -> needs_human: task done: up 100%\",\n      \"type\": \"moved\",\n      \"from\": \"working\",\n      \"to\": \"needs_human\",\n      \"reason\": \"task_done\",\n      \"by\": \"factory\"\n    }\n  ],\n  \"kind\": \"task\",\n  \"ask\": {\n    \"kind\": \"notice\",\n    \"question\": \"Read the task's result and close it?\",\n    \"why\": \"# Uptime all good.\",\n    \"since\": \"2026-10-18T10:00:00+00:00\",\n    \"retry_column\": null\n  },\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"agent_last_host\": \"helper\",\n  \"result\": \"# Uptime\\nall good\"\n}"
+ },
+ "stdout": "# Uptime\nall good\n",
+ "error": null,
+ "wakes": 0,
+ "logs": [],
+ "after": {
+  ".last-id": "1",
+  "T0001.json": "{\n  \"id\": \"T0001\",\n  \"project\": \"factory\",\n  \"title\": \"Uptime\",\n  \"body\": \"\",\n  \"door\": \"human\",\n  \"by\": \"factory\",\n  \"column\": \"needs_human\",\n  \"branch\": null,\n  \"agent\": null,\n  \"reports\": {\n    \"task\": {\n      \"status\": \"done\",\n      \"summary\": \"up 100%\",\n      \"result\": \"# Uptime\\nall good\"\n    }\n  },\n  \"created\": \"2026-10-18T10:00:00+00:00\",\n  \"history\": [\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"created\",\n      \"detail\": \"door=human column=working\",\n      \"type\": \"created\",\n      \"door\": \"human\",\n      \"column\": \"working\",\n      \"by\": \"factory\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"finished\",\n      \"detail\": \"task t0001-t1\",\n      \"type\": \"finished\",\n      \"stage\": \"task\",\n      \"agent\": \"t0001-t1\"\n    },\n    {\n      \"at\": \"2026-10-18T10:00:00+00:00\",\n      \"event\": \"move\",\n      \"detail\": \"working -> needs_human: task done: up 100%\",\n      \"type\": \"moved\",\n      \"from\": \"working\",\n      \"to\": \"needs_human\",\n      \"reason\": \"task_done\",\n      \"by\": \"factory\"\n    }\n  ],\n  \"kind\": \"task\",\n  \"ask\": {\n    \"kind\": \"notice\",\n    \"question\": \"Read the task's result and close it?\",\n    \"why\": \"# Uptime all good.\",\n    \"since\": \"2026-10-18T10:00:00+00:00\",\n    \"retry_column\": null\n  },\n  \"updated\": \"2026-10-18T10:00:00+00:00\",\n  \"agent_last_host\": \"helper\",\n  \"result\": \"# Uptime\\nall good\"\n}"
+ }
+}

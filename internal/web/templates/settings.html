@@ -1,0 +1,23 @@
+{{define "content" -}}
+{{with .Settings}}
+<main class="pane settings">
+  <section class="set">
+    <h3>On your phone</h3>
+    <p>Install Foreman like an app: in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. Open it from the home screen from then on; on an iPhone, notifications only work there (iOS 16.4 or later).</p>
+  </section>
+  <section class="set" id="push" data-key="{{.PushKey}}">
+    <h3>Notifications</h3>
+    {{if .PushKey}}
+    <p>One arrives when something lands on your desk, when the answer to a question you asked comes back, and when a ticket with a PR closes without you (merged or closed on GitHub). Nothing for what you do yourself. Tapping one opens the ticket.</p>
+    <p class="push-state" id="push-state" role="status">Checking this device…</p>
+    <div class="push-actions">
+      <button class="btn primary" type="button" id="push-on" hidden><span>Turn on notifications</span></button>
+      <button class="btn" type="button" id="push-test" hidden><span>Send a test</span></button>
+      <button class="btn danger" type="button" id="push-off" hidden><span>Turn off on this device</span></button>
+    </div>
+    <p class="hint">{{.Devices}} device{{if ne .Devices 1}}s{{end}} receive notifications.</p>
+    {{else}}<p>Notifications are off on this server.</p>{{end}}
+  </section>
+</main>
+{{end}}
+{{- end}}

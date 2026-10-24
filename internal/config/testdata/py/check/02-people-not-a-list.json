@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "stdout": "[board] people: a list of names, the maintainer first\n<root>/api-tokens.json is not a token store this factory knows\n",
+  "stderr": "",
+  "problems": [
+    "[board] people: a list of names, the maintainer first",
+    "<root>/api-tokens.json is not a token store this factory knows"
+  ],
+  "warnings": []
+}

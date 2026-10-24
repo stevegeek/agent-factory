@@ -1,0 +1,29 @@
+schema_version: "1"
+description: "The factory's manager: answers questions about the factory and drafts changes to its config for the maintainer; never applies anything"
+agent_instructions: agents.md
+default_harness_config: claude
+max_duration: "45m"
+resources:
+  limits:
+    memory: 700Mi
+    cpu: "2"
+  requests:
+    memory: 300Mi
+# what the manager may read, and only read: it drafts, the maintainer applies from his own machine
+volumes:
+  - type: local
+    source: /home/factory/factory/board
+    target: /factory/board
+    read_only: true
+  - type: local
+    source: /home/factory/factory/logs
+    target: /factory/logs
+    read_only: true
+  - type: local
+    source: /home/factory/factory/config.toml
+    target: /factory/config.toml
+    read_only: true
+  - type: local
+    source: /home/factory/.scion/templates
+    target: /factory/templates
+    read_only: true

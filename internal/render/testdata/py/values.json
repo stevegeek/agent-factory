@@ -1,0 +1,78 @@
+{
+  "about": "values(cfg) (bin/render): the placeholder values, or the message it exits with; toml null is examples/config/config.toml",
+  "rows": [
+    {
+      "name": "example",
+      "toml": null,
+      "values": {
+        "git_name": "Your Name",
+        "git_email": "you@example.com",
+        "pr_footer": "Opened by a maintenance bot (Claude Code).",
+        "factory_user": "factory",
+        "factory_uid": "1001",
+        "factory_home": "/home/factory",
+        "rebuild_at": "Sun *-*-* 02:30:00",
+        "foreman_listen": "127.0.0.1:8790",
+        "factory_root": "/home/factory/factory",
+        "foreman_flags": "--project my_gem --project my_shard"
+      }
+    },
+    {
+      "name": "missing-identity",
+      "toml": "[host]\nfactory_uid = 1001\n",
+      "exit": "config.toml is missing: git_name, git_email, pr_footer (see [identity] and [host])"
+    },
+    {
+      "name": "minimal",
+      "toml": "[identity]\ngit_name = \"Bot\"\ngit_email = \"bot@example.com\"\npr_footer = \"By a bot.\"\n[host]\nfactory_uid = 1001\n",
+      "values": {
+        "git_name": "Bot",
+        "git_email": "bot@example.com",
+        "pr_footer": "By a bot.",
+        "factory_user": "factory",
+        "factory_uid": "1001",
+        "factory_home": "/home/factory",
+        "rebuild_at": "Sun *-*-* 02:30:00",
+        "foreman_listen": "127.0.0.1:8790",
+        "factory_root": "/home/factory/factory",
+        "foreman_flags": ""
+      }
+    },
+    {
+      "name": "flags",
+      "toml": "[identity]\ngit_name = \"Bot\"\ngit_email = \"bot@example.com\"\npr_footer = \"By a bot.\"\n[host]\nfactory_uid = 1001\nfactory_home = \"/home/f/\"\n[upkeep]\nrebuild_at = \"Mon *-*-* 03:00:00\"\n[foreman]\nlisten = \"0.0.0.0:9000\"\nhosts = [\"box.example.test\", \"10.0.0.1\"]\ntrust_tailscale = true\ntailscale_users = [\"user@example.com\", \"other@example.com\"]\n[projects.gem]\npath = \"/x\"\n[projects.notes]\nmode = \"board\"\n[projects.shard]\nmode = \"factory\"\n",
+      "values": {
+        "git_name": "Bot",
+        "git_email": "bot@example.com",
+        "pr_footer": "By a bot.",
+        "factory_user": "factory",
+        "factory_uid": "1001",
+        "factory_home": "/home/f/",
+        "rebuild_at": "Mon *-*-* 03:00:00",
+        "foreman_listen": "0.0.0.0:9000",
+        "factory_root": "/home/f/factory",
+        "foreman_flags": "--project gem --project shard --host box.example.test --host 10.0.0.1 --trust-tailscale --tailscale-user user@example.com --tailscale-user other@example.com"
+      }
+    },
+    {
+      "name": "trust-without-users",
+      "toml": "[identity]\ngit_name = \"B\"\ngit_email = \"b@x\"\npr_footer = \"f\"\n[host]\nfactory_uid = 1\n[foreman]\ntrust_tailscale = true\n",
+      "exit": "[foreman] trust_tailscale needs tailscale_users"
+    },
+    {
+      "name": "bad-project",
+      "toml": "[identity]\ngit_name = \"B\"\ngit_email = \"b@x\"\npr_footer = \"f\"\n[host]\nfactory_uid = 1\n[projects.\"a b\"]\npath = \"/x\"\n",
+      "exit": "[projects] not a plain name: 'a b'"
+    },
+    {
+      "name": "bad-host",
+      "toml": "[identity]\ngit_name = \"B\"\ngit_email = \"b@x\"\npr_footer = \"f\"\n[host]\nfactory_uid = 1\n[foreman]\nhosts = [\"a_b\"]\n",
+      "exit": "[foreman] hosts: not a host name: 'a_b'"
+    },
+    {
+      "name": "bad-login",
+      "toml": "[identity]\ngit_name = \"B\"\ngit_email = \"b@x\"\npr_footer = \"f\"\n[host]\nfactory_uid = 1\n[foreman]\ntailscale_users = [\"a\\u2028b\"]\n",
+      "exit": "[foreman] tailscale_users: not a login: 'a\\u2028b'"
+    }
+  ]
+}

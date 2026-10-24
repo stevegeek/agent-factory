@@ -1,0 +1,180 @@
+{
+  "view": {
+    "id": "T0001",
+    "project": "sandbox",
+    "mode": "board",
+    "kind": "item",
+    "title": "Date picker",
+    "body": "Pick a date.\n\nWith ``` fences ``` inside and a `tick`.",
+    "column": "waiting",
+    "column_label": "Waiting",
+    "assignee": "example-agent",
+    "labels": [
+      "ui"
+    ],
+    "parent": null,
+    "children": [
+      {
+        "id": "T0003",
+        "title": "Child one",
+        "column": "waiting"
+      },
+      {
+        "id": "T0004",
+        "title": "Child two",
+        "column": "done"
+      }
+    ],
+    "links": [],
+    "created": "2026-10-17T08:00:00+00:00",
+    "updated": "2026-10-18T09:02:00+00:00",
+    "by": "example-agent",
+    "waiting": {
+      "reason": "question",
+      "question": 9,
+      "since": null
+    },
+    "questions": [
+      {
+        "n": 1,
+        "by": "example-agent",
+        "recipient": "alice",
+        "to_person": true,
+        "text": "Which locale?",
+        "options": [
+          "en-GB",
+          "en-US",
+          "`raw`"
+        ],
+        "at": "2026-10-17T08:04:00+00:00",
+        "answer": "en-GB",
+        "answered_by": "alice",
+        "answered_at": "2026-10-18T09:00:00+00:00"
+      },
+      {
+        "n": 2,
+        "by": "example-agent",
+        "recipient": "bob",
+        "to_person": true,
+        "text": "Two\nlines?",
+        "options": [],
+        "at": "2026-10-17T08:05:00+00:00",
+        "answer": null,
+        "answered_by": null,
+        "answered_at": null
+      }
+    ],
+    "conversation": [
+      {
+        "at": "2026-10-17T08:03:00+00:00",
+        "by": "example-agent",
+        "type": "comment",
+        "text": "Started on it.",
+        "n": 1
+      },
+      {
+        "at": "2026-10-17T08:04:00+00:00",
+        "by": "example-agent",
+        "type": "question",
+        "text": "Which locale?",
+        "n": 1
+      },
+      {
+        "at": "2026-10-17T08:05:00+00:00",
+        "by": "example-agent",
+        "type": "question",
+        "text": "Two\nlines?",
+        "n": 2
+      },
+      {
+        "at": "2026-10-18T09:00:00+00:00",
+        "by": "alice",
+        "type": "answer",
+        "text": "en-GB",
+        "n": 1
+      }
+    ],
+    "result": null,
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "type": "created",
+        "by": "example-agent",
+        "detail": "door=agent column=inbox"
+      },
+      {
+        "at": "2026-10-17T08:02:00+00:00",
+        "type": "claimed",
+        "by": "example-agent",
+        "detail": "claimed by example-agent"
+      },
+      {
+        "at": "2026-10-17T08:02:00+00:00",
+        "type": "moved",
+        "by": "example-agent",
+        "from": "inbox",
+        "to": "doing",
+        "reason": "claimed",
+        "detail": "inbox -> doing: claimed by example-agent"
+      },
+      {
+        "at": "2026-10-17T08:03:00+00:00",
+        "type": "commented",
+        "by": "example-agent",
+        "detail": "example-agent: Started on it."
+      },
+      {
+        "at": "2026-10-17T08:04:00+00:00",
+        "type": "question_asked",
+        "by": "example-agent",
+        "detail": "example-agent asks alice: Which locale?"
+      },
+      {
+        "at": "2026-10-17T08:04:00+00:00",
+        "type": "moved",
+        "by": "example-agent",
+        "from": "doing",
+        "to": "waiting",
+        "reason": "question_asked",
+        "detail": "doing -> waiting: question 1 to alice"
+      },
+      {
+        "at": "2026-10-17T08:05:00+00:00",
+        "type": "question_asked",
+        "by": "example-agent",
+        "detail": "example-agent asks bob: Two lines?"
+      },
+      {
+        "at": "2026-10-18T09:00:00+00:00",
+        "type": "question_answered",
+        "by": "alice",
+        "detail": "alice answered question 1: en-GB"
+      },
+      {
+        "at": "2026-10-18T09:02:00+00:00",
+        "type": "split",
+        "by": "example-agent",
+        "detail": "example-agent split it into T0003, T0004"
+      }
+    ],
+    "factory": null
+  },
+  "caller": {
+    "name": "example-agent",
+    "person": false,
+    "projects": [
+      "sandbox",
+      "fac"
+    ],
+    "can": [
+      "read",
+      "file",
+      "talk",
+      "work",
+      "plan"
+    ],
+    "tickets": null,
+    "expires": null
+  },
+  "today": "2026-10-18"
+}

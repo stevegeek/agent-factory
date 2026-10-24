@@ -1,0 +1,38 @@
+{
+  "ticket": {
+    "id": "T0042",
+    "title": "Tidy README",
+    "body": "",
+    "door": "github",
+    "column": "ready_for_pr",
+    "branch": "bot/x",
+    "history": [],
+    "source": {
+      "issue": 7
+    },
+    "reports": {
+      "work": {
+        "summary": "  Clarify the install steps.\n",
+        "tests": "pass",
+        "lint": "pass"
+      },
+      "review": {
+        "verdict": "pass",
+        "runtime_behaviour": "no"
+      },
+      "security": {
+        "answers": "none"
+      }
+    },
+    "security_tier": 0,
+    "gate": {
+      "auto_eligible": true,
+      "blockers": [],
+      "changed_lines": 4,
+      "files": [
+        "README.md"
+      ]
+    }
+  },
+  "config": {}
+}

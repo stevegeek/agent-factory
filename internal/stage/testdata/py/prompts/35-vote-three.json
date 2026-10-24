@@ -1,0 +1,68 @@
+{
+  "stage": "vote",
+  "host": "local",
+  "project": "gem",
+  "tier": null,
+  "memory": null,
+  "review_md": false,
+  "agent": "t0036-v1",
+  "ticket": {
+    "id": "T0036",
+    "project": "gem",
+    "title": "Parser drops the last line",
+    "body": "When the input has no trailing newline, the last line is lost.\n\nSteps:\n1. parse\n2. look\n",
+    "door": "human",
+    "by": "factory",
+    "column": "voting",
+    "branch": null,
+    "agent": null,
+    "reports": {},
+    "created": "2026-10-17T08:00:00+00:00",
+    "history": [
+      {
+        "at": "2026-10-17T08:00:00+00:00",
+        "event": "created",
+        "detail": "door=human column=voting",
+        "type": "created",
+        "door": "human",
+        "column": "voting",
+        "by": "factory"
+      }
+    ],
+    "kind": "prospect",
+    "ask": null,
+    "updated": "2026-10-17T08:00:00+00:00",
+    "proposals": [
+      {
+        "title": "Proposal 1",
+        "noticed": "Noticed 1.",
+        "change": "Change 1.",
+        "why": "Why 1.",
+        "cost": "Cost 1."
+      },
+      {
+        "title": "Proposal 2",
+        "noticed": "Noticed 2.",
+        "change": "Change 2.",
+        "why": "Why 2.",
+        "cost": "Cost 2."
+      },
+      {
+        "title": "Proposal 3",
+        "noticed": "Noticed 3.",
+        "change": "Change 3.",
+        "why": "Why 3.",
+        "cost": "Cost 3."
+      }
+    ],
+    "votes": []
+  },
+  "scion_argv": [
+    "start",
+    "t0036-v1",
+    "-t",
+    "voter",
+    "--message-mode",
+    "none"
+  ]
+}
