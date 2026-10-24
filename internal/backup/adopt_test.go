@@ -68,7 +68,7 @@ func TestAdoptMovesTheArchiveIntoAFreshRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{"board", "memory", "context", "logs", "state.json", "pauses.json", "watches.json", "api-tokens.json",
-		"foreman-state/foreman-users.json", "foreman-state/foreman-vapid.pem", "foreman-state/foreman.log",
+		"usage.jsonl", "foreman-state/foreman-users.json", "foreman-state/foreman-vapid.pem", "foreman-state/foreman.log",
 		"foreman-state/foreman.log.20261001T000000Z.gz"}
 	slices.Sort(want)
 	moved := slices.Clone(got.Moved)

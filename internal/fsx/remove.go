@@ -43,7 +43,7 @@ func unlockDirs(pathfd int) {
 		return
 	}
 	defer syscall.Close(fd)
-	names, err := readNames(fd)
+	names, err := readNames(fd, 0)
 	if err != nil {
 		return
 	}

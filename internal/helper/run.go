@@ -17,6 +17,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jobproto"
 	"github.com/stevegeek/agent-factory/internal/podman"
 	"github.com/stevegeek/agent-factory/internal/textx"
+	"github.com/stevegeek/agent-factory/internal/usage"
 )
 
 // jobScript runs inside the container as uid 1000, byte for byte
@@ -173,6 +174,12 @@ func (s *Server) run(ctx context.Context, job string) (err error) {
 			err = errors.Join(err, fmt.Errorf("exit file: %w", werr))
 		}
 	}()
+	// before exit, which is what status reads as done: collect may follow
+	defer func() {
+		if uerr := recordUsage(d); uerr != nil {
+			err = errors.Join(err, uerr)
+		}
+	}()
 	cmd, err := s.jobCmd(d, job)
 	if err != nil {
 		return err
@@ -274,6 +281,29 @@ func (s *Server) jobCmd(d, job string) (execx.Cmd, error) {
 			pm.Remove(ctx, name)
 		},
 	}, nil
+}
+
+// recordUsage reads the job's home for what the agent spent (its Claude
+// Code transcript) and leaves it in work/usage.json for collect. Whatever
+// the agent wrote there is removed first, so a home that cannot be read (an
+// agent can chmod its own home) leaves none, never the agent's. A run with
+// no transcript (Pi, a crash before the first message) leaves none.
+func recordUsage(d string) error {
+	dest := filepath.Join(d, "work", jobproto.MemberUsage)
+	if err := os.Remove(dest); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("usage: %w", err)
+	}
+	u, err := usage.Read(filepath.Join(d, "home"))
+	if err != nil {
+		return fmt.Errorf("usage: %w", err)
+	}
+	if u.Empty() {
+		return nil
+	}
+	if err := fsx.WriteAtomic(dest, u.JSON(), 0o644); err != nil {
+		return fmt.Errorf("usage: %w", err)
+	}
+	return nil
 }
 
 // readCapped reads a file the factory user owns (the key, as Python's

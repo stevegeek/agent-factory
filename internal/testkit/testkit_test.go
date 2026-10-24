@@ -158,3 +158,26 @@ func (f *fakeT) Skip(args ...any) {
 	panic("skip")
 }
 func (f *fakeT) Skipf(format string, args ...any) { f.Skip() }
+
+// Environ and WithoutGitIdentity drop the caller's git identity, so a
+// test's commits never depend on the environment it runs in.
+func TestGitIdentityIsCleared(t *testing.T) {
+	for _, k := range GitIdentityVars() {
+		t.Setenv(k, "x")
+	}
+	t.Setenv("FACTORY_KEEP", "1")
+	e := Root(t)
+	got := strings.Join(e.Environ(), "\n")
+	for _, k := range GitIdentityVars() {
+		if strings.Contains(got, k+"=") {
+			t.Errorf("Environ keeps %s", k)
+		}
+	}
+	if !strings.Contains(got, "FACTORY_KEEP=1") {
+		t.Error("Environ dropped an unrelated variable")
+	}
+	r := NewRepo(t)
+	if who := r.Git("log", "-1", "--format=%an <%ae> %cn"); who != "t <t@example.com> t" {
+		t.Errorf("commit by %q", who)
+	}
+}

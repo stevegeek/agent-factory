@@ -237,7 +237,8 @@ type fakeHelper struct {
 	files    map[string][]byte
 	removed  []string
 	removeEr error
-	away     bool // a pull host that has not called in
+	onRemove func(id ticket.ID, name string) // what the removal archives (the usage a helper sends back)
+	away     bool                            // a pull host that has not called in
 }
 
 func (f *fakeHelper) Start(ctx context.Context, j hostrun.Job) error {
@@ -271,7 +272,7 @@ func (f *fakeHelper) Collect(ctx context.Context, id ticket.ID, name string) (*h
 	return &hostrun.Result{Files: f.files}, nil
 }
 
-func (f *fakeHelper) Remove(ctx context.Context, name string) error {
+func (f *fakeHelper) Remove(ctx context.Context, id ticket.ID, name string) error {
 	f.c.note(f.name + ".remove")
 	if err := ctx.Err(); err != nil {
 		return err
@@ -279,6 +280,9 @@ func (f *fakeHelper) Remove(ctx context.Context, name string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.removed = append(f.removed, name)
+	if f.onRemove != nil && f.removeEr == nil {
+		f.onRemove(id, name)
+	}
 	return f.removeEr
 }
 

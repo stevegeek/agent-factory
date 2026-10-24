@@ -27,6 +27,7 @@ func rows() []row {
 		{0, "buildinfo", nil},
 		{0, "logx", []string{"clock", "fsx"}},
 		{0, "vitals", []string{"buildinfo"}},
+		{0, "usage", []string{"fsx", "clock"}},
 
 		{1, "model", nil},
 		{1, "ticket", []string{"model", "clock", "jsonx", "textx"}},
@@ -61,7 +62,7 @@ func rows() []row {
 		{3, "hosts", []string{"model", "ticket", "config", "clock", "textx"}},
 		{3, "gate", []string{"security", "gitx", "gitread", "podman", "config", "ticket", "model", "jsonx", "execx", "fsx", "paths", "clock", "textx"}},
 		{3, "stage", []string{"model", "ticket", "config", "security", "panel", "memory", "mdout", "jsonx", "textx", "clock"}},
-		{3, "hostrun", []string{"scion", "scionread", "sshjobs", "jobtail", "jobproto", "ticket", "config", "model", "execx", "fsx", "paths", "clock", "textx"}},
+		{3, "hostrun", []string{"scion", "scionread", "sshjobs", "jobtail", "jobproto", "usage", "ticket", "config", "model", "execx", "fsx", "paths", "clock", "textx"}},
 		{3, "ticketapi", []string{"store", "boardread", "tokens", "config", "ticket", "model", "mdout", "jsonx", "clock", "textx", "logx"}},
 		{3, "present", []string{"model", "ticket", "textx", "clock"}},
 		{3, "builds", []string{"jobproto", "fsx"}},
@@ -74,7 +75,7 @@ func rows() []row {
 		{4, "backup", []string{"store", "boardread", "doors", "config", "paths", "fsx", "jsonx", "clock", "logx", "textx"}},
 		{4, "pipeline", nil}, // computed
 		{4, "render", []string{"config", "model", "paths", "fsx", "textx", "agentfactory"}},
-		{4, "helper", []string{"jobproto", "mailbox", "vitals", "webpush", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo"}},
+		{4, "helper", []string{"jobproto", "mailbox", "vitals", "webpush", "usage", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo"}},
 		{4, "pull", []string{"jobproto", "vitals", "toml", "fsx", "execx", "clock", "textx", "mailbox"}},
 		{4, "onboard", []string{"config", "github", "paths", "jsonx", "textx"}},
 		{4, "deploy", []string{"deployrec", "sshjobs", "hostrun", "jobproto", "gitx", "store", "boardread", "config", "ticket", "model", "execx", "fsx", "paths", "clock", "logx", "textx"}}, // boardread: its tests build a store.Board
@@ -87,7 +88,7 @@ func rows() []row {
 		{5, "push", []string{"webpush", "boardread", "present", "model", "ticket", "paths", "fsx", "jsonx", "clock"}},
 		{5, "api", []string{"ticketapi", "guard", "model", "jsonx", "clock"}},
 		{5, "mcp", []string{"ticketapi", "guard", "model", "jsonx", "clock", "buildinfo"}},
-		{5, "web", []string{"present", "mdhtml", "boardread", "deployrec", "ops", "ticketapi", "auth", "push", "api", "mcp", "guard", "tokens", "config", "model", "ticket", "paths", "fsx", "jsonx", "clock", "logx", "textx", "buildinfo", "sysinfo", "vitals"}},
+		{5, "web", []string{"present", "mdhtml", "boardread", "deployrec", "ops", "ticketapi", "auth", "push", "api", "mcp", "guard", "tokens", "config", "model", "ticket", "paths", "fsx", "jsonx", "clock", "logx", "textx", "buildinfo", "sysinfo", "vitals", "usage", "jobproto"}},
 	}
 }
 
@@ -105,9 +106,9 @@ func ForemanForbidden() []string {
 // holds jsonx because the table's jobproto row imports it (pure layer-0
 // encoding), mailbox for factory-remote's mailbox mode (the forced command
 // of a pull host's key on the dispatcher), vitals for the vitals verb, and
-// webpush for the watchdog's pushes.
+// webpush for the watchdog's pushes, and usage for what a job spent.
 func HelperAllowed() []string {
-	return []string{"helper", "jobproto", "mailbox", "vitals", "webpush", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo", "jsonx"}
+	return []string{"helper", "jobproto", "mailbox", "vitals", "webpush", "usage", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo", "jsonx"}
 }
 
 // PullAllowed is the whole permitted closure of cmd/factory-pull, the

@@ -107,10 +107,7 @@ func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	tk := testkit.Root(t)
 	f := &fixture{t: t, p: paths.FromEnv(tk.Vars)}
-	f.env = os.Environ()
-	for k, v := range tk.Vars {
-		f.env = append(f.env, k+"="+v)
-	}
+	f.env = tk.Environ()
 	f.seed = testkit.NewRepo(t)
 	f.seed.Write("config/config.toml", baseConfig)
 	f.seed.Write("config/rules.md", "# Rules\n")

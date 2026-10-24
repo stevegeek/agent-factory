@@ -21,6 +21,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/sshjobs"
 	"github.com/stevegeek/agent-factory/internal/testkit"
 	"github.com/stevegeek/agent-factory/internal/ticket"
+	"github.com/stevegeek/agent-factory/internal/usage"
 )
 
 // remoteFixture is RemoteStageTest's setUp: a project with a pinned
@@ -299,7 +300,7 @@ func (r *remoteFixture) collected(t *testing.T, files []jobproto.File) *Result {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := r.jobs.Remove(context.Background(), "t0003-x1"); err != nil {
+	if err := r.jobs.Remove(context.Background(), "T0003", "t0003-x1"); err != nil {
 		t.Fatal(err)
 	}
 	if c := r.exec.calls[len(r.exec.calls)-1]; c.Argv[10] != "remove" || c.Timeout != jobproto.Timeout("remove") {
@@ -427,6 +428,58 @@ func TestHostOfExpandsTheKey(t *testing.T) {
 	} {
 		if got := HostOf(f.paths, config.HostCfg{Name: "h", SSH: "f@h", Key: key}); got.Key != want || got.SSH != "f@h" || got.Name != "h" {
 			t.Errorf("%q: %+v", key, got)
+		}
+	}
+}
+
+// A job's usage.json comes back with the collect and is archived beside
+// its log, cleaned; one that does not read is left out.
+func TestCollectArchivesTheJobsUsage(t *testing.T) {
+	r := newRemote(t)
+	r.collected(t, []jobproto.File{{Name: "report.json", Data: []byte(`{"status": "done"}`)},
+		{Name: "usage.json", Data: []byte(`{"models": {"claude-opus": {"input": 5, "output": -1, "messages": 1}}}`)}})
+	b, err := os.ReadFile(filepath.Join(r.paths.Logs, "T0003", "t0003-x1", "usage.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, err := usage.Parse(b); err != nil || u.Models["claude-opus"] != (usage.Tokens{Input: 5, Messages: 1}) {
+		t.Errorf("usage %s %v", b, err)
+	}
+	os.Remove(filepath.Join(r.paths.Logs, "T0003", "t0003-x1", "usage.json"))
+	r.collected(t, []jobproto.File{{Name: "usage.json", Data: []byte(`not json`)}})
+	if _, err := os.Lstat(filepath.Join(r.paths.Logs, "T0003", "t0003-x1", "usage.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("a broken usage.json was archived: %v", err)
+	}
+}
+
+// The usage a removal brings back (a job removed before it was done) is
+// archived as the run's usage.json, cleaned; an answer without one, or
+// with one that does not read, archives none and is no error.
+func TestRemoveArchivesTheUsageItBringsBack(t *testing.T) {
+	r := newRemote(t)
+	dest := filepath.Join(r.paths.Logs, "T0003", "t0003-x1", "usage.json")
+	answer := func(out string) {
+		r.exec.answer = func(c execx.Cmd) (execx.Result, error) { return execx.Result{Stdout: []byte(out)}, nil }
+	}
+	answer(`{"removed": "t0003-x1", "usage": {"models": {"claude-opus": {"input": 5, "output": -1, "messages": 1}}}}` + "\n")
+	if err := r.jobs.Remove(context.Background(), "T0003", "t0003-x1"); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, err := usage.Parse(b); err != nil || u.Models["claude-opus"] != (usage.Tokens{Input: 5, Messages: 1}) {
+		t.Errorf("usage %s %v", b, err)
+	}
+	for _, out := range []string{`{"removed": "t0003-x1"}`, `{"removed": "t0003-x1", "usage": "nope"}`, `not json`} {
+		os.Remove(dest)
+		answer(out + "\n")
+		if err := r.jobs.Remove(context.Background(), "T0003", "t0003-x1"); err != nil {
+			t.Errorf("%s: %v", out, err)
+		}
+		if _, err := os.Lstat(dest); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s: usage.json archived: %v", out, err)
 		}
 	}
 }

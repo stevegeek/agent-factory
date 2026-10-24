@@ -132,6 +132,9 @@ const (
 	MemberLog       = "agent.log"
 	MemberOutBundle = "out.bundle"
 	MemberMemoryTar = "memory.tar"
+	// MemberUsage is a job's token usage, which the helper reads from the
+	// agent's home after it exits (usage.Usage's JSON).
+	MemberUsage = "usage.json"
 	// MemberChecks is a gate job's commands: the project's
 	// "set -e; <install>; <test>; <lint>", run in the checkout.
 	MemberChecks = "checks.sh"
@@ -154,6 +157,7 @@ func CollectCaps() []Cap {
 		{MemberLog, 2_000_000},
 		{MemberOutBundle, 100 << 20},
 		{MemberMemoryTar, 4_000_000},
+		{MemberUsage, 64 << 10},
 	}
 }
 

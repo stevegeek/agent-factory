@@ -42,16 +42,17 @@ import (
 	"github.com/stevegeek/agent-factory/internal/vitals"
 )
 
-// usage is bin/factory-remote's docstring, printed for an unknown verb.
-const usage = `Runs dispatcher stages as Pi or Claude Code jobs on a helper host. The dispatcher's SSH key is
+// verbHelp is bin/factory-remote's docstring, printed for an unknown verb.
+const verbHelp = `Runs dispatcher stages as Pi or Claude Code jobs on a helper host. The dispatcher's SSH key is
 forced to this script, so these verbs are all it can do here:
 
   start <job>     read a tar from stdin ([repo.bundle], prompt.md, role.md, meta.json,
                   untracked/...), start the job in the background
   status <job>    {"state": "running" | "done" | "missing"}
-  collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle, memory.tar
+  collect <job>   tar on stdout: report.json, agent.log, prompt.md, head, out.bundle, memory.tar,
+                  usage.json
   tail <job>      the last 64 KB of a job's output while it runs (for the live view)
-  remove <job>    stop the job and delete its files
+  remove <job>    stop the job and delete its files; {"removed": <job>[, "usage": <usage.json>]}
   list            job names, one per line
   vitals          this host's load, memory, disks, temperature, containers and images (JSON)
   build <commit>  read a source tar from stdin, build it with the pinned Go in a container with no
@@ -215,11 +216,11 @@ func (s *Server) serve(ctx context.Context, argv []string) error {
 		// the verb comes from the forced command's line alone: whatever
 		// argv holds, run and rebuild never arrive this way
 		if len(args) != 0 {
-			return refuse("%s", usage)
+			return refuse("%s", verbHelp)
 		}
 		var err error
 		if args, err = shlexSplit(sshCommand); err != nil {
-			return refuse("%s", usage)
+			return refuse("%s", verbHelp)
 		}
 	} else if len(args) > 0 {
 		switch {
@@ -235,7 +236,7 @@ func (s *Server) serve(ctx context.Context, argv []string) error {
 		}
 	}
 	if len(args) == 0 || !jobproto.IsSSHVerb(args[0]) {
-		return refuse("%s", usage)
+		return refuse("%s", verbHelp)
 	}
 	verb, rest := args[0], args[1:]
 	switch verb {
@@ -267,7 +268,7 @@ func (s *Server) serve(ctx context.Context, argv []string) error {
 	case jobproto.VerbRemove:
 		return s.remove(ctx, job)
 	}
-	return refuse("%s", usage)
+	return refuse("%s", verbHelp)
 }
 
 // mailbox is mailbox mode, `factory-remote mailbox <host>`: the forced

@@ -142,7 +142,7 @@ func (d Deps) gateAgent(ctx context.Context, cfg *config.Config, proj *config.Pr
 	h, known := d.Helpers.Helper(cfg, a.Host)
 	if !ok || !known || proj == nil || d.Gate == nil {
 		if known {
-			_ = h.Remove(ctx, a.Name) // best effort
+			_ = h.Remove(ctx, t.ID, a.Name) // best effort
 		}
 		d.gateLost(t, "it cannot be followed here")
 		return nil
@@ -150,7 +150,7 @@ func (d Deps) gateAgent(ctx context.Context, cfg *config.Config, proj *config.Pr
 	state, err := h.Poll(ctx, a.Name)
 	if err != nil {
 		if late, _ := d.pastTimeout(cfg, t); late && ctx.Err() == nil {
-			_ = h.Remove(ctx, a.Name) // best effort
+			_ = h.Remove(ctx, t.ID, a.Name) // best effort
 			d.gateLost(t, "its host did not answer: "+textx.Prefix(err.Error(), 150))
 			return nil
 		}
@@ -162,14 +162,14 @@ func (d Deps) gateAgent(ctx context.Context, cfg *config.Config, proj *config.Pr
 		if err != nil || !late {
 			return err
 		}
-		if err := h.Remove(ctx, a.Name); err != nil {
+		if err := h.Remove(ctx, t.ID, a.Name); err != nil {
 			return err
 		}
 		d.gateLost(t, "it ran out of time")
 		return nil
 	case jobproto.StateDone:
 	default:
-		if err := h.Remove(ctx, a.Name); err != nil {
+		if err := h.Remove(ctx, t.ID, a.Name); err != nil {
 			return err
 		}
 		d.gateLost(t, "it disappeared")
@@ -179,7 +179,7 @@ func (d Deps) gateAgent(ctx context.Context, cfg *config.Config, proj *config.Pr
 	if err != nil {
 		return err
 	}
-	if err := h.Remove(ctx, a.Name); err != nil {
+	if err := h.Remove(ctx, t.ID, a.Name); err != nil {
 		return err
 	}
 	raw, _ := res.Report()

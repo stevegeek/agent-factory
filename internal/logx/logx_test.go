@@ -102,7 +102,7 @@ func TestRotationNeverCopiesALinkedFile(t *testing.T) {
 func TestANamedLogIsItsOwnFileWithTheSameRules(t *testing.T) {
 	dir := t.TempDir()
 	var stderr bytes.Buffer
-	l := &Log{Dir: dir, Name: "foreman.log", Clock: testkit.Fixed{T: at}, Stderr: &stderr, MaxSize: 100}
+	l := &Log{Dir: dir, Name: "foreman.log", Clock: testkit.Fixed{T: at}, Stderr: &stderr, MaxSize: 100, Settle: time.Nanosecond}
 	for i := range 20 {
 		if err := l.Print(fmt.Sprintf("line %02d %s", i, strings.Repeat("x", 20))); err != nil {
 			t.Fatal(err)
@@ -171,7 +171,7 @@ func TestAFailedWriteStillReachesStderr(t *testing.T) {
 
 func TestRotationKeepsEveryFileCompressed(t *testing.T) {
 	dir := t.TempDir()
-	l := &Log{Dir: dir, Clock: testkit.Fixed{T: at}, MaxSize: 100}
+	l := &Log{Dir: dir, Clock: testkit.Fixed{T: at}, MaxSize: 100, Settle: time.Nanosecond}
 	for i := range 40 {
 		if err := l.Print(fmt.Sprintf("line %02d %s", i, strings.Repeat("x", 20))); err != nil {
 			t.Fatal(err)

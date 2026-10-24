@@ -152,7 +152,7 @@ func TestTableMatchesThePlan(t *testing.T) {
 		"internal/podman", "internal/present", "internal/prflow", "internal/pull", "internal/push", "internal/render",
 		"internal/scion", "internal/scionread", "internal/screens", "internal/security", "internal/sshjobs", "internal/stage",
 		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/ticket", "internal/ticketapi", "internal/tiers",
-		"internal/tokens", "internal/toml", "internal/upkeep", "internal/vitals", "internal/wake", "internal/web", "internal/webpush",
+		"internal/tokens", "internal/toml", "internal/upkeep", "internal/usage", "internal/vitals", "internal/wake", "internal/web", "internal/webpush",
 	}
 	if !slices.Equal(names, want) {
 		t.Errorf("table rows:\n got %v\nwant %v", names, want)

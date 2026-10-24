@@ -55,6 +55,9 @@ type Log struct {
 	// foreman-state/foreman.log, because logs/ is read-only to it. It is
 	// rotated and kept as factory.log is, with the lock in Dir.
 	Name string
+	// Settle is how long a rotated file must go unwritten before it is
+	// compressed; 0 is DefaultSettle.
+	Settle time.Duration
 }
 
 // Printf logs a formatted line. A failure to write the file is reported on
@@ -139,7 +142,7 @@ func (l *Log) rotateIfFull(path string) error {
 	rotated, err := l.rename(path, max)
 	var older []string
 	if err == nil && rotated != "" {
-		older = uncompressed(path, rotated)
+		older = uncompressed(path, rotated, l.settle())
 	}
 	lock.Unlock()
 	if err != nil || rotated == "" {
@@ -157,20 +160,34 @@ func (l *Log) rotateIfFull(path string) error {
 	return errors.Join(errs...)
 }
 
-// uncompressed are the rotated files not yet compressed, but for newest.
-func uncompressed(path, newest string) []string {
+// DefaultSettle is how long a rotated file must have gone unwritten before
+// it is compressed: a writer that opened it before its rename may still
+// append, and rotations can come faster than such a writer finishes.
+const DefaultSettle = 5 * time.Second
+
+// uncompressed are the rotated files not yet compressed, but for newest
+// and any written to within settle (by the file's own time, not the
+// log's clock, since that is when the last write landed).
+func uncompressed(path, newest string, settle time.Duration) []string {
 	matches, _ := filepath.Glob(path + ".2*")
 	var out []string
 	for _, m := range matches {
 		if m == newest || strings.HasSuffix(m, ".gz") || strings.HasSuffix(m, ".tmp") {
 			continue
 		}
-		if st, err := os.Lstat(m); err != nil || !st.Mode().IsRegular() {
+		if st, err := os.Lstat(m); err != nil || !st.Mode().IsRegular() || time.Since(st.ModTime()) < settle {
 			continue
 		}
 		out = append(out, m)
 	}
 	return out
+}
+
+func (l *Log) settle() time.Duration {
+	if l.Settle > 0 {
+		return l.Settle
+	}
+	return DefaultSettle
 }
 
 // rename moves a full log aside under a name no rotated file has.

@@ -97,6 +97,7 @@
 {{template "story" .Story}}
 {{if or .AgentName .Logs}}<p class="logs">{{with .AgentName}}<a href="/live#{{$.Ticket.T.ID}}">Watch the {{.}} agent live</a>{{if $.Ticket.Logs}} · {{end}}{{end}}
   {{- if .Logs}}Agent logs: {{range $i, $n := .Logs}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$.Ticket.T.ID}}/logs/{{$n}}" target="_blank" rel="noopener" hx-boost="false">{{$n}}</a>{{end}}{{end}}</p>{{end}}
+{{with .Tokens}}<p class="logs">Tokens: {{range $i, $r := .Runs}}{{if $i}}, {{end}}<span class="mono">{{$r.Name}}</span> <span title="{{$r.Split}}{{if $r.Partial}} · read only in part: a lower bound{{end}}">{{$r.Total}}{{if $r.Partial}}+{{end}}</span>{{end}} · total {{.Total}}{{if .Partial}}+{{end}} ({{.Split}})</p>{{end}}
 </div>
 {{end}}
 {{- end}}

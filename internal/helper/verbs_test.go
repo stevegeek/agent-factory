@@ -224,6 +224,18 @@ func TestRemove(t *testing.T) {
 	if r.stdout.String() != `{"removed": "t0001-w1"}`+"\n" {
 		t.Errorf("remove prints %q", r.stdout)
 	}
+	// a job removed before it was done (timed out): its usage goes back
+	// with the answer, read from its home before the home is deleted
+	r.reset()
+	r.write(t, "jobs/t0003-w1/home/.claude/projects/-job/s.jsonl",
+		`{"type":"assistant","message":{"id":"m1","model":"claude-opus","usage":{"input_tokens":3,"output_tokens":4}}}`+"\n")
+	if code := r.ssh(t, "remove t0003-w1"); code != 0 {
+		t.Fatalf("remove: exit %d: %s", code, r.stderr)
+	}
+	want3 := `{"removed": "t0003-w1", "usage": {"models":{"claude-opus":{"input":3,"output":4,"cache_write":0,"cache_read":0,"messages":1}}}}` + "\n"
+	if r.stdout.String() != want3 || onDisk(r.jobDir("t0003-w1")) {
+		t.Errorf("remove prints %q", r.stdout)
+	}
 	// a job that is already gone is removed all the same
 	r.reset()
 	if code := r.ssh(t, "remove t0002-w1"); code != 0 || r.stdout.String() != `{"removed": "t0002-w1"}`+"\n" {

@@ -518,3 +518,60 @@ func TestDepsScriptRuns(t *testing.T) {
 		})
 	}
 }
+
+// After the agent exits, the job's home is read for the Claude Code
+// transcript, and its usage is left in work/usage.json for collect; a
+// usage.json the agent planted there is never what goes back.
+func TestRunJobRecordsUsage(t *testing.T) {
+	r := newRig(t)
+	d := r.job(t, "t0001-w1", goodMeta)
+	r.key(t, "k")
+	r.write(t, "jobs/t0001-w1/home/.claude/projects/-job-repo/s.jsonl",
+		`{"type":"assistant","message":{"id":"m1","model":"claude-opus","usage":{"input_tokens":3,"output_tokens":4,"cache_creation_input_tokens":5,"cache_read_input_tokens":6}}}`+"\n")
+	r.write(t, "jobs/t0001-w1/work/usage.json", `{"models": {"forged": {"input": 1}}}`)
+	if code := r.argv(t, "run", "t0001-w1"); code != 0 {
+		t.Fatalf("run: %d %s", code, r.stderr)
+	}
+	got := readFile(t, filepath.Join(d, "work", "usage.json"))
+	var u struct {
+		Models map[string]map[string]int64 `json:"models"`
+	}
+	if err := json.Unmarshal([]byte(got), &u); err != nil {
+		t.Fatal(err)
+	}
+	if m := u.Models["claude-opus"]; len(u.Models) != 1 || m["input"] != 3 || m["output"] != 4 || m["cache_write"] != 5 || m["cache_read"] != 6 || m["messages"] != 1 {
+		t.Errorf("usage.json %s", got)
+	}
+
+	// no transcript (a Pi job): no usage.json, the planted one removed
+	r.reset()
+	os.RemoveAll(filepath.Join(d, "home", ".claude"))
+	os.Remove(filepath.Join(d, "exit"))
+	r.write(t, "jobs/t0001-w1/work/usage.json", `{"models": {"forged": {"input": 1}}}`)
+	if code := r.argv(t, "run", "t0001-w1"); code != 0 {
+		t.Fatalf("run: %d %s", code, r.stderr)
+	}
+	if _, err := os.Lstat(filepath.Join(d, "work", "usage.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("usage.json after a run with no transcript: %v", err)
+	}
+
+	// a home the agent made unreadable: still no usage.json, the planted
+	// one removed, and the run still ends with its exit file
+	if os.Getuid() == 0 {
+		return // root reads a mode-000 directory all the same
+	}
+	r.reset()
+	os.Remove(filepath.Join(d, "exit"))
+	r.write(t, "jobs/t0001-w1/work/usage.json", `{"models": {"forged": {"input": 1}}}`)
+	if err := os.Chmod(filepath.Join(d, "home"), 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(filepath.Join(d, "home"), 0o755) })
+	r.argv(t, "run", "t0001-w1")
+	if _, err := os.Lstat(filepath.Join(d, "work", "usage.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("usage.json after a run with an unreadable home: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(d, "exit")); err != nil {
+		t.Errorf("no exit file: %v", err)
+	}
+}

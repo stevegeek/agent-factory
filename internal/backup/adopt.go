@@ -31,7 +31,7 @@ func adoptItems(p paths.Paths) []adoptItem {
 	return []adoptItem{
 		{"board", p.Board}, {"memory", p.Memory}, {"context", p.Context}, {"logs", p.Logs},
 		{"state.json", p.State}, {"pauses.json", p.Pauses}, {"watches.json", p.Watches},
-		{"api-tokens.json", p.Tokens},
+		{"api-tokens.json", p.Tokens}, {"usage.jsonl", p.UsageLog()},
 	}
 }
 

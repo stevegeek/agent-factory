@@ -2,6 +2,7 @@ package hostrun
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/textx"
 	"github.com/stevegeek/agent-factory/internal/ticket"
+	"github.com/stevegeek/agent-factory/internal/usage"
 )
 
 // Transport carries the helper verbs to a helper host's jobs:
@@ -247,7 +249,8 @@ func (h *Jobs) Poll(ctx context.Context, name string) (string, error) {
 
 // Collect is the collect half of poll_remote: the job's files,
 // flat and regular only, with report.json, agent.log and prompt.md
-// archived to logs/<id>/<name>/ (the last MaxArchivedBytes of each).
+// archived to logs/<id>/<name>/ (the last MaxArchivedBytes of each), and
+// the job's usage.json beside them.
 func (h *Jobs) Collect(ctx context.Context, id ticket.ID, name string) (*Result, error) {
 	out, err := h.Via.Do(ctx, h.Remote, jobproto.VerbCollect, name, nil, 0)
 	if err != nil {
@@ -268,13 +271,47 @@ func (h *Jobs) Collect(ctx context.Context, id ticket.ID, name string) (*Result,
 			}
 		}
 	}
+	// what the job spent, as the helper read it from the job's home:
+	// cleaned again here, and left out when it does not read
+	if data, ok := files[jobproto.MemberUsage]; ok {
+		if u, err := usage.Parse(data); err == nil && !u.Empty() {
+			if err := writeNoFollow(filepath.Join(dest, jobproto.MemberUsage), u.JSON()); err != nil {
+				return nil, fmt.Errorf("archive %s: %w", jobproto.MemberUsage, err)
+			}
+		}
+	}
 	return &Result{Files: files}, nil
 }
 
-// Remove is `remove <job>`: the helper stops the job and deletes its files.
-func (h *Jobs) Remove(ctx context.Context, name string) error {
-	_, err := h.Via.Do(ctx, h.Remote, jobproto.VerbRemove, name, nil, 0)
-	return markRemote(err)
+// Remove is `remove <job>`: the helper stops the job and deletes its
+// files. The usage it read from the job's home on the way, when it sends
+// one, is archived as logs/<id>/<name>/usage.json, cleaned as a collected
+// one is, so a job removed before it was done keeps what it spent. That is
+// only a record: an answer without it, or one that does not read, keeps
+// none and is no error.
+func (h *Jobs) Remove(ctx context.Context, id ticket.ID, name string) error {
+	out, err := h.Via.Do(ctx, h.Remote, jobproto.VerbRemove, name, nil, 0)
+	if err != nil {
+		return markRemote(err)
+	}
+	var ans struct {
+		Usage json.RawMessage `json:"usage"`
+	}
+	if json.Unmarshal(out, &ans) != nil || len(ans.Usage) == 0 {
+		return nil
+	}
+	u, err := usage.Parse(ans.Usage)
+	if err != nil || u.Empty() {
+		return nil
+	}
+	dest, err := archiveDir(h.Paths.Logs, id, name)
+	if err != nil {
+		return err
+	}
+	if err := writeNoFollow(filepath.Join(dest, jobproto.MemberUsage), u.JSON()); err != nil {
+		return fmt.Errorf("archive %s: %w", jobproto.MemberUsage, err)
+	}
+	return nil
 }
 
 // Tail is the helper half of look(): ScreenText of the job's

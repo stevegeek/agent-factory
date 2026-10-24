@@ -37,7 +37,10 @@ type Dir struct {
 	Path  string // "." for the top
 	Dirs  []Entry
 	Files []Entry
-	fd    int
+	// Cut says the listing stopped at the walk's cap on names: the
+	// directory has more than Dirs and Files hold.
+	Cut bool
+	fd  int
 }
 
 // WalkNoFollow walks the tree at top, top-down, calling fn once per
@@ -48,12 +51,18 @@ type Dir struct {
 // silently, as os.fwalk does. fs.SkipAll from fn ends the walk with nil; any
 // other error ends it with that error. A top that is a link or cannot be
 // opened is an error.
-func WalkNoFollow(top string, fn func(d *Dir) error) error {
+func WalkNoFollow(top string, fn func(d *Dir) error) error { return WalkNoFollowMax(top, 0, fn) }
+
+// WalkNoFollowMax is WalkNoFollow listing at most max names of each
+// directory (0 for no cap), so a directory of millions of names costs no
+// more than max of them: a directory with more is passed to fn with Cut
+// set and the first max names in its order.
+func WalkNoFollowMax(top string, max int, fn func(d *Dir) error) error {
 	fd, err := syscall.Open(top, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
 	if err != nil {
 		return fmt.Errorf("walk %s: %w", top, &fs.PathError{Op: "open", Path: top, Err: err})
 	}
-	err = walkDir(fd, ".", fn)
+	err = walkDir(fd, ".", max, fn)
 	if errors.Is(err, fs.SkipAll) {
 		return nil
 	}
@@ -61,12 +70,15 @@ func WalkNoFollow(top string, fn func(d *Dir) error) error {
 }
 
 // walkDir owns fd and closes it.
-func walkDir(fd int, rel string, fn func(d *Dir) error) error {
+func walkDir(fd int, rel string, max int, fn func(d *Dir) error) error {
 	d := &Dir{Path: rel, fd: fd}
 	defer syscall.Close(fd)
-	names, err := readNames(fd)
+	names, err := readNames(fd, max)
 	if err != nil {
 		return fmt.Errorf("walk %s: %w", rel, err)
+	}
+	if max > 0 && len(names) > max {
+		names, d.Cut = names[:max], true
 	}
 	for _, name := range names {
 		e := Entry{Name: name, Path: join(rel, name)}
@@ -98,7 +110,7 @@ func walkDir(fd int, rel string, fn func(d *Dir) error) error {
 		if err != nil {
 			continue
 		}
-		if err := walkDir(sub, e.Path, fn); err != nil {
+		if err := walkDir(sub, e.Path, max, fn); err != nil {
 			return err
 		}
 	}
@@ -113,8 +125,10 @@ func join(rel, name string) string {
 }
 
 // readNames lists a directory in its own order, from a duplicate of fd so
-// the os.File can be closed without closing fd.
-func readNames(fd int) ([]string, error) {
+// the os.File can be closed without closing fd: all of it, or with max
+// set, max+1 names at most (one more than a cut listing keeps, to tell it
+// was cut).
+func readNames(fd, max int) ([]string, error) {
 	dup, err := syscall.Dup(fd)
 	if err != nil {
 		return nil, err
@@ -122,7 +136,14 @@ func readNames(fd int) ([]string, error) {
 	syscall.CloseOnExec(dup)
 	f := os.NewFile(uintptr(dup), "dir")
 	defer f.Close()
-	return f.Readdirnames(-1)
+	if max <= 0 {
+		return f.Readdirnames(-1)
+	}
+	names, err := f.Readdirnames(max + 1)
+	if errors.Is(err, io.EOF) {
+		err = nil // an empty directory
+	}
+	return names, err
 }
 
 // statAt stats name in the directory fd through an O_PATH open, which
@@ -188,6 +209,34 @@ func (d *Dir) Read(e Entry, max int64) ([]byte, error) {
 		return nil, fmt.Errorf("read %s: %w", e.Path, err)
 	}
 	return readCapped(fd, e.Path, max)
+}
+
+// Open opens one of the directory's entries for a caller that streams it,
+// with Read's checks: relative to the directory, no link followed, no fifo
+// stall, a regular file only. Valid only inside the walk's fn; the file
+// stays open after it, and the caller closes it.
+func (d *Dir) Open(e Entry) (*os.File, error) {
+	if !e.Mode.IsRegular() {
+		return nil, fmt.Errorf("open %s: %w", e.Path, ErrNotRegular)
+	}
+	fd, err := syscall.Openat(d.fd, e.Name, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		if err == syscall.ELOOP {
+			return nil, fmt.Errorf("open %s: %w", e.Path, ErrNotRegular)
+		}
+		return nil, fmt.Errorf("open %s: %w", e.Path, err)
+	}
+	f := os.NewFile(uintptr(fd), e.Path)
+	var st syscall.Stat_t
+	if err := syscall.Fstat(fd, &st); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("open %s: %w", e.Path, err)
+	}
+	if st.Mode&syscall.S_IFMT != syscall.S_IFREG {
+		f.Close()
+		return nil, fmt.Errorf("open %s: %w", e.Path, ErrNotRegular)
+	}
+	return f, nil
 }
 
 // ReadNoFollow reads the regular file at path up to max bytes, refusing a

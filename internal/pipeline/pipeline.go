@@ -133,7 +133,7 @@ type Helper interface {
 	Start(ctx context.Context, j hostrun.Job) error
 	Poll(ctx context.Context, name string) (string, error)
 	Collect(ctx context.Context, id ticket.ID, name string) (*hostrun.Result, error)
-	Remove(ctx context.Context, name string) error
+	Remove(ctx context.Context, id ticket.ID, name string) error
 }
 
 // Helpers finds a configured helper host by its [hosts.<name>] key, and

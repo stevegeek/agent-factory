@@ -89,8 +89,9 @@ type TicketView struct {
 	NoteFirst               bool
 	Since                   string
 	Answer                  *AnswerView
-	AgentName               string   // the agent running now, if any
-	Logs                    []string // archived agent runs, by name
+	AgentName               string        // the agent running now, if any
+	Logs                    []string      // archived agent runs, by name
+	Tokens                  *TicketTokens // what those runs spent, when any recorded it
 	// Reply: the open board question takes a typed answer (beside any
 	// option buttons), sent through the ticket API
 	Reply     bool
@@ -266,6 +267,7 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 		v.NoteFirst = v.NoteFirst || x.NeedsNote
 	}
 	v.Logs = s.agentLogs(string(t.ID))
+	v.Tokens = s.ticketTokens(string(t.ID), v.Logs)
 	if d := t.Design.Or(""); d != "" {
 		v.More = append(v.More, More{"Read the design", d})
 	}

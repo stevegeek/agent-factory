@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/imagebuild"
 	"github.com/stevegeek/agent-factory/internal/jobproto"
 	"github.com/stevegeek/agent-factory/internal/podman"
+	"github.com/stevegeek/agent-factory/internal/usage"
 	"github.com/stevegeek/agent-factory/internal/vitals"
 )
 
@@ -205,7 +207,12 @@ func max64(a, b int64) int64 { return max(a, b) }
 
 // remove is the remove verb: stop the unit, remove the container,
 // delete the job's files (also directories an agent made unreadable).
-// Failures of the stop and the rm are ignored, as in Python.
+// Failures of the stop and the rm are ignored, as in Python. What the
+// agent spent is read from the job's home once the container is gone and
+// before the home is deleted, and goes back with the answer, {"removed":
+// <job>, "usage": <usage.json>}, so a job removed before it was done (its
+// timeout, a lost poll) keeps its usage; a home with no transcript, or
+// one that cannot be read, sends none.
 func (s *Server) remove(ctx context.Context, job string) error {
 	d, err := s.jobDir(job)
 	if err != nil {
@@ -215,8 +222,15 @@ func (s *Server) remove(ctx context.Context, job string) error {
 		Env: s.env(), Timeout: stopTimeout, MaxOut: 64 << 10})
 	s.Exec.Run(ctx, execx.Cmd{Argv: []string{"podman", "rm", "-f", unit(job)},
 		Env: s.env(), Timeout: rmTimeout, MaxOut: 64 << 10})
+	spent := ""
+	if isDir(d) {
+		if u, err := usage.Read(filepath.Join(d, "home")); err == nil && !u.Empty() {
+			b, _ := json.Marshal(u) // maps and int64s always encode
+			spent = ", \"usage\": " + string(b)
+		}
+	}
 	fsx.RemoveTree(d)
-	_, err = fmt.Fprintf(s.Stdout, "{\"removed\": \"%s\"}\n", job)
+	_, err = fmt.Fprintf(s.Stdout, "{\"removed\": \"%s\"%s}\n", job, spent)
 	return err
 }
 

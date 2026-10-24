@@ -105,6 +105,7 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 		if err := d.Local.Remove(ctx, dir, t.ID, a.Name, stage.KeepBranch(model.Stage(a.Stage))); err != nil {
 			return err
 		}
+		d.recordUsage(t, a)
 		return d.requeue(ctx, cfg, t, hosts.Local, limit)
 	case has:
 		return d.finish(ctx, cfg, proj, t, raw, "")
@@ -127,6 +128,7 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 		if err := d.Local.Remove(ctx, dir, t.ID, a.Name, true); err != nil {
 			return err
 		}
+		d.recordUsage(t, a)
 		d.settle(ctx, cfg, t, nil)
 		t.Agent = ticket.Nil[ticket.Agent]()
 		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonTimedOut, "agent "+a.Name+" timed out", "", "", d.now())
@@ -136,7 +138,8 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 
 // remoteAgent is the helper half of the agent pass: poll_remote,
 // and when it fails, an error event; past the agent's timeout the job is
-// removed and the agent counted lost.
+// removed (what it spent recorded, when the helper read it on the way) and
+// the agent counted lost.
 func (d Deps) remoteAgent(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket) {
 	a := t.Agent.V
 	err := d.pollRemote(ctx, cfg, proj, t)
@@ -151,7 +154,9 @@ func (d Deps) remoteAgent(ctx context.Context, cfg *config.Config, proj *config.
 		return
 	}
 	if h, ok := d.Helpers.Helper(cfg, a.Host); ok {
-		_ = h.Remove(ctx, a.Name) // best effort, as Python
+		if h.Remove(ctx, t.ID, a.Name) == nil { // best effort, as Python
+			d.recordUsage(t, a)
+		}
 	}
 	if ctx.Err() != nil {
 		return
@@ -166,7 +171,8 @@ func (d Deps) remoteAgent(ctx context.Context, cfg *config.Config, proj *config.
 // its time, a job that is gone is lost; a done one is collected (its files
 // archived, its memory settled, a worker's branch fetched from its bundle),
 // removed from the helper, and finished, requeued at a usage limit, or sent
-// to the desk without a report.
+// to the desk without a report. A job removed before it was done records
+// the usage its removal brought back.
 func (d Deps) pollRemote(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket) error {
 	a := t.Agent.V
 	h, ok := d.Helpers.Helper(cfg, a.Host)
@@ -183,18 +189,20 @@ func (d Deps) pollRemote(ctx context.Context, cfg *config.Config, proj *config.P
 		if err != nil || !late {
 			return err
 		}
-		if err := h.Remove(ctx, a.Name); err != nil {
+		if err := h.Remove(ctx, t.ID, a.Name); err != nil {
 			return err
 		}
+		d.recordUsage(t, a)
 		d.lost(t, a.Host)
 		t.Agent = ticket.Nil[ticket.Agent]()
 		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonTimedOut, "agent "+a.Name+" on "+a.Host+" timed out", "", "", d.now())
 		return nil
 	}
 	if state != jobproto.StateDone {
-		if err := h.Remove(ctx, a.Name); err != nil {
+		if err := h.Remove(ctx, t.ID, a.Name); err != nil {
 			return err
 		}
+		d.recordUsage(t, a)
 		d.lost(t, a.Host)
 		t.Agent = ticket.Nil[ticket.Agent]()
 		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonAgentLost,
@@ -205,6 +213,7 @@ func (d Deps) pollRemote(ctx context.Context, cfg *config.Config, proj *config.P
 	if err != nil {
 		return err
 	}
+	d.recordUsage(t, a)
 	if a.Memory.Present() && a.Memory.V.Role != "" {
 		var got *memory.Copy
 		if tar, ok := res.MemoryTar(); ok {
@@ -228,7 +237,7 @@ func (d Deps) pollRemote(ctx context.Context, cfg *config.Config, proj *config.P
 			return err
 		}
 	}
-	if err := h.Remove(ctx, a.Name); err != nil {
+	if err := h.Remove(ctx, t.ID, a.Name); err != nil {
 		return err
 	}
 	report, has := res.Report()
@@ -290,6 +299,7 @@ func (d Deps) finish(ctx context.Context, cfg *config.Config, proj *config.Proje
 		if err := d.Local.Remove(ctx, proj.Path, t.ID, a.Name, stage.KeepBranch(s)); err != nil {
 			return err
 		}
+		d.recordUsage(t, a)
 	}
 	d.settle(ctx, cfg, t, nil)
 	facts, err := d.facts(ctx, proj, t, s, report, head)

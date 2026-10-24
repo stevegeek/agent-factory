@@ -13,7 +13,9 @@ import (
 
 // Repo is a real git repository in a temp dir, the Go form of the Python
 // suite's RepoCase: branch main, a README and lib/thing.rb committed as
-// "init". Git runs with an empty global config and no system config.
+// "init". Git runs with an empty global config and no system config, and
+// without the caller's git identity variables: its commits are by t at a
+// fixed date.
 type Repo struct {
 	Dir string
 	env []string
@@ -32,7 +34,7 @@ func NewRepo(t testing.TB) *Repo {
 		t.Fatal(err)
 	}
 	r := &Repo{Dir: t.TempDir(), t: t}
-	r.env = append(os.Environ(),
+	r.env = append(WithoutGitIdentity(os.Environ()),
 		"HOME="+home, "GIT_CONFIG_GLOBAL="+gitconfig, "GIT_CONFIG_NOSYSTEM=1",
 		"GIT_AUTHOR_DATE=2026-01-02T03:04:05+00:00", "GIT_COMMITTER_DATE=2026-01-02T03:04:05+00:00")
 	r.Git("init", "-q", "-b", "main")

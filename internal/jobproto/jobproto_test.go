@@ -263,7 +263,7 @@ func TestContractTables(t *testing.T) {
 		total += c.Max
 	}
 	want := map[string]int64{"report.json": 1_000_000, "prompt.md": 1_000_000, "head": 1_000, "agent.log": 2_000_000,
-		"out.bundle": 100 * 1024 * 1024, "memory.tar": 4_000_000}
+		"out.bundle": 100 * 1024 * 1024, "memory.tar": 4_000_000, "usage.json": 64 * 1024}
 	if !reflect.DeepEqual(caps, want) {
 		t.Errorf("caps %v", caps)
 	}

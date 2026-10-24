@@ -19,6 +19,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/scion"
 	"github.com/stevegeek/agent-factory/internal/textx"
 	"github.com/stevegeek/agent-factory/internal/ticket"
+	"github.com/stevegeek/agent-factory/internal/usage"
 )
 
 // Local runs agents on this host through Scion.
@@ -26,6 +27,7 @@ type Local struct {
 	Paths paths.Paths
 	Scion scion.Client
 	Clock clock.Clock
+	Logf  func(format string, args ...any) // nil logs nothing
 }
 
 // Host is "local".
@@ -289,11 +291,14 @@ func (l *Local) screen(ctx context.Context, dir, name string, lines int) (string
 
 // Remove is remove_agent: keep the agent's last screen and archive
 // its report, log and prompt into logs/<id>/<name>/, drop its run config,
-// then `scion stop` and `scion delete [-b] -y` (keepBranch gives -b, as
+// then `scion stop`, keep the run's usage.json (keepUsage: read once the
+// agent has stopped, so nothing it spends is missed, and before its home
+// goes), and `scion delete [-b] -y` (keepBranch gives -b, as
 // remove_agent(keep_branch=True) does; the tick passes true for branch
 // stages). Scion's exit codes are ignored, as Python's check=False; a Scion
 // that cannot run, or a refused repository, stops the removal with its
-// error, as in Python.
+// error, as in Python. The usage is only a record: a failure to keep it is
+// logged and the removal goes on.
 func (l *Local) Remove(ctx context.Context, dir string, id ticket.ID, name string, keepBranch bool) error {
 	if err := l.keepScreen(ctx, dir, id, name); err != nil {
 		return err
@@ -306,6 +311,9 @@ func (l *Local) Remove(ctx context.Context, dir string, id ticket.ID, name strin
 	}
 	if err := l.Scion.Stop(ctx, dir, name); err != nil {
 		return err
+	}
+	if err := l.keepUsage(id, name); err != nil && l.Logf != nil {
+		l.Logf("%s: usage of %s not kept: %v", id, name, err)
 	}
 	return l.Scion.Delete(ctx, dir, name, keepBranch)
 }
@@ -341,6 +349,31 @@ func (l *Local) archive(id ticket.ID, name string) error {
 		if _, err := copyRegular(filepath.Join(home, f), filepath.Join(dest, f)); err != nil {
 			return fmt.Errorf("archive %s: %w", f, err)
 		}
+	}
+	return nil
+}
+
+// keepUsage is the run's usage.json in logs/<id>/<name>/: what its Claude
+// Code transcript in the home says it spent, kept before Scion deletes the
+// home. A home with no transcript (Pi) keeps none.
+func (l *Local) keepUsage(id ticket.ID, name string) error {
+	home := l.home(name)
+	if home == "" {
+		return nil
+	}
+	u, err := usage.Read(home)
+	if err != nil {
+		return fmt.Errorf("archive %s: %w", jobproto.MemberUsage, err)
+	}
+	if u.Empty() {
+		return nil
+	}
+	dest, err := archiveDir(l.Paths.Logs, id, name)
+	if err != nil {
+		return err
+	}
+	if err := writeNoFollow(filepath.Join(dest, jobproto.MemberUsage), u.JSON()); err != nil {
+		return fmt.Errorf("archive %s: %w", jobproto.MemberUsage, err)
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ package testkit
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -90,10 +91,11 @@ func (e *Env) WriteConfig(t testing.TB, toml string) string {
 }
 
 // Environ is the environment for a child process: the parent's, without
-// any variable Vars sets, then Vars, sorted.
+// any variable Vars sets and without the git identity variables
+// (GitIdentityVars), then Vars, sorted.
 func (e *Env) Environ() []string {
 	var out []string
-	for _, kv := range os.Environ() {
+	for _, kv := range WithoutGitIdentity(os.Environ()) {
 		k, _, _ := strings.Cut(kv, "=")
 		if _, ok := e.Vars[k]; ok {
 			continue
@@ -104,5 +106,29 @@ func (e *Env) Environ() []string {
 		out = append(out, k+"="+v)
 	}
 	sort.Strings(out)
+	return out
+}
+
+// GitIdentityVars are the variables through which a caller's environment
+// sets the identity and dates of git commits (an agent container sets
+// them). A test that runs git must not depend on them.
+func GitIdentityVars() []string {
+	return []string{
+		"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
+		"GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE",
+	}
+}
+
+// WithoutGitIdentity returns env less every GitIdentityVars variable.
+func WithoutGitIdentity(env []string) []string {
+	drop := GitIdentityVars()
+	var out []string
+	for _, kv := range env {
+		k, _, _ := strings.Cut(kv, "=")
+		if slices.Contains(drop, k) {
+			continue
+		}
+		out = append(out, kv)
+	}
 	return out
 }

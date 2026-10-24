@@ -63,7 +63,7 @@ func tickDeps(e *Env, cfg *config.Config) pipeline.Deps {
 		},
 		Logf: log.Printf,
 	}
-	local := &hostrun.Local{Paths: p, Scion: sc, Clock: e.Clock}
+	local := &hostrun.Local{Paths: p, Scion: sc, Clock: e.Clock, Logf: log.Printf}
 	runner := gate.Runner{Paths: p, Exec: e.Exec, Env: env, Guard: guard, Podman: pm, Log: log, Clock: e.Clock,
 		Agents: func(ctx context.Context, cfg *config.Config) (int, error) {
 			running, err := local.Running(ctx, cfg)

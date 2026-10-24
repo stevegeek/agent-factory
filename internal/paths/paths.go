@@ -225,6 +225,10 @@ func (p Paths) DeployHold() string { return filepath.Join(p.ForemanState(), "dep
 // helper's opt-in to factory-remote install, which only the owner creates.
 func (p Paths) AcceptInstalls() string { return filepath.Join(p.Root, "accept-installs") }
 
+// UsageLog is Root/usage.jsonl: one line per finished agent run, what it
+// spent in tokens (internal/usage).
+func (p Paths) UsageLog() string { return filepath.Join(p.Root, "usage.jsonl") }
+
 // ImagesState is Root/images.json, the agent versions the weekly rebuild
 // installed. A deploy never writes it.
 func (p Paths) ImagesState() string { return filepath.Join(p.Root, "images.json") }

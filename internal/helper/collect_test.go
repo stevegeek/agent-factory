@@ -99,6 +99,7 @@ func TestCollectCapsAndOrder(t *testing.T) {
 	r.write(t, "jobs/t0001-w1/work/out.bundle", "bundle")
 	r.write(t, "jobs/t0001-w1/work/report.json", `{"forged": true}`) // only home/ counts
 	r.write(t, "jobs/t0001-w1/work/extra", "not collected")
+	r.write(t, "jobs/t0001-w1/work/usage.json", `{"models": {}}`)
 	if code := r.ssh(t, "collect t0001-w1"); code != 0 {
 		t.Fatalf("collect: %d %s", code, r.stderr)
 	}
@@ -136,7 +137,7 @@ func TestCollectCapsAndOrder(t *testing.T) {
 			}
 		}
 	}
-	want := []string{"report.json", "head", "agent.log", "out.bundle", "memory.tar"}
+	want := []string{"report.json", "head", "agent.log", "out.bundle", "memory.tar", "usage.json"}
 	if !slices.Equal(names, want) {
 		t.Errorf("members %v, want %v (prompt.md is over its cap)", names, want)
 	}

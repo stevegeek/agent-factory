@@ -1,6 +1,9 @@
 package cli
 
-import "github.com/stevegeek/agent-factory/internal/ticketapi"
+import (
+	"github.com/stevegeek/agent-factory/internal/ticketapi"
+	"github.com/stevegeek/agent-factory/internal/usage"
+)
 
 // The command table: every command the factory has, with the argv
 // Python's argparse took, unchanged. Each group's Run lives in its own
@@ -14,6 +17,7 @@ import "github.com/stevegeek/agent-factory/internal/ticketapi"
 //	cmd_screens.go:                 screens
 //	cmd_fizzy.go:                   fizzy (export, import)
 //	cmd_onboard.go:                 kinds onboard
+//	cmd_usage.go:                   usage
 func commands() []Command {
 	ticketArg := Positional{Name: "ticket"}
 	return []Command{
@@ -109,6 +113,13 @@ func commands() []Command {
 				{Name: "json", Kind: BoolFlag},
 			},
 			Run: runOnboard},
+		{Name: "usage", Help: "the tokens the agents spent, largest first",
+			Flags: []Flag{
+				{Name: "days", Kind: IntFlag, Default: "7", Help: "the window: the last N days"},
+				{Name: "by", Default: usage.ByProject, Choices: usage.Bys()},
+				{Name: "json", Kind: BoolFlag},
+			},
+			Run: runUsage},
 		{Name: "build", Help: "build a core commit on the builder helper and keep it as a candidate for deploy.sh", Config: true,
 			Positionals: []Positional{{Name: "commit"}}, Flags: []Flag{{Name: "host", Help: "an ssh helper in [hosts], or self (default [build] host)"}}, Run: runBuild},
 		{Name: "deploy", Help: "the master deploys core main with config main to itself (start, ask, run, hold, unhold, status, restore)", Config: true,

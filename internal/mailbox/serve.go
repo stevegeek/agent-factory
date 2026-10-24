@@ -13,7 +13,7 @@ import (
 const usage = `factory-remote mailbox HOST: the forced command of a pull host's key. Verbs (SSH_ORIGINAL_COMMAND):
   claim HOST          the oldest queued job: "<job>\n" then its start tar on stdout; exit 3 if none
   beat HOST JOB       stdin: a log tail (at most 1 MiB); answers "ok" or "cancel"
-  done HOST JOB       stdin: the collect tar (report.json, prompt.md, head, agent.log, out.bundle, memory.tar)
+  done HOST JOB       stdin: the collect tar (report.json, prompt.md, head, agent.log, out.bundle, memory.tar, usage.json)
   release HOST JOB    give the job back to the queue
   vitals HOST         stdin: this host's vitals as JSON (at most 64 KiB); answers "ok"
 HOST must be the host this key is for.`

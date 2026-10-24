@@ -72,6 +72,7 @@ func otherItems(p paths.Paths) []item {
 		{p.Pauses, "pauses.json", false},
 		{p.Watches, "watches.json", false},
 		{p.ImagesState(), "images.json", false},
+		{p.UsageLog(), "usage.jsonl", false},
 		{p.Logs, "logs", true},
 	}
 }

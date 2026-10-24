@@ -10,6 +10,7 @@ import (
 
 	"github.com/stevegeek/agent-factory/internal/memstore"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/testkit"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
@@ -116,7 +117,7 @@ func gitLog(t *testing.T, r *memstore.Repo, args ...string) string {
 func runIn(dir string, argv ...string) (string, error) {
 	c := exec.Command(argv[0], argv[1:]...)
 	c.Dir = dir
-	c.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
+	c.Env = append(testkit.WithoutGitIdentity(os.Environ()), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
 	out, err := c.Output()
 	return string(out), err
 }

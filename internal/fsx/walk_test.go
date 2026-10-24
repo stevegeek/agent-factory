@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -247,5 +248,65 @@ func TestReadNoFollow(t *testing.T) {
 		if _, err := ReadNoFollow(filepath.Join(top, p), 1024); err == nil {
 			t.Errorf("%s read", p)
 		}
+	}
+}
+
+// Open, for a streaming reader, refuses what Read refuses.
+func TestOpenOpensOnlyRegularFiles(t *testing.T) {
+	top, _ := corpus(t)
+	got := map[string]string{}
+	err := WalkNoFollow(top, func(d *Dir) error {
+		for _, e := range d.Files {
+			f, err := d.Open(e)
+			if err != nil {
+				got[e.Path] = "err: " + err.Error()
+				continue
+			}
+			b := make([]byte, 16)
+			n, _ := f.Read(b)
+			f.Close()
+			got[e.Path] = string(b[:n])
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["README.md"] != "hello" || got["knowledge/deep/note.md"] != "deep" {
+		t.Errorf("read %v", got)
+	}
+	for _, p := range []string{"to-file", "dangling", "fifo", "sock"} {
+		if !strings.Contains(got[p], "not a regular file") {
+			t.Errorf("%s: %q", p, got[p])
+		}
+	}
+}
+
+// With a cap on names, a directory holding more is listed only to the cap
+// and marked Cut; one within it, or an empty one, is listed whole.
+func TestWalkCapsTheNamesOfADirectory(t *testing.T) {
+	top := t.TempDir()
+	for _, d := range []string{"many", "few", "empty"} {
+		if err := os.Mkdir(filepath.Join(top, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := range 50 {
+		os.WriteFile(filepath.Join(top, "many", strconv.Itoa(i)+".jsonl"), nil, 0o644)
+	}
+	for i := range 3 {
+		os.WriteFile(filepath.Join(top, "few", strconv.Itoa(i)), nil, 0o644)
+	}
+	got := map[string]int{}
+	cut := map[string]bool{}
+	err := WalkNoFollowMax(top, 10, func(d *Dir) error {
+		got[d.Path], cut[d.Path] = len(d.Dirs)+len(d.Files), d.Cut
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["many"] != 10 || !cut["many"] || got["few"] != 3 || cut["few"] || got["empty"] != 0 || cut["empty"] || got["."] != 3 || cut["."] {
+		t.Errorf("names %v, cut %v", got, cut)
 	}
 }

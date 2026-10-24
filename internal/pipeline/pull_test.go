@@ -115,7 +115,7 @@ func TestJobHostsRunAPullHostThroughItsMailbox(t *testing.T) {
 	if s, err := jobs.Tail(ctx, "t0001-k1", 10); err != nil || s != "" {
 		t.Errorf("tail %q %v", s, err)
 	}
-	if err := helper.Remove(ctx, "t0001-k1"); err != nil {
+	if err := helper.Remove(ctx, "T0001", "t0001-k1"); err != nil {
 		t.Fatal(err)
 	}
 	if names, err := jobs.List(ctx); err != nil || len(names) != 0 {

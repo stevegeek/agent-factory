@@ -15,6 +15,29 @@
     {{end}}
   </section>
   {{end}}
+  {{with $.Tokens}}
+  <section class="metrics" aria-label="Tokens">
+    <h3>Tokens</h3>
+    <p>What the agents spent up to now, in tokens (they run on a subscription), from each run's Claude Code transcript; a Pi run records none.</p>
+    {{if .Quiet}}<p class="quiet">No tokens recorded in the last 30 days.</p>
+    {{else}}
+    <div class="mscroll">
+    <table>
+      <thead><tr><td></td>{{range .Windows}}<th scope="col">{{.}}</th>{{end}}</tr></thead>
+      {{range .Groups}}
+      <tbody>
+        <tr class="mgroup"><th scope="rowgroup" colspan="{{len $.Tokens.Windows | inc}}">{{.Title}}</th></tr>
+        {{range .Rows}}
+        <tr{{if .Sub}} class="msub"{{end}}><th scope="row">{{.Label}}</th>{{range .Cells}}<td>{{.}}</td>{{end}}</tr>
+        {{end}}
+      </tbody>
+      {{end}}
+    </table>
+    </div>
+    {{with .Partial}}<p class="quiet">{{.}} of the last 30 days' runs read only in part (a transcript over the reader's caps): their tokens are a lower bound.</p>{{end}}
+    {{end}}
+  </section>
+  {{end}}
 </main>
 {{end}}
 {{- end}}

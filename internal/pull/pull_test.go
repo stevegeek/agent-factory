@@ -134,7 +134,7 @@ func (w *world) sh(dir string, argv ...string) string {
 	w.t.Helper()
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "HOME="+w.home, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
+	cmd.Env = append(testkit.WithoutGitIdentity(os.Environ()), "HOME="+w.home, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		w.t.Fatalf("%q: %v\n%s", argv, err, out)

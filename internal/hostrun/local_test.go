@@ -3,9 +3,11 @@ package hostrun
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/execx"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/usage"
 )
 
 func listAnswer(byDir map[string]execx.Result) func(c execx.Cmd) (execx.Result, error) {
@@ -337,5 +340,97 @@ func TestLocalStartArgv(t *testing.T) {
 	err := f.local().Start(context.Background(), Job{Ticket: tk, Stage: model.StageTriage, Name: "t0003-t2", Template: "triage", Project: p})
 	if err == nil || !strings.Contains(err.Error(), "bad template") {
 		t.Errorf("failed start: %v", err)
+	}
+}
+
+// Removing a local agent keeps what it spent: its home's Claude Code
+// transcript, read before Scion deletes the home, as logs/<id>/<run>/
+// usage.json. A home with no transcript (Pi) leaves none.
+func TestRemoveKeepsTheRunsUsage(t *testing.T) {
+	f := newFixture(t)
+	home := f.agentHome(t, "t0003-w1")
+	dir := filepath.Join(home, ".claude", "projects", "-repo")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "s.jsonl"), []byte(
+		`{"type":"assistant","message":{"id":"m1","model":"claude-opus","usage":{"input_tokens":7,"output_tokens":8}}}`+"\n"), 0o644)
+	f.exec.answer = func(c execx.Cmd) (execx.Result, error) { return execx.Result{}, nil }
+	if err := f.local().Remove(context.Background(), "/x/p", "T0003", "t0003-w1", true); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(f.paths.Logs, "T0003", "t0003-w1", "usage.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := usage.Parse(b)
+	if err != nil || u.Models["claude-opus"] != (usage.Tokens{Input: 7, Output: 8, Messages: 1}) {
+		t.Errorf("usage %s %v", b, err)
+	}
+	f.agentHome(t, "t0004-w1")
+	if err := f.local().Remove(context.Background(), "/x/p", "T0004", "t0004-w1", true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(f.paths.Logs, "T0004", "t0004-w1", "usage.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("usage.json for a run with no transcript: %v", err)
+	}
+}
+
+// The usage is read once `scion stop` has stopped the agent, so what it
+// spent up to then counts, and before `scion delete` takes its home.
+func TestRemoveReadsTheUsageAfterTheStop(t *testing.T) {
+	f := newFixture(t)
+	home := f.agentHome(t, "t0003-w1")
+	dir := filepath.Join(home, ".claude", "projects", "-repo")
+	os.MkdirAll(dir, 0o755)
+	transcript := filepath.Join(dir, "s.jsonl")
+	os.WriteFile(transcript, []byte(`{"type":"assistant","message":{"id":"m1","model":"claude-opus","usage":{"input_tokens":7}}}`+"\n"), 0o644)
+	f.exec.answer = func(c execx.Cmd) (execx.Result, error) {
+		switch {
+		case slices.Contains(c.Argv, "stop"):
+			// the agent's last message, written while it stops
+			fh, _ := os.OpenFile(transcript, os.O_APPEND|os.O_WRONLY, 0)
+			fh.WriteString(`{"type":"assistant","message":{"id":"m2","model":"claude-opus","usage":{"input_tokens":5}}}` + "\n")
+			fh.Close()
+		case slices.Contains(c.Argv, "delete"):
+			os.RemoveAll(home)
+		}
+		return execx.Result{}, nil
+	}
+	if err := f.local().Remove(context.Background(), "/x/p", "T0003", "t0003-w1", true); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(f.paths.Logs, "T0003", "t0003-w1", "usage.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u, err := usage.Parse(b); err != nil || u.Models["claude-opus"] != (usage.Tokens{Input: 12, Messages: 2}) {
+		t.Errorf("usage %s %v", b, err)
+	}
+}
+
+// A usage read that fails (here a home the walk cannot list) is logged,
+// and the agent is still stopped and deleted: the usage is only a record.
+func TestRemoveGoesOnWhenTheUsageReadFails(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root lists a directory it may not read")
+	}
+	f := newFixture(t)
+	home := f.agentHome(t, "t0003-w1")
+	os.MkdirAll(filepath.Join(home, ".claude", "projects", "-repo"), 0o755)
+	if err := os.Chmod(home, 0o100); err != nil { // enter, not list
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(home, 0o755) })
+	f.exec.answer = func(c execx.Cmd) (execx.Result, error) { return execx.Result{}, nil }
+	var logged []string
+	l := f.local()
+	l.Logf = func(format string, args ...any) { logged = append(logged, fmt.Sprintf(format, args...)) }
+	if err := l.Remove(context.Background(), "/x/p", "T0003", "t0003-w1", true); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if got := f.exec.args(); len(got) == 0 || !strings.HasPrefix(got[len(got)-1], "delete t0003-w1") {
+		t.Errorf("not deleted: %q", got)
+	}
+	if len(logged) != 1 || !strings.Contains(logged[0], "usage of t0003-w1 not kept") {
+		t.Errorf("logged %q", logged)
 	}
 }

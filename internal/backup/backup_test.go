@@ -85,6 +85,8 @@ func newWorld(t *testing.T) *world {
 		"pauses.json":                                   "{}\n",
 		"watches.json":                                  "{}\n",
 		"images.json":                                   "{\"claude\": {\"version\": \"2.1.302\"}}\n",
+		"usage.jsonl":                                   "{\"at\": \"2026-10-18T00:00:00+00:00\", \"ticket\": \"T0001\"}\n",
+		"usage.jsonl.lock":                              "",
 		"logs/factory.log":                              "2026-10-18T00:00:00+00:00 a line\n",
 		"logs/factory.log.20261001T000000Z.gz":          "gz",
 		"logs/T0001/work-1.log":                         "agent output\n",
@@ -176,7 +178,7 @@ func TestBackupHoldsTheStateAndNoCredential(t *testing.T) {
 		"config.toml", "context/widgets/INDEX.md", "foreman-state/foreman-users.json", "foreman-state/foreman-vapid.pem",
 		"foreman-state/foreman.log", "foreman-state/foreman.log.20261001T000000Z.gz",
 		"images.json", "logs/T0001/work-1.log", "logs/factory.log", "logs/factory.log.20261001T000000Z.gz",
-		"memory/widgets/worker.git/HEAD", "memory/widgets/worker.git/config", "pauses.json", "state.json", "watches.json"}
+		"memory/widgets/worker.git/HEAD", "memory/widgets/worker.git/config", "pauses.json", "state.json", "usage.jsonl", "watches.json"}
 	if !slices.Equal(files, want) {
 		t.Errorf("archive holds\n%v\nwant\n%v", files, want)
 	}

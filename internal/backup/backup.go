@@ -6,7 +6,7 @@
 // config.toml, the token store (hashes only), foreman-state/ (without the
 // login secret or sessions; with Foreman's foreman.log and its rotated
 // files), state.json, pauses.json, watches.json,
-// images.json, logs/ and repos/ (each project's unpushed bot/ branches as a
+// images.json, usage.jsonl, logs/ and repos/ (each project's unpushed bot/ branches as a
 // bundle, and its pinned untracked files). It never holds a credential: the Claude token,
 // the App key, the Anthropic key, ssh keys, Foreman's secret, the backup
 // key or the R2 keys. Foreman's push key goes in only with

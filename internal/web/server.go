@@ -576,6 +576,7 @@ type Page struct {
 	Desk       *present.DeskView
 	Ticket     *TicketView
 	Floor      *present.Floor
+	Tokens     *TokensView    // Floor metrics' Tokens section
 	Boards     []BoardSummary // factory projects
 	Agents     []BoardSummary // board projects, worked by agents
 	Board      *BoardView

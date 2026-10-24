@@ -80,6 +80,9 @@ func runBuildSh(t *testing.T, extra []string, args ...string) (string, int) {
 		"HOME=" + home,
 		"FACTORY_ROOT=" + filepath.Join(home, "no-factory"),
 		"FACTORY_GO_CACHE=" + filepath.Join(home, "cache"),
+		// no telemetry writes under HOME that could outlive the run and
+		// race the temporary directory's removal
+		"GOTELEMETRY=off",
 	}, extra...)
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out

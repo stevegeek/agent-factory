@@ -303,10 +303,11 @@ func (s *Server) floor(w http.ResponseWriter, r *http.Request) {
 }
 
 // floorMetrics is the floor's five weeks of counts on a page of their own,
-// for the same ?week as the floor.
+// for the same ?week as the floor, and the tokens the agents spent up to
+// now.
 func (s *Server) floorMetrics(w http.ResponseWriter, r *http.Request) {
 	if f, ts, ok := s.floorFor(w, r); ok {
-		s.render(w, r, "metrics", &Page{Title: "Floor metrics", Tab: "floor", Floor: f}, ts)
+		s.render(w, r, "metrics", &Page{Title: "Floor metrics", Tab: "floor", Floor: f, Tokens: s.tokensView(r)}, ts)
 	}
 }
 
