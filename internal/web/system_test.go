@@ -210,3 +210,40 @@ func TestSystemFormatting(t *testing.T) {
 		t.Errorf("a bar of nothing %+v", b)
 	}
 }
+
+// The summary above the details has every configured host: whether it
+// reports and whether it runs agents.
+func TestSystemSummaryOfMachines(t *testing.T) {
+	h := newHarness(t, false)
+	s := snapshotAt(testNow.Add(-time.Minute))
+	s.Hosts[1].Vitals = &vitals.Vitals{Taken: testNow.Add(-4 * time.Minute)}
+	s.Hosts = append(s.Hosts,
+		sysinfo.Host{Name: "desktop", Slots: 3, Agents: 2, VitalsError: "vitals timed out", Vitals: &vitals.Vitals{Taken: testNow.Add(-time.Hour)}},
+		sysinfo.Host{Name: "laptop", Slots: 1, VitalsError: "no report yet"},
+		sysinfo.Host{Name: "spare", Slots: 1})
+	h.writeSnapshot(s)
+	page := h.do("GET", "/system", nil, h.login()).Body.String()
+	for _, want := range []string{
+		`<li class="machine online"><b>local</b> <span class="out merged">online</span> <span class="out merged">working</span> <span class="muted">1 of 2 agents</span></li>`,
+		`<li class="machine online"><b>helpera</b> <span class="out merged">online</span> <span class="out waiting">paused</span> <span class="muted">0 of 1 agents</span></li>`,
+		`<li class="machine offline"><b>desktop</b> <span class="out failed">offline</span> <span class="out merged">working</span> <span class="muted">2 of 3 agents</span></li>`,
+		`<li class="machine offline"><b>laptop</b> <span class="out failed">offline</span> <span class="out info">idle</span>`,
+		`<li class="machine unknown"><b>spare</b> <span class="out info">unknown</span> <span class="out info">idle</span>`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the summary lacks %q", want)
+		}
+	}
+	if sum, details := strings.Index(page, `class="machines"`), strings.Index(page, `class="sys-age`); sum < 0 || sum > details {
+		t.Error("the summary is not above the details")
+	}
+
+	s.Taken = testNow.Add(-40 * time.Minute)
+	if got := machines(s, false, testNow); got[0].State != "offline" {
+		t.Errorf("a stale snapshot leaves the dispatcher %q", got[0].State)
+	}
+	s.Hosts[1].Vitals.Taken = testNow.Add(-20 * time.Minute)
+	if got := machines(s, true, testNow); got[1].State != "offline" {
+		t.Errorf("stale vitals leave a worker host %q", got[1].State)
+	}
+}
