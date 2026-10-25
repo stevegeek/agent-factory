@@ -2,9 +2,7 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/stevegeek/agent-factory/internal/config"
@@ -14,7 +12,6 @@ import (
 	"github.com/stevegeek/agent-factory/internal/onboard"
 	"github.com/stevegeek/agent-factory/internal/podman"
 	"github.com/stevegeek/agent-factory/internal/store"
-	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
 // The project kinds' commands: kinds lists the kinds and what each factory
@@ -173,7 +170,7 @@ func onboardDeps(e *Env, cfg *config.Config, checks bool) onboard.Deps {
 	d := onboard.Deps{Config: cfg, Paths: p,
 		Head: func(ctx context.Context, pr config.Project) (string, error) {
 			h, err := runner.Repo(pr).Head(ctx, pr.Base)
-			return h, cleanByHand(err, pr.GitHub)
+			return h, gitread.ByHand(err, pr.GitHub)
 		}}
 	if cfg.HasGitHub() {
 		d.GitHub = opsCLI{}.githubClient(e, cfg)
@@ -184,40 +181,4 @@ func onboardDeps(e *Env, cfg *config.Config, checks bool) onboard.Deps {
 		}
 	}
 	return d
-}
-
-// cleanByHand turns the Verifier's refusal of a checkout into the git
-// commands that clean it. Its own advice, that the next tick removes the
-// settings, does not hold here: a tick cleans a checkout only when it runs
-// git in it, and a project being onboarded is new or paused. Any other
-// error is err.
-func cleanByHand(err error, github string) error {
-	var r *gitread.ConfigRefusal
-	if !errors.As(err, &r) {
-		return err
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "%s: .git/config has settings a plain clone does not (%s); onboard changes nothing, "+
-		"and a tick cleans it only once it works on the project, so run:", r.Path, strings.Join(r.Removed, ", "))
-	git := "git -C " + shQuote(r.Path)
-	for _, k := range r.Removed {
-		switch {
-		case k == gitread.NotPlain:
-			fmt.Fprintf(&b, "\nreplace %s with a plain file", shQuote(filepath.Join(r.Path, ".git", "config")))
-		case textx.Lower(k) == "remote.origin.url" && github != "":
-			fmt.Fprintf(&b, "\n%s remote set-url origin %s", git, shQuote("https://github.com/"+github+".git"))
-		default:
-			fmt.Fprintf(&b, "\n%s config --unset-all %s", git, shQuote(k))
-		}
-	}
-	return errors.New(b.String())
-}
-
-// shQuote is s as one sh word: as it is when it needs no quoting, else in
-// single quotes.
-func shQuote(s string) string {
-	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._-+:@=,") == "" {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

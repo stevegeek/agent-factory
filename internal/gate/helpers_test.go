@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -35,7 +36,7 @@ func newRig(t *testing.T) *rig {
 	t.Helper()
 	env := testkit.Root(t)
 	r := &rig{t: t, env: env, paths: paths.FromEnv(env.Vars), repo: testkit.NewRepo(t),
-		podman: &fakePodman{ok: true, out: "ok"}, log: &fakeLog{}}
+		podman: &fakePodman{ok: true, out: "ok", warmOK: true}, log: &fakeLog{}}
 	r.runner = Runner{Paths: r.paths, Exec: execx.OS{}, Env: env.Environ(), Guard: nopGuard{},
 		Podman: r.podman, Log: r.log, Clock: testkit.Fixed{T: time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)}}
 	return r
@@ -76,8 +77,10 @@ func trimNL(b []byte) []byte {
 	return b
 }
 
-// fakePodman answers RunGate and records each run. inspect, when set,
-// looks at the gate's checkout while the "container" runs.
+// fakePodman answers RunGate, RunWarm and ImageID and records each run. inspect,
+// when set, looks at the gate's checkout while the "container" runs, and
+// warm at a warm's source. A warm succeeds unless warmOK is false or
+// warmErr is set.
 type fakePodman struct {
 	mu      sync.Mutex
 	runs    []podman.Gate
@@ -85,6 +88,39 @@ type fakePodman struct {
 	out     string
 	err     error
 	inspect func(g podman.Gate)
+	warms   []podman.Warm
+	warm    func(w podman.Warm)
+	warmCtx func(ctx context.Context)
+	warmOK  bool
+	warmErr error
+	// imageID answers ImageID; nil gives one fixed id for every tag
+	imageID func(tag string) (string, error)
+}
+
+// fakeImage is the id the fake gives an image unless imageID says else.
+const fakeImage = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+func (f *fakePodman) ImageID(ctx context.Context, tag string) (string, error) {
+	f.mu.Lock()
+	id := f.imageID
+	f.mu.Unlock()
+	if id != nil {
+		return id(tag)
+	}
+	return fakeImage, nil
+}
+
+func (f *fakePodman) RunWarm(ctx context.Context, w podman.Warm) (bool, string, error) {
+	f.mu.Lock()
+	f.warms = append(f.warms, w)
+	f.mu.Unlock()
+	if f.warm != nil {
+		f.warm(w)
+	}
+	if f.warmCtx != nil {
+		f.warmCtx(ctx)
+	}
+	return f.warmOK, "warm output", f.warmErr
 }
 
 func (f *fakePodman) RunGate(ctx context.Context, g podman.Gate) (bool, string, error) {
@@ -106,6 +142,17 @@ func (l *fakeLog) Printf(format string, args ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.lines = append(l.lines, fmt.Sprintf(format, args...))
+}
+
+func (l *fakeLog) has(sub string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, s := range l.lines {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 type nopGuard struct{}

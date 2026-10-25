@@ -50,6 +50,8 @@ func ArchivedFiles() []string {
 // Repo and gitx's Writer between them have both methods.
 type Repo interface {
 	BranchExists(ctx context.Context, branch string) (bool, error)
+	// Head is the commit refs/heads/<branch> points at.
+	Head(ctx context.Context, branch string) (string, error)
 	// Bundle is a git bundle of refs/heads/<r> for each r.
 	Bundle(ctx context.Context, refs []string) ([]byte, error)
 }
@@ -67,6 +69,9 @@ type Job struct {
 	// which only a helper runs.
 	Project *config.Project
 	Repo    Repo // git on Project; nil with no project
+	// Toolchain is the toolchain of Project's kind ("" for none known),
+	// which a helper job names with the project and the base's head.
+	Toolchain string
 	// TimeoutMinutes is hosts.Timeout in minutes (helper jobs only).
 	TimeoutMinutes int
 	// RunConfig is the local memory mount (run/<name>.yaml), "" for none.

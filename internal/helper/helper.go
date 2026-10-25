@@ -65,8 +65,10 @@ forced to this script, so these verbs are all it can do here:
 
 Each job runs with only its work/ and home/ directories mounted, plus what this host's
 config.toml sets under [remote] and, over it, [remote.<this host's short hostname>]
-(agent, auth, image, memory, cpus, mounts, env, max_jobs, deps); the caller only picks the
-branch, model and timeout. An install (only with ~/factory/accept-installs) replaces that
+(agent, auth, image, memory, cpus, mounts, env, max_jobs, deps), and for a go project
+this host's build cache for the base head as a throwaway overlay (warmed first, in its
+own container with no credential and no network, when this host has none for that
+head); the caller only picks the branch, model and timeout, and names the project. An install (only with ~/factory/accept-installs) replaces that
 config.toml with the master's. The one credential auth names (the Anthropic API key, or
 for Claude Code the subscription token) is read from its 600 file into the
 environment, never argv. A job can read its credential, so whoever holds the

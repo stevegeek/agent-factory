@@ -175,6 +175,10 @@ func (p Paths) Builds() string { return filepath.Join(p.Root, "builds") }
 // that commit, which `factory build` sends to the builder.
 func (p Paths) Src(commit string) string { return filepath.Join(p.Root, "src", commit) }
 
+// EarlyChecks is Root/gate-early: Gate 1's checks run early, one result
+// per ticket, kept until the gate uses it (package gate).
+func (p Paths) EarlyChecks() string { return filepath.Join(p.Root, "gate-early") }
+
 // Deploys is Root/deploys: the self-deploy's request, state, snapshot,
 // work dir, logs and repo mirrors (package deploy).
 func (p Paths) Deploys() string { return filepath.Join(p.Root, "deploys") }

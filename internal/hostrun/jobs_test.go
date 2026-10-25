@@ -483,3 +483,27 @@ func TestRemoveArchivesTheUsageItBringsBack(t *testing.T) {
 		}
 	}
 }
+
+// A job for a project whose toolchain is known names the project, the
+// toolchain and the base's head as the bundle has it, so the helper can
+// lend that project's build cache warmed from that commit; a job with no
+// toolchain, or a project key that is not one path element, names none.
+func TestAJobNamesItsProjectToolchainAndBase(t *testing.T) {
+	r := newRemote(t)
+	files := r.start(t, Job{Ticket: r.ticket(t, "ready", "bot/t0003"), Stage: model.StageWork, Name: "t0003-w1", Toolchain: "go"})
+	m := meta(t, files)
+	head := strings.TrimSpace(r.repo.Git("rev-parse", "refs/heads/main"))
+	if m.Project != "p" || m.Toolchain != "go" || m.Base != head {
+		t.Errorf("meta %+v, want project p, toolchain go, base %s", m, head)
+	}
+	odd := *r.project
+	odd.Key = "a/b"
+	files = r.start(t, Job{Ticket: r.ticket(t, "ready", "bot/t0003"), Stage: model.StageWork, Name: "t0003-w2", Toolchain: "go", Project: &odd})
+	if m := meta(t, files); m.Project != "" || m.Toolchain != "" || m.Base != "" {
+		t.Errorf("an odd key: %+v", m)
+	}
+	files = r.start(t, Job{Ticket: r.ticket(t, "ready", "bot/t0003"), Stage: model.StageWork, Name: "t0003-w3"})
+	if m := meta(t, files); m.Project != "" || m.Base != "" {
+		t.Errorf("no toolchain: %+v", m)
+	}
+}

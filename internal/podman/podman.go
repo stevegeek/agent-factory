@@ -1,9 +1,9 @@
 // Package podman runs containers and image commands on this host, with
 // Python's argv: the gate's checks, the image rebuild's build, smoke test,
-// tags and prune.
+// tags and prune, and a build cache's warm (internal/gocache).
 //
 // Every container it starts is named (factory-gate-<id>,
-// factory-merge-<id>, factory-smoke-<kind>), and the run's Cleanup removes
+// factory-merge-<id>, factory-smoke-<kind>, factory-warm-<project>), and the run's Cleanup removes
 // it by name after a cancelled or timed-out run, because a container
 // outlives its podman client. The name is the one difference from Python's
 // argv: `--name <name>` right after `--rm`.
@@ -12,11 +12,13 @@ package podman
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/stevegeek/agent-factory/internal/execx"
+	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
 // Python's timeouts.
@@ -24,7 +26,11 @@ const (
 	GateTimeout    = 1800 * time.Second
 	BuildTimeout   = 6000 * time.Second
 	SmokeTimeout   = 2400 * time.Second
+	WarmTimeout    = 1800 * time.Second
 	cleanupTimeout = 30 * time.Second
+	// inspectTimeout bounds ImageID, which a tick may call: podman waiting
+	// on its storage lock (a build, a prune) must not hold the tick.
+	inspectTimeout = 30 * time.Second
 	// GateTail is how much of the gate's output is kept, in code points.
 	GateTail = 4000
 )
@@ -129,6 +135,28 @@ func (p Client) ImageExists(ctx context.Context, tag string) (bool, error) {
 		return false, err
 	}
 	return res.Code == 0, nil
+}
+
+// ImageID is `podman image inspect --format {{.Id}} <tag>`: the id of the
+// image the tag names now, which changes when a rebuild moves the tag. An
+// image that is missing, an answer that is not one hex id, or podman not
+// answering within inspectTimeout is an error.
+func (p Client) ImageID(ctx context.Context, tag string) (string, error) {
+	if err := checkWord("image", tag); err != nil {
+		return "", err
+	}
+	res, err := p.run(ctx, execx.Cmd{Timeout: inspectTimeout}, "image", "inspect", "--format", "{{.Id}}", tag)
+	if err != nil {
+		return "", err
+	}
+	if res.Code != 0 {
+		return "", fmt.Errorf("podman image inspect %s: %w", tag, execx.CheckErr(res))
+	}
+	id := strings.TrimSpace(string(res.Stdout))
+	if id == "" || len(id) > 128 || strings.Trim(id, "0123456789abcdef") != "" {
+		return "", fmt.Errorf("podman image inspect %s: not an image id: %q", tag, textx.Prefix(id, 80))
+	}
+	return id, nil
 }
 
 // Build is one image build.
@@ -244,6 +272,91 @@ func (p Client) RunGate(ctx context.Context, g Gate) (ok bool, tail string, err 
 		return false, "", err
 	}
 	return res.Code == 0, LastRunes(string(res.Stdout)+string(res.Stderr), GateTail), nil
+}
+
+// Warm is one compile-only run that fills a build cache: the source
+// read-only, the cache (a scratch directory, never one another container
+// is lent) writable at Target, and, for a source that is a bundle to clone,
+// a scratch work directory.
+type Warm struct {
+	Name   string // factory-warm-<job or project>
+	Image  string
+	Memory string
+	CPUs   string   // --cpus, "" for podman's default
+	Env    []string // "K=V", after HOME=/tmp and GOCACHE=<Target>
+	Cache  string   // the host directory the compile writes
+	Target string   // where the container sees it
+	// Source is the host directory with the source, or a bundle of it,
+	// mounted read-only at SourceAt, the container's working directory.
+	Source, SourceAt string
+	// Work, when set, is a host directory mounted writable at WorkAt.
+	Work, WorkAt string
+	Script       string // run by /bin/sh -c
+}
+
+// RunWarm runs a warm: no network, no capability, no new privileges, the
+// keep-id user, the memory and pid limits, at most 1800 s (less when ctx
+// ends sooner), which podman's --timeout also enforces, so a warm whose
+// caller was killed stops by itself and frees its name, and only podman's own
+// environment (the Client's Env), so no credential reaches it. ok is a
+// zero exit, tail the last 4000 code points of the output; the error is
+// for a run that did not finish.
+func (p Client) RunWarm(ctx context.Context, w Warm) (ok bool, tail string, err error) {
+	if err := checkName(w.Name); err != nil {
+		return false, "", err
+	}
+	for _, v := range [][2]string{{"image", w.Image}, {"memory", w.Memory}} {
+		if err := checkWord(v[0], v[1]); err != nil {
+			return false, "", err
+		}
+	}
+	if w.CPUs != "" {
+		if err := checkWord("cpus", w.CPUs); err != nil {
+			return false, "", err
+		}
+	}
+	paths := [][2]string{{"cache", w.Cache}, {"target", w.Target}, {"source", w.Source}, {"source target", w.SourceAt}}
+	if w.Work != "" || w.WorkAt != "" {
+		paths = append(paths, [2]string{"work", w.Work}, [2]string{"work target", w.WorkAt})
+	}
+	for _, v := range paths {
+		if !strings.HasPrefix(v[1], "/") || strings.ContainsAny(v[1], ":,") {
+			return false, "", fmt.Errorf("podman: bad warm %s %q", v[0], v[1])
+		}
+	}
+	args := []string{"run", "--rm", "--name", w.Name, "--network", "none", "--cap-drop=all", "--security-opt=no-new-privileges",
+		KeepID, "--user", "1000:1000", "--memory", w.Memory, "--pids-limit", "512"}
+	if w.CPUs != "" {
+		args = append(args, "--cpus", w.CPUs)
+	}
+	limit := warmLimit(ctx)
+	args = append(args, "--timeout", strconv.Itoa(int(limit/time.Second)), "-e", "HOME=/tmp", "-e", "GOCACHE="+w.Target)
+	for _, e := range w.Env {
+		if k, _, ok := strings.Cut(e, "="); !ok || k == "" {
+			return false, "", fmt.Errorf("podman: bad warm env %q", e)
+		}
+		args = append(args, "-e", e)
+	}
+	args = append(args, "-v", w.Cache+":"+w.Target, "-v", w.Source+":"+w.SourceAt+":ro")
+	if w.Work != "" {
+		args = append(args, "-v", w.Work+":"+w.WorkAt)
+	}
+	args = append(args, "-w", w.SourceAt, "--entrypoint", "/bin/sh", w.Image, "-c", w.Script)
+	res, err := p.run(ctx, execx.Cmd{Timeout: limit, Cleanup: p.remover(w.Name)}, args...)
+	if err != nil {
+		return false, "", err
+	}
+	return res.Code == 0, LastRunes(string(res.Stdout)+string(res.Stderr), GateTail), nil
+}
+
+// warmLimit is how long a warm may run: WarmTimeout, or what is left of
+// ctx when that is less, in whole seconds and at least one.
+func warmLimit(ctx context.Context) time.Duration {
+	limit := WarmTimeout
+	if dl, ok := ctx.Deadline(); ok && time.Until(dl) < limit {
+		limit = time.Until(dl).Truncate(time.Second)
+	}
+	return max(limit, time.Second)
 }
 
 // Running is the names of the containers podman runs (`podman ps --format

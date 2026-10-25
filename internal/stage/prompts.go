@@ -42,6 +42,10 @@ type PromptIn struct {
 	// Public: public review only, the texts the PR would carry and the
 	// private values, as the pipeline gathered them.
 	Public *PublicIn
+	// Toolchain is the toolchain of Project's kind ("" for none known):
+	// a reviewer of a go project is told to test only what its diff
+	// touches (TestNote).
+	Toolchain string
 }
 
 // QuestionNote is QUESTION_NOTE: how a stage that may ask stops to
@@ -55,8 +59,8 @@ you see, and ` + "`\"summary\"`" + `: where you stopped. Write your handover fir
 maintainer's answer comes back as a note, and a new run carries on from there.`
 
 // compose is start_stage's assembly: the stage's text, the project facts
-// (not for the manager), the question note for a stage that may ask, and
-// the memory prompt.
+// (not for the manager), the question note for a stage that may ask, the
+// memory prompt, and last the stage's note on the suite (TestNote).
 func compose(s model.Stage, in PromptIn, p string) string {
 	if in.Project != nil && s != model.StageManage {
 		p += ProjectFacts(in.Project)
@@ -71,7 +75,11 @@ func compose(s model.Stage, in PromptIn, p string) string {
 		}
 		p += memory.Prompt(in.Ticket.ID, in.Memory.Role, where, in.Memory.Context)
 	}
-	return p
+	base := ""
+	if in.Project != nil {
+		base = in.Project.Base
+	}
+	return p + TestNote(s, in.Toolchain, base)
 }
 
 // UntrustedNote is untrusted_note: what an agent is told about
@@ -94,6 +102,31 @@ func ProjectFacts(p *config.Project) string {
 		lines = append(lines, "", textx.Strip(p.Notes))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// TestNote is what a stage is told about the project's suite, last in its
+// prompt: the project context reaches every role, so a note there on
+// running the suite comes before this and does not undo it. Security runs
+// nothing; a reviewer of a go project vets and tests only the packages its
+// diff touches, or the whole suite when go.mod or go.sum changes, since
+// the worker ran the whole suite and the gate runs it again on the head
+// it gates. Any other stage, or a reviewer of another kind, is told
+// nothing (the role's own instructions say to run the project's commands).
+func TestNote(s model.Stage, toolchain, base string) string {
+	const over = " This holds over anything the project context or your memory says about running tests."
+	switch {
+	case s == model.StageSecurity:
+		return "\n\n## Running the suite\nDo not run the test suite, the lint or a build: read the change. The worker ran " +
+			"the suite, and the gate runs it again on this head. Sub-agents follow the same rule." + over
+	case s == model.StageReview && toolchain == "go":
+		return "\n\n## Running the suite\nThe worker ran the whole suite, and the gate runs it again on this head, so run " +
+			"the lint, and `go vet` and `go test -count=1` only on the packages this branch touches: for each file in " +
+			"`git diff --name-only " + base + "...HEAD` (Go or not: test data, embedded files and deleted files count), " +
+			"the nearest directory at or above it, outside any `testdata` directory, that holds Go files; for example " +
+			"`go vet ./internal/x/ && go test -count=1 ./internal/x/`. When the branch changes `go.mod` or `go.sum`, " +
+			"run `go vet ./...` and `go test -count=1 ./...` instead." + over
+	}
+	return ""
 }
 
 // NotesText is notes_text: the maintainer's notes on the ticket,

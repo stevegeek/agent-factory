@@ -175,6 +175,42 @@ func (e *ConfigRefusal) Error() string {
 		e.Path, strings.Join(firstN(e.Removed, 8), ", "))
 }
 
+// ByHand turns the Verifier's refusal of a checkout into the git commands
+// that clean it, for a command run by hand (factory onboard). Its own
+// advice, that the next tick removes the settings, does not hold there: a
+// tick cleans a checkout only when it runs git in it, and a project being
+// onboarded is new or paused. Any other error is err.
+func ByHand(err error, github string) error {
+	var r *ConfigRefusal
+	if !errors.As(err, &r) {
+		return err
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s: .git/config has settings a plain clone does not (%s); onboard changes nothing, "+
+		"and a tick cleans it only once it works on the project, so run:", r.Path, strings.Join(r.Removed, ", "))
+	git := "git -C " + shQuote(r.Path)
+	for _, k := range r.Removed {
+		switch {
+		case k == NotPlain:
+			fmt.Fprintf(&b, "\nreplace %s with a plain file", shQuote(filepath.Join(r.Path, ".git", "config")))
+		case textx.Lower(k) == "remote.origin.url" && github != "":
+			fmt.Fprintf(&b, "\n%s remote set-url origin %s", git, shQuote("https://github.com/"+github+".git"))
+		default:
+			fmt.Fprintf(&b, "\n%s config --unset-all %s", git, shQuote(k))
+		}
+	}
+	return errors.New(b.String())
+}
+
+// shQuote is s as one sh word: as it is when it needs no quoting, else in
+// single quotes.
+func shQuote(s string) string {
+	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/._-+:@=,") == "" {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 func firstN(xs []string, n int) []string {
 	if len(xs) > n {
 		return xs[:n]

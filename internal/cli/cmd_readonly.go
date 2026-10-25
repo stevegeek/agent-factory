@@ -18,6 +18,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/buildinfo"
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/gocache"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/textx"
@@ -234,6 +235,56 @@ func runVersion(_ context.Context, e *Env, _ Args) error {
 	return nil
 }
 
+// cacheMountChecks are the mounts written as absolute paths that reach
+// the trusted build caches (gocache.Reaches, links resolved here), which
+// the gate and a helper refuse at run time for every job of every kind;
+// config.Problems has already caught the ones written with {root}. A
+// [gate] mount is checked against this host's root, a problem, as is one
+// that reaches its gate-early, which every gate refuses too. A helper's
+// root is not known here, so a [remote] or [remote.<host>] mount is
+// checked against this host's root and {factory_home}/factory, a warning.
+func cacheMountChecks(cfg *config.Config, root string) (problems, warnings []string) {
+	if cfg == nil {
+		return nil, nil
+	}
+	absolute := func(m string) bool { return strings.HasPrefix(m, "/") }
+	for _, m := range cfg.Gate.Mounts {
+		if absolute(m) && gocache.Reaches(root, m) {
+			problems = append(problems, fmt.Sprintf("[gate] mounts: %q reaches %s, the trusted build caches, which only a warm may mount: every gate here would be refused",
+				m, gocache.Root(root)))
+		} else if early := filepath.Join(root, "gate-early"); absolute(m) && gocache.ReachesDir(root, early, m) {
+			problems = append(problems, fmt.Sprintf("[gate] mounts: %q reaches %s, the gate's kept early checks: every gate here would be refused", m, early))
+		}
+	}
+	roots := []string{root}
+	if h := strings.TrimRight(cfg.Host.FactoryHome, "/"); h != "" && h+"/factory" != root {
+		roots = append(roots, h+"/factory")
+	}
+	type table struct {
+		label  string
+		mounts []string
+	}
+	tables := []table{{"[remote]", cfg.Remote.Mounts}}
+	for _, h := range cfg.Remote.Hosts {
+		tables = append(tables, table{"[remote." + h.Name + "]", h.Mounts})
+	}
+	for _, tb := range tables {
+		for _, m := range tb.mounts {
+			if !absolute(m) {
+				continue
+			}
+			for _, r := range roots {
+				if gocache.Reaches(r, m) {
+					warnings = append(warnings, fmt.Sprintf("%s mounts: %q reaches %s: a helper whose factory root is %s refuses every job with it",
+						tb.label, m, gocache.Root(r), r))
+					break
+				}
+			}
+		}
+	}
+	return problems, warnings
+}
+
 // checkTokens is the token store as config.Problems reads it.
 type checkTokens struct{ s *tokens.Store }
 
@@ -265,6 +316,8 @@ func runCheck(ctx context.Context, e *Env, a Args) error {
 		problems = append(problems, err.Error()) // the git version is a contract
 	}
 	problems = append(problems, gitFileProblems(cfg)...)
+	cp, cw := cacheMountChecks(cfg, e.Paths().Root)
+	problems, warnings = append(problems, cp...), append(warnings, cw...)
 	reader := e.Board().Reader
 	tickets, _ := reader.List()
 	warnings = append(warnings, oldIntents(tickets, e.Clock.Now())...)

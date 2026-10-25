@@ -135,6 +135,11 @@ func (g gitRepo) BranchExists(ctx context.Context, branch string) (bool, error) 
 	return err == nil, nil
 }
 
+func (g gitRepo) Head(ctx context.Context, branch string) (string, error) {
+	out, err := gitCmd(ctx, "-C", g.dir, "rev-parse", "refs/heads/"+branch).Output()
+	return strings.TrimSpace(string(out)), err
+}
+
 func (g gitRepo) Bundle(ctx context.Context, refs []string) ([]byte, error) {
 	dir, err := os.MkdirTemp("", "hostrun-test-")
 	if err != nil {

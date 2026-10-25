@@ -67,7 +67,10 @@ type Deps struct {
 	Helpers Helpers      // the helper hosts ([hosts.*])
 	Git     Repos        // the projects' clones, guarded (gate.Runner)
 	Memory  *memory.Service
-	Gate    Gater  // Gate 1 (gate.Runner)
+	Gate    Gater // Gate 1 (gate.Runner)
+	// Early starts Gate 1's checks of a head the work stage left
+	// (gate.Early); nil starts none, and every gate runs its own checks.
+	Early   EarlyChecks
 	GitHub  GitHub // the PR flow (*prflow.Flow)
 	Doors   Doors  // the watches and the notices (doors.Service)
 	Issues  Tracker
@@ -150,10 +153,21 @@ type Repos interface {
 }
 
 // Gater runs Gate 1 on a ticket's branch (gate.Runner), or decides it from
-// checks a gate job ran on another host.
+// checks a gate job ran on another host, or from the early checks' result
+// it kept for the ticket when that result's whole key still holds (Kept).
 type Gater interface {
 	Run(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) (ticket.Gate, error)
 	Decide(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket, in gate.Remote) (ticket.Gate, error)
+	Kept(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) (gate.Remote, bool, error)
+}
+
+// EarlyChecks starts Gate 1's checks of head for the ticket in a unit of
+// their own (gate.Early) and returns at once: the tick never waits for
+// them. Running is the ticket and head of the ones that run on this host
+// now, if any.
+type EarlyChecks interface {
+	Start(ctx context.Context, id ticket.ID, head string) error
+	Running() (id ticket.ID, head string, ok bool)
 }
 
 // GitHub is the PR flow (*prflow.Flow): the pass over the tickets with

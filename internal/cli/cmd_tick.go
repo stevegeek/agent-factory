@@ -25,9 +25,11 @@ import (
 
 // The tick: `factory tick`, run by factory-tick.timer
 // and by wake. It prints nothing on stdout; what it did is in the log.
-// The command table (commands.go) names its runner:
+// And `factory early-checks`, which the tick starts in a unit of its own.
+// The command table (commands.go) names their runners:
 //
-//	tick: runTick
+//	tick:         runTick
+//	early-checks: runEarlyChecks
 
 // runTick is `factory tick`.
 func runTick(ctx context.Context, e *Env, _ Args) error {
@@ -86,6 +88,7 @@ func tickDeps(e *Env, cfg *config.Config) pipeline.Deps {
 		Git:    runner,
 		Memory: mem,
 		Gate:   runner,
+		Early:  gate.Early{Paths: p, Exec: e.Exec, Env: e.Environ, Log: log},
 		GitHub: &prflow.Flow{
 			GitHub:  gh,
 			Git:     prflow.Repos{Repo: runner.Repo},
@@ -131,4 +134,24 @@ func tickGitHubOf(src *config.Source, dir string) string {
 		}
 	}
 	return ""
+}
+
+// runEarlyChecks is `factory early-checks TICKET HEAD`, which the tick
+// starts in a unit of its own (gate.Early): gate.Runner.EarlyChecks. It
+// holds no tick lock, so its git only verifies the checkout (no Guard).
+func runEarlyChecks(ctx context.Context, e *Env, a Args) error {
+	cfg, err := e.Config()
+	if err != nil {
+		return err
+	}
+	t, err := loadTicket(e, a.Pos("ticket"))
+	if err != nil {
+		return err
+	}
+	if err := e.Git(ctx); err != nil {
+		return err
+	}
+	p, env := e.Paths(), doorsEnviron(e.Environ)
+	return gate.Runner{Paths: p, Exec: e.Exec, Env: env, Log: e.Log(), Clock: e.Clock,
+		Podman: podman.Client{Exec: e.Exec, Dir: p.Home, Env: podman.PassEnv(env)}}.EarlyChecks(ctx, cfg, t, a.Pos("head"))
 }

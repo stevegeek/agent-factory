@@ -190,6 +190,12 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 			problems = append(problems, fmt.Sprintf("%s auth = \"subscription\" is for Claude Code only: Pi needs an API key", label))
 		}
 	}
+	problems = append(problems, cacheMountProblems("[remote]", c.Remote.Mounts)...)
+	for _, h := range c.Remote.Hosts {
+		problems = append(problems, cacheMountProblems("[remote."+h.Name+"]", h.Mounts)...)
+	}
+	problems = append(problems, cacheMountProblems("[gate]", c.Gate.Mounts)...)
+	problems = append(problems, earlyMountProblems(c.Gate.Mounts)...)
 	for _, h := range c.Hosts {
 		if h.Kind != HostJobs {
 			problems = append(problems, fmt.Sprintf("[hosts.%s] kind = %q: the only host kind is %q", h.Name, h.Kind, HostJobs))
@@ -263,6 +269,51 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 		warnings = append(warnings, "[github] app_slug is not set: gate-workflow needs the App's slug")
 	}
 	return problems, warnings
+}
+
+// cacheMountProblems are the mounts of one table whose source reaches
+// {root}/cache/go, the trusted build caches: the dir, one that holds it,
+// or anything in it. The helper and the gate refuse such a mount when they
+// run (with links resolved); this catches it as written.
+func cacheMountProblems(label string, mounts []string) []string {
+	const caches = "{root}/cache/go"
+	var out []string
+	for _, m := range mountsReaching(mounts, caches) {
+		out = append(out, fmt.Sprintf("%s mounts: %q reaches %s, the trusted build caches, which only a warm may mount", label, m, caches))
+	}
+	return out
+}
+
+// earlyMountProblems are the [gate] mounts that reach {root}/gate-early,
+// the gate's kept early checks, as written: the gate refuses every check
+// with one (a branch's tests could forge a result through it). One that
+// reaches all of {root} is already a cache mount problem.
+func earlyMountProblems(mounts []string) []string {
+	const early = "{root}/gate-early"
+	var out []string
+	for _, m := range mountsReaching(mounts, early) {
+		if len(mountsReaching([]string{m}, "{root}/cache/go")) == 0 {
+			out = append(out, fmt.Sprintf("[gate] mounts: %q reaches %s, the gate's kept early checks, which no container may mount: every gate would be refused", m, early))
+		}
+	}
+	return out
+}
+
+// mountsReaching are the mounts whose source, as written, is dir, inside
+// it or holds it.
+func mountsReaching(mounts []string, dir string) []string {
+	var out []string
+	for _, m := range mounts {
+		src, _, _ := strings.Cut(m, ":")
+		if !strings.HasPrefix(src, "{root}") && src != "/" {
+			continue
+		}
+		src = path.Clean(src)
+		if src == dir || src == "/" || strings.HasPrefix(src, dir+"/") || strings.HasPrefix(dir, src+"/") {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // watchdogProblems checks one [remote] table's watchdog keys, each as set

@@ -245,3 +245,48 @@ func TestWaitString(t *testing.T) {
 		}
 	}
 }
+
+// Shared locks sit beside each other and keep the exclusive one out; an
+// exclusive one keeps every shared one out.
+func TestTryShare(t *testing.T) {
+	path := lockPath(t)
+	a, err := TryShare(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := TryShare(path)
+	if err != nil {
+		t.Fatalf("second share: %v", err)
+	}
+	if _, err := TryLock(path); !errors.Is(err, ErrBusy) {
+		t.Fatalf("TryLock beside shares: %v, want ErrBusy", err)
+	}
+	a.Unlock()
+	if _, err := TryLock(path); !errors.Is(err, ErrBusy) {
+		t.Fatalf("TryLock beside one share: %v, want ErrBusy", err)
+	}
+	b.Unlock()
+	x, err := TryLock(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := TryShare(path); !errors.Is(err, ErrBusy) {
+		t.Fatalf("TryShare beside the exclusive lock: %v, want ErrBusy", err)
+	}
+	x.Unlock()
+}
+
+func TestTryShareDoesNotFollowALink(t *testing.T) {
+	path := lockPath(t)
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := path + "-link"
+	if err := os.Symlink(path, link); err != nil {
+		t.Fatal(err)
+	}
+	if l, err := TryShare(link); err == nil {
+		l.Unlock()
+		t.Error("TryShare followed a link")
+	}
+}

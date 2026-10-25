@@ -72,6 +72,11 @@ func (d Deps) pass(ctx context.Context, cfg *config.Config) error {
 	if err != nil {
 		busy[hosts.Local] = cfg.MaxAgents // fails safe: nothing new starts here
 	}
+	if d.Early != nil {
+		if _, _, ok := d.Early.Running(); ok {
+			busy[hosts.Local]++ // their container takes a slot as a gate does
+		}
+	}
 	for _, t := range ts {
 		if a, ok := t.Agent.Get(); ok && hostOf(a) != hosts.Local {
 			busy[a.Host]++
@@ -283,10 +288,33 @@ func (d Deps) publicRead(ctx context.Context, cfg *config.Config, proj *config.P
 	return prflow.PublicPassed(cfg, *proj, t, h), nil
 }
 
-// runGate is Gate 1 in the tick: as a gate job on a pull host
-// when gateHost picks one (gatejob.go), else here (runGateHere). A host
-// that refuses the job is down for this pass, and the gate runs here.
+// runGate is Gate 1 in the tick: it waits while early checks of the
+// branch's head run (their result is due), is decided from the early
+// checks' result when the gate kept one whose whole key holds (no
+// container runs, so it needs no slot), else runs as a gate job on a pull
+// host when gateHost picks one (gatejob.go), else here (runGateHere). A
+// host that refuses the job is down for this pass, and the gate runs here.
 func (d Deps) runGate(ctx context.Context, cfg *config.Config, proj *config.Project, t *ticket.Ticket, busy map[string]int, down map[string]bool) (bool, error) {
+	if d.earlyDue(ctx, proj, t) {
+		return true, nil
+	}
+	if proj != nil && d.Gate != nil {
+		kept, ok, err := d.Gate.Kept(ctx, cfg, *proj, t)
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
+		if err != nil {
+			d.logf("%s: early checks: %v", t.ID, err)
+		}
+		if ok {
+			g, err := d.Gate.Decide(ctx, cfg, *proj, t, kept)
+			if err != nil {
+				return false, err
+			}
+			gate.Record(t, cfg, g, d.now())
+			return false, d.afterGate(ctx, cfg, proj, t)
+		}
+	}
 	if proj == nil || d.Gate == nil || d.Helpers == nil {
 		return d.runGateHere(ctx, cfg, proj, t, busy)
 	}
@@ -307,6 +335,26 @@ func (d Deps) runGate(ctx context.Context, cfg *config.Config, proj *config.Proj
 	ticket.Event(t, "error", host+": "+text, "", ticket.Errored{Text: text}, d.now())
 	_, err = d.runGateHere(ctx, cfg, proj, t, busy)
 	return false, err // saved whatever happened here: it carries the host's error
+}
+
+// earlyDue reports early checks that run now of the head the ticket's
+// branch is at: the gate waits for their result rather than run the same
+// checks beside them. They run for at most the unit's time
+// (gate.EarlyRunning), so the wait is bounded.
+func (d Deps) earlyDue(ctx context.Context, proj *config.Project, t *ticket.Ticket) bool {
+	if proj == nil || d.Early == nil || d.Git == nil {
+		return false
+	}
+	id, head, ok := d.Early.Running()
+	if !ok || id != t.ID {
+		return false
+	}
+	now, err := d.Git.Repo(*proj).Head(ctx, t.Branch.Or(""))
+	if err != nil || now != head {
+		return false
+	}
+	d.logf("%s: the gate waits for the early checks of %s, which run now", t.ID, textx.Prefix(head, 12))
+	return true
 }
 
 // runGateHere is Gate 1 run in the tick. A gate runs on this host and

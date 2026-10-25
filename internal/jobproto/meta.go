@@ -27,12 +27,19 @@ type Meta struct {
 	// for Gate 1's checks on the commit in Start (a full hex commit id),
 	// with the commands in MemberChecks.
 	Kind string
+	// Project, Toolchain and Base name an agent job's project, its kind's
+	// toolchain and the base branch's head commit, so a helper can lend the
+	// job that project's build cache warmed from that commit. All three are
+	// "" for a job with no project, and in what an older dispatcher sends;
+	// a helper then runs the job cold.
+	Project, Toolchain, Base string
 }
 
 // Encode is the meta.json the dispatcher sends (start_remote):
 // json.dumps of {branch, start, model, bundle, timeout_minutes}, with
 // "harness" after them only when it is not the default, and "kind" only
-// for a gate job.
+// for a gate job; then "project", "toolchain" and "base", each only when
+// set.
 func (m Meta) Encode() []byte {
 	o := jsonx.Object{
 		{Key: "branch", Value: jsonx.String(m.Branch)},
@@ -47,11 +54,19 @@ func (m Meta) Encode() []byte {
 	if m.Kind != "" && m.Kind != KindAgent {
 		o = append(o, jsonx.Member{Key: "kind", Value: jsonx.String(m.Kind)})
 	}
+	for _, kv := range [][2]string{{"project", m.Project}, {"toolchain", m.Toolchain}, {"base", m.Base}} {
+		if kv[1] != "" {
+			o = append(o, jsonx.Member{Key: kv[0], Value: jsonx.String(kv[1])})
+		}
+	}
 	return jsonx.EncodePython(o.Value(), -1)
 }
 
 // commitID is a full SHA-1 or SHA-256 commit id, lowercase.
 var commitID = regexp.MustCompile(`^[0-9a-f]{40}([0-9a-f]{24})?\z`) // re: go
+
+// projectName is a project key a helper may use as one path element.
+var projectName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z`) // re: go
 
 // py: ^[A-Za-z0-9._/-]{1,100}$
 var branchName = regexp.MustCompile(`^[A-Za-z0-9._/-]{1,100}\z`)
@@ -86,7 +101,10 @@ func ParseMeta(b []byte) (Meta, error) {
 // timeout int() would overflow on (an infinite float) is an error here and
 // a crash there. A harness, when present, must be a plain lowercase name;
 // the helper refuses one it has no entry for. A kind, when present, is
-// KindAgent or KindGate, and a gate job's start is a full commit id.
+// KindAgent or KindGate, and a gate job's start is a full commit id. A
+// project, when present, is one path element (ValidProject), a toolchain
+// a plain lowercase name and a base a full commit id; keys the helper does
+// not know are ignored, as Python's .get did.
 func CheckMeta(v jsonx.Value) (Meta, error) {
 	o, ok := v.Object()
 	if !ok {
@@ -142,10 +160,32 @@ func CheckMeta(v jsonx.Value) (Meta, error) {
 			return Meta{}, errors.New("bad kind in meta.json")
 		}
 	}
+	for _, f := range []struct {
+		key string
+		dst *string
+		ok  func(string) bool
+	}{{"project", &m.Project, ValidProject}, {"toolchain", &m.Toolchain, harnessOK}, {"base", &m.Base, commitID.MatchString}} {
+		val, present := o.Lookup(f.key)
+		if !present {
+			continue
+		}
+		s, isStr := val.Str()
+		if !isStr || !f.ok(s) {
+			return Meta{}, fmt.Errorf("bad %s in meta.json", f.key)
+		}
+		*f.dst = s
+	}
 	if m.Kind == KindGate && !commitID.MatchString(m.Start) {
 		return Meta{}, errors.New("bad start in meta.json: a gate job starts from a commit id")
 	}
 	return m, nil
+}
+
+// ValidProject is a project key a job may name: letters, digits, ".",
+// "_" and "-", at most 64, starting with a letter or digit and holding no
+// "..", so it is one safe path element.
+func ValidProject(p string) bool {
+	return projectName.MatchString(p) && !strings.Contains(p, "..")
 }
 
 func harnessOK(h string) bool {

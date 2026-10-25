@@ -45,6 +45,7 @@ func rows() []row {
 		{2, "scionread", []string{"execx", "paths", "jsonx"}},
 		{2, "scion", []string{"scionread", "execx", "fsx", "paths", "jsonx", "textx"}},
 		{2, "podman", []string{"execx", "textx"}},
+		{2, "gocache", []string{"jobproto", "fsx"}},
 		{2, "github", []string{"clock", "jsonx", "fsx", "textx"}},
 		{2, "jobtail", []string{"jobproto", "execx", "fsx"}},
 		{2, "mailbox", []string{"jobproto", "vitals", "fsx", "clock"}},
@@ -60,7 +61,7 @@ func rows() []row {
 		{3, "security", []string{"model", "config", "textx"}},
 		{3, "panel", []string{"model", "ticket", "jsonx", "textx"}},
 		{3, "hosts", []string{"model", "ticket", "config", "clock", "textx"}},
-		{3, "gate", []string{"security", "gitx", "gitread", "podman", "config", "ticket", "model", "jsonx", "execx", "fsx", "paths", "clock", "textx"}},
+		{3, "gate", []string{"security", "gitx", "gitread", "podman", "gocache", "config", "ticket", "model", "jsonx", "execx", "fsx", "paths", "clock", "textx"}},
 		{3, "stage", []string{"model", "ticket", "config", "security", "panel", "memory", "mdout", "jsonx", "textx", "clock"}},
 		{3, "hostrun", []string{"scion", "scionread", "sshjobs", "jobtail", "jobproto", "usage", "ticket", "config", "model", "execx", "fsx", "paths", "clock", "textx"}},
 		{3, "ticketapi", []string{"store", "boardread", "tokens", "config", "ticket", "model", "mdout", "jsonx", "clock", "textx", "logx"}},
@@ -74,8 +75,8 @@ func rows() []row {
 		{4, "upkeep", []string{"imagebuild", "doors", "gate", "github", "store", "config", "ticket", "model", "execx", "paths", "clock", "logx", "textx"}},
 		{4, "backup", []string{"store", "boardread", "doors", "config", "paths", "fsx", "jsonx", "clock", "logx", "textx"}},
 		{4, "pipeline", nil}, // computed
-		{4, "render", []string{"config", "model", "paths", "fsx", "textx", "agentfactory"}},
-		{4, "helper", []string{"jobproto", "mailbox", "vitals", "webpush", "usage", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo"}},
+		{4, "render", []string{"config", "gocache", "model", "paths", "fsx", "textx", "agentfactory"}},
+		{4, "helper", []string{"jobproto", "mailbox", "vitals", "webpush", "usage", "imagebuild", "podman", "gocache", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo"}},
 		{4, "pull", []string{"jobproto", "vitals", "toml", "fsx", "execx", "clock", "textx", "mailbox"}},
 		{4, "onboard", []string{"config", "github", "paths", "jsonx", "textx"}},
 		{4, "deploy", []string{"deployrec", "sshjobs", "hostrun", "jobproto", "gitx", "store", "boardread", "config", "ticket", "model", "execx", "fsx", "paths", "clock", "logx", "textx"}}, // boardread: its tests build a store.Board
@@ -96,7 +97,7 @@ func rows() []row {
 // closure of cmd/foreman, plus the test-only packages.
 func ForemanForbidden() []string {
 	return []string{
-		"github", "gitx", "scion", "sshjobs", "podman", "imagebuild", "memstore", "memory", "gate",
+		"github", "gitx", "scion", "sshjobs", "podman", "gocache", "imagebuild", "memstore", "memory", "gate",
 		"security", "stage", "panel", "hostrun", "hosts", "prflow", "doors", "upkeep", "backup", "pipeline",
 		"render", "cli", "helper", "fizzy", "onboard", "deploy", "operator", "testkit", "archtest",
 	}
@@ -105,10 +106,11 @@ func ForemanForbidden() []string {
 // HelperAllowed is the whole permitted closure of cmd/factory-remote. It
 // holds jsonx because the table's jobproto row imports it (pure layer-0
 // encoding), mailbox for factory-remote's mailbox mode (the forced command
-// of a pull host's key on the dispatcher), vitals for the vitals verb, and
-// webpush for the watchdog's pushes, and usage for what a job spent.
+// of a pull host's key on the dispatcher), vitals for the vitals verb,
+// webpush for the watchdog's pushes, usage for what a job spent, and
+// gocache for the build cache a go job is lent.
 func HelperAllowed() []string {
-	return []string{"helper", "jobproto", "mailbox", "vitals", "webpush", "usage", "imagebuild", "podman", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo", "jsonx"}
+	return []string{"helper", "jobproto", "mailbox", "vitals", "webpush", "usage", "imagebuild", "podman", "gocache", "toml", "fsx", "execx", "logx", "textx", "clock", "buildinfo", "jsonx"}
 }
 
 // PullAllowed is the whole permitted closure of cmd/factory-pull, the

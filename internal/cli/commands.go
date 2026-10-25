@@ -12,7 +12,7 @@ import (
 //	cmd_readonly.go, cmd_ticket.go: ls show result proposals recipes model check version ticket tokens
 //	cmd_ops.go, cmd_inspect.go:     add move note reply ask approve redirect merge pr host migrate wake answer look audit memory github gate-workflow findings project
 //	cmd_doors.go:                   sweep clock rebuild versions
-//	cmd_tick.go:                    tick
+//	cmd_tick.go:                    tick early-checks
 //	cmd_render.go:                  render patch-scion
 //	cmd_screens.go:                 screens
 //	cmd_fizzy.go:                   fizzy (export, import)
@@ -134,6 +134,8 @@ func commands() []Command {
 			Run: runDeploy},
 		// the tick
 		{Name: "tick", Help: "run one tick of the pipeline", Config: true, Run: runTick},
+		{Name: "early-checks", Help: "run Gate 1's checks of a ticket's head now and keep the result for its gate (the tick starts it)", Config: true,
+			Positionals: []Positional{ticketArg, {Name: "head"}}, Run: runEarlyChecks},
 		// the doors and upkeep
 		{Name: "sweep", Help: "file tickets for open GitHub issues", Config: true, Run: runSweep},
 		{Name: "clock", Help: "file the scheduled tickets that are due", Config: true, Run: runClock},

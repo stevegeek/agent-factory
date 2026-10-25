@@ -8,7 +8,12 @@
 // The gate never runs anything from the agent-writable clone itself: it
 // clones it (objects and refs only; no hooks, no config), checks the ref out
 // detached and runs the checks in podman with --network none as the keep-id
-// user. Every git on the project goes through the Runner's guard first.
+// user. Every git on the project goes through the Runner's guard first. A go
+// project's checks are lent this host's trusted build cache as a
+// throwaway overlay (internal/gocache), warmed from the base head first.
+// The checks can also run early, as soon as the work stage leaves a head
+// (early.go); Gate 1 then uses their kept result only when everything it
+// depends on is unchanged.
 package gate
 
 import (
@@ -27,6 +32,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/fsx"
 	"github.com/stevegeek/agent-factory/internal/gitread"
 	"github.com/stevegeek/agent-factory/internal/gitx"
+	"github.com/stevegeek/agent-factory/internal/gocache"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/podman"
@@ -42,6 +48,8 @@ const MergeConflictTail = 1500
 // Containers is what the gate needs of podman (podman.Client).
 type Containers interface {
 	RunGate(ctx context.Context, g podman.Gate) (ok bool, tail string, err error)
+	RunWarm(ctx context.Context, w podman.Warm) (ok bool, tail string, err error)
+	ImageID(ctx context.Context, tag string) (string, error)
 }
 
 // Logger is the factory log (logx.Log).
@@ -88,10 +96,14 @@ type CheckIn struct {
 	ID     string
 	Branch string // checked out when Ref is ""
 	Ref    string // a commit to check out instead of the branch head
-	Image  string // "" is the config's image
+	Image  string // "" is the config's image; any other runs cold (no build cache)
 	// Merge is a commit merged into the checkout first (the merge queue's
 	// check: the base as it is now).
 	Merge string
+	// Base is the base head the gate took: a go project's build cache is
+	// warmed from it first when this host has none for it ("" warms
+	// nothing).
+	Base string
 }
 
 // Checks is checks_on_fresh_checkout: the project's install, tests and lint
@@ -163,7 +175,20 @@ func (r Runner) Checks(ctx context.Context, in CheckIn) (ok bool, tail string, e
 		g.Env = append(g.Env, e.Name+"="+e.Value)
 	}
 	for _, m := range in.Config.Gate.Mounts {
-		g.Mounts = append(g.Mounts, strings.ReplaceAll(m, "{root}", r.Paths.Root))
+		m = strings.ReplaceAll(m, "{root}", r.Paths.Root)
+		if gocache.Reaches(r.Paths.Root, m) {
+			return false, "", fmt.Errorf("gate %s: [gate] mounts: %q %w", in.ID, m, errCacheMount)
+		}
+		if gocache.ReachesDir(r.Paths.Root, r.Paths.EarlyChecks(), m) {
+			return false, "", fmt.Errorf("gate %s: [gate] mounts: %q %w", in.ID, m, errEarlyMount)
+		}
+		g.Mounts = append(g.Mounts, m)
+	}
+	lend := r.goCache(ctx, in, image)
+	defer lend.Release() // once the container is gone
+	if lend.Gen != "" {
+		g.Env = append(g.Env, gocache.Env())
+		g.Mounts = append(g.Mounts, gocache.Mount(lend.Gen))
 	}
 	ok, tail, err = r.Podman.RunGate(ctx, g)
 	if err != nil {
@@ -214,7 +239,8 @@ func containerName(prefix, id string) string {
 // read the head after the checks, so a commit landing during
 // them could be approved untested). The gate records that head; a branch
 // that moved meanwhile is logged, and its new commits are not gated (the
-// merge path merges only the gated commit).
+// merge path merges only the gated commit). A gate that decides drops the
+// ticket's kept early checks (dropEarly).
 func (r Runner) Run(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) (ticket.Gate, error) {
 	branch := t.Branch.Or("")
 	repo := r.Repo(p)
@@ -244,7 +270,7 @@ func (r Runner) Run(ctx context.Context, cfg *config.Config, p config.Project, t
 	if err != nil {
 		return ticket.Gate{}, fmt.Errorf("gate %s: %w", t.ID, err)
 	}
-	ok, output, err := r.Checks(ctx, CheckIn{Config: cfg, Project: p, ID: string(t.ID), Branch: branch, Ref: head})
+	ok, output, err := r.Checks(ctx, CheckIn{Config: cfg, Project: p, ID: string(t.ID), Branch: branch, Ref: head, Base: base})
 	if err != nil {
 		return ticket.Gate{}, err
 	}
@@ -256,6 +282,7 @@ func (r Runner) Run(ctx context.Context, cfg *config.Config, p config.Project, t
 	if err != nil {
 		return ticket.Gate{}, err
 	}
+	r.dropEarly(t.ID)
 	return g, r.writeOutput(t, hygieneOutput(hits, output))
 }
 
@@ -324,7 +351,7 @@ type Remote struct {
 // decision is about the commit that was checked), the decision, naming the
 // host, and the output in logs/<id>/gate-output.txt. The merge queue's
 // re-check (StillHoldsOnMain) and the image rebuild's checks always run
-// here.
+// here. Like Run, it drops the ticket's kept early checks.
 func (r Runner) Decide(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket, in Remote) (ticket.Gate, error) {
 	at := *r.Repo(p)
 	at.Base = in.Base
@@ -350,6 +377,7 @@ func (r Runner) Decide(ctx context.Context, cfg *config.Config, p config.Project
 		return ticket.Gate{}, err
 	}
 	g.Host = in.Host
+	r.dropEarly(t.ID)
 	return g, r.writeOutput(t, hygieneOutput(hits, in.Output))
 }
 

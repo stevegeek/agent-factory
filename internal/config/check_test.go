@@ -577,3 +577,53 @@ func TestBuildHostSelfNeedsRemoteBuild(t *testing.T) {
 		t.Errorf("[hosts.self]: %q", problems)
 	}
 }
+
+// A mount that reaches {root}/cache/go, the trusted build caches (the dir,
+// one that holds it, or anything in it), would let a job or a gate write
+// what later runs are lent: factory check refuses it, as the helper and the
+// gate do when they run.
+func TestMountsOfTheTrustedCachesAreRefused(t *testing.T) {
+	for conf, want := range map[string]string{
+		"[remote]\nmounts = [\"{root}/cache/go:/x\"]\n":                 `[remote] mounts: "{root}/cache/go:/x" reaches {root}/cache/go, the trusted build caches, which only a warm may mount`,
+		"[remote.helpera]\nmounts = [\"{root}/cache:/x:ro\"]\n":         `[remote.helpera] mounts: "{root}/cache:/x:ro" reaches {root}/cache/go, the trusted build caches, which only a warm may mount`,
+		"[gate]\nmounts = [\"{root}/cache/go/p/current:/x:O\"]\n":       `[gate] mounts: "{root}/cache/go/p/current:/x:O" reaches {root}/cache/go, the trusted build caches, which only a warm may mount`,
+		"[gate]\nmounts = [\"{root}:/x\"]\n":                            `[gate] mounts: "{root}:/x" reaches {root}/cache/go, the trusted build caches, which only a warm may mount`,
+		"[gate]\nmounts = [\"{root}/./cache//go/:/x\"]\n":               `[gate] mounts: "{root}/./cache//go/:/x" reaches {root}/cache/go, the trusted build caches, which only a warm may mount`,
+		"[remote]\nmounts = [\"{root}/cache/bundle:/b\"]\n":             "",
+		"[gate]\nmounts = [\"{root}/cache/gopher:/b\", \"named:/n\"]\n": "",
+	} {
+		var got []string
+		for _, p := range mustProblems(mustParse(t, conf)) {
+			if strings.Contains(p, "mounts") {
+				got = append(got, p)
+			}
+		}
+		if want == "" && len(got) != 0 || want != "" && !reflect.DeepEqual(got, []string{want}) {
+			t.Errorf("%q: problems %q, want %q", conf, got, want)
+		}
+	}
+}
+
+// A [gate] mount that reaches {root}/gate-early, the gate's kept early
+// checks, is refused by every gate at run time: factory check says so
+// first. One of all of {root} is reported once, as a cache mount; a helper's
+// mounts never reach the master's early checks.
+func TestGateMountsOfTheEarlyChecksAreRefused(t *testing.T) {
+	for conf, want := range map[string]string{
+		"[gate]\nmounts = [\"{root}/gate-early:/x\"]\n":                      `[gate] mounts: "{root}/gate-early:/x" reaches {root}/gate-early, the gate's kept early checks, which no container may mount: every gate would be refused`,
+		"[gate]\nmounts = [\"{root}/gate-early/T0001.json:/x\"]\n":           `[gate] mounts: "{root}/gate-early/T0001.json:/x" reaches {root}/gate-early, the gate's kept early checks, which no container may mount: every gate would be refused`,
+		"[gate]\nmounts = [\"{root}/:/x:ro\"]\n":                             `[gate] mounts: "{root}/:/x:ro" reaches {root}/cache/go, the trusted build caches, which only a warm may mount`,
+		"[gate]\nmounts = [\"{root}/gate:/x\", \"{root}/gate-earlyx:/y\"]\n": "",
+		"[remote]\nmounts = [\"{root}/gate-early:/x\"]\n":                    "",
+	} {
+		var got []string
+		for _, p := range mustProblems(mustParse(t, conf)) {
+			if strings.Contains(p, "mounts") {
+				got = append(got, p)
+			}
+		}
+		if want == "" && len(got) != 0 || want != "" && !reflect.DeepEqual(got, []string{want}) {
+			t.Errorf("%q: problems %q, want %q", conf, got, want)
+		}
+	}
+}

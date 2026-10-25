@@ -35,26 +35,38 @@ const unknownHead = "unknown"
 func (d Deps) agents(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket, running map[string]bool) error {
 	hasAgent := func(t *ticket.Ticket) bool { return t.Agent.Present() }
 	return d.Board.EachLocked(ctx, ts, hasAgent, func(t *ticket.Ticket) error {
-		proj, err := d.projectFor(ctx, cfg, t)
-		if err == nil {
-			switch {
-			case t.Agent.V.Stage == gateStage:
-				err = d.gateAgent(ctx, cfg, proj, t)
-			case hostOf(t.Agent.V) != hosts.Local:
-				d.remoteAgent(ctx, cfg, proj, t)
-				return d.save(ctx, t)
-			default:
-				err = d.localAgent(ctx, cfg, proj, t, running)
-			}
+		work := t.Agent.V.Stage == string(model.StageWork)
+		if err := d.agent(ctx, cfg, t, running); err != nil {
+			return err
 		}
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return ctxErr
+		if work && !t.Agent.Present() && t.Column == string(model.ColReview) {
+			d.startEarly(ctx, cfg, t)
 		}
-		if err != nil {
-			ticket.Event(t, "error", head300(err), "", ticket.Errored{Text: head300(err)}, d.now())
-		}
-		return d.save(ctx, t)
+		return nil
 	})
+}
+
+// agent is one ticket of the agent pass, saved whatever happened.
+func (d Deps) agent(ctx context.Context, cfg *config.Config, t *ticket.Ticket, running map[string]bool) error {
+	proj, err := d.projectFor(ctx, cfg, t)
+	if err == nil {
+		switch {
+		case t.Agent.V.Stage == gateStage:
+			err = d.gateAgent(ctx, cfg, proj, t)
+		case hostOf(t.Agent.V) != hosts.Local:
+			d.remoteAgent(ctx, cfg, proj, t)
+			return d.save(ctx, t)
+		default:
+			err = d.localAgent(ctx, cfg, proj, t, running)
+		}
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	if err != nil {
+		ticket.Event(t, "error", head300(err), "", ticket.Errored{Text: head300(err)}, d.now())
+	}
+	return d.save(ctx, t)
 }
 
 // pastTimeout reports an agent that has run longer than the ticket allows.
@@ -340,6 +352,40 @@ func (d Deps) finish(ctx context.Context, cfg *config.Config, proj *config.Proje
 	}
 	*t = *out.Ticket
 	return nil
+}
+
+// startEarly starts Gate 1's checks of the head a worker just left for
+// review (Deps.Early), once that finish is saved, so they run beside
+// review, security and public review. Not for a paused or board project,
+// whose tickets are not gated, nor for a heavy gate, which waits for an
+// idle host, nor when a pull host prefers gates (they would run here, and
+// the gate there). They take one of this host's slots, as a gate does, so
+// they start only when one is free, and the tick counts them while they
+// run. Nothing here fails the pass: a check that does not start is a line
+// in the log, and the gate runs its own.
+func (d Deps) startEarly(ctx context.Context, cfg *config.Config, t *ticket.Ticket) {
+	if d.Early == nil || ctx.Err() != nil || !cfg.Enabled(t.Project) {
+		return
+	}
+	if mode, _ := cfg.ProjectMode(t.Project); mode == config.ModeBoard || gatesPreferPull(cfg) {
+		return
+	}
+	proj, err := d.projectFor(ctx, cfg, t)
+	if err != nil || proj == nil || cfg.HeavyGate(*proj) {
+		return
+	}
+	running, err := d.Local.Running(ctx, cfg)
+	if err != nil || len(running) >= cfg.MaxAgents {
+		d.logf("%s: not checked early: no free slot here (%d of %d agents run)", t.ID, len(running), cfg.MaxAgents)
+		return
+	}
+	head, err := d.Git.Repo(*proj).Head(ctx, t.Branch.Or(""))
+	if err == nil {
+		err = d.Early.Start(ctx, t.ID, head)
+	}
+	if err != nil {
+		d.logf("%s: early checks: %v", t.ID, err)
+	}
 }
 
 func head300(err error) string { return textx.Prefix(err.Error(), 300) }

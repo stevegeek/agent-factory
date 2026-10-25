@@ -11,7 +11,7 @@ You are an unattended agent maintaining a small library. You work on exactly one
 
 ## Workflow
 1. Set up with the project's commands (under "This project" in your task); dependencies are cached, so this is usually fast.
-2. Run the project's tests and lint before and after your change.
+2. Run the full test suite and the lint before and after your change (the project's commands); the branch you leave must pass them.
 3. Keep the change minimal and on-task. A bug fix includes a regression test that fails without the fix.
 4. Commit with a conventional message (`fix:`, `docs:`, `test:`, `chore:`, `feat:`).
 

@@ -21,7 +21,9 @@ import (
 	agentfactory "github.com/stevegeek/agent-factory"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/fsx"
+	"github.com/stevegeek/agent-factory/internal/gocache"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/textx"
 )
 
@@ -284,10 +286,73 @@ func Render(src fs.FS, configDir, outDir string) error {
 		}
 		f.data = out
 		t.files[name] = f
+		if strings.HasPrefix(name, "scion-templates/") && path.Base(name) == "scion-agent.yaml" {
+			if err := cacheVolumes(name, out, vs); err != nil {
+				return err
+			}
+		}
 	}
 	t.files["images/pi/agent-rules.md"] = file{t.files[rules].data, t.files[rules].perm}
 
 	return t.write(outDir)
+}
+
+// cacheVolumes refuses a rendered Scion template whose volumes: list
+// mounts the trusted build caches ({{factory_root}}/cache/go, anything in
+// it or a directory that holds it; gocache.Reaches): a local agent with
+// such a volume could write what the gate is lent. The same goes for the
+// gate's kept early checks ({{factory_root}}/gate-early), whose result a
+// gate would use.
+func cacheVolumes(name string, data []byte, vs ValueList) error {
+	root := ""
+	for _, v := range vs {
+		if v.Name == "factory_root" {
+			root = v.Text
+		}
+	}
+	for _, src := range volumeSources(string(data)) {
+		if gocache.Reaches(root, src) {
+			return problemf("%s: volume %s reaches %s, the trusted build caches, which no agent may mount", name, pyRepr(src), gocache.Root(root))
+		}
+		if early := (paths.Paths{Root: root}).EarlyChecks(); gocache.ReachesDir(root, early, src) {
+			return problemf("%s: volume %s reaches %s, the gate's kept early checks, which no agent may mount", name, pyRepr(src), early)
+		}
+	}
+	return nil
+}
+
+// volumeSources are the sources in a Scion template's top-level volumes:
+// list, each a "source:" value or a list item written as one string
+// ("/host:/target"), unquoted and without a trailing comment.
+func volumeSources(yaml string) []string {
+	var out []string
+	in := false
+	for _, line := range strings.Split(yaml, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if line[0] != ' ' && line[0] != '\t' && line[0] != '-' {
+			in = strings.HasPrefix(line, "volumes:")
+			continue
+		}
+		if !in {
+			continue
+		}
+		item := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
+		v, isSource := strings.CutPrefix(item, "source:")
+		if !isSource {
+			if !strings.HasPrefix(trimmed, "-") || !strings.HasPrefix(strings.Trim(item, `"'`), "/") {
+				continue
+			}
+			v = item
+		}
+		if i := strings.Index(v, " #"); i >= 0 {
+			v = v[:i]
+		}
+		out = append(out, strings.Trim(strings.TrimSpace(v), `"'`))
+	}
+	return out
 }
 
 // fill is render_file: the text read as Python reads it in text mode

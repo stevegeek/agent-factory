@@ -69,6 +69,17 @@ func gateHost(cfg *config.Config, p config.Project, t *ticket.Ticket, busy map[s
 	return "", false
 }
 
+// gatesPreferPull reports a pull host with "gate" in prefer, which takes
+// every gate it has room for (gateHost).
+func gatesPreferPull(cfg *config.Config) bool {
+	for _, h := range cfg.Hosts {
+		if h.Pull() && slices.Contains(h.Prefer, gateStage) {
+			return true
+		}
+	}
+	return false
+}
+
 // gateJobs counts the gate jobs started since the ticket last came into the
 // gate column.
 func gateJobs(t *ticket.Ticket) int {

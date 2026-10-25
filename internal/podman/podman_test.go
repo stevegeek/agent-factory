@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -169,6 +170,87 @@ func TestGateRefusesBadValues(t *testing.T) {
 	}
 }
 
+// A warm's container: no network, no capability, the keep-id user, the
+// source read-only, and the scratch cache the only writable mount; nothing
+// in its environment but HOME and what the caller passes.
+func TestWarmArgv(t *testing.T) {
+	r := &recorder{}
+	p := Client{Exec: r, Env: []string{"PATH=/usr/bin"}}
+	ok, _, err := p.RunWarm(context.Background(), Warm{
+		Name: "factory-warm-example", Image: "localhost/a:scion", Memory: "900m", CPUs: "2",
+		Env: []string{"GOFLAGS=-mod=readonly"}, Cache: "/f/cache/go/example/.warm-aaaaaaaaaaaa", Target: "/home/scion/.cache/go-build",
+		Source: "/f/jobs/j/work", SourceAt: "/src", Work: "/f/jobs/j/warm", WorkAt: "/job", Script: "go build ./..."})
+	if !ok || err != nil {
+		t.Fatalf("%v %v", ok, err)
+	}
+	want := []string{"podman", "run", "--rm", "--name", "factory-warm-example", "--network", "none",
+		"--cap-drop=all", "--security-opt=no-new-privileges", "--userns=keep-id:uid=1000,gid=1000", "--user", "1000:1000",
+		"--memory", "900m", "--pids-limit", "512", "--cpus", "2", "--timeout", "1800",
+		"-e", "HOME=/tmp", "-e", "GOCACHE=/home/scion/.cache/go-build", "-e", "GOFLAGS=-mod=readonly",
+		"-v", "/f/cache/go/example/.warm-aaaaaaaaaaaa:/home/scion/.cache/go-build",
+		"-v", "/f/jobs/j/work:/src:ro", "-v", "/f/jobs/j/warm:/job", "-w", "/src",
+		"--entrypoint", "/bin/sh", "localhost/a:scion", "-c", "go build ./..."}
+	c := r.calls[0]
+	if !reflect.DeepEqual(c.Argv, want) {
+		t.Fatalf("argv\n got %q\nwant %q", c.Argv, want)
+	}
+	if c.Timeout != WarmTimeout || c.Cleanup == nil || !reflect.DeepEqual(c.Env, []string{"PATH=/usr/bin"}) {
+		t.Errorf("timeout %v cleanup %v env %q", c.Timeout, c.Cleanup != nil, c.Env)
+	}
+	r.answer = func(execx.Cmd) (execx.Result, error) { return execx.Result{Code: 1, Stderr: []byte("vet failed")}, nil }
+	ok, tail, err := p.RunWarm(context.Background(), Warm{Name: "n", Image: "i", Memory: "1g", Cache: "/c", Target: "/t", Source: "/s", SourceAt: "/work", Script: "x"})
+	if ok || err != nil || tail != "vet failed" {
+		t.Errorf("a failed warm: %v %q %v", ok, tail, err)
+	}
+	if a := r.calls[1].Argv; slices.Contains(a, "--cpus") || slices.Contains(a, "/job") || a[slices.Index(a, "-w")+1] != "/work" {
+		t.Errorf("no cpus or work dir asked, got %q", a)
+	}
+}
+
+// A warm under a context that ends sooner than WarmTimeout gets what is
+// left, as podman's --timeout too: a warm outlives no caller's deadline.
+func TestWarmTimeoutFollowsTheContext(t *testing.T) {
+	r := &recorder{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute+500*time.Millisecond)
+	defer cancel()
+	w := Warm{Name: "n", Image: "i", Memory: "1g", Cache: "/c", Target: "/t", Source: "/s", SourceAt: "/src", Script: "x"}
+	if _, _, err := (Client{Exec: r}).RunWarm(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	c := r.calls[0]
+	if i := slices.Index(c.Argv, "--timeout"); i < 0 || c.Argv[i+1] != "600" || c.Timeout != 600*time.Second {
+		t.Errorf("timeout %v, argv %q", c.Timeout, c.Argv)
+	}
+}
+
+func TestWarmRefusesBadValues(t *testing.T) {
+	good := Warm{Name: "n", Image: "i", Memory: "1g", Cache: "/c", Target: "/t", Source: "/s", SourceAt: "/src", Script: "x"}
+	for _, change := range []func(w *Warm){
+		func(w *Warm) { w.Name = "-n" },
+		func(w *Warm) { w.Image = "" },
+		func(w *Warm) { w.Memory = "-1" },
+		func(w *Warm) { w.CPUs = "-2" },
+		func(w *Warm) { w.Cache = "" },
+		func(w *Warm) { w.Cache = "/c:/etc" },
+		func(w *Warm) { w.Cache = "/c,O" },
+		func(w *Warm) { w.Cache = "relative" },
+		func(w *Warm) { w.Target = "t" },
+		func(w *Warm) { w.Source = "/s:/x" },
+		func(w *Warm) { w.Source = "" },
+		func(w *Warm) { w.SourceAt = "" },
+		func(w *Warm) { w.Work = "/w" },
+		func(w *Warm) { w.Work, w.WorkAt = "/w:/x", "/job" },
+		func(w *Warm) { w.Env = []string{"NOEQUALS"} },
+	} {
+		w := good
+		change(&w)
+		r := &recorder{}
+		if _, _, err := (Client{Exec: r}).RunWarm(context.Background(), w); err == nil || len(r.calls) != 0 {
+			t.Errorf("%+v ran", w)
+		}
+	}
+}
+
 // a cancelled or timed-out run leaves no container behind: Cleanup
 // removes it by name, bounded by its own timeout.
 func TestCleanupRemovesTheNamedContainer(t *testing.T) {
@@ -241,5 +323,37 @@ func TestBinOverride(t *testing.T) {
 	Client{Exec: r, Bin: "/usr/bin/podman"}.Prune(context.Background())
 	if r.calls[0].Argv[0] != "/usr/bin/podman" {
 		t.Fatalf("%q", r.calls[0].Argv)
+	}
+}
+
+// ImageID is the image a tag names now, so a result can be tied to the
+// image itself rather than to a tag a rebuild moves; anything but one
+// plain id is an error, and podman gets a short timeout: a tick asks.
+func TestImageID(t *testing.T) {
+	id := strings.Repeat("ab", 32)
+	r := &recorder{answer: func(c execx.Cmd) (execx.Result, error) {
+		switch c.Argv[len(c.Argv)-1] {
+		case "there":
+			return execx.Result{Stdout: []byte(id + "\n")}, nil
+		case "odd":
+			return execx.Result{Stdout: []byte("not an id\n")}, nil
+		}
+		return execx.Result{Code: 125, Stderr: []byte("no such image")}, nil
+	}}
+	p := Client{Exec: r}
+	ctx := context.Background()
+	if got, err := p.ImageID(ctx, "there"); got != id || err != nil {
+		t.Fatalf("%q %v", got, err)
+	}
+	if !reflect.DeepEqual(r.calls[0].Argv, []string{"podman", "image", "inspect", "--format", "{{.Id}}", "there"}) {
+		t.Fatalf("%q", r.calls[0].Argv)
+	}
+	if c := r.calls[0].Timeout; c == 0 || c > time.Minute {
+		t.Errorf("timeout %v", c)
+	}
+	for _, tag := range []string{"gone", "odd", "-x", ""} {
+		if got, err := p.ImageID(ctx, tag); err == nil {
+			t.Errorf("%q: %q", tag, got)
+		}
 	}
 }

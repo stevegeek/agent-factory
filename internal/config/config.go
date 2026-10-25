@@ -282,6 +282,7 @@ type Remote struct {
 type RemoteHost struct {
 	Name, Agent, Auth, Image string
 	Watchdog, WatchdogIP     string
+	Mounts                   []string
 }
 
 // RemoteKeys are the keys of a [remote] table; no helper is named after

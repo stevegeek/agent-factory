@@ -94,6 +94,8 @@ func TestPromptsMatchPython(t *testing.T) {
 			got := For(s).Prompt(PromptIn{Ticket: tk, Project: proj, ReviewMD: pc.ReviewMD, Memory: mem, Local: pc.Host == model.LocalHost})
 			// the one paragraph Go adds to Python's memory section (what kept conflicts look like)
 			got = strings.Replace(got, memory.ConflictNote, "", 1)
+			// and the note Go adds on running the suite (security's, here)
+			got = strings.Replace(got, TestNote(s, "", ""), "", 1)
 			if got != string(want) {
 				t.Errorf("prompt differs (-python +go):\n%s", testkit.Diff(string(want), got))
 			}
@@ -194,5 +196,53 @@ func TestReworkFindingsReadAnyReportShape(t *testing.T) {
 	tk.Reports = decode(t, `{"id": "T0002", "reports": {"review": "changes"}}`).Reports
 	if got := For(model.StageWork).Prompt(PromptIn{Ticket: tk}); strings.Contains(got, "reviewer") {
 		t.Errorf("a review that is not an object asks for nothing:\n%s", got)
+	}
+}
+
+// Only the worker and the gate run a Go module's whole suite: a reviewer
+// is told to vet and test the packages its diff touches, by every changed
+// file (test data and embedded files too), or everything when go.mod or
+// go.sum changes; security, whatever the kind, runs nothing. A reviewer of
+// another kind keeps its own command, and no other stage is told either.
+// The note comes last, after the project context, which reaches every
+// role: a context note on running the suite cannot undo it.
+func TestEachRoleIsToldHowMuchOfTheSuiteToRun(t *testing.T) {
+	c := cfg(t, projectsTOML(map[string]map[string]string{
+		"lib": {"base": "main", "language": "Go module", "install": "go version", "test": "go vet ./... && go test -count=1 ./...", "lint": "gofmt -l ."},
+	}))
+	p, _ := c.Project("lib")
+	tk := running(t, "T0001", "review", "review", "")
+	mem := &ticket.MemoryRef{Role: "reviewer", Context: true}
+	got := For(model.StageReview).Prompt(PromptIn{Ticket: tk, Project: p, Toolchain: "go", Memory: mem})
+	for _, want := range []string{"- tests: `go vet ./... && go test -count=1 ./...`", "only on the packages",
+		"`git diff --name-only main...HEAD`", "test data, embedded files and deleted files", "`testdata`",
+		"`go vet ./internal/x/ && go test -count=1 ./internal/x/`", "`go.mod` or `go.sum`", "the gate runs it again"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("review prompt lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "'*.go'") {
+		t.Errorf("the reviewer only looks at Go files:\n%s", got)
+	}
+	for _, s := range []model.Stage{model.StageReview, model.StageSecurity} {
+		got := For(s).Prompt(PromptIn{Ticket: tk, Project: p, Toolchain: "go", Memory: mem})
+		note, context := strings.Index(got, "## Running the suite"), strings.Index(got, "## Project context")
+		if note < 0 || context < 0 || note < context || strings.Contains(got[note:], "\n## ") {
+			t.Errorf("%s: the note does not come last, after the project context:\n%s", s, got)
+		}
+	}
+	if got := For(model.StageReview).Prompt(PromptIn{Ticket: tk, Project: p, Toolchain: "ruby"}); strings.Contains(got, "Running the suite") {
+		t.Errorf("a ruby review was told to test packages:\n%s", got)
+	}
+	for _, tc := range []string{"go", "ruby", ""} {
+		got := For(model.StageSecurity).Prompt(PromptIn{Ticket: tk, Project: p, Toolchain: tc})
+		if !strings.Contains(got, "Do not run the test suite, the lint or a build") {
+			t.Errorf("security (%q) is not told to run nothing:\n%s", tc, got)
+		}
+	}
+	for _, s := range []model.Stage{model.StageWork, model.StageTriage} {
+		if got := For(s).Prompt(PromptIn{Ticket: tk, Project: p, Toolchain: "go"}); strings.Contains(got, "Running the suite") {
+			t.Errorf("%s was told to run less than the suite:\n%s", s, got)
+		}
 	}
 }

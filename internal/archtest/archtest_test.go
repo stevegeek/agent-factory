@@ -145,7 +145,7 @@ func TestTableMatchesThePlan(t *testing.T) {
 		".", "cmd/factory", "cmd/factory-pull", "cmd/factory-remote", "cmd/foreman",
 		"internal/api", "internal/archtest", "internal/auth", "internal/backup", "internal/boardread", "internal/buildinfo", "internal/builds", "internal/cli",
 		"internal/clock", "internal/config", "internal/deploy", "internal/deployrec", "internal/doors", "internal/execx", "internal/fizzy", "internal/fsx",
-		"internal/gate", "internal/github", "internal/gitread", "internal/gitx", "internal/guard", "internal/helper",
+		"internal/gate", "internal/github", "internal/gitread", "internal/gitx", "internal/gocache", "internal/guard", "internal/helper",
 		"internal/hostrun", "internal/hosts", "internal/imagebuild", "internal/jobproto", "internal/jobtail",
 		"internal/jsonx", "internal/logx", "internal/mailbox", "internal/mcp", "internal/mdhtml", "internal/mdout", "internal/memory",
 		"internal/memstore", "internal/model", "internal/onboard", "internal/operator", "internal/ops", "internal/panel", "internal/paths", "internal/pipeline",

@@ -649,3 +649,67 @@ func TestRenderLiveConfig(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// Each role's own instructions say how much of the suite it runs: the
+// worker the whole of it, the reviewer what its task says (for a Go module
+// the touched packages), and security none, since it reads the change.
+func TestRolesSayHowMuchOfTheSuiteToRun(t *testing.T) {
+	read := func(role string) string {
+		b, err := fs.ReadFile(agentfactory.Assets, "templates/ruby-gem/"+role+"/agents.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	for role, wants := range map[string][]string{
+		"worker":   {"the full test suite and the lint before and after your change"},
+		"reviewer": {"the tests your task says to run", "the gate runs the whole suite"},
+		"security": {"Do not run the test suite, the lint or a build: read the change."},
+	} {
+		md := read(role)
+		for _, want := range wants {
+			if !strings.Contains(md, want) {
+				t.Errorf("%s/agents.md lacks %q", role, want)
+			}
+		}
+	}
+}
+
+// A template volume that mounts the trusted build caches, the dir that
+// holds them or anything in them, written any way, is refused: a local
+// agent with it could write what the gate is lent. One beside them, like
+// the bundle cache every shipped template mounts, renders.
+func TestRenderRefusesATemplateVolumeOfTheTrustedCaches(t *testing.T) {
+	yaml := func(volumes string) string {
+		return "schema_version: \"1\"\nenv:\n  SOURCE: {{factory_root}}/cache/go\nvolumes:\n" + volumes + "resources:\n  limits:\n    memory: 900Mi\n"
+	}
+	for _, v := range []string{
+		"  - type: local\n    source: {{factory_root}}/cache/go\n    target: /home/scion/.cache/go-build\n",
+		"  - source: \"{{factory_root}}/cache/go/example-lib/current\"   # one project\n    target: /x\n",
+		"  - type: local\n    source: '{{factory_root}}/cache'\n    target: /x\n    read_only: true\n",
+		"  - {{factory_root}}:/factory\n",
+		"  - type: local\n    source: /\n    target: /host\n",
+	} {
+		m := smallAssets()
+		m["templates/flav/worker/scion-agent.yaml"] = &fstest.MapFile{Data: []byte(yaml(v))}
+		err := Render(m, writeConfigDir(t, smallConfig, nil), filepath.Join(t.TempDir(), "out"))
+		if err == nil || !strings.Contains(err.Error(), "scion-templates/my-worker/scion-agent.yaml: volume") ||
+			!strings.Contains(err.Error(), "/home/factory/factory/cache/go, the trusted build caches") {
+			t.Errorf("%q: err %v", v, err)
+		}
+	}
+	// nor the gate's kept early results, which a local agent could forge
+	m := smallAssets()
+	m["templates/flav/worker/scion-agent.yaml"] = &fstest.MapFile{Data: []byte(yaml("  - {{factory_root}}/gate-early:/x\n"))}
+	err := Render(m, writeConfigDir(t, smallConfig, nil), filepath.Join(t.TempDir(), "out"))
+	if err == nil || !strings.Contains(err.Error(), "/home/factory/factory/gate-early, the gate's kept early checks") {
+		t.Errorf("gate-early: err %v", err)
+	}
+	m = smallAssets()
+	m["templates/flav/worker/scion-agent.yaml"] = &fstest.MapFile{Data: []byte(yaml(
+		"  - type: local\n    source: {{factory_root}}/cache/bundle\n    target: /home/scion/.bundle-cache\n    read_only: true\n" +
+			"  - {{factory_root}}/cache/gopher:/x\n"))}
+	if err := Render(m, writeConfigDir(t, smallConfig, nil), filepath.Join(t.TempDir(), "out")); err != nil {
+		t.Errorf("volumes beside the caches: %v", err)
+	}
+}

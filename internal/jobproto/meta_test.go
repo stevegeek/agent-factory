@@ -197,3 +197,55 @@ func TestGateMeta(t *testing.T) {
 		}
 	}
 }
+
+// An agent job may name its project, the project's toolchain and the
+// base's head, after everything else and only when there is a project, so
+// a helper can warm and lend that project's build cache. Each is checked
+// when present; a meta without them (an older dispatcher) reads as before.
+func TestProjectMeta(t *testing.T) {
+	base := strings.Repeat("0123456789abcdef", 3)[:40]
+	m := Meta{Branch: "bot/t0001", Start: "main", TimeoutMinutes: 30, Project: "example-lib", Toolchain: "go", Base: base}
+	want := `{"branch": "bot/t0001", "start": "main", "model": "", "bundle": false, "timeout_minutes": 30, ` +
+		`"project": "example-lib", "toolchain": "go", "base": "` + base + `"}`
+	if got := string(m.Encode()); got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+	back, err := ParseMeta(m.Encode())
+	if err != nil || back.Project != "example-lib" || back.Toolchain != "go" || back.Base != base {
+		t.Errorf("round trip: %+v %v", back, err)
+	}
+	if got := string((Meta{Branch: "x", Start: "main"}).Encode()); strings.Contains(got, "project") || strings.Contains(got, "base") {
+		t.Errorf("a job with no project named one: %s", got)
+	}
+	old, err := CheckMeta(mustParse(t, `{"branch": "x", "start": "main"}`))
+	if err != nil || old.Project != "" || old.Toolchain != "" || old.Base != "" {
+		t.Errorf("an older dispatcher's meta: %+v %v", old, err)
+	}
+	for _, bad := range []string{
+		`{"branch": "x", "start": "main", "project": "../x"}`,
+		`{"branch": "x", "start": "main", "project": "a/b"}`,
+		`{"branch": "x", "start": "main", "project": ".hidden"}`,
+		`{"branch": "x", "start": "main", "project": "-x"}`,
+		`{"branch": "x", "start": "main", "project": "a..b"}`,
+		`{"branch": "x", "start": "main", "project": "` + strings.Repeat("a", 65) + `"}`,
+		`{"branch": "x", "start": "main", "project": 7}`,
+		`{"branch": "x", "start": "main", "toolchain": "Go"}`,
+		`{"branch": "x", "start": "main", "toolchain": "go;rm"}`,
+		`{"branch": "x", "start": "main", "base": "main"}`,
+		`{"branch": "x", "start": "main", "base": "` + base[:39] + `"}`,
+		`{"branch": "x", "start": "main", "base": "` + strings.ToUpper(base) + `"}`,
+	} {
+		if _, err := CheckMeta(mustParse(t, bad)); err == nil {
+			t.Errorf("%s: accepted", bad)
+		}
+	}
+}
+
+// A helper that predates a key reads past it: what a newer dispatcher adds
+// is ignored, never refused, so an old helper runs the job as it always has.
+func TestMetaIgnoresUnknownKeys(t *testing.T) {
+	m, err := CheckMeta(mustParse(t, `{"branch": "x", "start": "main", "a_later_key": {"any": ["thing"]}}`))
+	if err != nil || m.Branch != "x" {
+		t.Errorf("%+v %v", m, err)
+	}
+}

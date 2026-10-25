@@ -244,3 +244,22 @@ func readFile(t *testing.T, path string) []byte {
 	}
 	return b
 }
+
+// A helper job knows its project's toolchain (from the project's kind), so
+// its start can name the project and base head for the build cache; a
+// project with no kind has the toolchain its language implies.
+func TestAHelperJobKnowsItsProjectsToolchain(t *testing.T) {
+	for _, c := range []struct{ kind, want string }{{`kind = "go-module"`, "go"}, {"", "ruby"}} {
+		h := newHarness(t)
+		h.config(strings.Replace(oneSlot, `base = "main"`, "base = \"main\"\n"+c.kind, 1))
+		h.file("p", "t", "triage", nil)
+		h.file("p", "t", "triage", nil)
+		h.tick()
+		if len(h.helpers["pi"].started) != 1 {
+			t.Fatalf("%s: helper started %d", c.kind, len(h.helpers["pi"].started))
+		}
+		if got := h.helpers["pi"].started[0].Toolchain; got != c.want {
+			t.Errorf("%s: toolchain %q, want %q", c.kind, got, c.want)
+		}
+	}
+}

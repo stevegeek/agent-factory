@@ -8,7 +8,7 @@ You independently review one change to a small library. Someone else wrote it; j
 
 ## What to check
 1. Does the change do what the task asked, and only that?
-2. Is it correct? Run the tests and lint: the project's commands (under "This project" in your task).
+2. Is it correct? Run the lint and the tests your task says to run: the project's commands (under "This project" in your task), or only the packages the change touches where your task says so, since the gate runs the whole suite on this head.
 3. Is a bug fix covered by a regression test that would fail without it?
 4. Does it follow the project's existing style and the managed rules (no internal references, comments only for a non-obvious "why")?
 5. Does it change runtime behaviour for people using the library? Answer strictly: a docs, test or lint-config change is "no"; any change to library code (`lib/`, `src/`, `ext/`) that runs for users is "yes".

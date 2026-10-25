@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -133,5 +134,44 @@ func TestCheckRefusesAGitFile(t *testing.T) {
 	code, out, _ := f.run("", "check")
 	if code != 1 || out != "[projects.fac] "+repo+"/.git is not a directory: the factory refuses a repository whose .git is a file or a link\n" {
 		t.Errorf("check: %d %q", code, out)
+	}
+}
+
+// A mount written as an absolute path that holds or reaches the trusted
+// build caches (the root, a directory above it, the caches themselves) is
+// what the gate and a helper refuse for every job, whatever its kind:
+// check says so before an upgrade does, and of a [gate] mount that reaches
+// the kept early checks, which every gate refuses too. [gate] is this host's, a problem;
+// a helper's root is not known here, so [remote] is a warning, checked
+// against this root and {factory_home}/factory.
+func TestCheckFindsAbsoluteMountsOfTheTrustedCaches(t *testing.T) {
+	f := newFixture(t)
+	root := f.env.Root
+	f.env.WriteConfig(t, checkConfig+`
+[host]
+factory_home = "/home/example-factory"
+
+[gate]
+mounts = ["`+filepath.Dir(root)+`:/x:ro", "/srv/elsewhere:/y", "`+root+`/gate-early/T0001.json:/e"]
+
+[remote]
+mounts = ["/home/example-factory/shared/..:/x", "/srv/data:/d"]
+
+[remote.helper1]
+mounts = ["`+root+`/cache:/c"]
+`)
+	code, out, _ := f.run("", "check")
+	for _, want := range []string{
+		`[gate] mounts: "` + filepath.Dir(root) + `:/x:ro" reaches ` + root + `/cache/go`,
+		`[gate] mounts: "` + root + `/gate-early/T0001.json:/e" reaches ` + root + `/gate-early, the gate's kept early checks`,
+		`warning: [remote] mounts: "/home/example-factory/shared/..:/x" reaches /home/example-factory/factory/cache/go`,
+		`warning: [remote.helper1] mounts: "` + root + `/cache:/c" reaches ` + root + `/cache/go`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("check lacks %q:\n%s", want, out)
+		}
+	}
+	if code != 1 || strings.Contains(out, "/srv/") {
+		t.Errorf("check: %d\n%s", code, out)
 	}
 }

@@ -94,7 +94,8 @@ func (h *Jobs) Start(ctx context.Context, j Job) error {
 }
 
 // StartMeta is the meta.json of j: its branch and start, model, bundle
-// (work only) and timeout.
+// (work only) and timeout; for a project whose toolchain is known, the
+// project, the toolchain and the base's head too (projectMeta).
 func (h *Jobs) StartMeta(ctx context.Context, j Job) (jobproto.Meta, error) {
 	info, err := j.info()
 	if err != nil {
@@ -110,6 +111,7 @@ func (h *Jobs) StartMeta(ctx context.Context, j Job) (jobproto.Meta, error) {
 	if !info.Branch {
 		m.Branch, m.Start = string(j.Stage), "none"
 		if j.Project != nil {
+			projectMeta(ctx, j, &m)
 			m.Start = j.Project.Base
 			if ref := j.Ticket.Ref.Or(""); j.Stage == model.StageTask && ref != "" {
 				ok, err := exists(ref)
@@ -137,7 +139,24 @@ func (h *Jobs) StartMeta(ctx context.Context, j Job) (jobproto.Meta, error) {
 	if ok {
 		m.Start = m.Branch
 	}
+	projectMeta(ctx, j, &m)
 	return m, nil
+}
+
+// projectMeta names j's project, its toolchain and the base's head in m,
+// read before the bundle, which then holds that commit: what a helper
+// warms its build cache from. A project key that is not one path element,
+// an unknown toolchain or a base that does not read names none, and the
+// helper runs the job cold.
+func projectMeta(ctx context.Context, j Job, m *jobproto.Meta) {
+	if j.Toolchain == "" || j.Repo == nil || !jobproto.ValidProject(j.Project.Key) {
+		return
+	}
+	base, err := j.Repo.Head(ctx, j.Project.Base)
+	if err != nil {
+		return
+	}
+	m.Project, m.Toolchain, m.Base = j.Project.Key, j.Toolchain, base
 }
 
 // GateMinutes is a gate job's time on its host: the gate's own 30 minutes

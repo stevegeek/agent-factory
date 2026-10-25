@@ -58,6 +58,7 @@ func TestDerivedPaths(t *testing.T) {
 		p.ImagesState():        "/srv/f/images.json",
 		p.UsageLog():           "/srv/f/usage.jsonl",
 		p.Mailbox():            "/srv/f/mailbox",
+		p.EarlyChecks():        "/srv/f/gate-early",
 		p.Deploys():            "/srv/f/deploys",
 		p.DeployRequest():      "/srv/f/deploys/request.json",
 		p.DeployState():        "/srv/f/deploys/state.json",

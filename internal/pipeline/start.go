@@ -105,8 +105,12 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 	if err != nil {
 		return err
 	}
+	toolchain := ""
+	if proj != nil {
+		toolchain = cfg.Toolchain(*proj)
+	}
 	prompt := stage.For(s).Prompt(stage.PromptIn{Ticket: t, Project: proj, ReviewMD: reviewMD, Memory: ref, Local: local,
-		Known: known, KnownNote: knownNote, Public: public})
+		Known: known, KnownNote: knownNote, Public: public, Toolchain: toolchain})
 	mdl := hosts.Model(cfg, t, string(s), host)
 
 	// write-ahead: if this process dies between starting the agent and
@@ -117,7 +121,7 @@ func (d Deps) start(ctx context.Context, cfg *config.Config, proj *config.Projec
 		return err
 	}
 	job := hostrun.Job{Ticket: t, Stage: s, Name: name, Prompt: prompt, Model: mdl, Template: cfg.Template(string(s)),
-		Project: proj, RunConfig: runConfig, Pinned: pins}
+		Project: proj, RunConfig: runConfig, Pinned: pins, Toolchain: toolchain}
 	if err := d.launch(ctx, cfg, host, job, repo, ref); err != nil {
 		if ref != nil && ref.Dir != "" {
 			_ = memory.Discard(ref)
@@ -258,6 +262,10 @@ type jobRepo struct{ r *gitread.Repo }
 
 func (j jobRepo) BranchExists(ctx context.Context, branch string) (bool, error) {
 	return j.r.BranchExists(ctx, branch)
+}
+
+func (j jobRepo) Head(ctx context.Context, branch string) (string, error) {
+	return j.r.Head(ctx, branch)
 }
 
 func (j jobRepo) Bundle(ctx context.Context, refs []string) ([]byte, error) {

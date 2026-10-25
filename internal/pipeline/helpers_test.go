@@ -329,6 +329,62 @@ type fakeGate struct {
 	err     error
 	ran     []ticket.ID
 	decided []gate.Remote
+	kept    *gate.Remote // what Kept gives, nil for none
+	keptErr error
+}
+
+// Kept is the early checks' result the fake was given, used once.
+func (f *fakeGate) Kept(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) (gate.Remote, bool, error) {
+	f.c.note("gate.kept")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.keptErr != nil {
+		return gate.Remote{}, false, f.keptErr
+	}
+	if f.kept == nil {
+		return gate.Remote{}, false, nil
+	}
+	k := *f.kept
+	f.kept = nil
+	return k, true, nil
+}
+
+// earlyStart is one start of the early checks.
+type earlyStart struct {
+	ID   ticket.ID
+	Head string
+}
+
+// fakeEarly records the early checks the tick starts; running is the
+// ones it says run now (nil for none), which a start sets when marks is
+// set, as gate.Early's does.
+type fakeEarly struct {
+	c       *calls
+	mu      sync.Mutex
+	started []earlyStart
+	err     error
+	running *earlyStart
+	marks   bool
+}
+
+func (f *fakeEarly) Running() (ticket.ID, string, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.running == nil {
+		return "", "", false
+	}
+	return f.running.ID, f.running.Head, true
+}
+
+func (f *fakeEarly) Start(ctx context.Context, id ticket.ID, head string) error {
+	f.c.note("early.start")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.started = append(f.started, earlyStart{id, head})
+	if f.marks && f.err == nil {
+		f.running = &earlyStart{id, head}
+	}
+	return f.err
 }
 
 func (f *fakeGate) Run(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket) (ticket.Gate, error) {
@@ -464,6 +520,7 @@ type harness struct {
 	local   *fakeLocal
 	helpers fakeHelpers
 	gate    *fakeGate
+	early   *fakeEarly
 	github  *fakeGitHub
 	doors   *fakeDoors
 	repos   realRepos
@@ -505,6 +562,7 @@ func newHarness(t *testing.T) *harness {
 		local:   newLocal(c),
 		helpers: fakeHelpers{"pi": {c: c, name: "pi", state: jobproto.StateRunning}},
 		gate:    &fakeGate{c: c},
+		early:   &fakeEarly{c: c},
 		github:  &fakeGitHub{c: c, clock: clk},
 		doors:   &fakeDoors{c: c, board: board},
 	}
@@ -538,6 +596,7 @@ func (h *harness) deps() Deps {
 		Helpers: h.helpers,
 		Git:     h.repos,
 		Gate:    h.gate,
+		Early:   h.early,
 		GitHub:  h.github,
 		Doors:   h.doors,
 	}

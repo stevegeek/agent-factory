@@ -155,7 +155,7 @@ func decode(raw *toml.Table) *Config {
 		s.used[name] = true
 		h := s.child(name, -1, "[remote."+name+"]", "remote."+name+".", t)
 		h.str("memory", "")
-		h.strList("mounts")
+		mounts := h.strList("mounts")
 		h.env("env")
 		h.integer("max_jobs", 4)
 		h.number("cpus", 2)
@@ -163,7 +163,7 @@ func decode(raw *toml.Table) *Config {
 		h.truthy("build")
 		h.str("build_memory", "")
 		c.Remote.Hosts = append(c.Remote.Hosts, RemoteHost{Name: name, Agent: h.str("agent", ""), Auth: h.str("auth", ""), Image: h.str("image", ""),
-			Watchdog: h.str("watchdog", ""), WatchdogIP: h.str("watchdog_ip", "")})
+			Watchdog: h.str("watchdog", ""), WatchdogIP: h.str("watchdog_ip", ""), Mounts: mounts})
 		h.done()
 	}
 	s.done()

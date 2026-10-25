@@ -38,7 +38,8 @@ func (w Wait) String() string {
 
 // Locked is a held flock(2). The lock belongs to its own open file
 // description, so two Locked values exclude each other inside one process
-// exactly as two processes do. Lock files are never deleted.
+// exactly as two processes do. Lock and Share never delete a lock file;
+// a caller that does deletes it only while it holds the exclusive lock.
 type Locked struct {
 	f    *os.File
 	path string
@@ -78,7 +79,7 @@ func Lock(ctx context.Context, path string, wait Wait) (*Locked, error) {
 		giveUp = time.Now().Add(time.Duration(wait))
 	}
 	for {
-		err := flockNB(f)
+		err := flockNB(f, syscall.LOCK_EX)
 		if err == nil {
 			return &Locked{f: f, path: path}, nil
 		}
@@ -101,7 +102,35 @@ func Lock(ctx context.Context, path string, wait Wait) (*Locked, error) {
 	}
 }
 
-func flockNB(f *os.File) error {
+// TryShare takes a shared lock on path without waiting, beside any other
+// shared one, or returns ErrBusy while an exclusive one is held. Like
+// TryLock it creates the file and refuses a link; it also returns ErrBusy
+// when path no longer names the file it locked, so a lock file that a
+// holder of the exclusive lock deleted is never taken.
+func TryShare(path string) (*Locked, error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o666)
+	if err != nil {
+		return nil, fmt.Errorf("lock %s: %w", path, err)
+	}
+	if err := flockNB(f, syscall.LOCK_SH); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("lock %s: %w", path, err)
+	}
+	held, err := f.Stat()
+	if err == nil {
+		var now os.FileInfo
+		if now, err = os.Lstat(path); err == nil && !os.SameFile(held, now) {
+			err = ErrBusy
+		}
+	}
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("lock %s: %w", path, err)
+	}
+	return &Locked{f: f, path: path}, nil
+}
+
+func flockNB(f *os.File, how int) error {
 	raw, err := f.SyscallConn()
 	if err != nil {
 		return err
@@ -109,7 +138,7 @@ func flockNB(f *os.File) error {
 	var ferr error
 	if err := raw.Control(func(fd uintptr) {
 		for {
-			ferr = syscall.Flock(int(fd), syscall.LOCK_EX|syscall.LOCK_NB)
+			ferr = syscall.Flock(int(fd), how|syscall.LOCK_NB)
 			if ferr != syscall.EINTR {
 				return
 			}

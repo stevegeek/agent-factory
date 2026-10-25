@@ -74,6 +74,7 @@ func (s *Server) start(ctx context.Context, job string) error {
 		return err
 	}
 	// a margin over the container's own timeout, so run always gets to write exit
+	// (a go job's warm comes out of the job's own time: goCache, jobCmd)
 	seconds := meta.TimeoutMinutes*60 + int(jobproto.RuntimeSlack/time.Second)
 	res, err := s.Exec.Run(ctx, execx.Cmd{
 		Argv: []string{"systemd-run", "--user", "--quiet", "--collect", "--unit=" + unit(job),

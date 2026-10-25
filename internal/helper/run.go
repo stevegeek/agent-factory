@@ -14,6 +14,7 @@ import (
 
 	"github.com/stevegeek/agent-factory/internal/execx"
 	"github.com/stevegeek/agent-factory/internal/fsx"
+	"github.com/stevegeek/agent-factory/internal/gocache"
 	"github.com/stevegeek/agent-factory/internal/jobproto"
 	"github.com/stevegeek/agent-factory/internal/podman"
 	"github.com/stevegeek/agent-factory/internal/textx"
@@ -180,9 +181,19 @@ func (s *Server) run(ctx context.Context, job string) (err error) {
 			err = errors.Join(err, uerr)
 		}
 	}()
-	cmd, err := s.jobCmd(d, job)
+	began := s.Clock.Now()
+	lend, err := s.goCache(ctx, d, job)
 	if err != nil {
 		return err
+	}
+	defer lend.Release() // once the container is gone
+	cmd, err := s.jobCmd(d, job, lend.Gen, s.Clock.Now().Sub(began))
+	if err != nil {
+		return err
+	}
+	var note []byte
+	if lend.Note != "" {
+		note = []byte(lend.Note + "\n")
 	}
 	res, err := s.Exec.Run(ctx, cmd)
 	if err != nil {
@@ -191,7 +202,7 @@ func (s *Server) run(ctx context.Context, job string) (err error) {
 		// which stops the container (TERM, then KILL after 5 s) and removes
 		// it. exit stays 255, since no container status came back; what
 		// the run printed so far still goes to run.log.
-		if out := append(res.Stdout, res.Stderr...); len(out) > 0 {
+		if out := slices.Concat(note, res.Stdout, res.Stderr); len(out) > len(note) {
 			if werr := fsx.WriteAtomic(filepath.Join(d, "run.log"), out, 0o644); werr != nil {
 				err = errors.Join(err, fmt.Errorf("run.log: %w", werr))
 			}
@@ -199,15 +210,17 @@ func (s *Server) run(ctx context.Context, job string) (err error) {
 		return fmt.Errorf("run %s: %w", job, err)
 	}
 	rc = res.Code
-	out := append(res.Stdout, res.Stderr...)
+	out := slices.Concat(note, res.Stdout, res.Stderr)
 	if err := fsx.WriteAtomic(filepath.Join(d, "run.log"), out, 0o644); err != nil {
 		return fmt.Errorf("run.log: %w", err)
 	}
 	return nil
 }
 
-// jobCmd is the job's podman run.
-func (s *Server) jobCmd(d, job string) (execx.Cmd, error) {
+// jobCmd is the job's podman run; gen, when not "", is the trusted build
+// cache generation it is lent, as an overlay (gocache.Mount), and warmed
+// the time its warm took, which comes out of the container's --timeout.
+func (s *Server) jobCmd(d, job, gen string, warmed time.Duration) (execx.Cmd, error) {
 	meta, err := loadMeta(d)
 	if err != nil {
 		return execx.Cmd{}, fmt.Errorf("meta.json: %w", err)
@@ -240,6 +253,10 @@ func (s *Server) jobCmd(d, job string) (execx.Cmd, error) {
 		k, v, _ := strings.Cut(kv, "=")
 		env.set(k, v)
 	}
+	if gen != "" {
+		k, v, _ := strings.Cut(gocache.Env(), "=")
+		env.set(k, v)
+	}
 	credName, credFile, credWhat := "ANTHROPIC_API_KEY", s.keyFile(), "the API key"
 	if cfg.Remote.Auth == AuthSubscription {
 		credName, credFile, credWhat = "CLAUDE_CODE_OAUTH_TOKEN", s.tokenFile(), "the Claude token"
@@ -252,7 +269,7 @@ func (s *Server) jobCmd(d, job string) (execx.Cmd, error) {
 		return execx.Cmd{}, fmt.Errorf("%s (auth = %q): %w", credWhat, cfg.Remote.Auth, err)
 	}
 	name := unit(job)
-	argv := []string{"podman", "run", "--rm", "--name", name, "--timeout", strconv.Itoa(meta.TimeoutMinutes * 60),
+	argv := []string{"podman", "run", "--rm", "--name", name, "--timeout", strconv.Itoa(agentTimeout(meta.TimeoutMinutes, warmed)),
 		"--memory", cfg.Remote.Memory, "--cpus", cfg.Remote.CPUs, "--pids-limit", jobPids,
 		"--cap-drop=all", "--security-opt=no-new-privileges", podman.KeepID, "--user", "1000:1000",
 		"-e", credName}
@@ -261,7 +278,14 @@ func (s *Server) jobCmd(d, job string) (execx.Cmd, error) {
 	}
 	argv = append(argv, "-v", d+"/work:/job", "-v", d+"/home:/home/scion")
 	for _, m := range cfg.Remote.Mounts {
-		argv = append(argv, "-v", strings.ReplaceAll(m, "{root}", s.Root))
+		m = strings.ReplaceAll(m, "{root}", s.Root)
+		if gocache.Reaches(s.Root, m) {
+			return execx.Cmd{}, fmt.Errorf("[remote] mounts: %q reaches the trusted build caches (%s), which no job may mount", m, gocache.Root(s.Root))
+		}
+		argv = append(argv, "-v", m)
+	}
+	if gen != "" {
+		argv = append(argv, "-v", gocache.Mount(gen))
 	}
 	script := h.Script
 	if cfg.Remote.Deps {
