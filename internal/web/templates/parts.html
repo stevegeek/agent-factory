@@ -35,6 +35,18 @@
     {{- else if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Value}}</a>
     {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
 </dl>{{end}}
+{{with .RunOn}}<section class="run-on" aria-label="Run on">
+  <p>{{if .Pin}}Pinned to <b>{{.Pin}}</b>{{with .Waiting}}. <span class="pin-tag waiting">Waiting</span> {{$.Ticket.RunOn.Pin}} {{.}}{{end}}.{{else}}Runs on any host.{{end}}</p>
+  {{if .Hosts}}<form class="run-on-form" method="post" action="/t/{{$.Ticket.T.ID}}/host">
+    <input type="hidden" name="csrf" value="{{$p.CSRF}}">
+    <label for="run-on-{{$.Ticket.T.ID}}">Run on</label>
+    <select id="run-on-{{$.Ticket.T.ID}}" name="host">
+      <option value="auto"{{if not .Pin}} selected{{end}}>any</option>
+      {{range .Hosts}}<option value="{{.}}"{{if eq . $.Ticket.RunOn.Pin}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    <button class="btn quiet" type="submit" data-busy="Saving…"><span>Set</span></button>
+  </form>{{end}}
+</section>{{end}}
 {{with .Walls}}<section class="walls" aria-label="Touches the walls">
   <h3 class="panel-h">Touches the walls</h3>
   <p class="quiet">These files hold the factory's own safety: the change never merges without you.</p>

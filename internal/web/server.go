@@ -140,6 +140,7 @@ type Services struct {
 	Config  ConfigSource
 	Switch  Switcher     // the maintainer's project switch on Boards
 	Deploys DeployHolder // the maintainer's deploy hold on System status
+	Pins    HostPinner   // the maintainer's "Run on" on a ticket's page
 	Tickets TicketVerbs  // a person's answer to a board agent's question (package ticketapi)
 	API     http.Handler // /api/v1/, bearer tokens only (package api)
 	MCP     http.Handler // /mcp, bearer tokens only (package mcp)
@@ -289,6 +290,7 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("GET /{$}", s.desk)
 	app.HandleFunc("GET /t/{id}", s.ticket)
 	app.HandleFunc("POST /t/{id}/act", s.act)
+	app.HandleFunc("POST /t/{id}/host", s.maintainerOnly(s.pinHost))
 	app.HandleFunc("GET /t/{id}/talk", s.talk)
 	app.HandleFunc("GET /floor", s.floor)
 	app.HandleFunc("GET /floor/metrics", s.floorMetrics)

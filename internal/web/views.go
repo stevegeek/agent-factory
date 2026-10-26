@@ -100,6 +100,7 @@ type TicketView struct {
 	// Operator is a manager ticket's drafts and actions, each with the
 	// tier the tick found and where it stands
 	Operator []present.OperatorItem
+	RunOn    *RunOn
 }
 
 // QuestionView is one question an agent asked on a board ticket, and its
@@ -356,6 +357,7 @@ type Lane struct {
 // LaneTicket is one ticket in a lane.
 type LaneTicket struct {
 	ID, Title, Ask, AskLabel, Agent string
+	Host, HostWaiting               string   // factory tickets: the pinned host
 	Assignee                        string   // board tickets
 	Labels                          []string // board tickets
 }
@@ -513,7 +515,7 @@ func boardView(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 				continue
 			}
 			found = true
-			lt := LaneTicket{ID: string(t.ID), Title: t.Title}
+			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Host: t.Host.Or("")}
 			if a := present.AskFor(t); a != nil {
 				lt.Ask, lt.AskLabel = a.Kind, present.KindLabel(a.Kind)
 			}
