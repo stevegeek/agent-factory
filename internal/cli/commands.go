@@ -17,6 +17,7 @@ import (
 //	cmd_screens.go:                 screens
 //	cmd_fizzy.go:                   fizzy (export, import)
 //	cmd_onboard.go:                 kinds onboard
+//	cmd_branches.go:                prune-branches
 //	cmd_usage.go:                   usage
 func commands() []Command {
 	ticketArg := Positional{Name: "ticket"}
@@ -81,6 +82,9 @@ func commands() []Command {
 		{Name: "pr", Help: "open or update a ticket's PR and print its URL", Config: true,
 			Positionals: []Positional{ticketArg}, Run: runPR},
 		{Name: "github", Help: "show the App's repositories and permissions", Config: true, Run: runGitHub},
+		{Name: "prune-branches", Help: "list the bot/* branches on GitHub whose ticket is done with a merged PR", Config: true,
+			Flags: []Flag{{Name: "apply", Kind: BoolFlag, Help: "delete them (default: a dry run that deletes nothing)"}},
+			Run:   runPruneBranches},
 		{Name: "gate-workflow", Help: "print a project's gate workflow", Config: true,
 			Positionals: []Positional{{Name: "project"}}, Run: runGateWorkflow},
 		{Name: "move", Help: "move a ticket to a column", Config: true,

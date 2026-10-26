@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/gate"
@@ -130,13 +131,21 @@ func (f *Flow) land(ctx context.Context, cfg *config.Config, p config.Project, t
 	t.PR = ticket.Some(v)
 	sha, _ := res.Raw.Get("sha").Str()
 	f.merged(ctx, p, t, pr, sha)
-	if branch := t.Branch.Or(""); strings.HasPrefix(branch, "bot/") {
-		if err := f.GitHub.DeleteRef(ctx, p.GitHub, branch); err != nil {
-			ticket.Event(t, "error", "github: merged, but could not delete "+branch+" ("+errCode(err)+")", "",
-				ticket.Errored{Text: textx.Prefix(pyErr(err), 250)}, now)
-		}
-	}
+	f.deleteBranch(ctx, p, t, now)
 	return nil
+}
+
+// deleteBranch deletes a merged ticket's bot/* branch on GitHub. A refusal
+// is an error event on the ticket; the merge stands.
+func (f *Flow) deleteBranch(ctx context.Context, p config.Project, t *ticket.Ticket, now time.Time) {
+	branch := t.Branch.Or("")
+	if !strings.HasPrefix(branch, "bot/") {
+		return
+	}
+	if err := f.GitHub.DeleteRef(ctx, p.GitHub, branch); err != nil {
+		ticket.Event(t, "error", "github: merged, but could not delete "+branch+" ("+errCode(err)+")", "",
+			ticket.Errored{Text: textx.Prefix(pyErr(err), 250)}, now)
+	}
 }
 
 // merged is a merge on a project with self_deploy (any other project's

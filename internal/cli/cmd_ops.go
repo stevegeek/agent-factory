@@ -75,7 +75,7 @@ func (o opsCLI) runners() map[string]func(context.Context, *Env, Args) error {
 		"add": o.add, "move": o.move, "note": o.note, "reply": o.reply, "ask": o.ask, "approve": o.approve,
 		"redirect": o.redirect, "merge": o.merge, "pr": o.pr, "host": o.host, "migrate": o.migrate, "wake": o.wake,
 		"answer": o.answer, "look": o.look, "audit": o.audit, "memory": o.memory, "github": o.github,
-		"gate-workflow": o.gateWorkflow, "findings": o.findings, "project": o.project,
+		"gate-workflow": o.gateWorkflow, "findings": o.findings, "project": o.project, "prune-branches": o.pruneBranches,
 	}
 }
 

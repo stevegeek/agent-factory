@@ -37,6 +37,7 @@ func (f *Flow) CheckPR(ctx context.Context, cfg *config.Config, p config.Project
 			"PR #"+itoa(n)+" was merged on GitHub by "+who, "", now)
 		sha, _ := pr.Raw.Get("merge_commit_sha").Str()
 		f.merged(ctx, p, t, pr, sha)
+		f.deleteBranch(ctx, p, t, now)
 	case pr.State == "closed":
 		ticket.Move(t, string(model.ColRejected), model.ReasonPRClosed, "PR closed without merging",
 			"PR #"+itoa(n)+" was closed on GitHub without merging", "", now)

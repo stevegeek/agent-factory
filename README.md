@@ -266,6 +266,7 @@ factory tick                                           # one pass; the timer run
 factory early-checks T0001 <head>                      # Gate 1's checks of a head now, kept for its gate (the tick starts it)
 factory github                                         # check the GitHub App installation
 factory pr T0001                                       # push bot/* + open the PR (draft unless auto-eligible)
+factory prune-branches [--apply]                       # the bot/* branches of merged tickets still on GitHub; --apply deletes them
 pi-run --workdir DIR -p "task"                         # one Pi agent; --model / PI_MODEL to override
 factory project disable|enable|follow <project>        # pause or switch on a factory project over config's enabled, or follow config again
 factory check                                          # config problems: project modes, [board] people, tokens; project switches
