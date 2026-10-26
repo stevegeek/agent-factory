@@ -157,6 +157,9 @@ install = "bundle check"
 test = "bundle exec rake test"
 lint = "bundle exec standardrb"
 pinned_untracked = ["Gemfile.lock"]   # copied into the gate checkout
+# title = "My gem"                     # Foreman shows this in place of the key
+# description = "A gem that does one thing well"   # one line under the title
+# group = "Libraries"                  # its own section on Boards, with the group's other projects
 # tier3_paths / text_paths override the security-tier file patterns
 
 # another language: every agent is told `language`, the commands and `notes`; the images carry Crystal
@@ -173,6 +176,8 @@ notes = "Anything every agent on this project should know."
 
 # [projects.notes_app]
 # mode = "board"     # tickets only: people and their own agents do the work; no pipeline, no gate
+# title = "Notes app"
+# group = "Libraries"  # a group can hold factory and board projects
 
 # the factory as its own project: a merge deploys core (self_deploy = "core"; a config
 # repo's project says "config"), a change to a wall never merges without you, and the

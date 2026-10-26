@@ -167,3 +167,38 @@
   <button type="submit">Search</button>
 </form>
 {{- end}}
+
+{{define "boardcard" -}}
+{{if .Board -}}
+    <a class="board" href="{{.Href}}">
+      <span class="tag {{if .Asks}}f{{else}}a{{end}}">{{if .Asks}}{{.Asks}} need you{{else}}nothing for you{{end}}</span>
+      <b>{{or .Title .Name}} <span class="badge small board" title="mode = &quot;board&quot; in config: agents work it through the ticket API">board</span></b>
+      {{- template "boardlabels" .}}
+      <span class="meta">{{.Open}} open{{if .Doing}} · {{.Doing}} doing{{end}}{{if .Waiting}} · {{.Waiting}} waiting{{end}} · {{.Closed}} closed</span>
+    </a>
+{{- else -}}
+    <div class="board-cell">
+    <a class="board" href="{{.Href}}">
+      <span class="tag {{if .Asks}}f{{else}}a{{end}}">{{if .Asks}}{{.Asks}} need you{{else}}nothing for you{{end}}</span>
+      <b>{{or .Title .Name}}{{if .Paused}} <span class="badge small paused" title="{{if .SwitchNote}}paused in Foreman{{else}}enabled = false in config{{end}}: no agents, gates, schedules or sweeps run for it">paused</span>{{end}}</b>
+      {{- template "boardlabels" .}}
+      <span class="meta">{{.Open}} open{{if .PRs}} · {{.PRs}} PR{{if ne .PRs 1}}s{{end}} waiting{{end}}{{if .Running}} · {{.Running}} running{{end}} · {{.Closed}} closed</span>
+    </a>
+    {{- if .Switchable}}
+    <form class="switch" method="post" action="/boards/switch">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="project" value="{{.Name}}">
+      {{if .Paused}}<button class="btn quiet" type="submit" name="state" value="on">Switch on</button>{{else}}<button class="btn quiet" type="submit" name="state" value="off">Pause</button>{{end}}
+      {{with .SwitchNote}}<span class="note">{{.}} · <button class="linkbtn" type="submit" name="state" value="follow">Follow config ({{$.ConfigState}})</button></span>{{end}}
+    </form>
+    {{- end}}
+    </div>
+{{- end}}
+{{- end}}
+
+{{define "boardlabels" -}}
+{{if .Title}}
+      <span class="key">{{.Name}}</span>{{end}}
+{{- with .Description}}
+      <span class="desc" title="{{.}}">{{.}}</span>{{end}}
+{{- end}}

@@ -225,6 +225,8 @@ func decodeProject(key string, s *section) Project {
 	p.Enabled = s.notFalse("enabled")
 	p.ConfigEnabled = p.Enabled
 	p.Kind = s.str("kind", "")
+	title, desc, group := DefaultLabels(key)
+	p.Title, p.Description, p.Group = s.str("title", title), s.str("description", desc), s.str("group", group)
 	p.Path, p.GitHub, p.Base = s.str("path", ""), s.str("github", ""), s.str("base", "")
 	p.Install, p.Test, p.Lint = s.str("install", ""), s.str("test", ""), s.str("lint", "")
 	p.Language, p.Notes, p.GateMemory = s.str("language", ""), s.str("notes", ""), s.str("gate_memory", "")

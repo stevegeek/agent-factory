@@ -627,3 +627,70 @@ func TestGateMountsOfTheEarlyChecksAreRefused(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectLabelsAreDecodedAndPassCheck(t *testing.T) {
+	c := mustParse(t, `
+[projects.widgets]
+path = "/w"
+title = "Widget shop"
+description = "Parts and orders"
+group = "Tools"
+
+[projects.notes]
+mode = "board"
+title = "Shared notes"
+description = "Notes the agents keep"
+group = "Tools"
+
+[projects.plain]
+path = "/p"
+
+[projects.odd]
+path = "/o"
+title = 3
+`)
+	if len(c.Unknown) != 0 {
+		t.Errorf("unknown = %q", c.Unknown)
+	}
+	if len(c.Mistyped) != 1 || !strings.Contains(c.Mistyped[0], "title") {
+		t.Errorf("mistyped = %q", c.Mistyped)
+	}
+	problems, warnings := c.Problems(nil)
+	for _, s := range append(problems, warnings...) {
+		if strings.Contains(s, "projects.odd") {
+			continue
+		}
+		if strings.Contains(s, "title") || strings.Contains(s, "description") || strings.Contains(s, "group") {
+			t.Errorf("check reports the labels: %q", s)
+		}
+	}
+	got := map[string][3]string{}
+	for _, p := range c.Projects {
+		got[p.Key] = [3]string{p.Title, p.Description, p.Group}
+	}
+	want := map[string][3]string{
+		"widgets": {"Widget shop", "Parts and orders", "Tools"},
+		"notes":   {"Shared notes", "Notes the agents keep", "Tools"},
+		"plain":   {},
+		"odd":     {},
+	}
+	for k, w := range want {
+		if got[k] != w {
+			t.Errorf("%s: %q, want %q", k, got[k], w)
+		}
+	}
+}
+
+func TestTheNoticeProjectsLabels(t *testing.T) {
+	c := mustParse(t, "[projects.factory]\npath = \"/f\"\n")
+	if p := c.Projects[0]; p.Title != NoticeTitle || p.Description != NoticeDescription || p.Group != "Factory" {
+		t.Errorf("defaults: %+v", p)
+	}
+	c = mustParse(t, "[projects.factory]\npath = \"/f\"\ntitle = \"Notices\"\ndescription = \"\"\ngroup = \"\"\n")
+	if p := c.Projects[0]; p.Title != "Notices" || p.Description != "" || p.Group != "" {
+		t.Errorf("overridden: %+v", p)
+	}
+	if title, desc, group := DefaultLabels("widgets"); title != "" || desc != "" || group != "" {
+		t.Errorf("another project's defaults: %q %q %q", title, desc, group)
+	}
+}
