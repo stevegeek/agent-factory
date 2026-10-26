@@ -4,7 +4,7 @@
 # report paths (/home/scion/report.json) are identical; bin/factory-remote runs jobs in it.
 FROM docker.io/library/ubuntu:26.04
 
-ARG PI_VERSION=1.2.0
+ARG PI_VERSION=1.4.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
