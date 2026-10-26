@@ -504,7 +504,7 @@ func TestBoardsListAGroupInItsOwnSection(t *testing.T) {
 		t.Errorf("the board project is not in its group:\n%s", tools)
 	}
 	widgets := cardOf(t, body, "/b/widgets")
-	for _, want := range []string{"<b>Widget shop</b>", `<span class="key">widgets</span>`, `>Parts, orders and the stock count</span>`, "0 open"} {
+	for _, want := range []string{"<b>Widget shop</b>", `<span class="key">widgets</span>`, `>Parts, orders and the stock count</span>`, `<span class="meta">`, " closed</span>"} {
 		if !strings.Contains(widgets, want) {
 			t.Errorf("the widgets card lacks %q: %s", want, widgets)
 		}
