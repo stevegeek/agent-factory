@@ -26,6 +26,14 @@ FACTORY_USER=${FACTORY_USER:-factory}
 ADMIN_USER=${ADMIN_USER:?set ADMIN_USER to the sudo-capable admin account}
 NAME=${FACTORY_NAME:-agent-factory}
 ZRAM_CONF=/etc/systemd/zram-generator.conf
+# zram_reset takes zram0's swap down and resets the device, so the generator can set
+# it up again; if the kernel still holds it (busy), it says so and the restart reports it
+zram_reset() {
+  swapoff /dev/zram0 2>/dev/null || true
+  if [[ -w /sys/block/zram0/reset ]] && ! echo 1 > /sys/block/zram0/reset 2>/dev/null; then
+    echo "setup.sh: /dev/zram0 is busy and cannot be reset; a reboot sets zram up from $ZRAM_CONF" >&2
+  fi
+}
 SYSCTL_CONF=/etc/sysctl.d/90-$NAME.conf
 OOMD_DROPIN=/etc/systemd/oomd.conf.d/90-$NAME.conf
 SSH_SERVICE_DROPIN=/etc/systemd/system/ssh.service.d/90-$NAME.conf
@@ -95,6 +103,7 @@ undo() {
       mv "$latest_bak" "$ZRAM_CONF"
       echo "restored $ZRAM_CONF from $latest_bak"
       systemctl daemon-reload
+      zram_reset
       systemctl restart systemd-zram-setup@zram0.service || true
     fi
   fi
@@ -131,6 +140,9 @@ compression-algorithm = zstd
 swap-priority = 100"
 if write_if_changed "$ZRAM_CONF" "$zram_content"; then
   systemctl daemon-reload
+  # a device already set up refuses new settings ("busy"): take its swap down and
+  # reset it first, so a re-run that changes the config never leaves no zram swap
+  zram_reset
   systemctl restart systemd-zram-setup@zram0.service
 fi
 systemctl start dev-zram0.swap
