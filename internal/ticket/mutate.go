@@ -123,12 +123,20 @@ func Starts(t *Ticket, stage model.Stage) int {
 // for: a rework a GitHub review asks for after the factory's review
 // passed starts a new round. Python counted the ticket's whole life.
 // Old untyped moves carry no reason, so on such history it
-// counts as Starts does.
+// counts as Starts does. A start whose run never got to do the work does
+// not count: one the factory put straight back in ready (working -> ready
+// for a usage limit, or agent_lost when a pull host gave the job back or
+// went away before taking it).
 func WorkRounds(t *Ticket) int {
 	n := 0
 	for _, e := range t.History {
-		if m, ok := e.Data.(Moved); ok && m.Reason == model.ReasonReviewPassed {
+		m, ok := e.Data.(Moved)
+		if ok && m.Reason == model.ReasonReviewPassed {
 			n = 0
+		}
+		if ok && n > 0 && m.From == string(model.ColWorking) && m.To == string(model.ColReady) &&
+			(m.Reason == model.ReasonUsageLimit || m.Reason == model.ReasonAgentLost) {
+			n--
 		}
 		if startOf(e, model.StageWork) {
 			n++

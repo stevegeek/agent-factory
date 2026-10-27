@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/stevegeek/agent-factory/internal/boardread"
 	"github.com/stevegeek/agent-factory/internal/clock"
@@ -195,6 +197,21 @@ func (d Deps) pollRemote(ctx context.Context, cfg *config.Config, proj *config.P
 	if err != nil {
 		return err
 	}
+	if state == jobproto.StateGivenBack {
+		why, _ := d.Helpers.GivenBack(cfg, a.Host, a.Name)
+		if err := h.Remove(ctx, t.ID, a.Name); err != nil {
+			return err
+		}
+		return d.placeAgain(ctx, cfg, t, a.Host+" gave "+a.Name+" back unstarted ("+why+")", true)
+	}
+	if state == jobproto.StateQueued {
+		if why, out := d.unready(cfg, a.Host); out {
+			if err := h.Remove(ctx, t.ID, a.Name); err != nil {
+				return err
+			}
+			return d.placeAgain(ctx, cfg, t, a.Host+" "+why+" before it took "+a.Name, false)
+		}
+	}
 	// a pull host's job waiting for its claim is timed as a running one
 	if state == jobproto.StateRunning || state == jobproto.StateQueued {
 		late, err := d.pastTimeout(cfg, t)
@@ -279,6 +296,56 @@ func (d Deps) requeue(ctx context.Context, cfg *config.Config, t *ticket.Ticket,
 	ticket.Move(t, hosts.RetryColumn(s), model.ReasonUsageLimit,
 		host+" hit a usage limit ("+why+"); retried after "+until, "", "", d.now())
 	return nil
+}
+
+// GiveBackPause is how long a pull host that gave a job back gets no new
+// one: long enough for its worker system to be seen to, short enough that
+// a passing fault costs little.
+const GiveBackPause = 10 * time.Minute
+
+// placeAgain ends a pull job that never ran (its host gave it back, or
+// went away or was paused before claiming it): the ticket goes back to its
+// stage's column at once, to be placed on another host. pause keeps the
+// host from new jobs for GiveBackPause (one away or paused gets none
+// anyway); a pause that fails is an error event, and the ticket moves all
+// the same, its job being gone.
+func (d Deps) placeAgain(ctx context.Context, cfg *config.Config, t *ticket.Ticket, why string, pause bool) error {
+	a := t.Agent.V
+	d.settle(ctx, cfg, t, nil)
+	t.Agent = ticket.Nil[ticket.Agent]()
+	detail := why + "; it goes to another host"
+	if pause {
+		if until, ok := d.pauseGiver(t, a.Host, why); ok {
+			detail += ", and " + a.Host + " gets no new job until " + until
+		}
+	}
+	ticket.Move(t, hosts.RetryColumn(a.Stage), model.ReasonAgentLost, detail, "", "", d.now())
+	return nil
+}
+
+// pauseGiver pauses a pull host that gave a job back for GiveBackPause; a
+// failure is an error event on t, not the caller's.
+func (d Deps) pauseGiver(t *ticket.Ticket, host, why string) (string, bool) {
+	until, err := d.Board.PauseHost(host, textx.Prefix("gave a job back: "+why, 200), GiveBackPause)
+	if err != nil {
+		text := "could not pause " + host + ": " + head300(err)
+		ticket.Event(t, "error", text, "", ticket.Errored{Text: text}, d.now())
+		return "", false
+	}
+	return until, true
+}
+
+// unready reports a pull host that should not keep a job still waiting
+// for its claim: away (no calls, or its workers say none can run), or
+// paused (it gave a job back, or hit a usage limit), with which.
+func (d Deps) unready(cfg *config.Config, host string) (string, bool) {
+	switch {
+	case slices.Contains(d.Helpers.Away(cfg), host):
+		return "went away", true
+	case d.Board.Paused(host):
+		return "was paused", true
+	}
+	return "", false
 }
 
 func (d Deps) settle(ctx context.Context, cfg *config.Config, t *ticket.Ticket, remote *memory.Copy) {

@@ -193,8 +193,13 @@ func TestEncodeParseReceived(t *testing.T) {
 	if err != nil || len(got.Images) != 1 || got.Images["pi"] != (Image{Version: "0.9.1", Held: "0.9.2"}) {
 		t.Errorf("images %+v %v", got.Images, err)
 	}
-	if got, err := Parse([]byte(`{"hostname": "helpera"}`)); err != nil || got.Images != nil {
-		t.Errorf("no images %+v %v", got.Images, err)
+	if got, err := Parse([]byte(`{"hostname": "helpera"}`)); err != nil || got.Images != nil || got.Workers != nil {
+		t.Errorf("no images or workers %+v %+v %v", got.Images, got.Workers, err)
+	}
+	// a pull host's workers, its note cleaned like every string
+	got, err = Parse([]byte(`{"workers": {"up": true, "running": 3, "free": 1, "note": " fw2 stopped "}}`))
+	if err != nil || got.Workers == nil || *got.Workers != (Workers{Up: true, Running: 3, Free: 1, Note: "fw2 stopped"}) {
+		t.Errorf("workers %+v %v", got.Workers, err)
 	}
 }
 
@@ -236,6 +241,9 @@ func TestParseRefuses(t *testing.T) {
 		"control image":    `{"images": {"pi": {"version": "0.9\u001b"}}}`,
 		"control kind":     `{"images": {"p\ni": {"version": "1"}}}`,
 		"images":           `{"images": {"k": {}` + manyImages(16) + `}}`,
+		"workers free":     `{"workers": {"up": true, "running": 1, "free": 2}}`,
+		"workers negative": `{"workers": {"running": -1}}`,
+		"workers note":     `{"workers": {"note": "a\nb"}}`,
 	} {
 		if v, err := Parse([]byte(in)); err == nil {
 			t.Errorf("%s: taken as %+v", name, v)

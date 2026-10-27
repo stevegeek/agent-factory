@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
 
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
@@ -64,6 +65,7 @@ func (d Deps) pass(ctx context.Context, cfg *config.Config) error {
 		return stepErr
 	}
 
+	cfg = withCapacity(cfg, d.Helpers.Capacity(cfg))
 	nowRunning, err := d.Local.Running(ctx, cfg)
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return ctxErr
@@ -448,4 +450,21 @@ func (d Deps) managerMounts() error {
 		return err
 	}
 	return f.Close()
+}
+
+// withCapacity is cfg for placing new jobs: each pull host in capacity has
+// its slots cut to the workers it reports running. The rest of cfg is
+// shared, and nothing writes to it.
+func withCapacity(cfg *config.Config, capacity map[string]int) *config.Config {
+	if len(capacity) == 0 {
+		return cfg
+	}
+	c := *cfg
+	c.Hosts = slices.Clone(cfg.Hosts)
+	for i, h := range c.Hosts {
+		if n, ok := capacity[h.Name]; ok && n < h.Slots {
+			c.Hosts[i].Slots = n
+		}
+	}
+	return &c
 }

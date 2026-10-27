@@ -188,6 +188,52 @@ func TestReleaseRequeuesWithANewDeadline(t *testing.T) {
 	}
 }
 
+// A job the host could not start is given back with why: it reads as
+// given back (never queued again for this host) until the tick removes it.
+func TestGiveBackRecordsWhyAndIsNotClaimedAgain(t *testing.T) {
+	r := newRig(t)
+	r.Start("desktop", "t0001-w1", startTar(t, "p"))
+	if err := r.GiveBack("desktop", "t0001-w1", []byte("no worker")); err == nil {
+		t.Error("gave back a job it never claimed")
+	}
+	r.Claim("desktop")
+	if err := r.GiveBack("desktop", "t0001-w1", []byte("worker fw1 did not start it\n\x1b[31m in 3m")); err != nil {
+		t.Fatal(err)
+	}
+	if st := r.state(t, "t0001-w1"); st != jobproto.StateGivenBack {
+		t.Errorf("after giveback: %s", st)
+	}
+	if why, ok := r.GivenBack("desktop", "t0001-w1"); !ok || why != "worker fw1 did not start it [31m in 3m" {
+		t.Errorf("why %q %v", why, ok)
+	}
+	if _, _, err := r.Claim("desktop"); !errors.Is(err, ErrNoJob) {
+		t.Errorf("a given-back job was claimed again: %v", err)
+	}
+	r.clk.Advance(time.Hour) // no beats: still given back, not missing
+	if st := r.state(t, "t0001-w1"); st != jobproto.StateGivenBack {
+		t.Errorf("an hour later: %s", st)
+	}
+	if _, ok := r.GivenBack("desktop", "t0009-w1"); ok {
+		t.Error("an unknown job reads as given back")
+	}
+	var out, errb strings.Builder
+	r.Start("desktop", "t0002-w1", startTar(t, "p"))
+	r.Claim("desktop")
+	if code := r.Serve("desktop", "giveback desktop t0002-w1", strings.NewReader("lever is down"), &out, &errb); code != 0 || out.String() != "ok\n" {
+		t.Errorf("serve giveback: %d %q %q", code, out.String(), errb.String())
+	}
+	if why, _ := r.GivenBack("desktop", "t0002-w1"); why != "lever is down" {
+		t.Errorf("served why %q", why)
+	}
+	// C1 controls and bidi overrides are cleaned too
+	r.Start("desktop", "t0003-w1", startTar(t, "p"))
+	r.Claim("desktop")
+	r.GiveBack("desktop", "t0003-w1", []byte("a31mb‮c​d"))
+	if why, _ := r.GivenBack("desktop", "t0003-w1"); why != "a 31mb c d" {
+		t.Errorf("cleaned why %q", why)
+	}
+}
+
 // The factory removing a job (its timeout, a person) is the host's cancel.
 func TestBeatAnswersCancelForARemovedOrUnclaimedJob(t *testing.T) {
 	r := newRig(t)

@@ -185,6 +185,19 @@ func TestWorkRoundsRestartAtAPassedReview(t *testing.T) {
 	if r := WorkRounds(tk); r != 2 {
 		t.Errorf("legacy rounds %d", r)
 	}
+	// a start put straight back in ready (a pull host gave it back, a usage
+	// limit) never did the work: it is not a round; one sent to a person is
+	tk = mustDecode(t, []byte(`{"id": "T0001", "history": [
+		{"at": "x", "event": "start", "detail": "work t0001-w1 on b"},
+		{"at": "x", "event": "move", "detail": "working -> ready: desktop gave t0001-w1 back", "type": "moved", "from": "working", "to": "ready", "reason": "agent_lost", "by": "factory"},
+		{"at": "x", "event": "start", "detail": "work t0001-w2 on b"},
+		{"at": "x", "event": "move", "detail": "working -> ready: pi hit a usage limit", "type": "moved", "from": "working", "to": "ready", "reason": "usage_limit", "by": "factory"},
+		{"at": "x", "event": "start", "detail": "work t0001-w3 on b"},
+		{"at": "x", "event": "move", "detail": "working -> needs_human: agent t0001-w3 disappeared", "type": "moved", "from": "working", "to": "needs_human", "reason": "agent_lost", "by": "factory"},
+		{"at": "x", "event": "start", "detail": "work t0001-w4 on b"}]}`))
+	if w, r := Starts(tk, model.StageWork), WorkRounds(tk); w != 4 || r != 2 {
+		t.Errorf("starts %d, rounds %d", w, r)
+	}
 }
 
 // port: TT TypedEventTest.test_every_move_in_the_dispatcher_names_its_reason

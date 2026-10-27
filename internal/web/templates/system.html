@@ -45,6 +45,7 @@
         {{if .Temp}}<dt>CPU</dt><dd class="lvl-{{.TempLvl}}">{{.Temp}}</dd>{{end}}
         {{if .Podman}}<dt>Containers</dt><dd>{{len .Containers}} running</dd>{{end}}
         {{with .Images}}<dt>Images</dt><dd>{{range $i, $l := .}}{{if $i}} · {{end}}{{$l}}{{end}}</dd>{{end}}
+        {{if .Lever}}<dt>Workers</dt><dd{{if .LeverDown}} class="lvl-bad"{{end}}>{{.Lever}}</dd>{{end}}
       </dl>
       {{with .Bars}}<div class="meters">{{range .}}{{template "sysbar" .}}{{end}}</div>{{end}}
       {{with .Containers}}<ul class="sys-list mono">{{range .}}<li>{{.}}</li>{{end}}</ul>{{end}}

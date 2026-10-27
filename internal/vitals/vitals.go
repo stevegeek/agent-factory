@@ -45,9 +45,24 @@ type Vitals struct {
 	Containers []string `json:"containers"`
 	// Images are the versions in the host's images.json, by kind (nil: not
 	// asked, or none recorded). A helper's vitals verb fills them in.
-	Images   map[string]Image `json:"images,omitempty"`
-	Problems []string         `json:"problems,omitempty"` // what could not be read
+	Images map[string]Image `json:"images,omitempty"`
+	// Workers is a pull host's own account of the workers it hands jobs to
+	// (nil: not a pull host, or a factory-pull from before it was sent).
+	Workers  *Workers `json:"workers,omitempty"`
+	Problems []string `json:"problems,omitempty"` // what could not be read
 }
+
+// Workers is what a pull host can take on now: the dispatcher sends it no
+// more jobs than Running, and none at all when Up is false or Running is 0.
+type Workers struct {
+	Up      bool   `json:"up"`             // the worker system answered (Lever's broker)
+	Running int    `json:"running"`        // workers running
+	Free    int    `json:"free"`           // running, idle, and with no job in hand
+	Note    string `json:"note,omitempty"` // why none can take a job, or what is wrong
+}
+
+// maxWorkers bounds a posted worker count.
+const maxWorkers = 1000
 
 // Memory is /proc/meminfo's headline: Used is Total less Available.
 type Memory struct {
@@ -223,6 +238,12 @@ func (v *Vitals) check() error {
 		str("disk path", &d.Path)
 		if d.Used > d.Total || d.Free > d.Total {
 			errs = append(errs, fmt.Errorf("disk %s: more used or free than there is", d.Path))
+		}
+	}
+	if w := v.Workers; w != nil {
+		str("workers note", &w.Note)
+		if w.Running < 0 || w.Running > maxWorkers || w.Free < 0 || w.Free > w.Running {
+			errs = append(errs, fmt.Errorf("workers: %d running, %d free", w.Running, w.Free))
 		}
 	}
 	if t := v.Temp; t != nil {

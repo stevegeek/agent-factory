@@ -239,6 +239,8 @@ type fakeHelper struct {
 	removeEr error
 	onRemove func(id ticket.ID, name string) // what the removal archives (the usage a helper sends back)
 	away     bool                            // a pull host that has not called in
+	capacity *int                            // a pull host's running workers, when it reports fewer than its slots
+	gaveBack string                          // why a pull host gave its job back ("" for none)
 }
 
 func (f *fakeHelper) Start(ctx context.Context, j hostrun.Job) error {
@@ -308,6 +310,26 @@ func (f fakeHelpers) Away(cfg *config.Config) []string {
 		}
 	}
 	return away
+}
+
+// Capacity is the fake helpers with a reported capacity.
+func (f fakeHelpers) Capacity(cfg *config.Config) map[string]int {
+	out := map[string]int{}
+	for name, fh := range f {
+		if fh.capacity != nil {
+			out[name] = *fh.capacity
+		}
+	}
+	return out
+}
+
+// GivenBack is the fake helper's give-back reason.
+func (f fakeHelpers) GivenBack(cfg *config.Config, host, job string) (string, bool) {
+	fh, ok := f[host]
+	if !ok || fh.gaveBack == "" {
+		return "", false
+	}
+	return fh.gaveBack, true
 }
 
 // downError is what hostrun gives for a helper that cannot be reached:

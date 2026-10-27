@@ -167,6 +167,24 @@ func (d Deps) gateAgent(ctx context.Context, cfg *config.Config, proj *config.Pr
 		}
 		return err
 	}
+	switch {
+	case state == jobproto.StateGivenBack:
+		why, _ := d.Helpers.GivenBack(cfg, a.Host, a.Name)
+		if err := h.Remove(ctx, t.ID, a.Name); err != nil {
+			return err
+		}
+		d.pauseGiver(t, a.Host, why)
+		d.gateLost(t, "its host gave it back unstarted ("+why+")")
+		return nil
+	case state == jobproto.StateQueued:
+		if why, out := d.unready(cfg, a.Host); out {
+			if err := h.Remove(ctx, t.ID, a.Name); err != nil {
+				return err
+			}
+			d.gateLost(t, "its host "+why+" before it took the job")
+			return nil
+		}
+	}
 	switch state {
 	case jobproto.StateRunning, jobproto.StateQueued:
 		late, err := d.pastTimeout(cfg, t)

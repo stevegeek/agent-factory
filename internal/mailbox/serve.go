@@ -15,6 +15,7 @@ const usage = `factory-remote mailbox HOST: the forced command of a pull host's 
   beat HOST JOB       stdin: a log tail (at most 1 MiB); answers "ok" or "cancel"
   done HOST JOB       stdin: the collect tar (report.json, prompt.md, head, agent.log, out.bundle, memory.tar, usage.json)
   release HOST JOB    give the job back to the queue
+  giveback HOST JOB   stdin: why (at most 1 KiB); the job could not start here, so it goes to another host
   vitals HOST         stdin: this host's vitals as JSON (at most 64 KiB); answers "ok"
 HOST must be the host this key is for.`
 
@@ -121,6 +122,16 @@ func (b Box) serve(host, command string, stdin io.Reader, stdout io.Writer) erro
 			return err
 		}
 		_, err := fmt.Fprintln(stdout, "ok")
+		return err
+	case jobproto.MailGiveBack:
+		why, err := readCapped(stdin, jobproto.MaxGiveBackWhy)
+		if err != nil {
+			return err
+		}
+		if err := b.GiveBack(host, job, why); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(stdout, "ok")
 		return err
 	}
 	return refuse("%s", usage)

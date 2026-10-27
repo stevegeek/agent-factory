@@ -140,11 +140,15 @@ type Helper interface {
 }
 
 // Helpers finds a configured helper host by its [hosts.<name>] key, and
-// names the pull hosts that are away (not called in lately), which get no
-// new jobs.
+// names the pull hosts that are away (not called in lately, or whose own
+// report says no worker can take a job), which get no new jobs. Capacity
+// is the pull hosts that report fewer running workers than their slots,
+// with that count; GivenBack is why a pull host gave a claimed job back.
 type Helpers interface {
 	Helper(cfg *config.Config, name string) (Helper, bool)
 	Away(cfg *config.Config) []string
+	Capacity(cfg *config.Config) map[string]int
+	GivenBack(cfg *config.Config, host, job string) (string, bool)
 }
 
 // Repos is git on a project's clone, guarded (gate.Runner.Repo).

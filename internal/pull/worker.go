@@ -159,6 +159,32 @@ func (p *Puller) reported(worker, id string) bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
+// startMarks are what a worker makes in a job's directory once it takes
+// the job: the checkout (job.sh prepare), its progress, a gate's output,
+// and what it leaves at the end.
+func startMarks() []string {
+	return []string{"repo", progressLog, "gate.out", jobproto.MemberHead, jobproto.MemberReport}
+}
+
+// took reports that the worker took the job: Lever reports it running and
+// not idle at its prompt, or it has made one of startMarks.
+func (p *Puller) took(j *job) bool {
+	if p.view.workers[j.Worker].Busy() {
+		return true
+	}
+	r, err := p.jobRoot(j.Worker, j.ID)
+	if err != nil {
+		return false
+	}
+	defer r.Close()
+	for _, name := range startMarks() {
+		if _, err := r.Lstat(name); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 // progress is the tail of the worker's progress.log (else agent.log), for
 // a beat.
 func (p *Puller) progress(worker, id string) []byte {

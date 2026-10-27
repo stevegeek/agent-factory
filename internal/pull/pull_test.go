@@ -23,6 +23,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/jobproto"
 	"github.com/stevegeek/agent-factory/internal/mailbox"
 	"github.com/stevegeek/agent-factory/internal/testkit"
+	"github.com/stevegeek/agent-factory/internal/vitals"
 )
 
 var t0 = time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
@@ -38,11 +39,18 @@ type world struct {
 	mu       sync.Mutex
 	notes    [][]string // lever argv
 	ssh      [][]string
-	failNote int // the next n notes fail, as a 409 does
-	woken    []string
-	repo     *testkit.Repo
-	home     string // git's home for the fake worker
-	outside  string // a directory no worker may reach
+	failNote int  // the next n notes fail, as a 409 does
+	oldHub   bool // the dispatcher predates giveback: it refuses the verb
+	// Lever's broker: down, each worker's phase (running when unset), an
+	// idle flag forced either way (else none between jobs, and not idle
+	// while its jobs/ holds something unfinished), and the starts asked for
+	leverDown bool
+	phases    map[string]string
+	idle      map[string]bool
+	starts    []string
+	repo      *testkit.Repo
+	home      string // git's home for the fake worker
+	outside   string // a directory no worker may reach
 }
 
 func newWorld(t *testing.T) *world {
@@ -60,9 +68,43 @@ func newWorld(t *testing.T) *world {
 			t.Fatal(err)
 		}
 	}
-	w.p = &Puller{Cfg: cfg, Exec: execx.Func(w.run), Clock: clk, Log: t.Logf,
-		Wake: func(_ context.Context, worker string) error { w.woken = append(w.woken, worker); return nil }}
+	w.phases, w.idle = map[string]string{}, map[string]bool{}
+	w.p = &Puller{Cfg: cfg, Exec: execx.Func(w.run), Clock: clk, Log: t.Logf, Lever: w}
 	return w
+}
+
+// Workers is the fake broker's list.
+func (w *world) Workers(_ context.Context) ([]WorkerState, error) {
+	if w.leverDown {
+		return nil, fmt.Errorf("dial unix operator.sock: connect: no such file or directory")
+	}
+	var out []WorkerState
+	for _, name := range w.p.Cfg.Workers {
+		// as the live broker reports them: a worker between jobs keeps its
+		// last status with no idle flag; one on a job is working, not idle
+		st := WorkerState{Name: name, Phase: "running", Activity: "blocked"}
+		if ph, ok := w.phases[name]; ok {
+			st.Phase = ph
+		}
+		idle, forced := w.idle[name]
+		switch {
+		case st.Phase != "running":
+		case forced:
+			st.Idle = &idle
+		case w.p.busy(name):
+			no := false
+			st.Idle, st.Activity = &no, "working"
+		}
+		out = append(out, st)
+	}
+	return out, nil
+}
+
+// Start is the fake broker's start: the worker is running after it.
+func (w *world) Start(_ context.Context, worker string) error {
+	w.starts = append(w.starts, worker)
+	w.phases[worker] = "running"
+	return nil
 }
 
 func (w *world) run(_ context.Context, c execx.Cmd) (execx.Result, error) {
@@ -72,6 +114,9 @@ func (w *world) run(_ context.Context, c execx.Cmd) (execx.Result, error) {
 	case "ssh":
 		w.ssh = append(w.ssh, c.Argv)
 		i := slices.Index(c.Argv, "hub")
+		if w.oldHub && c.Argv[i+1] == jobproto.MailGiveBack {
+			return execx.Result{Argv: c.Argv, Code: 2, Stderr: []byte("factory-remote mailbox HOST: ...")}, nil
+		}
 		var out, errb bytes.Buffer
 		code := mailbox.Box{Dir: w.factory.Dir, Clock: w.clk}.Serve("desktop", strings.Join(c.Argv[i+1:], " "), c.Stdin, &out, &errb)
 		return execx.Result{Argv: c.Argv, Code: code, Stdout: out.Bytes(), Stderr: errb.Bytes()}, nil
@@ -328,28 +373,140 @@ func TestACancelledJobIsStoppedAndLetGo(t *testing.T) {
 	}
 }
 
-func TestAFailedNoteWakesTheWorkerAndTriesOnceMore(t *testing.T) {
+// A note that fails gives the job back at once, with why, for another
+// host: it is not queued here again.
+func TestAFailedNoteGivesTheJobBack(t *testing.T) {
 	w := newWorld(t)
 	w.queue("t0001-w1")
 	w.failNote = 1
 	w.step()
-	if !slices.Equal(w.woken, []string{"fw1"}) || len(w.notes) != 2 {
-		t.Fatalf("woken %q, notes %q", w.woken, w.notes)
+	if st := w.state("t0001-w1"); st != jobproto.StateGivenBack {
+		t.Fatalf("after a failed note: %s", st)
 	}
-	if st := w.state("t0001-w1"); st != jobproto.StateRunning {
-		t.Errorf("handed after the wake: %s", st)
+	if why, _ := w.factory.GivenBack("desktop", "t0001-w1"); !strings.HasPrefix(why, "the note to fw1 failed: lever msg send to fw1 failed (1): msg: 409 Conflict") {
+		t.Errorf("why %q", why)
 	}
-
-	w2 := newWorld(t)
-	w2.queue("t0002-w1")
-	w2.failNote = 2
-	w2.step()
-	if st := w2.state("t0002-w1"); st != jobproto.StateQueued {
-		t.Errorf("a job no worker took is not back in the queue: %s", st)
-	}
-	if _, err := os.Lstat(w2.jobDir("fw1", "t0002-w1")); err == nil {
+	if _, err := os.Lstat(w.jobDir("fw1", "t0001-w1")); err == nil {
 		t.Error("the job's directory was left")
 	}
+	if len(w.p.jobs) != 0 {
+		t.Errorf("still in hand: %v", w.p.jobs)
+	}
+}
+
+// A worker that does not take its job within AckWindow (still idle, nothing
+// written) is stopped and the job given back.
+func TestAJobNoWorkerTakesIsGivenBack(t *testing.T) {
+	w := newWorld(t)
+	w.idle["fw1"] = true // Lever keeps reporting it idle
+	w.queue("t0001-w1")
+	w.step()
+	w.clk.Advance(AckWindow - time.Second)
+	w.step()
+	if st := w.state("t0001-w1"); st != jobproto.StateRunning {
+		t.Fatalf("given back early: %s", st)
+	}
+	w.clk.Advance(time.Second)
+	w.step()
+	if st := w.state("t0001-w1"); st != jobproto.StateGivenBack {
+		t.Fatalf("after the window: %s", st)
+	}
+	if why, _ := w.factory.GivenBack("desktop", "t0001-w1"); why != "worker fw1 did not start it within 3m0s" {
+		t.Errorf("why %q", why)
+	}
+	last := w.notes[len(w.notes)-1]
+	if !slices.Contains(last, "--interrupt") || !strings.HasPrefix(noteText(last), "stop job t0001-w1: it did not start in time") {
+		t.Errorf("last note %q", last)
+	}
+
+	// a worker that writes its checkout has taken it, whatever Lever says
+	w = newWorld(t)
+	w.idle["fw1"] = true
+	w.queue("t0002-w1")
+	w.step()
+	os.MkdirAll(filepath.Join(w.jobDir("fw1", "t0002-w1"), "repo"), 0o755)
+	w.clk.Advance(AckWindow)
+	w.step()
+	if st := w.state("t0002-w1"); st != jobproto.StateRunning || !w.p.jobs["t0002-w1"].Acked {
+		t.Errorf("a started job was given back: %s", st)
+	}
+}
+
+// With the broker down nothing is claimed, Lever's state is logged once
+// per change, and the vitals say so.
+func TestNothingIsClaimedWhileLeverIsDown(t *testing.T) {
+	w := newWorld(t)
+	var logged []string
+	w.p.Log = func(f string, a ...any) { logged = append(logged, fmt.Sprintf(f, a...)) }
+	w.p.Cfg.Vitals = time.Minute
+	w.p.Vitals = func(context.Context) vitals.Vitals { return vitals.Vitals{Hostname: "desk"} }
+	w.leverDown = true
+	w.queue("t0001-w1")
+	for range 3 {
+		w.step()
+		w.clk.Advance(time.Minute)
+	}
+	for _, a := range w.ssh {
+		if slices.Contains(a, "claim") {
+			t.Fatalf("claimed with the broker down: %q", a)
+		}
+	}
+	downs := 0
+	for _, l := range logged {
+		if strings.HasPrefix(l, "lever: down: the Lever broker does not answer") {
+			downs++
+		}
+	}
+	if downs != 1 {
+		t.Errorf("logged the outage %d times: %q", downs, logged)
+	}
+	v, err := w.factory.Vitals("desktop")
+	if err != nil || v.Workers == nil || v.Workers.Up || !strings.Contains(v.Workers.Note, "no such file") {
+		t.Fatalf("vitals %+v %v", v.Workers, err)
+	}
+	w.leverDown = false
+	w.step()
+	if st := w.state("t0001-w1"); st != jobproto.StateRunning {
+		t.Errorf("broker back: %s", st)
+	}
+	if l := logged[len(logged)-1]; !strings.Contains(strings.Join(logged, "\n"), "lever: up: fw1 running (blocked), fw2 running (blocked)") {
+		t.Errorf("no log of the broker back: last %q", l)
+	}
+}
+
+// Stopped workers are started (once a startGap each) and not claimed for
+// until Lever reports them running and idle; a busy one is skipped.
+func TestStoppedWorkersAreStartedAndBusyOnesSkipped(t *testing.T) {
+	w := newWorld(t)
+	w.p.Lever = stubborn{w}
+	w.phases["fw1"], w.phases["fw2"] = "stopped", "suspended"
+	w.queue("t0001-w1")
+	w.step()
+	w.clk.Advance(time.Minute)
+	w.step()
+	if !slices.Equal(w.starts, []string{"fw1", "fw2"}) || len(w.notes) != 0 {
+		t.Fatalf("starts %q notes %q", w.starts, w.notes)
+	}
+	w.clk.Advance(startGap)
+	w.p.Lever = w         // now they start
+	w.idle["fw1"] = false // and fw1 comes up busy with something
+	w.step()
+	if len(w.notes) != 1 || w.notes[0][4] != "fw2" {
+		t.Fatalf("notes %q", w.notes)
+	}
+	v := w.p.workers()
+	if !v.Up || v.Running != 2 || v.Free != 0 {
+		t.Errorf("workers %+v", v)
+	}
+}
+
+// stubborn is a broker whose starts fail.
+type stubborn struct{ w *world }
+
+func (s stubborn) Workers(ctx context.Context) ([]WorkerState, error) { return s.w.Workers(ctx) }
+func (s stubborn) Start(_ context.Context, worker string) error {
+	s.w.starts = append(s.w.starts, worker)
+	return fmt.Errorf("POST /operator/worker/start: 409 Conflict: worker-cap")
 }
 
 // A job whose tar does not unpack (here a link) is never handed to a
@@ -482,30 +639,134 @@ func TestJobScriptValues(t *testing.T) {
 	}
 }
 
-func TestOperatorWakePostsToTheSocket(t *testing.T) {
+func TestBrokerTalksToTheSocket(t *testing.T) {
 	sock := filepath.Join(t.TempDir(), "operator.sock")
 	ln, err := net.Listen("unix", sock)
 	if err != nil {
 		t.Skipf("no unix socket here: %v", err)
 	}
-	got := make(chan string, 2)
+	got := make(chan string, 4)
 	status := http.StatusOK
 	srv := &http.Server{Handler: http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		got <- fmt.Sprintf("%s %s %s", r.Method, r.URL.Path, body)
-		rw.WriteHeader(status)
-		io.WriteString(rw, "not asleep\n")
+		if status != http.StatusOK {
+			rw.Header().Set("X-Lever-Reason", "worker-cap")
+			rw.WriteHeader(status)
+			io.WriteString(rw, "too many running\n")
+			return
+		}
+		io.WriteString(rw, `{"workers": [{"name": "fw1", "phase": "running", "activity": "waiting_for_input", "idle_at_prompt": true},
+			{"name": "fw2", "phase": "running", "activity": "stalled", "idle_at_prompt": null}, {"name": "fw3", "phase": "stopped"}]}`)
 	})}
 	go srv.Serve(ln)
 	t.Cleanup(func() { srv.Close() })
-	if err := OperatorWake(context.Background(), sock, "fw1"); err != nil {
+	b := Broker{Sock: sock}
+	ws, err := b.Workers(context.Background())
+	if err != nil || len(ws) != 3 {
+		t.Fatalf("workers %+v %v", ws, err)
+	}
+	// a stalled worker Lever cannot read is not counted busy: factory-pull's
+	// own jobs/ decides
+	if !ws[0].Ready() || !ws[1].Ready() || ws[1].Idle != nil || ws[1].Busy() || ws[2].Ready() || !ws[2].Startable() || ws[0].Startable() {
+		t.Errorf("states %+v", ws)
+	}
+	if s := <-got; s != "GET /operator/worker/list " {
+		t.Errorf("request %s", s)
+	}
+	if err := b.Start(context.Background(), "fw3"); err != nil {
 		t.Fatal(err)
 	}
-	if s := <-got; s != `POST /operator/wake {"login":"factory-pull","tier":"operator","worker":"fw1"}` {
+	if s := <-got; s != `POST /operator/worker/start {"worker":"fw3"}` {
 		t.Errorf("request %s", s)
 	}
 	status = http.StatusConflict
-	if err := OperatorWake(context.Background(), sock, "fw1"); err == nil || !strings.Contains(err.Error(), "409 Conflict: not asleep") {
+	if err := b.Start(context.Background(), "fw3"); err == nil || !strings.Contains(err.Error(), "409 Conflict: worker-cap: too many running") {
 		t.Errorf("409: %v", err)
+	}
+	if _, err := (Broker{Sock: filepath.Join(t.TempDir(), "none.sock")}).Workers(context.Background()); err == nil {
+		t.Error("a missing socket answered")
+	}
+}
+
+// A dispatcher from before giveback refuses it: the job is released, as
+// before, and forgotten here.
+func TestAGiveBackToAnOldDispatcherReleases(t *testing.T) {
+	w := newWorld(t)
+	w.oldHub = true
+	w.queue("t0001-w1")
+	w.failNote = 1
+	w.step()
+	if st := w.state("t0001-w1"); st != jobproto.StateQueued {
+		t.Errorf("not released: %s", st)
+	}
+	if len(w.p.jobs) != 0 {
+		t.Errorf("still in hand: %v", w.p.jobs)
+	}
+}
+
+// Lever reporting the worker busy is its acknowledgement; a restart keeps
+// a job not yet acknowledged and still gives it back once the window ends.
+func TestAcknowledgementAcrossARestart(t *testing.T) {
+	w := newWorld(t)
+	w.idle["fw1"] = true
+	w.queue("t0001-w1")
+	w.step()
+	if j := w.p.jobs["t0001-w1"]; j.Acked || j.Handed == 0 {
+		t.Fatalf("job %+v", j)
+	}
+	w.p = &Puller{Cfg: w.p.Cfg, Exec: w.p.Exec, Clock: w.clk, Log: t.Logf, Lever: w}
+	w.clk.Advance(AckWindow)
+	w.step()
+	if st := w.state("t0001-w1"); st != jobproto.StateGivenBack {
+		t.Errorf("after a restart and the window: %s", st)
+	}
+
+	w = newWorld(t)
+	w.idle["fw1"] = true
+	w.queue("t0002-w1")
+	w.step()
+	w.idle["fw1"] = false // Lever: working
+	w.step()
+	if j := w.p.jobs["t0002-w1"]; j == nil || !j.Acked {
+		t.Errorf("a busy worker did not acknowledge: %+v", j)
+	}
+}
+
+// A worker that did not take its job gets no other for benchFor; the next
+// job goes to another worker.
+func TestAWorkerThatDidNotTakeItsJobIsBenched(t *testing.T) {
+	w := newWorld(t)
+	w.idle["fw1"] = true
+	w.queue("t0001-w1")
+	w.step()
+	w.clk.Advance(AckWindow)
+	w.step() // given back; fw1 benched
+	w.queue("t0002-w1")
+	w.clk.Advance(time.Minute)
+	w.step()
+	if last := w.notes[len(w.notes)-1]; last[4] != "fw2" || noteText(last) != "job t0002-w1 ready at jobs/t0002-w1" {
+		t.Fatalf("notes %q", w.notes)
+	}
+	if v := w.p.workers(); v.Running != 2 || v.Free != 0 {
+		t.Errorf("benched counted free: %+v", v)
+	}
+	w.clk.Advance(benchFor)
+	if !w.p.free("fw1") {
+		t.Error("fw1 still benched after benchFor")
+	}
+}
+
+// The step that starts stopped workers looks again before its vitals, so
+// they say the workers run (not none, which would mark the host away).
+func TestVitalsAfterAStartCountTheStartedWorkers(t *testing.T) {
+	w := newWorld(t)
+	w.p.Cfg.Vitals = time.Minute
+	w.p.Vitals = func(context.Context) vitals.Vitals { return vitals.Vitals{Hostname: "desk"} }
+	w.phases["fw1"], w.phases["fw2"] = "stopped", "stopped"
+	w.step()
+	v, err := w.factory.Vitals("desktop")
+	if err != nil || v.Workers == nil || !v.Workers.Up || v.Workers.Running != 2 {
+		t.Fatalf("vitals %+v %v", v.Workers, err)
 	}
 }

@@ -20,6 +20,10 @@ import (
 // running one.
 const StateQueued = "queued"
 
+// StateGivenBack is a pull job its host claimed and gave back unstarted
+// (no worker could take it): the tick places it again elsewhere at once.
+const StateGivenBack = "given_back"
+
 // The mailbox verbs a pull host sends (SSH_ORIGINAL_COMMAND: `<verb> <host>
 // [<job>]`), and the argv word that puts factory-remote in mailbox mode.
 const (
@@ -28,11 +32,16 @@ const (
 	MailBeat    = "beat"    // beat <host> <job>: stdin a log tail; answers BeatOK or BeatCancel
 	MailDone    = "done"    // done <host> <job>: stdin the collect tar
 	MailRelease = "release" // release <host> <job>: back to the queue
-	MailVitals  = "vitals"  // vitals <host>: stdin the host's vitals JSON (at most MaxVitals); answers "ok"
+	// giveback <host> <job>: stdin why (at most MaxGiveBackWhy); the host
+	// could not start the job, so the tick places it on another host
+	MailGiveBack = "giveback"
+	MailVitals   = "vitals" // vitals <host>: stdin the host's vitals JSON (at most MaxVitals); answers "ok"
 )
 
 // MailVerbs are the verbs of mailbox mode.
-func MailVerbs() []string { return []string{MailClaim, MailBeat, MailDone, MailRelease, MailVitals} }
+func MailVerbs() []string {
+	return []string{MailClaim, MailBeat, MailDone, MailRelease, MailGiveBack, MailVitals}
+}
 
 // What a beat answers: carry on, or stop (the job was removed or is no
 // longer this host's).
@@ -48,6 +57,7 @@ const ExitNoJob = 3
 const (
 	MaxBeatInput    = 1 << 20   // a beat's stdin; its last TailBytes are kept
 	MaxCollectTar   = 128 << 20 // done's stdin, as OutputCap(VerbCollect)
+	MaxGiveBackWhy  = 1 << 10   // giveback's stdin
 	MailVerbTimeout = 60 * time.Second
 	MailBulkTimeout = 300 * time.Second // claim and done move a whole tar
 )
@@ -61,6 +71,7 @@ const (
 	MailBeatAt     = "beat"        // unix seconds of the last beat
 	MailLog        = "beat.log"    // the last beat's log tail (what `tail` shows)
 	MailDoneTar    = "done.tar"    // the collect tar the host posted
+	MailGivenBack  = "given_back"  // why the host gave the claimed job back
 	MailSeen       = "last_seen"   // per host: unix seconds the host last called in
 	MailVitalsFile = "vitals.json" // per host: its last vitals, stamped with the dispatcher's clock
 )

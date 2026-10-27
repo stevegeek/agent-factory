@@ -1,8 +1,10 @@
 # A Lever instance whose workers take agent-factory jobs (README "Desktop worker
 # (Lever)"). factory-pull claims each job from the factory's mailbox, lays it out
 # in an idle worker's workers/<name>/jobs/<id>/ and messages that worker directly;
-# the manager is not in the loop. Copy into the instance directory and fill in
-# the scion pin and the sizes.
+# the manager is not in the loop. Copy into the instance directory, with
+# factory-worker.md and factory-worker-task.md, and fill in the scion pin and
+# the sizes. autostart has `lever up` start the workers; factory-pull also
+# starts any that are stopped, and claims only for one running and idle.
 name: factory-worker
 backend: lima
 tree: tree
@@ -31,18 +33,24 @@ workers:
   - name: fw1
     dir: workers/fw1
     recyclable: true
+    autostart: true
     instructions_file: factory-worker.md
+    task_file: factory-worker-task.md
     claude_settings:
       auto_compact_window: 120000
   - name: fw2
     dir: workers/fw2
     recyclable: true
+    autostart: true
     instructions_file: factory-worker.md
+    task_file: factory-worker-task.md
     claude_settings:
       auto_compact_window: 120000
   - name: fw3
     dir: workers/fw3
     recyclable: true
+    autostart: true
     instructions_file: factory-worker.md
+    task_file: factory-worker-task.md
     claude_settings:
       auto_compact_window: 120000

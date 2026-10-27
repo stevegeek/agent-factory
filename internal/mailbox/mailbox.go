@@ -37,6 +37,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/fsx"
@@ -139,8 +141,8 @@ func (b Box) seen(host string) error {
 	return writeUnix(filepath.Join(d, jobproto.MailSeen), b.now())
 }
 
-// State is a job's state: jobproto.StateQueued, StateRunning, StateDone or
-// StateMissing.
+// State is a job's state: jobproto.StateQueued, StateRunning, StateDone,
+// StateGivenBack or StateMissing.
 func (b Box) State(host, job string) (string, error) {
 	d, err := b.jobDir(host, job)
 	if err != nil {
@@ -152,6 +154,8 @@ func (b Box) State(host, job string) (string, error) {
 		return jobproto.StateMissing, nil
 	case isFile(filepath.Join(d, jobproto.MailDoneTar)):
 		return jobproto.StateDone, nil
+	case isFile(filepath.Join(d, jobproto.MailGivenBack)):
+		return jobproto.StateGivenBack, nil
 	}
 	if claimed, ok := readUnix(filepath.Join(d, jobproto.MailClaimed)); ok {
 		last := claimed
@@ -423,4 +427,59 @@ func (b Box) Release(host, job string) error {
 		}
 	}
 	return nil
+}
+
+// GiveBack records that the host could not start a job it claimed (no
+// worker took it), with why: the job stays claimed, so no claim takes it
+// again, and reads as given back until the tick places it elsewhere.
+func (b Box) GiveBack(host, job string, why []byte) error {
+	d, err := b.jobDir(host, job)
+	if err != nil {
+		return err
+	}
+	if err := b.seen(host); err != nil {
+		return err
+	}
+	switch {
+	case !isDir(d):
+		return refuse("%s is gone", job)
+	case isFile(filepath.Join(d, jobproto.MailDoneTar)):
+		return refuse("%s is already done", job)
+	case !isFile(filepath.Join(d, jobproto.MailClaimed)):
+		return refuse("%s is not claimed", job)
+	}
+	text := givenBackText(why)
+	if text == "" {
+		text = "no reason given"
+	}
+	return fsx.WriteAtomic(filepath.Join(d, jobproto.MailGivenBack), []byte(text+"\n"), 0o600)
+}
+
+// GivenBack is why the host gave the job back, false when it did not.
+func (b Box) GivenBack(host, job string) (string, bool) {
+	d, err := b.jobDir(host, job)
+	if err != nil {
+		return "", false
+	}
+	raw, err := fsx.ReadNoFollow(filepath.Join(d, jobproto.MailGivenBack), jobproto.MaxGiveBackWhy+1)
+	if err != nil {
+		return "", false
+	}
+	return givenBackText(raw), true
+}
+
+// givenBackText is a reason from the host as one plain line: control and
+// format characters (C0, C1, bidi overrides) and broken UTF-8 become
+// spaces, and it is cut to MaxGiveBackWhy bytes.
+func givenBackText(b []byte) string {
+	if len(b) > jobproto.MaxGiveBackWhy {
+		b = b[:jobproto.MaxGiveBackWhy]
+	}
+	s := strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || r == utf8.RuneError {
+			return ' '
+		}
+		return r
+	}, string(b))
+	return strings.Join(strings.Fields(s), " ")
 }

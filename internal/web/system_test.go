@@ -247,3 +247,22 @@ func TestSystemSummaryOfMachines(t *testing.T) {
 		t.Errorf("stale vitals leave a worker host %q", got[1].State)
 	}
 }
+
+// A pull host's account of its workers reads on its card, marked when none
+// can take a job; a host without one shows nothing.
+func TestWorkersLine(t *testing.T) {
+	for _, c := range []struct {
+		in   *vitals.Workers
+		want string
+		down bool
+	}{
+		{nil, "", false},
+		{&vitals.Workers{Note: "the Lever broker does not answer"}, "down: takes no jobs (the Lever broker does not answer)", true},
+		{&vitals.Workers{Up: true, Note: "fw1 stopped"}, "up · 0 running · 0 free · fw1 stopped", true},
+		{&vitals.Workers{Up: true, Running: 3, Free: 1}, "up · 3 running · 1 free", false},
+	} {
+		if got, down := workersLine(c.in); got != c.want || down != c.down {
+			t.Errorf("%+v: %q %v", c.in, got, down)
+		}
+	}
+}

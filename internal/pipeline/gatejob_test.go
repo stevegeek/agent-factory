@@ -176,6 +176,28 @@ func TestAGateStaysHereWhenThePullHostCannotTakeIt(t *testing.T) {
 	}
 }
 
+// A gate job its pull host gave back unstarted is lost, not failed: the
+// host is paused, so the gate runs here next.
+func TestAGivenBackGateJobRunsHere(t *testing.T) {
+	h, desk, id, _ := gateHarness(t, defaultConfig+deskHost("prefer"))
+	h.tick()
+	if len(desk.started) != 1 {
+		t.Fatalf("not started on desk: %v", desk.started)
+	}
+	desk.mu.Lock()
+	desk.state, desk.gaveBack = jobproto.StateGivenBack, "go: not found"
+	desk.mu.Unlock()
+	h.tick()
+	h.tick()
+	got := h.load(id)
+	if len(h.gate.ran) != 1 || got.Column != "ready_for_pr" || !h.board.Paused("desk") {
+		t.Fatalf("ran here %v, column %s, desk paused %v", h.gate.ran, got.Column, h.board.Paused("desk"))
+	}
+	if errs := events(got, "error"); len(errs) != 1 || !strings.Contains(errs[0].Detail, "its host gave it back unstarted (go: not found); the gate runs again") {
+		t.Errorf("errors %+v", errs)
+	}
+}
+
 func TestGateExit(t *testing.T) {
 	for _, c := range []struct {
 		raw  string

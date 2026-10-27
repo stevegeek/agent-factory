@@ -15,6 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/present"
 	"github.com/stevegeek/agent-factory/internal/sysinfo"
+	"github.com/stevegeek/agent-factory/internal/vitals"
 )
 
 // The System card on the Settings page, the maintainer's only. Foreman's
@@ -205,8 +206,12 @@ type WorkerView struct {
 	Containers []string
 	Podman     bool
 	Images     []string // its images.json, as Images on the card
-	Problems   []string
-	Error      string // why there are no vitals this pass
+	// Lever is a pull host's own account of its workers ("up · 2 of 3
+	// running · 1 free · fw3 stopped"); LeverDown when none can take a job
+	Lever     string
+	LeverDown bool
+	Problems  []string
+	Error     string // why there are no vitals this pass
 }
 
 // RebuildRow is the last rebuild of one image.
@@ -438,6 +443,7 @@ func workerViews(hosts []sysinfo.Host, now time.Time) []WorkerView {
 			w.Bars = append(memoryBars(v.Memory), diskBars(v.Disks, "")...)
 			w.Containers, w.Podman = v.Containers, v.Containers != nil
 			w.Images = imageLines(v.Images)
+			w.Lever, w.LeverDown = workersLine(v.Workers)
 			w.Problems = v.Problems
 		}
 		out = append(out, w)
@@ -542,4 +548,24 @@ func (s *Server) systemJSON(w http.ResponseWriter, r *http.Request) {
 		out["snapshot"], out["age_seconds"], out["stale"] = snap, int(age.Seconds()), age > StaleAfter
 	}
 	jsonReply(w, http.StatusOK, out)
+}
+
+// workersLine is a pull host's account of its workers for its card: down
+// and why, or how many run and are free, with its note.
+func workersLine(w *vitals.Workers) (string, bool) {
+	if w == nil {
+		return "", false
+	}
+	if !w.Up {
+		line := "down: takes no jobs"
+		if w.Note != "" {
+			line += " (" + w.Note + ")"
+		}
+		return line, true
+	}
+	line := fmt.Sprintf("up · %d running · %d free", w.Running, w.Free)
+	if w.Note != "" {
+		line += " · " + w.Note
+	}
+	return line, w.Running == 0
 }
