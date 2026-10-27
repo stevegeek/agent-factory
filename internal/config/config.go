@@ -320,6 +320,11 @@ type HostCfg struct {
 	// it the host is away (no new jobs go there) and a claimed job with no
 	// beat is lost (10).
 	BeatMinutes int
+	// Kinds, when set, are the only project kinds the host takes (an empty
+	// list takes none); NotKinds are kinds it never takes. Both match the
+	// project's kind (KindName), not the host's own Kind.
+	Kinds    []string
+	NotKinds []string
 }
 
 // The transports of a [hosts.<name>].
@@ -330,6 +335,57 @@ const (
 
 // Pull reports a host that claims its jobs from a mailbox here.
 func (h HostCfg) Pull() bool { return h.Transport == TransportPull }
+
+// TakesKind reports whether the host takes a project of the kind: one its
+// kinds list (when set) names and its not_kinds does not.
+func (h HostCfg) TakesKind(kind string) bool {
+	if h.Kinds != nil && !slices.Contains(h.Kinds, kind) {
+		return false
+	}
+	return !slices.Contains(h.NotKinds, kind)
+}
+
+// KindRule is the host's kinds rule in words ("" for a host that takes
+// every kind).
+func (h HostCfg) KindRule() string {
+	var parts []string
+	if h.Kinds != nil {
+		only := strings.Join(h.Kinds, ", ")
+		if only == "" {
+			only = "none"
+		}
+		parts = append(parts, "takes only "+only)
+	}
+	if len(h.NotKinds) > 0 {
+		parts = append(parts, "never "+strings.Join(h.NotKinds, ", "))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// KindName is the name of the project's kind: its `kind` as written, or
+// the kind KindOf infers.
+func (c *Config) KindName(p Project) string {
+	if p.Kind != "" {
+		return p.Kind
+	}
+	k, _ := c.KindOf(p)
+	return k.Name
+}
+
+// HostRefuses is why the host never runs the project's stages (its kinds or
+// not_kinds leave the project's kind out), or false. This host and an
+// unknown one refuse nothing.
+func (c *Config) HostRefuses(host string, p Project) (string, bool) {
+	h, ok := c.HostNamed(host)
+	if !ok {
+		return "", false
+	}
+	kind := c.KindName(p)
+	if h.TakesKind(kind) {
+		return "", false
+	}
+	return fmt.Sprintf("%s does not take %s projects ([hosts.%s] %s)", host, kind, host, h.KindRule()), true
+}
 
 // Project is one [projects.<key>].
 type Project struct {

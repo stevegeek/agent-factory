@@ -175,6 +175,7 @@ func decode(raw *toml.Table) *Config {
 			Model: s.str("model", ""), Key: s.str("key", ""), Notes: s.str("notes", ""),
 			Transport: s.str("transport", TransportSSH), ClaimMinutes: s.integer("claim_minutes", 30),
 			BeatMinutes: s.integer("beat_minutes", 10),
+			Kinds:       s.strList("kinds"), NotKinds: s.strList("not_kinds"),
 		})
 	})
 	top.subTables("kinds", func(name string, s *section) {

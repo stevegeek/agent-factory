@@ -348,6 +348,7 @@ type QueueItem struct {
 	Answered                                                    bool   // back on the desk because your question was answered
 	Current                                                     bool
 	Walls                                                       []string // the files the change touches in its project's walls
+	Line                                                        string   // a failed gate's first failing output line
 }
 
 // DeskView is the desk's queue: the filter chips, what still waits for you,
@@ -387,6 +388,9 @@ func DeskPage(items []DeskItem, kind, current string, now time.Time) *DeskView {
 			Question: Headline(it.T, it.Ask), Title: it.T.Title, Action: Action(it.T, it.Ask), Project: it.T.Project,
 			Age: AgeSince(it.Ask.Since, now), Href: TicketHref(id, kind), Current: id == current, Answered: it.Answered,
 			Walls: slices.Concat(Walls(it.T), DraftWalls(it.T))}
+		if f := GateFailed(it.T, it.Ask); f != nil {
+			q.Line = f.First
+		}
 		switch it.Responded {
 		case "asked":
 			q.Responded = "You asked " + AgeSince(it.RespondedAt, now) + " ago · the answer comes here"
@@ -408,4 +412,23 @@ func TicketHref(id, kind string) string {
 		return "/t/" + id + "?kind=" + url.QueryEscape(kind)
 	}
 	return "/t/" + id
+}
+
+// GateFailure is what a failed gate's checks printed last: where they ran
+// and their exit ("Gate on hostx: exit 1"), the kept lines, and the first
+// of them that reads as the failure.
+type GateFailure struct {
+	Heading string
+	Lines   []string
+	First   string
+}
+
+// GateFailed is the gate's failed checks while the ticket waits on the
+// maintainer for them, or nil.
+func GateFailed(t *ticket.Ticket, a *ticket.Ask) *GateFailure {
+	g, ok := t.Gate.Get()
+	if a == nil || a.Kind != string(model.AskUnstick) || t.Column != string(model.ColNeedsHuman) || !ok || g.ChecksPass || g.Output == "" {
+		return nil
+	}
+	return &GateFailure{Heading: g.FailHeading(), Lines: g.OutputLines(), First: g.FailingLine()}
 }

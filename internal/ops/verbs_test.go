@@ -351,3 +351,28 @@ func TestBoardTicketsAreRefused(t *testing.T) {
 		t.Errorf("the board ticket moved to %s", got.Column)
 	}
 }
+
+// A pin to a host whose kinds rule leaves out the project's kind is
+// refused, on add and on host; a host that takes the kind is pinned.
+func TestAPinToAHostThatExcludesTheKindIsRefused(t *testing.T) {
+	w := newWorld(t, twoProjects+"language = \"Go module\"\n\n[hosts.hostx]\ntransport = \"pull\"\nnot_kinds = [\"go-module\"]\n")
+	ctx := context.Background()
+	want := "hostx does not take go-module projects ([hosts.hostx] never go-module)"
+	var r *ops.Refused
+	if _, err := w.svc.Add(ctx, ops.AddIn{Project: "widgets", Title: "x", Host: "hostx"}); !errors.As(err, &r) || !strings.Contains(r.Message, want) {
+		t.Fatalf("add: %v", err)
+	}
+	id, err := w.svc.Add(ctx, ops.AddIn{Project: "widgets", Title: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.svc.Host(ctx, string(id), "hostx"); !errors.As(err, &r) || !strings.Contains(r.Message, want) {
+		t.Fatalf("host: %v", err)
+	}
+	if got := w.load(id); got.Host.Present() {
+		t.Fatalf("pinned anyway: %+v", got.Host)
+	}
+	if _, err := w.svc.Add(ctx, ops.AddIn{Project: "gem", Title: "y", Host: "hostx"}); err != nil {
+		t.Fatalf("a gem: %v", err)
+	}
+}

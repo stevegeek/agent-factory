@@ -247,6 +247,18 @@ func (c *Config) Problems(tokens TokenRecords) (problems, warnings []string) {
 			warnings = append(warnings, fmt.Sprintf("[hosts.%s] lists \"gate\": only a pull host runs gate jobs, so its gates run here", h.Name))
 		}
 	}
+	for _, h := range c.Hosts {
+		for _, l := range []struct {
+			key   string
+			names []string
+		}{{"kinds", h.Kinds}, {"not_kinds", h.NotKinds}} {
+			for _, k := range l.names {
+				if _, ok := c.KindNamed(k); !ok {
+					warnings = append(warnings, fmt.Sprintf("[hosts.%s] %s names %q, which is no project kind (`factory kinds`)", h.Name, l.key, k))
+				}
+			}
+		}
+	}
 	warnings = append(warnings, c.unknownNotes...)
 	warnings = append(warnings, c.Mistyped...)
 	warnings = append(warnings, c.skipped...)
@@ -475,6 +487,30 @@ func stringNames(v toml.Value) []string {
 		}
 	default:
 		out = pyList(v)
+	}
+	return out
+}
+
+// KindNotes say, for each host with a kinds rule, what it is and which
+// factory projects it keeps away from that host.
+func (c *Config) KindNotes() []string {
+	var out []string
+	for _, h := range c.Hosts {
+		rule := h.KindRule()
+		if rule == "" {
+			continue
+		}
+		var away []string
+		for _, p := range c.FactoryProjects() {
+			if !h.TakesKind(c.KindName(p)) {
+				away = append(away, p.Key)
+			}
+		}
+		note := fmt.Sprintf("[hosts.%s] %s", h.Name, rule)
+		if len(away) > 0 {
+			note += ": never runs " + strings.Join(away, ", ")
+		}
+		out = append(out, note)
 	}
 	return out
 }

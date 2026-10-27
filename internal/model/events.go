@@ -61,7 +61,7 @@ func EventTypes() []EventTypeInfo {
 		{EventQuestionAsked, f("by", "recipient", "n")},
 		{EventQuestionAnswered, f("by", "n")},
 		{EventSentToFactory, f("by", "ticket")},
-		{EventErrored, f("text")},
+		{EventErrored, f("text", "host?", "missing?")},
 		{EventPR, f("action", "number?", "why?")},
 		{EventGated, f("base", "commit")},
 		{EventFiled, f("ticket")},

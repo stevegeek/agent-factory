@@ -333,6 +333,9 @@ func runCheck(ctx context.Context, e *Env, a Args) error {
 	}
 	notes, bad := switchNotes(cfg, e.Paths().ProjectSwitches())
 	warnings = append(warnings, bad...)
+	if cfg != nil {
+		notes = append(notes, cfg.KindNotes()...)
+	}
 	for _, n := range notes {
 		fmt.Fprintln(e.Stdout, "note: "+n)
 	}

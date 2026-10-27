@@ -110,6 +110,9 @@ type TicketView struct {
 	// Nudge is why this ticket is in the viewer's For you, until they put
 	// it away
 	Nudge *desk.ForYouItem
+	// GateFail is the failed gate's last output lines, shown above the
+	// answers
+	GateFail *present.GateFailure
 }
 
 // forPerson adds to a ticket view what is the viewer's: who it may be
@@ -217,7 +220,8 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 	a := present.AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: present.BuildStory(t, all), Facts: present.Facts(t, a, all),
 		Answers: s.answersFor(t, a), Callout: present.PRCallout(t), Pending: present.Pending(t), Children: t.Children, ChildrenLabel: "Filed",
-		ParentID: t.Parent.Or(""), CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t)}
+		ParentID: t.Parent.Or(""), CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t),
+		GateFail: present.GateFailed(t, a)}
 	if pr, ok := t.PanelResult.Get(); ok {
 		// a prospect's proposals, kept and dropped, each a ticket of its own
 		v.ChildrenLabel, v.Children = "Proposals", nil

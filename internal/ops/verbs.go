@@ -101,6 +101,9 @@ func (s *Service) Host(ctx context.Context, id, host string) error {
 		if err := knownHost(c.cfg, host); err != nil {
 			return err
 		}
+		if err := kindRefused(c.cfg, host, t.Project); err != nil {
+			return err
+		}
 		c.pinHost(t, host)
 		return nil
 	})

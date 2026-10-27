@@ -45,13 +45,15 @@ const (
 //     localOK; a helper that lists the stage in stages or prefer. Each only
 //     when not down and free. Helpers are tried in config order.
 //
-// localOK is false for a task with no project checkout here.
-func Pick(cfg *config.Config, stage string, busy map[string]int, down map[string]bool, pinned string, localOK bool) (string, bool) {
+// localOK is false for a task with no project checkout here. kind is the
+// project's kind ("" for none): a helper whose kinds rule leaves it out is
+// never picked, pinned or not.
+func Pick(cfg *config.Config, stage string, busy map[string]int, down map[string]bool, pinned string, localOK bool, kind string) (string, bool) {
 	free := func(name string) bool {
 		capacity := cfg.MaxAgents
 		if name != Local {
 			h, ok := cfg.HostNamed(name)
-			if !ok {
+			if !ok || kind != "" && !h.TakesKind(kind) {
 				return false
 			}
 			capacity = h.Slots

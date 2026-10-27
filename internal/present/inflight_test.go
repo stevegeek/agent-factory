@@ -159,6 +159,26 @@ func TestInFlightHeavyGatesAndHosts(t *testing.T) {
 	}
 }
 
+// A host whose kinds rule keeps a project away takes neither its gate nor
+// its stages, and a ticket pinned there is held, saying why.
+func TestInFlightFollowsTheHostsKinds(t *testing.T) {
+	heavy := flightTicket(t, "T0301", "big", "", 100)
+	ticket.Move(heavy, "gate", model.ReasonSecurityPassed, "", "", "", ago(30))
+	pinned := flightTicket(t, "T0302", "big", "", 100)
+	ticket.Move(pinned, "review", model.ReasonWorkDone, "", "", "", ago(20))
+	pinned.Host = ticket.Some("desk")
+
+	p := flightPlan()
+	p.Hosts[1].Refuses = []string{"big"}
+	w := byID(BuildInFlight([]*ticket.Ticket{heavy, pinned}, p, nil, you, flightNow).Waiting)
+	if q := w["T0301"]; q.Why != "runs at the next tick, here" {
+		t.Errorf("gate: %+v", q)
+	}
+	if q := w["T0302"]; !q.Held || q.Why != "pinned to desk, which does not take this project's kind" {
+		t.Errorf("pinned: %+v", q)
+	}
+}
+
 // Just moved: the moves of the last day across the viewer's tickets,
 // newest first, capped; who moved it (the viewer's own marked, older
 // untyped history read too) and why.

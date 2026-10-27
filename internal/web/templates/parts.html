@@ -29,6 +29,11 @@
   {{if ne .Lead .Full}}<details class="more" data-key="answer-{{.ID}}"><summary>Read the whole answer</summary><div class="text md">{{md .Full}}</div></details>{{end}}
 </section>{{end}}
 {{with .Why}}<p class="why">{{mdi .}}</p>{{end}}
+{{with .GateFail}}<section class="gate-fail" aria-label="Gate output">
+  <h3 class="panel-h">{{.Heading}}</h3>
+  <pre class="patch">{{range .Lines}}{{.}}
+{{end}}</pre>
+</section>{{end}}
 {{with .Pending}}<div class="callout {{.Tone}}" role="status"><b>{{.Title}}</b>
   {{if .Lines}}<ul>{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}
 </div>{{end}}

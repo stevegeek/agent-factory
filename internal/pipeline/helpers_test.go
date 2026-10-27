@@ -432,6 +432,9 @@ func (f *fakeGate) Decide(ctx context.Context, cfg *config.Config, p config.Proj
 	f.decided = append(f.decided, in)
 	g := f.result
 	g.ChecksPass, g.Head, g.Base, g.Host = in.ChecksPass, in.Head, in.Base, in.Host
+	if !in.ChecksPass {
+		g.Exit, g.Output = in.Exit, gate.FailTail(in.Output)
+	}
 	return g, f.err
 }
 

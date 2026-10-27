@@ -260,3 +260,55 @@ func TestGoModuleAndDocsKinds(t *testing.T) {
 		t.Errorf("problems %q", problems)
 	}
 }
+
+// [hosts.<name>] kinds and not_kinds match the project's kind, as written
+// or inferred; `factory check` names the rule and warns of a kind that
+// does not exist.
+func TestHostKinds(t *testing.T) {
+	c, err := Parse([]byte(`[projects.g]
+path = "/srv/g"
+language = "Go module"
+
+[projects.r]
+path = "/srv/r"
+kind = "ruby-gem"
+
+[hosts.hostx]
+transport = "pull"
+not_kinds = ["go-module"]
+
+[hosts.hosty]
+transport = "pull"
+kinds = ["ruby-gem", "nosuch"]
+
+[hosts.hostz]
+transport = "pull"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, _ := c.Project("g")
+	r, _ := c.Project("r")
+	if why, ok := c.HostRefuses("hostx", *g); !ok || why != "hostx does not take go-module projects ([hosts.hostx] never go-module)" {
+		t.Errorf("hostx, g: %q %v", why, ok)
+	}
+	for _, x := range []struct {
+		host string
+		p    *Project
+	}{{"hostx", r}, {"hosty", r}, {"hostz", g}, {"local", g}} {
+		if why, ok := c.HostRefuses(x.host, *x.p); ok {
+			t.Errorf("%s, %s: %q", x.host, x.p.Key, why)
+		}
+	}
+	if _, ok := c.HostRefuses("hosty", *g); !ok {
+		t.Error("hosty takes g")
+	}
+	want := []string{"[hosts.hostx] never go-module: never runs g", "[hosts.hosty] takes only ruby-gem, nosuch: never runs g"}
+	if got := c.KindNotes(); !slices.Equal(got, want) {
+		t.Errorf("notes %q", got)
+	}
+	_, warnings := c.Problems(nil)
+	if !slices.Contains(warnings, `[hosts.hosty] kinds names "nosuch", which is no project kind (`+"`factory kinds`)") {
+		t.Errorf("warnings %q", warnings)
+	}
+}

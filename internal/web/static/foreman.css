@@ -103,6 +103,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .qitem .qtop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; color: var(--muted); }
 .qitem .proj { font-weight: 600; color: var(--ink); letter-spacing: 0.02em; }
 .qitem .t { display: block; font-weight: 600; font-size: 15.5px; line-height: 1.35; color: var(--ink); }
+.qitem .qline { display: block; font-size: 12.5px; font-family: var(--mono); color: var(--stop); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qitem .qact { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; color: var(--muted); }
 .qitem .qdo { color: var(--k); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .qitem .qdo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--k); flex: none; }
