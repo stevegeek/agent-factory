@@ -35,19 +35,12 @@ const (
 	watchEvery    = time.Second
 )
 
-// livePage is In flight for everyone, over the projects they see; the
-// screens and the log are the maintainer's.
+// livePage is In flight, the agents' screens and the log.
 func (s *Server) livePage(w http.ResponseWriter, r *http.Request) {
 	ts, now := s.visible(r), s.now()
-	var sees func(string) bool
-	if u := s.viewer(r); u != nil {
-		sees = u.Sees
-	}
 	plan, stalled := s.flightPlan(now)
-	v := &LiveView{InFlight: present.BuildInFlight(s.whole(r), plan, sees, s.deskViewer(r), now), Stalled: stalled}
-	if s.isMaintainer(r) {
-		v.Screens, v.Agents = true, liveAgents(ts, now)
-	}
+	v := &LiveView{InFlight: present.BuildInFlight(ts, plan, nil, s.deskViewer(r), now), Stalled: stalled,
+		Screens: true, Agents: liveAgents(ts, now)}
 	s.render(w, r, "live", &Page{Title: "Live", Tab: "live", Live: v}, ts)
 }
 

@@ -91,28 +91,31 @@ func TestSystemShowsTheDeployCard(t *testing.T) {
 	}
 }
 
-func TestDeployHoldIsMaintainerOnly(t *testing.T) {
+// Anyone holds deploys, as themselves; a post needs the CSRF token and a
+// same-origin browser.
+func TestAnyoneHoldsDeploys(t *testing.T) {
 	h := newHarness(t, false)
 	hold := &fakeHolder{line: "deploys held"}
 	h.srv.svc.Deploys = hold
-	m := h.login()
-	secret, _ := h.users.Add("robin", []string{"busy"})
-	robin := h.loginWith(secret, "/")
-	if w := h.do("GET", "/system", nil, robin); w.Code != http.StatusNotFound {
+	robin := h.person("robin", "busy")
+	if w := h.do("GET", "/system", nil, robin); w.Code != http.StatusOK {
 		t.Errorf("robin's System status: %d", w.Code)
 	}
-	if w := h.do("POST", "/system/deploys/hold", url.Values{"csrf": {h.csrf(robin)}, "held": {"yes"}}, robin); w.Code != http.StatusNotFound {
-		t.Errorf("robin's hold: %d", w.Code)
-	}
-	if w := h.do("POST", "/system/deploys/hold", url.Values{"held": {"yes"}}, m); w.Code != http.StatusForbidden {
+	if w := h.do("POST", "/system/deploys/hold", url.Values{"held": {"yes"}}, robin); w.Code != http.StatusForbidden {
 		t.Errorf("no CSRF token: %d", w.Code)
 	}
-	if w := h.doWith("POST", "/system/deploys/hold", url.Values{"csrf": {h.csrf(m)}, "held": {"yes"}},
-		map[string]string{"Sec-Fetch-Site": "cross-site"}, m); w.Code != http.StatusForbidden {
+	if w := h.doWith("POST", "/system/deploys/hold", url.Values{"csrf": {h.csrf(robin)}, "held": {"yes"}},
+		map[string]string{"Sec-Fetch-Site": "cross-site"}, robin); w.Code != http.StatusForbidden {
 		t.Errorf("cross-site: %d", w.Code)
 	}
 	if got := hold.calls(); len(got) != 0 {
 		t.Fatalf("held %q", got)
+	}
+	if w := h.do("POST", "/system/deploys/hold", url.Values{"csrf": {h.csrf(robin)}, "held": {"yes"}}, robin); w.Code != http.StatusSeeOther {
+		t.Errorf("robin's hold: %d", w.Code)
+	}
+	if got := hold.calls(); len(got) != 1 || got[0] != "hold  robin" {
+		t.Errorf("robin's hold: %q", got)
 	}
 }
 

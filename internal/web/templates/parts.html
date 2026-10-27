@@ -16,6 +16,12 @@
   <nav class="subtabs" aria-label="Views of {{.T.ID}}"><a href="/t/{{.T.ID}}" aria-current="page">Ticket</a><a href="/t/{{.T.ID}}/talk">Conversation</a></nav>
 </header>
 {{with .Next}}<p class="next"><b>Waiting for you</b> {{.}}</p>{{end}}
+{{with .Nudge}}<form class="callout nudge" method="post" action="/t/{{.ID}}/seen">
+  <input type="hidden" name="csrf" value="{{$p.CSRF}}"><input type="hidden" name="at" value="{{.At}}">
+  <b>{{if .Passed}}{{.By}} passed this to you{{else}}{{.By}} mentioned you{{end}}</b>{{with .Age}} · {{.}}{{end}}
+  {{if not .Passed}}<div class="text md">{{md .Text}}</div>{{end}}
+  <button class="btn quiet" type="submit"><span>Put away</span></button>
+</form>{{end}}
 {{with .Answer}}<section class="answered" aria-label="Answer to your question">
   <h3 class="panel-h">Answer to your question <a class="mono" href="/t/{{.ID}}">{{.ID}}</a></h3>
   <p class="asked">“{{mdt .Question}}”</p>
@@ -57,6 +63,19 @@
   <h3 class="panel-h">Findings</h3>
   {{range .Findings}}{{template "finding" .}}{{end}}
 </section>{{end}}
+{{if .Pass}}<details class="pass" data-key="pass-{{.T.ID}}"><summary>{{with .Assignee}}{{.}}'s · {{end}}Pass to someone</summary>
+  <form method="post" action="/t/{{.T.ID}}/assign">
+    <input type="hidden" name="csrf" value="{{$p.CSRF}}">
+    <label for="pass-to-{{.T.ID}}">Give it to</label>
+    <select id="pass-to-{{.T.ID}}" name="to">{{$as := .Assignee}}
+      {{range .People}}<option value="{{.}}"{{if eq . $as}} selected{{end}}>{{.}}</option>{{end}}
+      <option value=""{{if not $as}} selected{{end}}>nobody</option>
+    </select>
+    <textarea name="note" maxlength="4000" rows="2" placeholder="Why, for them (optional)"></textarea>
+    <p class="hint">It goes on their desk, whatever its project. Writing @name in a note puts a ticket on that person's desk too.</p>
+    <button class="btn" type="submit" data-busy="Passing…"><span>Pass it</span></button>
+  </form>
+</details>{{end}}
 {{if .Children}}<p class="sub">{{.ChildrenLabel}}: {{range $i, $c := .Children}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$c}}">{{$c}}</a>{{end}}</p>{{end}}
 {{with .Questions}}<section class="picks findings" aria-label="Questions">
   <h3 class="panel-h">Questions</h3>

@@ -29,17 +29,17 @@ func TestFloorMetricsRender(t *testing.T) {
 	if earlier := h.do("GET", "/floor/metrics?week=2026-09-14", nil, h.login()).Body.String(); !strings.Contains(earlier, "Nothing to count in these five weeks.") {
 		t.Errorf("a week with nothing before it is quiet")
 	}
-	secret, _ := h.users.Add("robin", []string{"widgets"})
-	robin := h.do("GET", "/floor/metrics", nil, h.loginWith(secret, "/")).Body.String()
-	if !strings.Contains(robin, "asks you answered") || !strings.Contains(robin, `<th scope="row">Asks answered</th><td>0</td>`) ||
-		!strings.Contains(robin, `<th scope="row">PRs merged</th><td>1</td>`) {
-		t.Errorf("robin's floor counts only robin's answers, and everyone's outcomes")
-	}
 	floor := h.do("GET", "/floor?week=2026-09-28", nil, h.login()).Body.String()
 	if strings.Contains(floor, `class="metrics"`) || !strings.Contains(floor, `href="/floor/metrics?week=2026-09-28">Floor metrics</a>`) {
 		t.Errorf("the floor still holds the metrics, or lacks a link to them for its week")
 	}
 	if w := h.do("GET", "/floor/metrics?week=bad", nil, h.login()); w.Code != 400 {
 		t.Errorf("a bad week: %d", w.Code)
+	}
+	// once there are people, the main secret logs in no more
+	robin := h.do("GET", "/floor/metrics", nil, h.person("robin", "widgets")).Body.String()
+	if !strings.Contains(robin, "asks you answered") || !strings.Contains(robin, `<th scope="row">Asks answered</th><td>0</td>`) ||
+		!strings.Contains(robin, `<th scope="row">PRs merged</th><td>1</td>`) {
+		t.Errorf("robin's floor counts only robin's answers, and everyone's outcomes")
 	}
 }

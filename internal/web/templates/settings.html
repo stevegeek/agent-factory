@@ -1,6 +1,52 @@
 {{define "content" -}}
 {{with .Settings}}
 <main class="pane settings">
+  {{with .People}}
+  {{if .Me}}<section class="set" id="desk">
+    <h3>Your desk</h3>
+    <p>Your desk shows the asks of the projects ticked here (none ticked: every project), and anything put to you by name: a question to you, a ticket passed to you, or a note that mentions @{{.Me}}. Every board stays open to you either way.</p>
+    <form method="post" action="/settings/desk" class="desk-picks">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      {{range .MyDesk}}<label class="pick"><input type="checkbox" name="desk" value="{{.Project}}"{{if .On}} checked{{end}}> {{.Project}}</label>{{end}}
+      <button class="btn primary" type="submit"><span>Save your desk</span></button>
+    </form>
+  </section>{{end}}
+  <section class="set" id="people">
+    <h3>People</h3>
+    <p>Everyone here can do everything. Each logs in with their email and password; their name is theirs on the board, for questions, passing tickets and @mentions.</p>
+    {{with .Missing}}<p class="callout warn">Not in <code>[board] people</code> in config.toml: {{range $i, $n := .}}{{if $i}}, {{end}}{{$n}}{{end}}. Add them there so questions and tickets can be put to them.</p>{{end}}
+    {{range .Users}}<details class="person" data-key="person-{{.Name}}">
+      <summary><b>{{.Name}}</b>{{if .You}} (you){{end}} · {{.Email}} · desk: {{if .Every}}every project{{else}}{{range $i, $d := .Desk}}{{if $d.On}}{{$d.Project}} {{end}}{{end}}{{end}}</summary>
+      <form method="post" action="/settings/users/{{.Name}}">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="do" value="desk">
+        {{range .Desk}}<label class="pick"><input type="checkbox" name="desk" value="{{.Project}}"{{if .On}} checked{{end}}> {{.Project}}</label>{{end}}
+        <button class="btn" type="submit"><span>Save {{.Name}}'s desk</span></button>
+      </form>
+      <form method="post" action="/settings/users/{{.Name}}">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="do" value="password">
+        <label>New password <input type="password" name="password" minlength="10" maxlength="256" autocomplete="new-password" required></label>
+        <button class="btn" type="submit"><span>Set the password</span></button>
+      </form>
+      <form method="post" action="/settings/users/{{.Name}}">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="do" value="remove">
+        <button class="btn danger" type="submit"><span>Remove {{.Name}}</span></button>
+      </form>
+    </details>{{end}}
+    <details class="person" data-key="person-add"{{if not .Users}} open{{end}}>
+      <summary><b>Add a person</b></summary>
+      {{if not .Users}}<p class="hint">Add yourself first: once anyone is here the main secret no longer logs in.</p>{{end}}
+      <form method="post" action="/settings/users" class="add-person">
+        <input type="hidden" name="csrf" value="{{$.CSRF}}">
+        <label>Name <input name="name" pattern="[a-z][a-z0-9\-]{0,31}" maxlength="32" required placeholder="lowercase, as on the board"></label>
+        <label>Email <input type="email" name="email" maxlength="254" required autocomplete="off"></label>
+        <label>Password <input type="password" name="password" minlength="10" maxlength="256" required autocomplete="new-password"></label>
+        <p class="hint">Their desk (none ticked: every project):</p>
+        {{range .Projects}}<label class="pick"><input type="checkbox" name="desk" value="{{.}}"> {{.}}</label>{{end}}
+        <button class="btn primary" type="submit"><span>Add</span></button>
+      </form>
+    </details>
+  </section>
+  {{end}}
   <section class="set">
     <h3>On your phone</h3>
     <p>Install Foreman like an app: in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. Open it from the home screen from then on; on an iPhone, notifications only work there (iOS 16.4 or later).</p>

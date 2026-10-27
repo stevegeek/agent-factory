@@ -68,18 +68,13 @@ func TestLiveShowsRunningAgentsAndTheirScreens(t *testing.T) {
 	}
 }
 
-// In flight at the top of Live: the maintainer sees every project's
-// queue, agents (linked to their screens on the page) and moves, their own
-// marked; another person sees only her projects, her own moves marked,
-// and no screens or log. It rides the page's poll: a move changes the
+// In flight at the top of Live: everyone sees every project's queue,
+// agents (linked to their screens on the page) and moves, their own
+// marked. It rides the page's poll: a move changes the
 // version, so the next poll brings it.
 func TestLiveInFlight(t *testing.T) {
 	h := newHarness(t, false)
-	secret, err := h.users.Add("robin", []string{"factory"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := h.login()
+	m := h.person("ann")
 	old := version(h.fixtures())
 	before := h.do("GET", "/live", nil, m).Body.String()
 	if !strings.Contains(before, `id="in-flight"`) || !strings.Contains(before, "Nothing waits for an agent or the gate.") ||
@@ -87,7 +82,7 @@ func TestLiveInFlight(t *testing.T) {
 		t.Fatalf("in flight before: no section, a waiting ticket, or no link to the running agent's screen")
 	}
 	h.change("T0002", func(tk *ticket.Ticket) {
-		ticket.Move(tk, "ready", model.ReasonByHuman, "go", "", "maintainer", testNow.Add(-5*time.Minute))
+		ticket.Move(tk, "ready", model.ReasonByHuman, "go", "", "ann", testNow.Add(-5*time.Minute))
 	})
 	h.change("T0008", func(tk *ticket.Ticket) {
 		ticket.Move(tk, "ready", model.ReasonByHuman, "", "", "robin", testNow.Add(-2*time.Minute))
@@ -113,10 +108,10 @@ func TestLiveInFlight(t *testing.T) {
 		t.Errorf("moves not newest first")
 	}
 
-	r := h.loginWith(secret, "/")
+	r := h.person("robin", "factory")
 	body = h.do("GET", "/live", nil, r).Body.String()
-	if !strings.Contains(body, `id="in-flight"`) || strings.Contains(body, "T0002") || strings.Contains(body, "T0011") || strings.Contains(body, "data-poll") {
-		t.Errorf("robin's Live shows another project or the screens")
+	if !strings.Contains(body, `id="in-flight"`) || !strings.Contains(body, "T0002") || !strings.Contains(body, `href="#T0011"`) {
+		t.Errorf("robin's Live lacks another project or the screens")
 	}
 	if !strings.Contains(body, `href="/t/T0008"`) || !strings.Contains(body, `class="fl-row mine"`) {
 		t.Errorf("robin's Live lacks her ticket or her move")

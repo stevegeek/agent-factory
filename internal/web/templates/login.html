@@ -3,11 +3,18 @@
   <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Foreman</div>
   <form method="post" action="/login" hx-boost="false">
     <input type="hidden" name="next" value="{{.Next}}">
-    <label for="secret">Secret</label>
-    <input id="secret" name="secret" type="password" autocomplete="current-password" required autofocus>
+    {{if .FirstLogin}}
+    <label for="password">Secret</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+    {{else}}
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    {{end}}
     {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
     <button class="btn primary" type="submit">Log in</button>
-    <p class="hint">The secret is in <span class="mono">~/factory/foreman-state/foreman-secret</span> on the factory host.</p>
+    {{if .FirstLogin}}<p class="hint">Nobody has a login yet. The secret is Foreman's <span class="mono">foreman-secret</span> file (its <span class="mono">--secret-file</span>) on the factory host: log in with it and add yourself in Settings. From then on only people's own logins work.</p>{{end}}
   </form>
 </main>
 {{- end}}

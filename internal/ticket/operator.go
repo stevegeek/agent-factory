@@ -1,6 +1,7 @@
 package ticket
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -108,16 +109,14 @@ func (a Action) ItemLabel() string {
 	return a.Kind + " " + a.Target
 }
 
-// OperatorTrusted reports a manager ticket whose every word is the
-// maintainer's: filed by the maintainer through a person's door, and every
-// note on it written by the maintainer. Only then may the
+// OperatorTrusted reports a manager ticket whose every word is one of
+// people's ([board] people): filed by one of them through a person's door,
+// and every note on it written by one of them. Only then may the
 // tick apply the manager's auto-tier items by itself; on any other ticket
 // each item waits for a tap. A note whose author no typed event names, and
 // a board edit or comment by anyone else, make it untrusted.
-func OperatorTrusted(t *Ticket, maintainer string) bool {
-	// "factory" is who the factory's own writes are by (Move, AddNote), so
-	// it is never the maintainer here
-	if maintainer == "" || maintainer == "factory" || t.Door != string(model.DoorHuman) || t.By != maintainer {
+func OperatorTrusted(t *Ticket, people []string) bool {
+	if t.Door != string(model.DoorHuman) || !trustedPerson(people, t.By) {
 		return false
 	}
 	byMaintainer := map[int]bool{}
@@ -127,16 +126,16 @@ func OperatorTrusted(t *Ticket, maintainer string) bool {
 		}
 		switch d := e.Data.(type) {
 		case Noted:
-			if d.By != maintainer {
+			if !trustedPerson(people, d.By) {
 				return false
 			}
 			byMaintainer[d.Note] = true
 		case Edited:
-			if d.By != maintainer {
+			if !trustedPerson(people, d.By) {
 				return false
 			}
 		case Commented:
-			if d.By != maintainer {
+			if !trustedPerson(people, d.By) {
 				return false
 			}
 		}
@@ -149,15 +148,15 @@ func OperatorTrusted(t *Ticket, maintainer string) bool {
 	return true
 }
 
-// Tapped reports the maintainer's Apply it for an item of the given run
+// Tapped reports a person's Apply it for an item of the given run
 // whose requested stamp is requested: a needs_human move with
-// ReasonOperatorSettled by the maintainer, stamped requested, after the
-// start of that run (the last manage start when the run is past them; the
-// whole history when there is none). The tick acts on a requested item
-// only then, so a requested state that anything else wrote (a board edit,
-// a path that is not the maintainer's) can only make the item wait.
-func Tapped(t *Ticket, run int, requested, maintainer string) bool {
-	if maintainer == "" || maintainer == "factory" || requested == "" {
+// ReasonOperatorSettled by one of people ([board] people), stamped
+// requested, after the start of that run (the last manage start when the
+// run is past them; the whole history when there is none). The tick acts on
+// a requested item only then, so a requested state that anything else wrote
+// (a board edit, a path that is not a person's) can only make the item wait.
+func Tapped(t *Ticket, run int, requested string, people []string) bool {
+	if requested == "" {
 		return false
 	}
 	from, n := -1, 0
@@ -169,11 +168,17 @@ func Tapped(t *Ticket, run int, requested, maintainer string) bool {
 	for _, e := range t.History[from+1:] {
 		m, ok := e.Data.(Moved)
 		if ok && e.Event == "move" && e.At == requested && m.Reason == model.ReasonOperatorSettled &&
-			m.By == maintainer && m.To == string(model.ColNeedsHuman) {
+			trustedPerson(people, m.By) && m.To == string(model.ColNeedsHuman) {
 			return true
 		}
 	}
 	return false
+}
+
+// trustedPerson reports one of people; "factory" is who the factory's own
+// writes are by (Move, AddNote), so it is never a person here.
+func trustedPerson(people []string, by string) bool {
+	return by != "" && by != "factory" && slices.Contains(people, by)
 }
 
 // SettleMove moves a manager ticket waiting on the desk to needs_human

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/present"
 	"github.com/stevegeek/agent-factory/internal/push"
 )
@@ -15,6 +16,7 @@ import (
 type SettingsView struct {
 	PushKey string // empty: notifications are off on this server
 	Devices int    // the viewer's own devices (bug 7)
+	People  *desk.PeopleView
 }
 
 func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +51,7 @@ func (s *Server) pushUser(r *http.Request) string {
 
 func (s *Server) settings(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
-	v := &SettingsView{}
+	v := &SettingsView{People: s.peopleView(r)}
 	if s.push != nil {
 		v.PushKey, v.Devices = s.push.PublicKey(), s.push.CountFor(s.pushUser(r))
 	}

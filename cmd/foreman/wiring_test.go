@@ -155,7 +155,7 @@ func newWorldWakes(t *testing.T, wakeLog bool) *world {
 		t.Fatalf("services not wired: %+v", svc)
 	}
 	secretFile := filepath.Join(env.Home, ".config", "factory", "foreman-secret")
-	w.users = auth.NewUsers(auth.UsersFile(secretFile), clk)
+	w.users = auth.NewUsers(auth.UsersFile(secretFile), clk).WithCost(1)
 	w.auth, err = auth.New([]byte(secret), auth.Options{Hosts: []string{"example.com"}, Users: w.users, Clock: clk,
 		FailDelay: time.Nanosecond, SinceFile: auth.SinceFile(secretFile)})
 	if err != nil {
@@ -188,9 +188,22 @@ func (w *world) do(method, target string, form url.Values, c *http.Cookie) *http
 	return rec
 }
 
+// loginAs logs a user in with their email and password.
+func (w *world) loginAs(email, password string) *http.Cookie {
+	w.t.Helper()
+	rec := w.do("POST", "/login", url.Values{"email": {email}, "password": {password}, "next": {"/"}}, nil)
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == auth.SessionCookie {
+			return c
+		}
+	}
+	w.t.Fatalf("login as %s: %d", email, rec.Code)
+	return nil
+}
+
 func (w *world) loginWith(s string) *http.Cookie {
 	w.t.Helper()
-	rec := w.do("POST", "/login", url.Values{"secret": {s}, "next": {"/"}}, nil)
+	rec := w.do("POST", "/login", url.Values{"password": {s}, "next": {"/"}}, nil)
 	for _, c := range rec.Result().Cookies() {
 		if c.Name == auth.SessionCookie {
 			return c
@@ -444,14 +457,13 @@ func TestEveryAnswerIsByWhoGaveIt(t *testing.T) {
 	w := newWorld(t)
 	mine := w.file(ticket.NewIn{Title: "One", Body: "b", Column: "triage"}, moved("needs_human", model.ReasonTriageAccepted, "accepted"))
 	theirs := w.file(ticket.NewIn{Title: "Two", Body: "b", Column: "triage"}, moved("needs_human", model.ReasonTriageAccepted, "accepted"))
-	robin, err := w.users.Add("robin", []string{"widgets"})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if rec := w.answer(w.loginWith(secret), mine, "start", ""); rec.Code != http.StatusSeeOther {
 		t.Fatalf("maintainer: %d", rec.Code)
 	}
-	if rec := w.answer(w.loginWith(robin), theirs, "start", ""); rec.Code != http.StatusSeeOther {
+	if err := w.users.Add("robin", "robin@example.com", "robin's password", []string{"widgets"}); err != nil {
+		t.Fatal(err)
+	}
+	if rec := w.answer(w.loginAs("robin@example.com", "robin's password"), theirs, "start", ""); rec.Code != http.StatusSeeOther {
 		t.Fatalf("robin: %d", rec.Code)
 	}
 	if a, b := w.lastBy(mine), w.lastBy(theirs); a != "sam" || b != "robin" {

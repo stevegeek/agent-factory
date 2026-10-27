@@ -98,35 +98,26 @@ func TestSystemCardMissingOrBroken(t *testing.T) {
 	}
 }
 
-// Only the maintainer sees the host: other people get neither the card
-// nor the JSON.
-func TestSystemIsTheMaintainers(t *testing.T) {
+// Everyone sees the host: the menu links System status and Logs, and the
+// JSON needs a login.
+func TestSystemIsEveryones(t *testing.T) {
 	h := newHarness(t, false)
 	h.writeSnapshot(snapshotAt(testNow.Add(-time.Minute)))
-	m := h.login()
-	secret, _ := h.users.Add("robin", []string{"factory"})
-	robin := h.loginWith(secret, "/")
-	page := h.do("GET", "/settings", nil, robin).Body.String()
-	if !strings.Contains(page, "Notifications") || strings.Contains(page, "System") || strings.Contains(page, "hub") || strings.Contains(page, `href="/logs"`) {
-		t.Errorf("robin's settings or menu show the system or the logs")
+	m := h.person("robin", "factory")
+	if mine := h.do("GET", "/settings", nil, m).Body.String(); strings.Contains(mine, `id="system"`) || !strings.Contains(mine, `<a href="/system" >System status</a>`) || !strings.Contains(mine, `<a href="/logs" >Logs</a>`) {
+		t.Errorf("the settings still hold the system card, or the menu lacks System status and Logs")
 	}
-	for _, p := range []string{"/system", "/system.json", "/logs"} {
-		if w := h.do("GET", p, nil, robin); w.Code != 404 || strings.Contains(w.Body.String(), "hub") {
+	for _, p := range []string{"/system", "/logs"} {
+		if w := h.do("GET", p, nil, m); w.Code != 200 {
 			t.Errorf("robin's %s: %d", p, w.Code)
 		}
-	}
-	if mine := h.do("GET", "/settings", nil, m).Body.String(); strings.Contains(mine, `id="system"`) || !strings.Contains(mine, `<a href="/system" >System status</a>`) || !strings.Contains(mine, `<a href="/logs" >Logs</a>`) {
-		t.Errorf("the maintainer's settings still hold the system card, or the menu lacks System status and Logs")
-	}
-	if w := h.do("GET", "/settings/system.json", nil, robin); w.Code != 404 || strings.Contains(w.Body.String(), "hub") {
-		t.Errorf("robin's system.json: %d %s", w.Code, w.Body.String())
 	}
 	if w := h.do("GET", "/settings/system.json", nil); w.Code == 200 {
 		t.Errorf("system.json without a login: %d", w.Code)
 	}
 	w := h.do("GET", "/settings/system.json", nil, m)
 	if w.Code != 200 || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
-		t.Fatalf("maintainer's system.json: %d", w.Code)
+		t.Fatalf("robin's system.json: %d", w.Code)
 	}
 	var got struct {
 		Snapshot *sysinfo.Snapshot `json:"snapshot"`

@@ -356,6 +356,20 @@ details.closed { max-width: none; }
 .set p { margin: 0; }
 .push-state { font-weight: 500; }
 .push-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.desk-picks, .person form, .pass form { display: grid; gap: 8px; }
+.desk-picks .btn, .person .btn, .pass .btn { justify-self: start; }
+details.person, details.pass { border-top: 1px solid var(--line); padding: 10px 0; max-width: 74ch; }
+details.person summary, details.pass summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 2px 0; overflow-wrap: anywhere; }
+details.person summary b { color: var(--ink); }
+details.person[open] > form + form { border-top: 1px dashed var(--line); padding-top: 10px; }
+details.person[open] summary, details.pass[open] summary { margin-bottom: 10px; }
+.person label, .pass label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.person input:not([type=checkbox]), .pass select, .pass textarea { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 10px; max-width: 100%; }
+.desk-picks .pick, .person .pick { display: flex; flex-direction: row; align-items: center; color: var(--ink); font-size: 14.5px; }
+.desk-picks .pick input, .person .pick input { margin-top: 0; }
+.callout.nudge { display: grid; gap: 6px; border-color: var(--info); }
+.callout.nudge .btn { justify-self: start; }
+.qitem.foryou { border-left: 3px solid var(--info); }
 
 /* settings: System, the maintainer's (meters, not inline widths: the CSP allows no style attributes) */
 .system h4 { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }

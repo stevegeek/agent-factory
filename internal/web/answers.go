@@ -17,6 +17,7 @@ type OpsVerbs interface {
 	Answer(ctx context.Context, in ops.AnswerIn) (string, error)
 	File(ctx context.Context, project, kind, title, body, by string) (ticket.ID, error)
 	Look(ctx context.Context, id string, lines int) (ops.Screen, error)
+	Pass(ctx context.Context, id, to, by, note string) (string, error)
 }
 
 // Ops is web's Answerer, Filer and Looker over package ops, in-process:
@@ -31,7 +32,12 @@ type Ops struct {
 // APIs (API, MCP) are the caller's to add.
 func OpsServices(v OpsVerbs, cfg ConfigSource) Services {
 	o := Ops{Verbs: v}
-	return Services{Answers: o, Filer: o, Looker: o, Config: cfg}
+	return Services{Answers: o, Filer: o, Looker: o, Passer: o, Config: cfg}
+}
+
+// Pass is ops.Service.Pass: the ticket given to a person.
+func (o Ops) Pass(ctx context.Context, id ticket.ID, to, by, note string) (string, error) {
+	return o.Verbs.Pass(ctx, string(id), to, by, note)
 }
 
 // Answers are ops.Answers: web keeps no answer table of its own.

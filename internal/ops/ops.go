@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/stevegeek/agent-factory/internal/clock"
@@ -250,15 +251,19 @@ func (c *call) by() string {
 	return c.cfg.Maintainer()
 }
 
-// actAs makes the call act as a Foreman user ("" is the maintainer).
-// A name the history already gives a meaning to is refused: the factory's,
-// or the maintainer's own, which would make the user's answers theirs.
+// person reports a call by one of [board] people, whose taps the tick
+// trusts.
+func (c *call) person() bool { return slices.Contains(c.cfg.People(), c.by()) }
+
+// actAs makes the call act as a Foreman user ("" and the board's first
+// person are the maintainer). The factory's name is refused: the history
+// gives it its own meaning.
 func (c *call) actAs(name string) error {
-	if name == "" {
+	if name == "" || name == c.cfg.Maintainer() {
 		return nil
 	}
-	if name == "factory" || name == c.cfg.Maintainer() {
-		return refuse(BadRequest, "%s is the factory's or the maintainer's name on the board; give the Foreman user another", name)
+	if name == "factory" {
+		return refuse(BadRequest, "factory is the factory's name on the board; give the Foreman user another")
 	}
 	c.as = name
 	return nil

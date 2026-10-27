@@ -221,18 +221,47 @@ type DeskItem struct {
 // are the maintainer. Only a person's own response moves an ask down their
 // desk; one whose history names nobody (older boards) is the
 // maintainer's.
+//
+// Their desk holds the asks of their Desk projects (none: every project),
+// except that an ask put to one of People by name (a board question's
+// recipient, else the ticket's assignee) is on that person's desk alone,
+// whatever its project.
 type Viewer struct {
 	By         string
 	Maintainer bool
+	Desk       []string
+	People     []string
+	// Dismissed is, by ticket, the newest mention or pass they put away.
+	Dismissed map[string]string
 }
 
 // made reports a response by this viewer; by is who made it, "" when the
 // history does not say.
 func (v Viewer) made(by string) bool {
-	if by == "" {
+	if by == "" || by == "maintainer" && v.Maintainer { // config.DefaultPerson: before [board] people named them
 		return v.Maintainer
 	}
 	return by != "factory" && by == v.By
+}
+
+// PutTo is the person an ask on t is put to by name, or "": a board
+// question's recipient, else the ticket's assignee, when one of people.
+func PutTo(t *ticket.Ticket, a *ticket.Ask, people []string) string {
+	if q := Asked(t, a); q != nil && q.ToPerson && slices.Contains(people, q.Recipient) {
+		return q.Recipient
+	}
+	if as := t.Assignee.Or(""); as != "" && slices.Contains(people, as) {
+		return as
+	}
+	return ""
+}
+
+// Mine reports whether the ask a on t is on this viewer's desk.
+func (v Viewer) Mine(t *ticket.Ticket, a *ticket.Ask) bool {
+	if p := PutTo(t, a, v.People); p != "" {
+		return p == v.By
+	}
+	return len(v.Desk) == 0 || slices.Contains(v.Desk, t.Project)
 }
 
 // Responded is v's response to the ask, if the ticket's last event is one:
@@ -280,7 +309,7 @@ func (r *reader) desk(ts []*ticket.Ticket, v Viewer) []DeskItem {
 	var out []DeskItem
 	all := ByID(ts)
 	for _, t := range ts {
-		if a := AskFor(t); a != nil {
+		if a := AskFor(t); a != nil && v.Mine(t, a) {
 			resp, at := Responded(t, a, v, all)
 			answered := len(t.History) > 0 && t.History[len(t.History)-1].Event == "answered"
 			out = append(out, DeskItem{t, a, resp, at, answered})

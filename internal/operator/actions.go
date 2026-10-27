@@ -61,7 +61,7 @@ func (s Service) actions(ctx context.Context, cfg *config.Config, t *ticket.Tick
 func (s Service) action(ctx context.Context, cfg *config.Config, t *ticket.Ticket, i int, trusted bool) (line string, offer bool) {
 	a := &t.Actions[i]
 	requested := ticket.ActionState(*a) == model.ItemRequested
-	if requested && !ticket.Tapped(t, a.Run, a.Requested, cfg.Maintainer()) {
+	if requested && !ticket.Tapped(t, a.Run, a.Requested, cfg.People()) {
 		requested, a.State, a.Requested = false, model.ItemNew, ""
 		defer func() { a.Note = textx.Clip(tapNote+a.Note, 2000) }()
 	}

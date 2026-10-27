@@ -59,7 +59,7 @@ func itemName(t *ticket.Ticket, i int) string {
 }
 
 // tapNote is said of a requested item with no tap of the maintainer's.
-const tapNote = "requested, but not the maintainer's tap (only the maintainer's Apply it on the desk is): judged as new; "
+const tapNote = "requested, but not a person's tap (only Apply it on the desk by one of [board] people is): judged as new; "
 
 // draft acts on one new or requested draft: by hand when the factory does
 // not land drafts; otherwise judged on config main and refused, left to
@@ -73,7 +73,7 @@ func (s Service) draft(ctx context.Context, cfg *config.Config, t *ticket.Ticket
 		return "", false
 	}
 	requested := ticket.DraftState(*d) == model.ItemRequested
-	if requested && !ticket.Tapped(t, d.Run, d.Requested, cfg.Maintainer()) {
+	if requested && !ticket.Tapped(t, d.Run, d.Requested, cfg.People()) {
 		requested, d.State, d.Requested = false, model.ItemNew, ""
 		defer func() { d.Note = textx.Clip(tapNote+d.Note, 2000) }()
 	}

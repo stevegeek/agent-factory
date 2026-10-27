@@ -306,14 +306,17 @@ func TestAnAnswerRecordsWhoGaveIt(t *testing.T) {
 	if asked != 1 {
 		t.Errorf("%d question tasks", asked)
 	}
-	for _, name := range []string{"sam", "factory"} {
-		before := w.files()
-		if _, err := w.svc.Answer(ctx, ops.AnswerIn{ID: "T0003", Value: "note", Note: "x", By: name}); err == nil {
-			t.Errorf("a Foreman user named %s answered", name)
-		}
-		if after := w.files(); after["T0003.json"] != before["T0003.json"] {
-			t.Errorf("a refused answer saved something")
-		}
+	// a Foreman user named factory is refused; one named as the board's
+	// first person answers as the maintainer
+	before := w.files()
+	if _, err := w.svc.Answer(ctx, ops.AnswerIn{ID: "T0003", Value: "note", Note: "x", By: "factory"}); err == nil {
+		t.Errorf("a Foreman user named factory answered")
+	}
+	if after := w.files(); after["T0003.json"] != before["T0003.json"] {
+		t.Errorf("a refused answer saved something")
+	}
+	if _, err := w.svc.Answer(ctx, ops.AnswerIn{ID: "T0003", Value: "note", Note: "x", By: "sam"}); err != nil {
+		t.Errorf("sam's note: %v", err)
 	}
 	id, err := w.svc.File(ctx, "widgets", "change", "From robin", "", "robin")
 	if err != nil {

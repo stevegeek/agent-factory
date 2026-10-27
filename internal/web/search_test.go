@@ -61,17 +61,10 @@ func TestSearch(t *testing.T) {
 	if body := h.do("GET", "/search", nil, c).Body.String(); strings.Contains(body, "No ticket matches.") {
 		t.Errorf("an empty search searched")
 	}
-	// another person sees only their own projects
-	secret, err := h.users.Add("robin", []string{b.Project})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rc := h.loginWith(secret, "/")
-	if body := h.do("GET", "/search?q=zebracorn", nil, rc).Body.String(); strings.Contains(body, string(a.ID)) {
-		t.Errorf("robin found a ticket of %s: %s", a.Project, body)
-	}
-	if body := h.do("GET", "/search?q=", nil, rc).Body.String(); strings.Contains(body, ">"+a.Project+"</option>") {
-		t.Errorf("robin is offered %s", a.Project)
+	// another person searches every project too, whatever their desk
+	rc := h.person("robin", b.Project)
+	if body := h.do("GET", "/search?q=zebracorn", nil, rc).Body.String(); !strings.Contains(body, string(a.ID)) {
+		t.Errorf("robin missed a ticket of %s: %s", a.Project, body)
 	}
 	if w := h.do("GET", "/search?q=x", nil); w.Code == http.StatusOK {
 		t.Errorf("search without a login: %d", w.Code)

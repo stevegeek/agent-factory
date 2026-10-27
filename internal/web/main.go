@@ -81,7 +81,7 @@ func parseFlags(args []string, env map[string]string, stderr io.Writer) (*mainCo
 	fs.StringVar(&c.listen, "listen", "127.0.0.1:8790", "address to listen on")
 	fs.StringVar(&c.secretFile, "secret-file", "", "login secret; created when missing (default <root>/foreman-state/foreman-secret, or the older ~/.config/factory/foreman-secret while only that exists)")
 	fs.BoolVar(&c.trustTS, "trust-tailscale", false, "accept Tailscale-User-Login from loopback (tailscale serve) for the --tailscale-user logins")
-	fs.Var(&c.tsUsers, "tailscale-user", "a Tailscale login that counts as the maintainer (repeatable; needed with --trust-tailscale)")
+	fs.Var(&c.tsUsers, "tailscale-user", "a Tailscale login trusted as the user with that email, or as the main secret while there are no users (repeatable; needed with --trust-tailscale)")
 	fs.Var(&c.projects, "project", "a project a new ticket may name (repeatable; deploy passes [projects])")
 	fs.Var(&c.hosts, "host", "a host name to answer to besides IP addresses and localhost, e.g. the ts.net name (repeatable)")
 	fs.BoolVar(&c.revoke, "revoke-sessions", false, "log out every browser, then exit")
@@ -240,8 +240,8 @@ func (c *mainConfig) tsUsersIfTrusted() []string {
 	return c.tsUsers
 }
 
-// Main is the foreman binary: `foreman users …` manages other people's
-// logins; otherwise it serves the desk until SIGINT or SIGTERM. It returns
+// Main is the foreman binary: `foreman users …` manages people's logins;
+// otherwise it serves the desk until SIGINT or SIGTERM. It returns
 // the exit status.
 func Main(args []string, env map[string]string, stdout, stderr io.Writer, wire Wire) int {
 	logger := log.New(stderr, "", log.LstdFlags|log.LUTC)
@@ -255,7 +255,7 @@ func Main(args []string, env map[string]string, stdout, stderr io.Writer, wire W
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		if err := auth.UsersCommand(secret, args[1:], stdout, clk); err != nil {
+		if err := auth.UsersCommand(secret, args[1:], os.Stdin, stdout, clk); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}

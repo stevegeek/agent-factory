@@ -409,11 +409,7 @@ func TestABoardQuestionIsAnsweredFromTheWeb(t *testing.T) {
 	// another user answers as a person of their own
 	tickets.take()
 	tickets.fail = nil
-	secret, err := h.users.Add("robin", []string{"notes"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rc := h.loginWith(secret, "/")
+	rc := h.person("robin", "notes")
 	h.do("POST", "/t/T0104/act", url.Values{"csrf": {h.csrf(rc)}, "answer": {"option-2"}, "ask": {a.Kind}, "since": {a.Since}}, rc)
 	if got := tickets.take(); len(got) != 1 || !strings.HasPrefix(got[0], "robin answer ") {
 		t.Errorf("robin's answer: %q", got)

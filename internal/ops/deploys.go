@@ -13,11 +13,10 @@ import (
 // records the intent (Deploy.Requested) and closes the ticket at once, so
 // no notice is left open with an intent on it; the tick's Drain starts
 // the deploy of main (whatever Rev the ticket shows) and marks it
-// Started. Only the maintainer may: Foreman lets anyone who sees the
-// ticket answer it.
+// Started. Only [board] people may, as the tick trusts only theirs.
 func (c *call) requestDeploy(t *ticket.Ticket) error {
-	if c.as != "" {
-		return refuse(Conflict, "only the maintainer deploys the factory")
+	if !c.person() {
+		return refuse(Conflict, "only [board] people deploy the factory; add %s there", c.by())
 	}
 	d, ok := t.Deploy.Get()
 	if !ok {
@@ -36,18 +35,14 @@ func (c *call) requestDeploy(t *ticket.Ticket) error {
 
 // HoldDeploys holds automatic deploys (held: a merge's deploy becomes a
 // Deploy? ask) or releases them, in foreman-state/deploy-hold.json
-// (deployrec.SetHold), and wakes the tick. It is the maintainer's, as
-// SwitchProject is: by is "" or the maintainer, and anyone else is
-// refused. A deploy started by hand (factory deploy start) ignores the
+// (deployrec.SetHold), and wakes the tick. by is who did ("" is the
+// maintainer). A deploy started by hand (factory deploy start) ignores the
 // hold. Each change is a line in the log; it returns a line for the
 // person.
 func (s *Service) HoldDeploys(ctx context.Context, held bool, note, by string) (string, error) {
 	cfg, err := s.config()
 	if err != nil {
 		return "", err
-	}
-	if by != "" && by != cfg.Maintainer() {
-		return "", refuse(Conflict, "only the maintainer holds or releases deploys")
 	}
 	if len(note) > MaxNote {
 		return "", refuse(BadRequest, "the note is longer than %d characters", MaxNote)
@@ -60,7 +55,9 @@ func (s *Service) HoldDeploys(ctx context.Context, held bool, note, by string) (
 	if s.Board == nil {
 		return "", fmt.Errorf("ops: no board")
 	}
-	by = cfg.Maintainer()
+	if by == "" {
+		by = cfg.Maintainer()
+	}
 	var h *deployrec.Hold
 	what, line := "released", "deploys released: a merge deploys main by itself"
 	if held {

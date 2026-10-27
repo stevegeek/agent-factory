@@ -2,7 +2,7 @@ package ops_test
 
 import (
 	"context"
-	"os"
+	"strings"
 	"testing"
 
 	"github.com/stevegeek/agent-factory/internal/deployrec"
@@ -63,29 +63,31 @@ func TestAnswerDeployRecordsTheIntent(t *testing.T) {
 	}
 }
 
-func TestAnswerDeployIsMaintainerOnly(t *testing.T) {
+// Deploying the factory is [board] people's; not now is anyone's.
+func TestAnswerDeployIsBoardPeoples(t *testing.T) {
 	w := newWorld(t, deskConfig)
+	other := heldDeploy(w).ID
+	if _, err := answerDeploy(w, other, "deploy", "alex"); err != nil {
+		t.Errorf("alex, the second of [board] people, deploys: %v", err)
+	}
 	id := heldDeploy(w).ID
-	before := w.files()
-	if _, err := answerDeploy(w, id, "deploy", "robin"); err == nil {
-		t.Error("a Foreman user deployed")
+	before, wakes := w.files(), w.wakes.count()
+	if _, err := answerDeploy(w, id, "deploy", "robin"); err == nil || !strings.Contains(err.Error(), "only [board] people") {
+		t.Errorf("a Foreman user outside [board] people deployed: %v", err)
 	}
 	if after := w.files(); after[string(id)+".json"] != before[string(id)+".json"] {
 		t.Error("a refused deploy saved something")
 	}
-	if w.wakes.count() != 0 {
-		t.Errorf("%d wakes", w.wakes.count())
+	if n := w.wakes.count() - wakes; n != 0 {
+		t.Errorf("%d wakes", n)
 	}
-	// nor drop it: not now is the maintainer's too
-	if _, err := answerDeploy(w, id, "drop", "robin"); err == nil {
-		t.Error("a Foreman user dropped the deploy")
+	if _, err := answerDeploy(w, id, "drop", "robin"); err != nil {
+		t.Errorf("robin's drop: %v", err)
 	}
-	if after := w.files(); after[string(id)+".json"] != before[string(id)+".json"] {
-		t.Error("a refused drop saved something")
-	}
-	// a note is anyone's, as on any ticket
-	if _, err := w.svc.Answer(context.Background(), ops.AnswerIn{ID: string(id), Value: ops.AnswerNote, Note: "looks fine", By: "robin"}); err != nil {
-		t.Errorf("note: %v", err)
+	got := w.load(id)
+	m, _ := got.History[len(got.History)-1].Data.(ticket.Moved)
+	if got.Column != "rejected" || m.By != "robin" {
+		t.Errorf("after robin's drop: %s by %q", got.Column, m.By)
 	}
 }
 
@@ -126,11 +128,11 @@ func TestHoldDeploys(t *testing.T) {
 	if _, held, _ := deployrec.ReadHold(path); held {
 		t.Error("still held")
 	}
-	if _, err := w.svc.HoldDeploys(ctx, true, "", "robin"); err == nil {
-		t.Error("a Foreman user held deploys")
+	if _, err := w.svc.HoldDeploys(ctx, true, "", "robin"); err != nil {
+		t.Fatalf("robin's hold: %v", err)
 	}
-	if _, err := os.Lstat(path); !os.IsNotExist(err) {
-		t.Errorf("a refused hold wrote %s: %v", path, err)
+	if h, held, _ := deployrec.ReadHold(path); !held || h.By != "robin" {
+		t.Errorf("robin's hold: %+v", h)
 	}
 	if _, err := w.svc.HoldDeploys(ctx, true, "bad\x00note", ""); err == nil {
 		t.Error("a note with control characters")

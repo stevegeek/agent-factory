@@ -51,18 +51,27 @@ func TestDraftAnswersByHandUnchanged(t *testing.T) {
 	}
 }
 
-func TestApplyIsMaintainerOnly(t *testing.T) {
+// Apply it is any of [board] people's, whose taps the tick trusts; a
+// Foreman user missing from them is refused.
+func TestApplyIsBoardPeoples(t *testing.T) {
 	w := newWorld(t, deskConfig)
-	id := managerItems(w, []ticket.Draft{{Title: "Weekly", Patch: "+x\n", State: model.ItemWaiting, Tier: "tap"}}, nil).ID
+	id := managerItems(w, []ticket.Draft{{Title: "Weekly", Patch: "+x\n", State: model.ItemWaiting, Tier: "tap", Run: 1}}, nil).ID
 	before := w.files()
-	if _, err := answerDeploy(w, id, "apply", "robin"); err == nil || !strings.Contains(err.Error(), "only the maintainer") {
-		t.Errorf("a Foreman user applied: %v", err)
+	if _, err := answerDeploy(w, id, "apply", "robin"); err == nil || !strings.Contains(err.Error(), "only [board] people") {
+		t.Errorf("a Foreman user outside [board] people applied: %v", err)
 	}
 	if after := w.files(); after[string(id)+".json"] != before[string(id)+".json"] {
 		t.Error("a refused apply saved something")
 	}
 	if w.wakes.count() != 0 {
 		t.Errorf("%d wakes", w.wakes.count())
+	}
+	if _, err := answerDeploy(w, id, "apply", "alex"); err != nil {
+		t.Fatalf("alex, the second of [board] people, applies: %v", err)
+	}
+	got := w.load(id)
+	if d := got.Drafts[0]; !ticket.Tapped(got, d.Run, d.Requested, []string{"sam", "alex"}) {
+		t.Errorf("the tick does not trust alex's tap: %+v", got.History[len(got.History)-1])
 	}
 }
 
@@ -102,7 +111,7 @@ func TestApplyRequestsWaitingAndFailedAndMoves(t *testing.T) {
 		t.Errorf("column %s last %+v", got.Column, last)
 	}
 	// the tick will take the tap as the maintainer's
-	if !ticket.Tapped(got, 1, stamp, "sam") {
+	if !ticket.Tapped(got, 1, stamp, []string{"sam"}) {
 		t.Error("the tap is not the maintainer's to the tick")
 	}
 	if a, _ := got.Ask.Get(); a.Kind != string(model.AskDraft) || !strings.HasPrefix(a.Question, "The factory is applying") {
@@ -188,31 +197,19 @@ func TestAppliedNamesWhatItLeaves(t *testing.T) {
 	}
 }
 
-// After the maintainer's tap, a Foreman user cannot drop the ticket or send
-// it back before the tick runs what was tapped; the maintainer can.
-func TestTappedTicketIsTheMaintainersToCancel(t *testing.T) {
+// After the tap, anyone may still drop the ticket before the tick runs
+// what was tapped.
+func TestATappedTicketIsAnyonesToCancel(t *testing.T) {
 	w := newWorld(t, deskConfig)
 	id := managerItems(w, []ticket.Draft{{Title: "Weekly", Patch: "+x\n", State: model.ItemWaiting, Run: 1}}, nil).ID
 	if _, err := answerDeploy(w, id, "apply", ""); err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range []string{"drop", "send_back"} {
-		kind, since := askOf(w.load(id))
-		_, err := w.svc.Answer(context.Background(), ops.AnswerIn{ID: string(id), Value: v, Kind: kind, Since: since, By: "alex", Note: "no"})
-		if err == nil || !strings.Contains(err.Error(), "only the maintainer") {
-			t.Errorf("%s by alex after the tap: %v", v, err)
-		}
+	if _, err := answerDeploy(w, id, "drop", "alex"); err != nil {
+		t.Errorf("alex's drop after the tap: %v", err)
 	}
-	if got := w.load(id); got.Column != "needs_human" || got.Drafts[0].State != model.ItemRequested {
-		t.Errorf("column %s draft %+v", got.Column, got.Drafts[0])
-	}
-	if _, err := answerDeploy(w, id, "drop", ""); err != nil {
-		t.Errorf("the maintainer's drop: %v", err)
-	}
-	// before any tap, anyone may still drop
-	other := managerItems(w, []ticket.Draft{{Title: "Weekly", Patch: "+x\n", State: model.ItemWaiting, Run: 1}}, nil).ID
-	if _, err := answerDeploy(w, other, "drop", "alex"); err != nil {
-		t.Errorf("a drop with nothing tapped: %v", err)
+	if got := w.load(id); got.Column != "rejected" {
+		t.Errorf("column %s", got.Column)
 	}
 }
 
@@ -231,10 +228,10 @@ func TestApplyTapIsTheConfiguredMaintainers(t *testing.T) {
 	}
 	got := w.load(id)
 	d := got.Drafts[0]
-	if cfg.Maintainer() != "jo" || !ticket.Tapped(got, d.Run, d.Requested, cfg.Maintainer()) {
+	if cfg.Maintainer() != "jo" || !ticket.Tapped(got, d.Run, d.Requested, cfg.People()) {
 		t.Errorf("the tap is not %s's to the tick: %+v", cfg.Maintainer(), got.History[len(got.History)-1])
 	}
-	if ticket.Tapped(got, d.Run, d.Requested, "sam") {
+	if ticket.Tapped(got, d.Run, d.Requested, []string{"sam"}) {
 		t.Error("the tap counts as someone else's")
 	}
 }

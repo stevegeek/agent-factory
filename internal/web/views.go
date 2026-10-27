@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/present"
@@ -100,6 +102,31 @@ type TicketView struct {
 	// Operator is a manager ticket's drafts and actions, each with the
 	// tier the tick found and where it stands
 	Operator []present.OperatorItem
+	// Pass: the ticket may be given to one of People; Assignee is whose it
+	// is now ("" nobody's)
+	Pass     bool
+	People   []string
+	Assignee string
+	// Nudge is why this ticket is in the viewer's For you, until they put
+	// it away
+	Nudge *desk.ForYouItem
+}
+
+// forPerson adds to a ticket view what is the viewer's: who it may be
+// passed to, and the nudge that put it in front of them.
+func (s *Server) forPerson(r *http.Request, tv *TicketView) {
+	if tv == nil {
+		return
+	}
+	dv := s.deskViewer(r)
+	if cfg := s.cfg(); cfg != nil {
+		tv.People = cfg.People() // whom ops.Pass takes
+	}
+	tv.Assignee = tv.T.Assignee.Or("")
+	tv.Pass = s.svc.Passer != nil && len(tv.People) > 0 && !model.Closed(tv.T.Column)
+	for _, n := range desk.ForYou(desk.Nudges([]*ticket.Ticket{tv.T}, dv), s.now()) {
+		tv.Nudge = &n
+	}
 }
 
 // QuestionView is one question an agent asked on a board ticket, and its

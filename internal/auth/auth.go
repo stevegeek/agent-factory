@@ -20,8 +20,9 @@ import (
 	"github.com/stevegeek/agent-factory/internal/clock"
 )
 
-// Maintainer is the identity of the main secret and of a trusted Tailscale
-// login: they see everything.
+// Maintainer is the identity of the main secret, and of a trusted Tailscale
+// login that is no user's email: only while there are no users, to add the
+// first.
 const Maintainer = "maintainer"
 
 // SessionCookie is the login cookie's name.
@@ -134,11 +135,15 @@ func (a *Auth) NewSession(user string) string {
 	return payload + "." + a.MAC("session", payload)
 }
 
-// UserOf is whose identity this is: Maintainer or another user's name.
+// UserOf is whose identity this is: a user's name, or Maintainer.
 func (a *Auth) UserOf(identity string) string {
 	payload, ok := strings.CutPrefix(identity, "session:")
 	if !ok {
-		return Maintainer // a trusted Tailscale login
+		// a trusted Tailscale login: the user with that email, if any
+		if u := a.users.ByEmail(strings.TrimPrefix(identity, "tailscale:")); u != nil {
+			return u.Name
+		}
+		return Maintainer
 	}
 	parts := strings.Split(payload, ".")
 	if len(parts) == 3 && strings.HasPrefix(parts[2], "u-") {
@@ -170,7 +175,9 @@ func (a *Auth) revokedBefore() int64 {
 
 // Session is the identity of a valid session cookie value, or "": the MAC
 // is checked in constant time, the session must not have expired, must be
-// issued no earlier than the revocation time, and its user must still exist.
+// issued no earlier than the revocation time (everyone's, and its user's
+// own), and its user must still exist. The main secret's sessions last only
+// while there are no users.
 func (a *Auth) Session(v string) string {
 	i := strings.LastIndexByte(v, '.')
 	if i < 0 {
@@ -181,17 +188,26 @@ func (a *Auth) Session(v string) string {
 		return ""
 	}
 	exp, err := strconv.ParseInt(strings.SplitN(payload, ".", 2)[0], 10, 64)
-	if err != nil || a.now().Unix() > exp || exp-int64(sessionLife.Seconds()) < a.revokedBefore() {
+	issued := exp - int64(sessionLife.Seconds())
+	if err != nil || a.now().Unix() > exp || issued < a.revokedBefore() {
 		return ""
 	}
-	if u := a.UserOf("session:" + payload); u != Maintainer && (a.users == nil || a.users.Get(u) == nil) {
-		return "" // a user who has been removed is logged out
+	if name := a.UserOf("session:" + payload); name == Maintainer {
+		if a.users.Any() || issued < a.users.Retired() {
+			return "" // there are, or were, users: the main secret's sessions from then are over
+		}
+	} else if u := a.users.Get(name); u == nil || issued < u.Since {
+		return "" // a user who has been removed, or who logged out, is logged out
 	}
 	return "session:" + payload
 }
 
-// Revoke ends every session: logging out anywhere logs out everywhere.
-func (a *Auth) Revoke() error {
+// Revoke ends user's sessions on every device; for Maintainer, every
+// session of everyone's.
+func (a *Auth) Revoke(user string) error {
+	if user != Maintainer {
+		return a.users.Revoke(user, a.now())
+	}
 	if a.since == "" {
 		return nil
 	}
@@ -227,10 +243,11 @@ func IsLoopback(ip string) bool {
 }
 
 // Identity is who is asking, or "" when nobody has logged in. A trusted
-// Tailscale login counts only from a loopback peer and only when listed.
+// Tailscale login counts only from a loopback peer and only when listed,
+// and once there are users only when it is one's email.
 func (a *Auth) Identity(r *http.Request) string {
 	if len(a.tsUsers) > 0 && IsLoopback(remoteIP(r)) {
-		if u := strings.ToLower(r.Header.Get("Tailscale-User-Login")); a.tsUsers[u] {
+		if u := strings.ToLower(r.Header.Get("Tailscale-User-Login")); a.tsUsers[u] && (!a.users.Any() || a.users.ByEmail(u) != nil) {
 			return "tailscale:" + u
 		}
 	}
@@ -293,20 +310,21 @@ func (a *Auth) failKeys() int {
 	return len(a.fails)
 }
 
-// LoginAs is whose secret this is: the maintainer's or another user's. One
-// secret is checked at a time, and a wrong one holds the lock for the fail
-// delay: guessing stays slow from any number of addresses, and nobody can
-// lock the maintainer out.
-func (a *Auth) LoginAs(ip, given string) (string, bool) {
+// LoginAs is whose email and password these are. While there are no users
+// the main secret, given as the password, logs in as Maintainer (the email
+// is not read), to add the first; after that it does not. One login is
+// checked at a time, and a wrong one holds the lock for the fail delay:
+// guessing stays slow from any number of addresses, and nobody can lock
+// anyone out.
+func (a *Auth) LoginAs(ip, email, password string) (string, bool) {
 	a.check.Lock()
 	defer a.check.Unlock()
-	if a.checkSecret(given) {
-		return Maintainer, true
-	}
-	if a.users != nil {
-		if u := a.users.Match(given); u != "" {
-			return u, true
+	if !a.users.Any() {
+		if a.checkSecret(password) {
+			return Maintainer, true
 		}
+	} else if u := a.users.Login(email, password); u != "" {
+		return u, true
 	}
 	a.Failed(ip)
 	time.Sleep(a.delay)

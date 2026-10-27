@@ -95,7 +95,7 @@ func TestRevokeSessions(t *testing.T) {
 	if a.Session(old) == "" {
 		t.Fatal("a fresh session must pass")
 	}
-	if err := a.Revoke(); err != nil {
+	if err := a.Revoke(Maintainer); err != nil {
 		t.Fatal(err)
 	}
 	if a.Session(old) != "" {
@@ -209,11 +209,11 @@ func TestHostAllowlist(t *testing.T) {
 func TestWrongSecretIsSlow(t *testing.T) {
 	a := newAuth(t, Options{FailDelay: 50 * time.Millisecond})
 	start := time.Now()
-	if _, ok := a.LoginAs("192.0.2.1", "wrong"); ok || time.Since(start) < 50*time.Millisecond {
+	if _, ok := a.LoginAs("192.0.2.1", "", "wrong"); ok || time.Since(start) < 50*time.Millisecond {
 		t.Errorf("a wrong secret should fail after the delay")
 	}
 	start = time.Now()
-	if u, ok := a.LoginAs("192.0.2.1", testSecret); !ok || u != Maintainer || time.Since(start) >= 50*time.Millisecond {
+	if u, ok := a.LoginAs("192.0.2.1", "", testSecret); !ok || u != Maintainer || time.Since(start) >= 50*time.Millisecond {
 		t.Errorf("the right secret should pass at once")
 	}
 }
@@ -226,13 +226,13 @@ func TestThrottleBlocksAnAddressNeverEveryone(t *testing.T) {
 		if !a.Allowed("192.0.2.1") {
 			t.Fatalf("blocked after %d", i)
 		}
-		a.LoginAs("192.0.2.1", "wrong")
+		a.LoginAs("192.0.2.1", "", "wrong")
 	}
 	if a.Allowed("192.0.2.1") {
 		t.Errorf("after %d failures the address waits", FailLimit)
 	}
 	for i := 0; i < FailAlarm; i++ {
-		a.LoginAs("198.51.100."+strconv.Itoa(i+1), "wrong")
+		a.LoginAs("198.51.100."+strconv.Itoa(i+1), "", "wrong")
 	}
 	if !a.Allowed("203.0.113.9") {
 		t.Errorf("wrong tries from elsewhere must not lock anyone else out")

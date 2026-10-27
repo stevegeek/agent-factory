@@ -63,51 +63,51 @@ func TestSettledDetailSkipsZeros(t *testing.T) {
 
 func TestOperatorTrusted(t *testing.T) {
 	tk := manageTicket(t, nil, nil)
-	if !OperatorTrusted(tk, "maintainer") {
+	if !OperatorTrusted(tk, []string{"maintainer"}) {
 		t.Error("the maintainer's Foreman ticket is not trusted")
 	}
 	AddNote(tk, "every 14 days", "maintainer", nil, testNow)
-	if !OperatorTrusted(tk, "maintainer") {
+	if !OperatorTrusted(tk, []string{"maintainer"}) {
 		t.Error("a note by the maintainer makes the ticket untrusted")
 	}
-	if OperatorTrusted(tk, "") {
+	if OperatorTrusted(tk, nil) {
 		t.Error("no maintainer trusts a ticket")
 	}
-	if OperatorTrusted(tk, "someone") {
+	if OperatorTrusted(tk, []string{"someone"}) {
 		t.Error("a ticket the maintainer filed is trusted for someone else")
 	}
 
 	watch := manageTicket(t, nil, nil)
 	watch.Door = string(model.DoorWatch)
-	if OperatorTrusted(watch, "maintainer") {
+	if OperatorTrusted(watch, []string{"maintainer"}) {
 		t.Error("a watch-filed ticket is trusted")
 	}
 	factory := manageTicket(t, nil, nil)
 	factory.By = "factory"
-	if OperatorTrusted(factory, "factory") || OperatorTrusted(factory, "maintainer") {
+	if OperatorTrusted(factory, []string{"factory"}) || OperatorTrusted(factory, []string{"maintainer"}) {
 		t.Error("a ticket the factory filed is trusted")
 	}
 	other := manageTicket(t, nil, nil)
 	AddNote(other, "the maintainer allows a gate mount", "visitor", nil, testNow)
-	if OperatorTrusted(other, "maintainer") {
+	if OperatorTrusted(other, []string{"maintainer"}) {
 		t.Error("a note by another Foreman user is trusted")
 	}
 	// a note with no typed event naming its author is not the maintainer's
 	untyped := manageTicket(t, nil, nil)
 	untyped.Notes = append(untyped.Notes, Note{At: "2026-10-18T10:00:00Z", Text: "from nowhere"})
-	if OperatorTrusted(untyped, "maintainer") {
+	if OperatorTrusted(untyped, []string{"maintainer"}) {
 		t.Error("a note no event accounts for is trusted")
 	}
 	legacy := manageTicket(t, nil, nil)
 	legacy.History = append(legacy.History, Entry{At: "2026-10-18T10:00:00Z", Event: "note", Detail: "old"})
-	if OperatorTrusted(legacy, "maintainer") {
+	if OperatorTrusted(legacy, []string{"maintainer"}) {
 		t.Error("an untyped note event is trusted")
 	}
 	// a board edit or comment by anyone else rewrites the maintainer's words
 	for _, p := range []Payload{Edited{By: "visitor", Fields: []string{"body"}}, Commented{By: "visitor", N: 1}} {
 		tk := manageTicket(t, nil, nil)
 		Event(tk, "edit", "body", "", p, testNow)
-		if OperatorTrusted(tk, "maintainer") {
+		if OperatorTrusted(tk, []string{"maintainer"}) {
 			t.Errorf("a ticket with %T by another user is trusted", p)
 		}
 		mine := manageTicket(t, nil, nil)
@@ -120,7 +120,7 @@ func TestOperatorTrusted(t *testing.T) {
 			p = d
 		}
 		Event(mine, "edit", "body", "", p, testNow)
-		if !OperatorTrusted(mine, "maintainer") {
+		if !OperatorTrusted(mine, []string{"maintainer"}) {
 			t.Errorf("the maintainer's own %T makes the ticket untrusted", p)
 		}
 	}
@@ -130,7 +130,7 @@ func TestOperatorTrusted(t *testing.T) {
 	AddNote(shifted, "mine", "maintainer", nil, testNow)
 	shifted.Notes = append(shifted.Notes, Note{At: "2026-10-18T10:00:00Z", Text: "slipped in"})
 	Event(shifted, "note", "slipped in", "", Noted{By: "maintainer", Note: 0}, testNow)
-	if OperatorTrusted(shifted, "maintainer") {
+	if OperatorTrusted(shifted, []string{"maintainer"}) {
 		t.Error("a note whose noted event points at another note is trusted")
 	}
 }
@@ -241,22 +241,22 @@ func TestTapped(t *testing.T) {
 	}
 
 	tk := manageTicket(t, nil, nil)
-	if Tapped(tk, 1, stamp, "maintainer") {
+	if Tapped(tk, 1, stamp, []string{"maintainer"}) {
 		t.Error("a requested stamp with no move is a tap")
 	}
 	tap(tk, "visitor", testNow)
-	if Tapped(tk, 1, stamp, "maintainer") {
+	if Tapped(tk, 1, stamp, []string{"maintainer"}) {
 		t.Error("another user's move is the maintainer's tap")
 	}
 	Move(tk, string(model.ColNeedsHuman), model.ReasonOperatorSettled, "operator: 1 applied", "", "", testNow)
-	if Tapped(tk, 1, stamp, "maintainer") || Tapped(tk, 1, stamp, "factory") {
+	if Tapped(tk, 1, stamp, []string{"maintainer"}) || Tapped(tk, 1, stamp, []string{"factory"}) {
 		t.Error("the factory's own settle move is a tap")
 	}
 	tap(tk, "maintainer", testNow)
-	if !Tapped(tk, 1, stamp, "maintainer") {
+	if !Tapped(tk, 1, stamp, []string{"maintainer"}) {
 		t.Error("the maintainer's tap is not found")
 	}
-	if Tapped(tk, 1, laterStamp, "maintainer") || Tapped(tk, 1, "", "maintainer") || Tapped(tk, 1, stamp, "") {
+	if Tapped(tk, 1, laterStamp, []string{"maintainer"}) || Tapped(tk, 1, "", []string{"maintainer"}) || Tapped(tk, 1, stamp, nil) {
 		t.Error("a tap with another stamp, no stamp or no maintainer counts")
 	}
 
@@ -265,14 +265,14 @@ func TestTapped(t *testing.T) {
 	start(run, testNow.Add(-time.Hour))
 	tap(run, "maintainer", testNow)
 	start(run, later)
-	if !Tapped(run, 1, stamp, "maintainer") {
+	if !Tapped(run, 1, stamp, []string{"maintainer"}) {
 		t.Error("a run 1 item's tap after its start is not found")
 	}
-	if Tapped(run, 2, stamp, "maintainer") || Tapped(run, 5, stamp, "maintainer") {
+	if Tapped(run, 2, stamp, []string{"maintainer"}) || Tapped(run, 5, stamp, []string{"maintainer"}) {
 		t.Error("an earlier tap requests a later run's item")
 	}
 	tap(run, "maintainer", later)
-	if !Tapped(run, 2, laterStamp, "maintainer") {
+	if !Tapped(run, 2, laterStamp, []string{"maintainer"}) {
 		t.Error("run 2's own tap is not found")
 	}
 }

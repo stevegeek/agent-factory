@@ -5,6 +5,14 @@
     {{if .Desk.Total}}<nav class="filters" aria-label="Kinds of ask">
       {{range .Desk.Filters}}<a class="chip" href="{{.Href}}" {{if .On}}aria-current="true"{{end}}>{{.Label}} {{.N}}</a>{{end}}
     </nav>{{end}}
+    {{with .ForYou}}
+    <div class="qhead"><span>For you</span><span>{{len .}}</span></div>
+    {{range .}}<a class="qitem foryou" href="{{.Href}}">
+      <span class="qtop"><span class="proj">{{.Project}}</span>{{with .Age}}<span class="age">{{.}}</span>{{end}}</span>
+      <span class="t">{{mdt .Title}}</span>
+      <span class="qact"><span class="qdo">{{if .Passed}}{{.By}} passed it to you{{else}}{{.By}} mentioned you{{end}}</span><span class="mono">{{.ID}}</span></span>
+    </a>{{end}}
+    {{end}}
     <div class="qhead"><span>Needs you</span><span>{{len .Desk.Items}}</span></div>
     {{range .Desk.Items}}{{template "qitem" .}}{{end}}
     {{if and (not .Desk.Items) .Desk.Done}}<p class="qempty">Nothing new. Everything left is waiting on the factory.</p>{{end}}

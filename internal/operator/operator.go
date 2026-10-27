@@ -180,7 +180,7 @@ func (s Service) Settle(ctx context.Context, cfg *config.Config, ts []*ticket.Ti
 // items as they were (a draft that merged meanwhile is then "already on
 // config main").
 func (s Service) settle(ctx context.Context, cfg *config.Config, t *ticket.Ticket, p *pass) error {
-	trusted := ticket.OperatorTrusted(t, cfg.Maintainer())
+	trusted := ticket.OperatorTrusted(t, cfg.People())
 	var lines, titles []string
 	var offers []offered
 	changed := false

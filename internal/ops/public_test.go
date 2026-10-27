@@ -68,15 +68,14 @@ func TestPublicBlockedAnswersLeaveTheBoard(t *testing.T) {
 		!strings.Contains(got.History[len(got.History)-1].Detail, "said by sam") {
 		t.Errorf("publish: %s %v %+v", got.Column, got.PublicHead, m)
 	}
-	// anyone else who can answer the ticket is refused: what passes goes
-	// to GitHub, and no one can take it back
+	// any Foreman user may say so, recorded as theirs
 	w = newWorld(t, deskConfig)
 	id = blocked(w)
-	if err := answer(w, id, "publish", "", "alex"); err == nil || !strings.Contains(err.Error(), "only the maintainer") {
+	if err := answer(w, id, "publish", "", "alex"); err != nil {
 		t.Errorf("a Foreman user's publish: %v", err)
 	}
-	if got := w.load(id); got.Column != "needs_human" || got.PublicHead.Set {
-		t.Errorf("after a refused publish: %s %v", got.Column, got.PublicHead)
+	if got := w.load(id); got.Column != "gate" || !strings.Contains(got.History[len(got.History)-1].Detail, "said by alex") {
+		t.Errorf("after alex's publish: %s %+v", got.Column, got.History[len(got.History)-1])
 	}
 	// back to work: the note and the findings both reach the worker, and
 	// it counts as public review's one rework

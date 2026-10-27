@@ -245,7 +245,7 @@ func TestRequestedActionWithoutTapWaits(t *testing.T) {
 	got := f.settle(tk)[0]
 	for _, a := range got.Actions {
 		wantAction(t, a, model.ItemWaiting)
-		if a.Requested != "" || !strings.Contains(a.Note, "not the maintainer's tap") {
+		if a.Requested != "" || !strings.Contains(a.Note, "not a person's tap") {
 			t.Errorf("%s: requested %q, note %q", a.ItemLabel(), a.Requested, a.Note)
 		}
 	}

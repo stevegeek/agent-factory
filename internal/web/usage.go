@@ -51,8 +51,6 @@ func (s *Server) tokensView(r *http.Request) *TokensView {
 	if err != nil {
 		s.logf("usage: %v", err)
 	}
-	u := s.viewer(r)
-	recs = slices.DeleteFunc(recs, func(rec usage.Record) bool { return !u.Sees(rec.Project) })
 	v := &TokensView{Windows: []string{"Today", "7 days", "30 days"}}
 	var totals []usage.Tokens
 	var runs []int

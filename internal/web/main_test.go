@@ -45,9 +45,8 @@ func TestPushDevicesArePerPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.srv.push = p
-	m := h.login()
-	secret, _ := h.users.Add("robin", []string{"factory"})
-	s := h.loginWith(secret, "/")
+	m := h.person("ann")
+	s := h.person("robin", "factory")
 	sub := func(c *http.Cookie, endpoint string) string {
 		w := h.do("POST", "/push/subscribe", url.Values{"csrf": {h.csrf(c)}, "subscription": {subscription(t, endpoint)}}, c)
 		if w.Code != 200 {
@@ -68,7 +67,7 @@ func TestPushDevicesArePerPerson(t *testing.T) {
 	}
 	w := h.do("POST", "/push/unsubscribe", url.Values{"csrf": {h.csrf(s)}, "endpoint": {"https://web.push.apple.com/a"}}, s)
 	if w.Code != 200 || p.Count() != 3 {
-		t.Errorf("robin unsubscribed the maintainer's device: %d devices", p.Count())
+		t.Errorf("robin unsubscribed ann's device: %d devices", p.Count())
 	}
 	h.do("POST", "/push/unsubscribe", url.Values{"csrf": {h.csrf(s)}, "endpoint": {"https://web.push.apple.com/c"}}, s)
 	if p.CountFor("robin") != 0 || p.Count() != 2 {
@@ -143,7 +142,8 @@ func TestTheSecretDefaultFallsBackToTheOldPath(t *testing.T) {
 		t.Errorf("unmoved host: %s", got)
 	}
 	var out bytes.Buffer
-	if code := Main([]string{"users", "add", "robin", "--project", "p"}, env, &out, &bytes.Buffer{}, nil); code != 0 {
+	stdinFrom(t, "a long password\n")
+	if code := Main([]string{"users", "add", "robin", "robin@example.com", "--desk", "p"}, env, &out, &bytes.Buffer{}, nil); code != 0 {
 		t.Fatalf("users add: %d", code)
 	}
 	if _, err := os.Stat(auth.UsersFile(old)); err != nil {
@@ -155,6 +155,21 @@ func TestTheSecretDefaultFallsBackToTheOldPath(t *testing.T) {
 	if got := secretOf(); got != moved {
 		t.Errorf("moved host: %s", got)
 	}
+}
+
+// stdinFrom makes the process's stdin a file holding text, for `foreman
+// users`, which reads a password from it, until the test ends.
+func stdinFrom(t *testing.T, text string) {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "stdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(text)
+	f.Seek(0, 0)
+	old := os.Stdin
+	os.Stdin = f
+	t.Cleanup(func() { os.Stdin = old; f.Close() })
 }
 
 func TestMainCommands(t *testing.T) {
@@ -169,7 +184,8 @@ func TestMainCommands(t *testing.T) {
 		t.Errorf("no revocation file: %v", err)
 	}
 	out.Reset()
-	if code := Main([]string{"users", "add", "robin", "--project", "p"}, env, &out, &errs, nil); code != 0 || !strings.Contains(out.String(), "robin can log in") {
+	stdinFrom(t, "a long password\n")
+	if code := Main([]string{"users", "add", "robin", "robin@example.com", "--desk", "p"}, env, &out, &errs, nil); code != 0 || !strings.Contains(out.String(), "robin can log in") {
 		t.Errorf("users add: %d %q", code, out.String())
 	}
 	env["FOREMAN_SECRET_FILE"] = filepath.Join(e.Home, "other", "secret")

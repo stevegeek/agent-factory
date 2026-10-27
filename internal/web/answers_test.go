@@ -23,6 +23,10 @@ type fakeVerbs struct {
 	screen   ops.Screen
 }
 
+func (f *fakeVerbs) Pass(_ context.Context, id, to, by, note string) (string, error) {
+	return id + " passed to " + to, f.err
+}
+
 func (f *fakeVerbs) Answer(_ context.Context, in ops.AnswerIn) (string, error) {
 	f.answered = append(f.answered, in)
 	return f.out, f.err

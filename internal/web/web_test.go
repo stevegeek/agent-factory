@@ -30,7 +30,7 @@ func TestAuth(t *testing.T) {
 	if w := h.do("GET", "/static/foreman.css", nil); w.Code != 200 || w.Header().Get("Cache-Control") != "public, max-age=86400" {
 		t.Errorf("static needs no login: %d", w.Code)
 	}
-	if w := h.do("POST", "/login", url.Values{"secret": {"wrong"}}); w.Code != http.StatusUnauthorized || len(w.Result().Cookies()) != 0 ||
+	if w := h.do("POST", "/login", url.Values{"password": {"wrong"}}); w.Code != http.StatusUnauthorized || len(w.Result().Cookies()) != 0 ||
 		!strings.Contains(w.Body.String(), "That is not the secret.") {
 		t.Errorf("bad secret: %d", w.Code)
 	}
@@ -61,19 +61,19 @@ func TestAuth(t *testing.T) {
 		t.Errorf("nothing may run without a valid session and token: %v", got)
 	}
 	// over TLS the cookie is Secure
-	w = h.doWith("POST", "/login", url.Values{"secret": {testSecret}}, map[string]string{"X-Forwarded-Proto": "https"})
+	w = h.doWith("POST", "/login", url.Values{"password": {testSecret}}, map[string]string{"X-Forwarded-Proto": "https"})
 	if cs := w.Result().Cookies(); len(cs) == 0 || !cs[0].Secure {
 		t.Errorf("cookie over https should be Secure")
 	}
 	// a cross-site login is refused
-	if w := h.doWith("POST", "/login", url.Values{"secret": {testSecret}}, map[string]string{"Sec-Fetch-Site": "cross-site"}); w.Code != http.StatusForbidden {
+	if w := h.doWith("POST", "/login", url.Values{"password": {testSecret}}, map[string]string{"Sec-Fetch-Site": "cross-site"}); w.Code != http.StatusForbidden {
 		t.Errorf("cross-site login: %d", w.Code)
 	}
 	// the login page sends a logged-in visitor on
 	if w := h.do("GET", "/login?next=%2Ffloor", nil, c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/floor" {
 		t.Errorf("login page when logged in: %d %q", w.Code, w.Header().Get("Location"))
 	}
-	// logging out ends every session
+	// logging out ends the person's sessions
 	if w := h.do("POST", "/logout", url.Values{"csrf": {h.csrf(c)}}, c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Fatalf("logout: %d", w.Code)
 	}
@@ -86,9 +86,9 @@ func TestAuth(t *testing.T) {
 func TestLoginRateLimit(t *testing.T) {
 	h := newHarness(t, false)
 	for i := 0; i < auth.FailLimit; i++ {
-		h.do("POST", "/login", url.Values{"secret": {"wrong"}})
+		h.do("POST", "/login", url.Values{"password": {"wrong"}})
 	}
-	w := h.do("POST", "/login", url.Values{"secret": {testSecret}})
+	w := h.do("POST", "/login", url.Values{"password": {testSecret}})
 	if w.Code != http.StatusTooManyRequests || !strings.Contains(w.Body.String(), "Too many wrong tries") {
 		t.Errorf("after %d failures even the right secret waits: %d", auth.FailLimit, w.Code)
 	}
@@ -98,7 +98,7 @@ func TestLoginRateLimit(t *testing.T) {
 func TestNoGlobalLockout(t *testing.T) {
 	h := newHarness(t, false)
 	post := func(remote, xff, secret string) int {
-		r := httptest.NewRequest("POST", "/login", strings.NewReader(url.Values{"secret": {secret}}.Encode()))
+		r := httptest.NewRequest("POST", "/login", strings.NewReader(url.Values{"password": {secret}}.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.RemoteAddr = remote
 		if xff != "" {
@@ -155,7 +155,7 @@ func TestSafeNextOnLogin(t *testing.T) {
 	if w := h.do("GET", "/login?next=%2F%09%2Fevil.example", nil, c); w.Header().Get("Location") != "/" {
 		t.Errorf("a tab in next must not leave the site: %q", w.Header().Get("Location"))
 	}
-	w := h.do("POST", "/login", url.Values{"secret": {testSecret}, "next": {"/\t/evil.example"}})
+	w := h.do("POST", "/login", url.Values{"password": {testSecret}, "next": {"/\t/evil.example"}})
 	if w.Header().Get("Location") != "/" {
 		t.Errorf("login with a tab in next: %q", w.Header().Get("Location"))
 	}
@@ -296,31 +296,29 @@ func TestActions(t *testing.T) {
 	}
 }
 
-// an answer from Foreman names its user: the maintainer's names
-// nobody (the service records the first of [board] people), another user's
-// their own name; the rest of the request is the same.
+// an answer from Foreman names its user: the main secret's names nobody
+// (the service records the first of [board] people), a user their own
+// name; the rest of the request is the same.
 func TestAnAnswerNamesWhoGaveIt(t *testing.T) {
 	h := newHarness(t, false)
-	secret, err := h.users.Add("robin", []string{"widgets"})
-	if err != nil {
-		t.Fatal(err)
-	}
 	ts := h.fixtures()
 	a := present.AskFor(find(ts, "T0002"))
 	var got []AnswerRequest
-	for _, c := range []*http.Cookie{h.login(), h.loginWith(secret, "/")} {
+	answer := func(c *http.Cookie) {
 		w := h.do("POST", "/t/T0002/act", url.Values{"csrf": {h.csrf(c)}, "answer": {"start"}, "note": {"go"}, "ask": {a.Kind}, "since": {a.Since}}, c)
 		if w.Code != http.StatusSeeOther {
 			t.Fatalf("%d", w.Code)
 		}
 		got = append(got, h.ops.takeAnswers()...)
 	}
+	answer(h.login())
+	answer(h.person("robin", "widgets"))
 	if len(got) != 2 || got[0].By != "" || got[1].By != "robin" {
 		t.Fatalf("who answered: %+v", got)
 	}
 	got[1].By = ""
 	if !reflect.DeepEqual(got[0], got[1]) {
-		t.Errorf("the maintainer's and robin's answers differ beyond who: %+v", got)
+		t.Errorf("the main secret's and robin's answers differ beyond who: %+v", got)
 	}
 }
 
@@ -413,27 +411,23 @@ func TestLivePollAnswersOnlyWhenTheBoardChanged(t *testing.T) {
 	}
 }
 
-// Bug 1: the live version is the viewer's, so someone who sees only their
-// projects gets 204 too, and a change elsewhere is not a change for them.
+// A poll from a person gets its 204 while nothing changed, and a
+// change anywhere is news: everyone sees every board.
 func TestLivePollIsPerViewer(t *testing.T) {
 	h := newHarness(t, false)
-	secret, _ := h.users.Add("robin", []string{"factory"})
-	c := h.loginWith(secret, "/")
+	c := h.person("robin", "factory")
 	page := h.do("GET", "/", nil, c).Body.String()
 	i := strings.Index(page, `data-v="`)
 	if i < 0 {
 		t.Fatal("no version on robin's page")
 	}
 	v := page[i+8 : i+8+16]
-	if v == version(h.fixtures()) {
-		t.Fatalf("robin's version is the whole board's")
-	}
 	if w := h.doWith("GET", "/", nil, map[string]string{liveHeader: v}, c); w.Code != http.StatusNoContent {
 		t.Errorf("robin's unchanged desk: %d", w.Code)
 	}
 	h.change("T0001", func(tk *ticket.Ticket) { tk.Notes = append(tk.Notes, ticket.Note{Text: "x"}) })
-	if w := h.doWith("GET", "/", nil, map[string]string{liveHeader: v}, c); w.Code != http.StatusNoContent {
-		t.Errorf("a change to another project is news to robin: %d", w.Code)
+	if w := h.doWith("GET", "/", nil, map[string]string{liveHeader: v}, c); w.Code != http.StatusOK {
+		t.Errorf("a change to another project is no news to robin: %d", w.Code)
 	}
 }
 
@@ -645,48 +639,35 @@ func TestFileANewTicketFromForeman(t *testing.T) {
 	}
 }
 
-// Foreman's TestAnotherPersonSeesOnlyTheirProjects, the pages.
-func TestAnotherPersonSeesOnlyTheirProjects(t *testing.T) {
+// Another person sees and does everything; only their desk is theirs.
+func TestAnotherPersonSeesEverything(t *testing.T) {
 	h := newHarness(t, false)
-	secret, err := h.users.Add("robin", []string{"factory"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	c := h.loginWith(secret, "/")
+	c := h.person("robin", "factory")
 	desk := h.do("GET", "/", nil, c).Body.String()
-	if strings.Contains(desk, `href="/b/widgets"`) || strings.Contains(desk, "T0001") || !strings.Contains(desk, `<span class="menu-who">robin</span>`) {
-		t.Errorf("robin's desk shows another project or not her name")
+	if !strings.Contains(desk, `<span class="menu-who">robin</span>`) || !strings.Contains(desk, `href="/system"`) {
+		t.Errorf("robin's menu lacks her name or System status")
 	}
-	// Live is everyone's In flight, over their projects; the screens and the log are the maintainer's
-	if !strings.Contains(desk, `href="/live"`) {
-		t.Errorf("robin has no Live tab")
-	}
-	if live := h.do("GET", "/live", nil, c).Body.String(); !strings.Contains(live, `id="in-flight"`) || strings.Contains(live, "data-poll") || strings.Contains(live, "T0011") {
-		t.Errorf("robin's Live shows screens, the log or another project's ticket")
-	}
-	for _, path := range []string{"/t/T0001", "/t/T0001/talk", "/live/log", "/b/widgets", "/live/T0011/screen", "/t/T0001/logs/t0001-w1"} {
-		if w := h.do("GET", path, nil, c); w.Code != http.StatusNotFound {
-			t.Errorf("%s: %d, want 404", path, w.Code)
+	for _, path := range []string{"/t/T0001", "/t/T0001/talk", "/b/widgets", "/live", "/logs"} {
+		if w := h.do("GET", path, nil, c); w.Code != http.StatusOK {
+			t.Errorf("%s: %d, want 200", path, w.Code)
 		}
 	}
-	if w := h.do("POST", "/t/T0001/act", url.Values{"csrf": {h.csrf(c)}, "answer": {"note"}, "note": {"hi"}}, c); w.Code != http.StatusNotFound {
-		t.Errorf("acting on another project's ticket: %d", w.Code)
+	if live := h.do("GET", "/live", nil, c).Body.String(); !strings.Contains(live, `href="#T0011"`) {
+		t.Errorf("robin's Live lacks the screens")
 	}
-	if got := h.ops.takeAnswers(); len(got) != 0 {
-		t.Errorf("ran %v for someone who can't see the ticket", got)
+	if w := h.do("POST", "/t/T0001/act", url.Values{"csrf": {h.csrf(c)}, "answer": {"note"}, "note": {"hi"}}, c); w.Code != http.StatusSeeOther {
+		t.Errorf("a note on another project's ticket: %d", w.Code)
+	}
+	if got := h.ops.takeAnswers(); len(got) != 1 || got[0].By != "robin" {
+		t.Errorf("robin's note: %+v", got)
 	}
 	newPage := h.do("GET", "/new", nil, c).Body.String()
-	if strings.Contains(newPage, `value="manage"`) || strings.Contains(newPage, ">widgets<") {
-		t.Errorf("the new-ticket page offers robin the manager or another project")
+	if !strings.Contains(newPage, `value="manage"`) || !strings.Contains(newPage, ">widgets<") {
+		t.Errorf("the new-ticket page does not offer robin the manager or another project")
 	}
 	w := h.do("POST", "/new", url.Values{"csrf": {h.csrf(c)}, "project": {"factory"}, "kind": {"manage"}, "title": {"x"}}, c)
-	if w.Code != http.StatusUnprocessableEntity || len(h.ops.takeFiled()) != 0 {
+	if w.Code != http.StatusSeeOther || len(h.ops.takeFiled()) != 1 {
 		t.Errorf("robin asked the manager: %d", w.Code)
-	}
-	// the maintainer still sees everything
-	m := h.login()
-	if !strings.Contains(h.do("GET", "/b/widgets", nil, m).Body.String(), "widgets") {
-		t.Errorf("the maintainer lost a board")
 	}
 	// removing her ends her session
 	if err := h.users.Remove("robin"); err != nil {

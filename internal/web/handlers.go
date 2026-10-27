@@ -11,6 +11,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/auth"
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/fsx"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
@@ -20,14 +21,16 @@ import (
 
 func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
-	dv := present.DeskPage(present.Desk(ts, s.deskViewer(r)), r.URL.Query().Get("kind"), "", s.now())
-	p := &Page{Title: "Desk", Tab: "desk", Desk: dv}
+	v := s.deskViewer(r)
+	dv := present.DeskPage(present.Desk(ts, v), r.URL.Query().Get("kind"), "", s.now())
+	p := &Page{Title: "Desk", Tab: "desk", Desk: dv, ForYou: desk.ForYou(desk.Nudges(ts, v), s.now())}
 	if len(dv.Items) > 0 {
 		// wide screens show the first waiting ask beside the queue; phones
 		// show only the queue
 		dv.Items[0].Current = true
 		if t := findTicket(ts, dv.Items[0].ID); t != nil {
 			p.Ticket = s.ticketView(t, ts, dv.Kind)
+			s.forPerson(r, p.Ticket)
 		}
 	}
 	s.render(w, r, "desk", p, ts)
@@ -47,11 +50,13 @@ func (s *Server) ticket(w http.ResponseWriter, r *http.Request) {
 	}
 	kind := r.URL.Query().Get("kind")
 	tv := s.ticketView(t, ts, kind)
+	s.forPerson(r, tv)
 	if tv.Ask != nil {
-		dv := present.DeskPage(present.Desk(ts, s.deskViewer(r)), kind, id, s.now())
+		v := s.deskViewer(r)
+		dv := present.DeskPage(present.Desk(ts, v), kind, id, s.now())
 		dv.Open = true
 		tv.Filter = dv.Kind
-		s.render(w, r, "desk", &Page{Title: id, Tab: "desk", Desk: dv, Ticket: tv}, ts)
+		s.render(w, r, "desk", &Page{Title: id, Tab: "desk", Desk: dv, Ticket: tv, ForYou: desk.ForYou(desk.Nudges(ts, v), s.now())}, ts)
 		return
 	}
 	s.render(w, r, "ticket", &Page{Title: id, Tab: "boards", Ticket: tv}, ts)
@@ -140,6 +145,7 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logf("%s %s by %s", id, answer, s.who(r))
+	s.mentioned(r, id, t.Title, req.Note)
 	msg := id + ": " + s.answerLabel(t, a, answer) + "."
 	if out != "" {
 		msg += " " + present.Clip(strings.Join(strings.Fields(out), " "), 200)
@@ -224,6 +230,7 @@ func (s *Server) answerBoard(w http.ResponseWriter, r *http.Request, t *ticket.T
 		return
 	}
 	s.logf("%s answer %d by %s", id, q.N, s.who(r))
+	s.mentioned(r, id, t.Title, text)
 	next := deskAfter(filter)
 	if r.PostFormValue("view") == "talk" {
 		next = "/t/" + id + "/talk"
@@ -332,7 +339,7 @@ func (s *Server) boards(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
 	p := &Page{Title: "Boards", Tab: "boards"}
 	states := s.projectStates(r)
-	canSwitch := s.svc.Switch != nil && s.isMaintainer(r)
+	canSwitch := s.svc.Switch != nil
 	for _, b := range summaries(ts, states) {
 		if st, configured := states[b.Name]; canSwitch && configured && !st.Board {
 			b.Switchable = true
@@ -399,12 +406,8 @@ func (s *Server) projectStates(r *http.Request) map[string]ProjectState {
 	if err != nil || cfg == nil {
 		return nil
 	}
-	u := s.viewer(r)
 	out := map[string]ProjectState{}
 	for _, p := range cfg.Projects {
-		if u != nil && !u.Sees(p.Key) {
-			continue
-		}
 		switch p.Mode {
 		case string(model.ModeFactory):
 			out[p.Key] = ProjectState{Paused: !p.Enabled, Note: switchNote(p), Config: p.ConfigState()}
@@ -449,7 +452,13 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, auth.SafeNext(r.URL.Query().Get("next")), http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, "login", &Page{Title: "Log in", Next: auth.SafeNext(r.URL.Query().Get("next"))}, nil)
+	s.render(w, r, "login", s.loginView(auth.SafeNext(r.URL.Query().Get("next")), ""), nil)
+}
+
+// loginView is the login page: email and password, or the main secret
+// while there are no users.
+func (s *Server) loginView(next, msg string) *Page {
+	return &Page{Title: "Log in", Next: next, Error: msg, FirstLogin: !s.auth.Users().Any()}
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -462,25 +471,28 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.auth.Allowed(ip) {
 		w.WriteHeader(http.StatusTooManyRequests)
-		s.render(w, r, "login", &Page{Title: "Log in", Next: next, Error: "Too many wrong tries. Wait a few minutes."}, nil)
+		s.render(w, r, "login", s.loginView(next, "Too many wrong tries. Wait a few minutes."), nil)
 		return
 	}
-	user, ok := s.auth.LoginAs(ip, r.PostFormValue("secret"))
+	user, ok := s.auth.LoginAs(ip, r.PostFormValue("email"), r.PostFormValue("password"))
 	if !ok {
 		s.logf("login failed from %s", ip)
 		w.WriteHeader(http.StatusUnauthorized)
-		s.render(w, r, "login", &Page{Title: "Log in", Next: next, Error: "That is not the secret."}, nil)
+		msg := "That email and password do not match."
+		if !s.auth.Users().Any() {
+			msg = "That is not the secret."
+		}
+		s.render(w, r, "login", s.loginView(next, msg), nil)
 		return
 	}
 	s.auth.SetSession(w, r, user)
-	if user != auth.Maintainer {
-		s.logf("%s logged in", user)
-	}
+	s.logf("%s logged in", user)
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
+// logout ends the person's own sessions, on every device of theirs.
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if err := s.auth.Revoke(); err != nil {
+	if err := s.auth.Revoke(s.auth.UserOf(auth.IdentityOf(r))); err != nil {
 		s.logf("logout: %v", err)
 	}
 	auth.ClearSession(w, r)

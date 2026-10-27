@@ -34,6 +34,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/buildinfo"
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/paths"
@@ -137,12 +138,19 @@ type Services struct {
 	Answers Answerer
 	Filer   Filer
 	Looker  Looker
+	Passer  Passer // a ticket given to a person
 	Config  ConfigSource
 	Switch  Switcher     // the maintainer's project switch on Boards
 	Deploys DeployHolder // the maintainer's deploy hold on System status
 	Tickets TicketVerbs  // a person's answer to a board agent's question (package ticketapi)
 	API     http.Handler // /api/v1/, bearer tokens only (package api)
 	MCP     http.Handler // /mcp, bearer tokens only (package mcp)
+}
+
+// Passer gives a ticket to a person ("" for nobody), as by, with a note
+// that may be "", and returns a line for the flash.
+type Passer interface {
+	Pass(ctx context.Context, id ticket.ID, to, by, note string) (string, error)
 }
 
 // TicketVerbs is what web uses of the ticket API (*ticketapi.Service): the
@@ -293,24 +301,29 @@ func (s *Server) Handler() http.Handler {
 	app.HandleFunc("GET /floor", s.floor)
 	app.HandleFunc("GET /floor/metrics", s.floorMetrics)
 	app.HandleFunc("GET /boards", s.boards)
-	app.HandleFunc("POST /boards/switch", s.maintainerOnly(s.switchProject))
+	app.HandleFunc("POST /t/{id}/assign", s.assign)
+	app.HandleFunc("POST /t/{id}/seen", s.seenMention)
+	app.HandleFunc("POST /boards/switch", s.switchProject)
 	app.HandleFunc("GET /search", s.search)
 	app.HandleFunc("GET /b/{project}", s.boardPage)
 	app.HandleFunc("GET /settings", s.settings)
-	app.HandleFunc("GET /system", s.maintainerOnly(s.systemPage))
-	app.HandleFunc("GET /system.json", s.maintainerOnly(s.systemJSON))
-	app.HandleFunc("POST /system/deploys/hold", s.maintainerOnly(s.holdDeploys))
-	app.HandleFunc("GET /settings/system.json", s.maintainerOnly(s.systemJSON)) // its first address
-	app.HandleFunc("GET /logs", s.maintainerOnly(s.logsPage))
+	app.HandleFunc("POST /settings/desk", s.setDesk)
+	app.HandleFunc("POST /settings/users", s.addUser)
+	app.HandleFunc("POST /settings/users/{name}", s.changeUser)
+	app.HandleFunc("GET /system", s.systemPage)
+	app.HandleFunc("GET /system.json", s.systemJSON)
+	app.HandleFunc("POST /system/deploys/hold", s.holdDeploys)
+	app.HandleFunc("GET /settings/system.json", s.systemJSON) // its first address
+	app.HandleFunc("GET /logs", s.logsPage)
 	app.HandleFunc("GET /new", s.newTicket)
 	app.HandleFunc("POST /new", s.fileTicket)
 	app.HandleFunc("POST /push/subscribe", s.pushSubscribe)
 	app.HandleFunc("POST /push/unsubscribe", s.pushUnsubscribe)
 	app.HandleFunc("POST /push/test", s.pushTest)
-	app.HandleFunc("GET /live", s.livePage) // In flight for everyone; the screens for the maintainer
-	app.HandleFunc("GET /live/log", s.maintainerOnly(s.liveLog))
-	app.HandleFunc("GET /live/{id}/screen", s.maintainerOnly(s.liveScreen))
-	app.HandleFunc("GET /t/{id}/logs/{name}", s.maintainerOnly(s.agentLog))
+	app.HandleFunc("GET /live", s.livePage)
+	app.HandleFunc("GET /live/log", s.liveLog)
+	app.HandleFunc("GET /live/{id}/screen", s.liveScreen)
+	app.HandleFunc("GET /t/{id}/logs/{name}", s.agentLog)
 	app.HandleFunc("POST /logout", s.logout)
 	mux.Handle("/", s.auth.Require(s.withBoard(s.live(app))))
 	return headers(s.auth.CheckHost(mux))
@@ -380,8 +393,7 @@ type boardKey struct{}
 // reqBoard is the board as one request sees it: loaded once (bug 2), and
 // filtered to what the viewer may see.
 type reqBoard struct {
-	visible []*ticket.Ticket
-	all     []*ticket.Ticket // the whole board, for what the slots allow
+	all []*ticket.Ticket
 }
 
 func (s *Server) load() []*ticket.Ticket {
@@ -395,39 +407,18 @@ func (s *Server) load() []*ticket.Ticket {
 	return v.Tickets
 }
 
-// visibleOf is ts as the viewer may see it.
-func (s *Server) visibleOf(r *http.Request, ts []*ticket.Ticket) []*ticket.Ticket {
-	u := s.viewer(r)
-	if u == nil {
-		return ts
-	}
-	var out []*ticket.Ticket
-	for _, t := range ts {
-		if u.Sees(t.Project) {
-			out = append(out, t)
-		}
-	}
-	return out
-}
-
 func (s *Server) withBoard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		all := s.load()
-		rb := &reqBoard{visible: s.visibleOf(r, all), all: all}
+		rb := &reqBoard{all: s.load()}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), boardKey{}, rb)))
 	})
 }
 
-// visible is the board as this person may see it, as the request loaded it.
-func (s *Server) visible(r *http.Request) []*ticket.Ticket {
-	if rb, ok := r.Context().Value(boardKey{}).(*reqBoard); ok {
-		return rb.visible
-	}
-	return s.visibleOf(r, s.load())
-}
+// visible is the board as the request loaded it: everyone sees every board
+// (only the desk is per person).
+func (s *Server) visible(r *http.Request) []*ticket.Ticket { return s.whole(r) }
 
-// whole is the whole board as the request loaded it, whoever asks: only
-// for what counts across projects (In flight's slots), never to show.
+// whole is the whole board as the request loaded it.
 func (s *Server) whole(r *http.Request) []*ticket.Ticket {
 	if rb, ok := r.Context().Value(boardKey{}).(*reqBoard); ok {
 		return rb.all
@@ -436,11 +427,9 @@ func (s *Server) whole(r *http.Request) []*ticket.Ticket {
 }
 
 // fresh is the board read again, for what to show after a write.
-func (s *Server) fresh(r *http.Request) []*ticket.Ticket { return s.visibleOf(r, s.load()) }
+func (s *Server) fresh(r *http.Request) []*ticket.Ticket { return s.load() }
 
-// version is the live version of what a viewer sees: computed over the
-// visible tickets only, so a poll from someone other than the maintainer
-// gets its 204 too (bug 1).
+// version is the live version of what a viewer sees.
 func version(ts []*ticket.Ticket) string { return (&boardread.View{Tickets: ts}).Version() }
 
 func (s *Server) live(next http.Handler) http.Handler {
@@ -455,9 +444,9 @@ func (s *Server) live(next http.Handler) http.Handler {
 
 // ---------------------------------------------------------------- who is asking
 
-// viewer is nil for the maintainer (everything); else the user, whose
-// projects bound what they see. A user gone from the store sees nothing
-// (and the session check already refuses them).
+// viewer is the user asking, or nil for the main secret (only while there
+// are no users). Everyone may do everything; who they are says whose
+// answers they are and what is on their desk.
 func (s *Server) viewer(r *http.Request) *auth.User {
 	name := s.auth.UserOf(auth.IdentityOf(r))
 	if name == auth.Maintainer {
@@ -469,16 +458,30 @@ func (s *Server) viewer(r *http.Request) *auth.User {
 	return &auth.User{Name: name}
 }
 
-func (s *Server) isMaintainer(r *http.Request) bool { return s.viewer(r) == nil }
-
-// actor is who an answer or a new ticket from r records as by: ""
-// for the maintainer, whom the services name by the first of [board]
-// people, else the user's own name.
-func (s *Server) actor(r *http.Request) string {
-	if u := s.viewer(r); u != nil {
-		return u.Name
+// cfg is the config as it is now, or nil.
+func (s *Server) cfg() *config.Config {
+	if s.svc.Config == nil {
+		return nil
 	}
-	return ""
+	cfg, err := s.svc.Config.Current()
+	if err != nil {
+		return nil
+	}
+	return cfg
+}
+
+// actor is who an answer or a new ticket from r records as by: "" for the
+// main secret and for the user who is the board's first person, whom the
+// services name by the first of [board] people, else the user's own name.
+func (s *Server) actor(r *http.Request) string {
+	u := s.viewer(r)
+	if u == nil {
+		return ""
+	}
+	if cfg := s.cfg(); cfg != nil && cfg.Maintainer() == u.Name {
+		return ""
+	}
+	return u.Name
 }
 
 // asPerson is the ticket API's caller for a person's answer from r: the
@@ -490,18 +493,29 @@ func (s *Server) asPerson(r *http.Request) ticketapi.Caller {
 	return ticketapi.ForPerson()
 }
 
-// deskViewer is who reads the desk, for "You've responded": only their own
-// responses move an ask down.
+// deskViewer is who reads the desk: their desk projects, what is put to
+// them by name, their mentions, and "You've responded" for their own
+// responses only.
 func (s *Server) deskViewer(r *http.Request) present.Viewer {
-	if u := s.viewer(r); u != nil {
-		return present.Viewer{By: u.Name}
+	v := present.Viewer{}
+	cfg := s.cfg()
+	if cfg != nil {
+		v.People = cfg.People()
+		v.By = cfg.Maintainer()
 	}
-	v := present.Viewer{Maintainer: true}
-	if s.svc.Config != nil {
-		if cfg, err := s.svc.Config.Current(); err == nil {
-			v.By = cfg.Maintainer()
-		}
+	// once there are users, only they have desks: an ask put to a name no
+	// user has (the default "maintainer" before [board] people names
+	// anyone) stays on the desks of its project
+	if users := s.auth.Users().Names(); len(users) > 0 {
+		v.People = users
 	}
+	u := s.viewer(r)
+	if u == nil {
+		v.Maintainer = true
+		return v
+	}
+	v.Maintainer = v.By == u.Name
+	v.By, v.Desk, v.Dismissed = u.Name, u.Desk, u.Dismissed
 	return v
 }
 
@@ -511,18 +525,6 @@ func (s *Server) who(r *http.Request) string {
 		return u.Name
 	}
 	return auth.Maintainer
-}
-
-// maintainerOnly: pages that show the whole factory (live screens, logs)
-// are the maintainer's; anyone else gets 404.
-func (s *Server) maintainerOnly(h http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !s.isMaintainer(r) {
-			http.NotFound(w, r)
-			return
-		}
-		h(w, r)
-	}
 }
 
 // ---------------------------------------------------------------- calls to the services
@@ -568,12 +570,13 @@ type Page struct {
 	CSRF       string
 	DeskCount  int
 	Running    int
-	Who        string // "" for the maintainer; else the user's name (no screens on Live, no manager)
-	Maintainer bool   // the menu offers System status and Logs
+	Who        string // the user's name; "" for the main secret
+	FirstLogin bool   // there are no users yet: the main secret logs in
 	Live       *LiveView
 	Talk       *present.TalkView
 	Flash      *Flash
 	Desk       *present.DeskView
+	ForYou     []desk.ForYouItem // the desk's: mentions of the viewer and tickets passed to them, from any project
 	Ticket     *TicketView
 	Floor      *present.Floor
 	Tokens     *TokensView    // Floor metrics' Tokens section
@@ -592,13 +595,13 @@ type Page struct {
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *Page, ts []*ticket.Ticket) {
 	if id := auth.IdentityOf(r); id != "" {
 		p.CSRF = s.auth.CSRF(id)
-		p.Maintainer = s.isMaintainer(r)
 		if u := s.viewer(r); u != nil {
 			p.Who = u.Name
 		}
 	}
 	if ts != nil {
-		p.DeskCount = present.Waiting(present.Desk(ts, s.deskViewer(r)))
+		v := s.deskViewer(r)
+		p.DeskCount = present.Waiting(present.Desk(ts, v)) + len(desk.Nudges(ts, v))
 		p.Running = running(ts)
 		p.Version = version(ts)
 	}

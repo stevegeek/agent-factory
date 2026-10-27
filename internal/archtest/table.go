@@ -69,6 +69,7 @@ func rows() []row {
 		{3, "builds", []string{"jobproto", "fsx"}},
 		{3, "tiers", []string{"model", "config", "toml", "textx"}},
 
+		{4, "desk", []string{"present", "ticket", "model", "textx"}},
 		{4, "ops", []string{"store", "boardread", "deployrec", "config", "ticket", "model", "wake", "gitread", "scionread", "jobtail", "paths", "jsonx", "textx", "clock", "logx"}},
 		{4, "prflow", []string{"github", "gitx", "gitread", "gate", "security", "store", "config", "ticket", "model", "mdout", "jsonx", "textx", "clock", "logx"}},
 		{4, "doors", []string{"store", "boardread", "config", "ticket", "model", "github", "memory", "execx", "fsx", "paths", "jsonx", "textx", "clock", "logx"}},
@@ -89,7 +90,7 @@ func rows() []row {
 		{5, "push", []string{"webpush", "boardread", "present", "model", "ticket", "paths", "fsx", "jsonx", "clock"}},
 		{5, "api", []string{"ticketapi", "guard", "model", "jsonx", "clock"}},
 		{5, "mcp", []string{"ticketapi", "guard", "model", "jsonx", "clock", "buildinfo"}},
-		{5, "web", []string{"present", "mdhtml", "boardread", "deployrec", "ops", "ticketapi", "auth", "push", "api", "mcp", "guard", "tokens", "config", "model", "ticket", "paths", "fsx", "jsonx", "clock", "logx", "textx", "buildinfo", "sysinfo", "vitals", "usage", "jobproto"}},
+		{5, "web", []string{"present", "desk", "mdhtml", "boardread", "deployrec", "ops", "ticketapi", "auth", "push", "api", "mcp", "guard", "tokens", "config", "model", "ticket", "paths", "fsx", "jsonx", "clock", "logx", "textx", "buildinfo", "sysinfo", "vitals", "usage", "jobproto"}},
 	}
 }
 

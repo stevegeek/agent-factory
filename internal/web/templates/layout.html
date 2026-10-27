@@ -36,10 +36,8 @@
         <summary class="menu-btn{{if or (eq .Tab "settings") (eq .Tab "system") (eq .Tab "logs")}} on{{end}}" aria-label="Menu"><span class="menu-who">{{or .Who "Maintainer"}}</span><span class="burger" aria-hidden="true"></span></summary>
         <nav class="menu-list" aria-label="Account">
           <a href="/settings" {{if eq .Tab "settings"}}aria-current="page"{{end}}>Settings</a>
-          {{- if .Maintainer}}
           <a href="/system" {{if eq .Tab "system"}}aria-current="page"{{end}}>System status</a>
           <a href="/logs" {{if eq .Tab "logs"}}aria-current="page"{{end}}>Logs</a>
-          {{- end}}
           <form method="post" action="/logout">
             <input type="hidden" name="csrf" value="{{.CSRF}}">
             <button type="submit">Log out</button>

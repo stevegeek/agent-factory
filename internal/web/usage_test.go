@@ -52,10 +52,9 @@ func TestFloorMetricsShowTokens(t *testing.T) {
 	if strings.Contains(page, "cost") || strings.Contains(page, "$") {
 		t.Error("tokens are not money")
 	}
-	secret, _ := h.users.Add("robin", []string{"widgets"})
-	robin := h.do("GET", "/floor/metrics", nil, h.loginWith(secret, "/")).Body.String()
-	if strings.Contains(robin, "900,000") || !strings.Contains(robin, `<th scope="row">Tokens</th><td>406,000</td>`) {
-		t.Errorf("robin sees another project's tokens")
+	robin := h.do("GET", "/floor/metrics", nil, h.person("robin", "widgets")).Body.String()
+	if !strings.Contains(robin, "900,000") {
+		t.Errorf("robin does not see every project's tokens")
 	}
 	// no log: the section says nothing was recorded
 	h2 := newHarness(t, false)

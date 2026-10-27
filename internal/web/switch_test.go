@@ -106,19 +106,15 @@ func TestTheMaintainerSwitchesProjectsOnBoards(t *testing.T) {
 	}
 }
 
-// Nobody else sees the switch or can post it; the maintainer's post needs
-// the CSRF token and a same-origin browser.
-func TestOnlyTheMaintainerSwitchesProjects(t *testing.T) {
+// Everyone sees the switch; a post needs the CSRF token of the session it
+// comes from and a same-origin browser.
+func TestTheSwitchNeedsTheSessionsToken(t *testing.T) {
 	h, sw := switchHarness(t)
-	m := h.login()
-	secret, _ := h.users.Add("robin", []string{"busy", "resting"})
-	robin := h.loginWith(secret, "/")
+	m := h.person("ann")
+	robin := h.person("robin", "busy")
 	body := h.do("GET", "/boards", nil, robin).Body.String()
-	if !strings.Contains(body, `href="/b/busy"`) || strings.Contains(body, "/boards/switch") || strings.Contains(body, "Follow config") {
-		t.Errorf("robin's boards offer the switch:\n%s", body)
-	}
-	if w := h.do("POST", "/boards/switch", url.Values{"csrf": {h.csrf(robin)}, "project": {"busy"}, "state": {"on"}}, robin); w.Code != http.StatusNotFound {
-		t.Errorf("robin's switch: %d", w.Code)
+	if !strings.Contains(body, `href="/b/busy"`) || !strings.Contains(body, "/boards/switch") {
+		t.Errorf("robin's boards do not offer the switch:\n%s", body)
 	}
 	if w := h.do("POST", "/boards/switch", url.Values{"project": {"busy"}, "state": {"on"}}, m); w.Code != http.StatusForbidden {
 		t.Errorf("no CSRF token: %d", w.Code)

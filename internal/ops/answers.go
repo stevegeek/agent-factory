@@ -260,14 +260,9 @@ var ErrNoteNeeded = errors.New("that answer needs a note")
 // characters but tab and line breaks; it never reaches an argv, so a leading
 // "-" is just text.
 func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
-	note := strings.TrimSpace(in.Note)
-	if len(note) > MaxNote {
-		return "", refuse(BadRequest, "the note is longer than %d characters", MaxNote)
-	}
-	for _, r := range note {
-		if r < 0x20 && r != '\n' && r != '\t' && r != '\r' {
-			return "", refuse(BadRequest, "the note has control characters")
-		}
+	note, err := cleanNote(in.Note)
+	if err != nil {
+		return "", err
 	}
 	switch in.Value {
 	case AnswerAsk:
@@ -280,7 +275,7 @@ func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
 		}
 	}
 	var out string
-	err := s.change(ctx, in.ID, func(c *call, t *ticket.Ticket) error {
+	err = s.change(ctx, in.ID, func(c *call, t *ticket.Ticket) error {
 		if err := factoryOnly(t); err != nil {
 			return err
 		}
@@ -299,6 +294,21 @@ func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
 		return nil
 	})
 	return out, err
+}
+
+// cleanNote is a typed note trimmed, refused when it is longer than MaxNote
+// bytes or has control characters but tab and line breaks.
+func cleanNote(s string) (string, error) {
+	note := strings.TrimSpace(s)
+	if len(note) > MaxNote {
+		return "", refuse(BadRequest, "the note is longer than %d characters", MaxNote)
+	}
+	for _, r := range note {
+		if r < 0x20 && r != '\n' && r != '\t' && r != '\r' {
+			return "", refuse(BadRequest, "the note has control characters")
+		}
+	}
+	return note, nil
 }
 
 // askOf is the ask the desk shows for t.
@@ -350,24 +360,9 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 			return err
 		}
 		return refuse(Conflict, "this ticket is not waiting for an answer")
-	case a.Kind == string(model.AskDraft) && value == "apply" && c.as != "":
-		// the tap stands in for the maintainer's approval of a config
-		// change: Foreman lets anyone answer, so it is
-		// refused here for anyone else
-		return refuse(Conflict, "only the maintainer applies the manager's changes")
-	case a.Kind == string(model.AskDraft) && (value == "drop" || value == "send_back") && c.as != "" && ticket.Items(t).Requested > 0:
-		// the maintainer's tap waits for the tick: only the maintainer
-		// takes it back (a note is anyone's)
-		return refuse(Conflict, "only the maintainer drops or sends back a change they asked the factory to apply")
-	case a.Kind == string(model.AskUnstick) && value == "publish" && c.as != "":
-		// a person's pass sends the change to GitHub, where it cannot be
-		// taken back: the maintainer's word only (a note is anyone's)
-		return refuse(Conflict, "only the maintainer says a blocked change is safe to publish")
-	case a.Kind == string(model.AskDeploy) && c.as != "":
-		// Foreman lets anyone who sees the ticket answer it; deploying the
-		// factory, or saying not now, is the maintainer's (a note is anyone's)
-		return refuse(Conflict, "only the maintainer answers a deploy of the factory")
 	default:
+		// every Foreman user may give every answer; each is recorded as
+		// theirs
 		switch a.Kind + ":" + value {
 		case "review:merge":
 			if !mergeable(t) {

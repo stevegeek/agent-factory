@@ -31,7 +31,7 @@
       <label class="kind-opt"><input type="radio" name="kind" value="change" {{if eq .Kind "change"}}checked{{end}}><span><b>Make a change</b><small>a worker does it; review, security and the gate check it; a PR comes to you</small></span></label>
       <label class="kind-opt"><input type="radio" name="kind" value="intent" {{if eq .Kind "intent"}}checked{{end}}><span><b>Design it first</b><small>a designer proposes and splits it into tickets for you to approve</small></span></label>
       <label class="kind-opt"><input type="radio" name="kind" value="task" {{if eq .Kind "task"}}checked{{end}}><span><b>Ask a question</b><small>one agent reads the code and answers on your desk; nothing changes</small></span></label>
-      {{if not $.Who}}<label class="kind-opt"><input type="radio" name="kind" value="manage" {{if eq .Kind "manage"}}checked{{end}}><span><b>Ask the manager</b><small>about the factory itself (project “factory”): it answers, and proposes config changes and actions that the factory applies under the rights tiers</small></span></label>{{end}}
+      <label class="kind-opt"><input type="radio" name="kind" value="manage" {{if eq .Kind "manage"}}checked{{end}}><span><b>Ask the manager</b><small>about the factory itself (project “factory”): it answers, and proposes config changes and actions that the factory applies under the rights tiers</small></span></label>
     </fieldset>
     <div class="field">
       <label for="nt-title">Title</label>

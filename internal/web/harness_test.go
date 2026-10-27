@@ -44,6 +44,7 @@ var testNow = time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 type fakeOps struct {
 	mu      sync.Mutex
 	answers []AnswerRequest
+	passes  [][4]string // id, to, by, note
 	filed   []NewTicket
 	looks   []ticket.ID
 	out     string
@@ -51,6 +52,16 @@ type fakeOps struct {
 	fileID  ticket.ID
 	lookOut string
 	lookGo  chan struct{} // when set, Look waits for it
+}
+
+func (f *fakeOps) Pass(ctx context.Context, id ticket.ID, to, by, note string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.fail != nil {
+		return "", f.fail
+	}
+	f.passes = append(f.passes, [4]string{string(id), to, by, note})
+	return string(id) + " passed to " + to, nil
 }
 
 func (f *fakeOps) Answer(ctx context.Context, req AnswerRequest) (string, error) {
@@ -231,6 +242,9 @@ func copyBoard(t *testing.T, p paths.Paths, dir string) {
 }
 
 const testConfig = `
+[board]
+people = ["ann", "robin"]
+
 [[recipes]]
 name = "release"
 title = "Cut a release"
@@ -251,7 +265,7 @@ func newHarness(t *testing.T, trustTS bool, boards ...string) *harness {
 	for _, b := range boards {
 		copyBoard(t, p, b)
 	}
-	users := auth.NewUsers(filepath.Join(env.Home, ".config", "factory", "foreman-users.json"), testkit.Fixed{T: testNow})
+	users := auth.NewUsers(filepath.Join(env.Home, ".config", "factory", "foreman-users.json"), testkit.Fixed{T: testNow}).WithCost(1)
 	opt := auth.Options{Hosts: []string{"example.com"}, Users: users, Clock: testkit.Fixed{T: testNow}, FailDelay: time.Nanosecond,
 		SinceFile: auth.SinceFile(filepath.Join(env.Home, ".config", "factory", "foreman-secret"))}
 	if trustTS {
@@ -270,7 +284,7 @@ func newHarness(t *testing.T, trustTS bool, boards ...string) *harness {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, name) })
 	}
 	srv, err := New(Options{Paths: p, Auth: a, Board: boardread.NewSnapshot(&boardread.Reader{Paths: p}),
-		Services: Services{Answers: ops, Filer: ops, Looker: ops, Config: fakeConfig{cfg}, API: stub("api"), MCP: stub("mcp")},
+		Services: Services{Answers: ops, Filer: ops, Looker: ops, Passer: ops, Config: fakeConfig{cfg}, API: stub("api"), MCP: stub("mcp")},
 		Clock:    testkit.Fixed{T: testNow}, Sealed: []string{filepath.Join(env.Home, ".config", "factory", "github-app.pem")}})
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +318,7 @@ func (h *harness) doWith(method, target string, form url.Values, hdr map[string]
 
 func (h *harness) loginWith(secret, next string) *http.Cookie {
 	h.t.Helper()
-	w := h.do("POST", "/login", url.Values{"secret": {secret}, "next": {next}})
+	w := h.do("POST", "/login", url.Values{"password": {secret}, "next": {next}})
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != next {
 		h.t.Fatalf("login: %d %s", w.Code, w.Header().Get("Location"))
 	}
@@ -318,6 +332,35 @@ func (h *harness) loginWith(secret, next string) *http.Cookie {
 }
 
 func (h *harness) login() *http.Cookie { return h.loginWith(testSecret, "/floor") }
+
+// person adds a user of that name (email <name>@example.com, password
+// userPassword(name)) with those desk projects, and logs them in. The main
+// secret logs in no more after the first.
+func (h *harness) person(name string, desk ...string) *http.Cookie {
+	h.t.Helper()
+	if err := h.users.Add(name, name+"@example.com", userPassword(name), desk); err != nil {
+		h.t.Fatal(err)
+	}
+	return h.loginAs(name, "/")
+}
+
+func userPassword(name string) string { return "the password of " + name }
+
+// loginAs logs a user in with their email and password.
+func (h *harness) loginAs(name, next string) *http.Cookie {
+	h.t.Helper()
+	w := h.do("POST", "/login", url.Values{"email": {name + "@example.com"}, "password": {userPassword(name)}, "next": {next}})
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != next {
+		h.t.Fatalf("login as %s: %d %s", name, w.Code, w.Header().Get("Location"))
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == auth.SessionCookie {
+			return c
+		}
+	}
+	h.t.Fatal("no session cookie")
+	return nil
+}
 
 func (h *harness) csrf(c *http.Cookie) string { return h.srv.auth.CSRF(h.srv.auth.Session(c.Value)) }
 

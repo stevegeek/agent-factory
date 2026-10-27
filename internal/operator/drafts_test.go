@@ -468,7 +468,7 @@ func TestRequestedWithoutTapWaits(t *testing.T) {
 	got := f.settle(f.stamp(f.settle(tk)[0]))[0]
 	d := got.Drafts[0]
 	wantState(t, d, model.ItemWaiting)
-	if d.Requested != "" || !strings.Contains(d.Note, "not the maintainer's tap") {
+	if d.Requested != "" || !strings.Contains(d.Note, "not a person's tap") {
 		t.Errorf("requested %q, note %q", d.Requested, d.Note)
 	}
 	if len(f.pushed) != 0 || f.gh.creates != 0 {

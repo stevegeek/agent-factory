@@ -5,15 +5,15 @@ import (
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
-// requestApply is the maintainer's "Apply it" on a manager ticket: every waiting or failed item is stamped requested, and the
+// requestApply is a person's "Apply it" on a manager ticket: every waiting or failed item is stamped requested, and the
 // ticket moves needs_human -> needs_human with operator_settled so that
-// its ask follows and the tick knows the tap for the maintainer's
+// its ask follows and the tick knows the tap for a person's
 // (ticket.Tapped matches the stamp to this move). Foreman only records
 // the request and wakes the tick: the tick judges each draft again on the
 // current config main and carries it out, or refuses it.
 func (c *call) requestApply(t *ticket.Ticket) error {
-	if c.as != "" {
-		return refuse(Conflict, "only the maintainer applies the manager's changes")
+	if !c.person() {
+		return refuse(Conflict, "only [board] people apply the manager's changes; add %s there", c.by())
 	}
 	if n := ticket.Items(t); n.Waiting+n.Failed == 0 {
 		return refuse(Conflict, "%s: nothing waits for you to apply", t.ID)

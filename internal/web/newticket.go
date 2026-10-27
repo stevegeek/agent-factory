@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stevegeek/agent-factory/internal/auth"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
@@ -34,8 +33,8 @@ func (v *NewView) isBoard(p string) bool {
 }
 
 // boardChoices are the board projects in the config as it is now that the
-// viewer may file on (the maintainer every one), when filing on boards is on.
-func (s *Server) boardChoices(u *auth.User) []string {
+// anyone may file on, when filing on boards is on.
+func (s *Server) boardChoices() []string {
 	if s.svc.Tickets == nil || s.svc.Config == nil {
 		return nil
 	}
@@ -45,9 +44,7 @@ func (s *Server) boardChoices(u *auth.User) []string {
 	}
 	var out []string
 	for _, p := range cfg.BoardProjects() {
-		if u.Sees(p.Key) {
-			out = append(out, p.Key)
-		}
+		out = append(out, p.Key)
 	}
 	return out
 }
@@ -97,9 +94,8 @@ func (s *Server) recipes() []config.Recipe {
 }
 
 // projectChoices are the configured projects, then any other factory
-// project on the board, then the no-repository project (the maintainer's
-// only).
-func (s *Server) projectChoices(ts []*ticket.Ticket, u *auth.User) []string {
+// project on the board, then the no-repository project.
+func (s *Server) projectChoices(ts []*ticket.Ticket) []string {
 	seen := map[string]bool{model.NoticeProject: true}
 	var out []string
 	add := func(p string) {
@@ -109,25 +105,19 @@ func (s *Server) projectChoices(ts []*ticket.Ticket, u *auth.User) []string {
 		}
 	}
 	for _, p := range s.projects {
-		if u.Sees(p) {
-			add(p)
-		}
+		add(p)
 	}
 	for _, t := range ts {
 		if !t.Board() { // a board project takes no factory ticket
 			add(t.Project)
 		}
 	}
-	if u != nil {
-		return out
-	}
 	return append(out, model.NoticeProject)
 }
 
 func (s *Server) newTicket(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
-	u := s.viewer(r)
-	v := &NewView{Projects: s.projectChoices(ts, u), Boards: s.boardChoices(u), Kind: string(model.KindChange), Recipes: s.recipes()}
+	v := &NewView{Projects: s.projectChoices(ts), Boards: s.boardChoices(), Kind: string(model.KindChange), Recipes: s.recipes()}
 	if p := r.URL.Query().Get("project"); p != "" && (v.isBoard(p) || slices.Contains(v.Projects, p)) {
 		v.Project = p
 	} else if len(v.Projects) > 0 {
@@ -138,7 +128,7 @@ func (s *Server) newTicket(w http.ResponseWriter, r *http.Request) {
 
 // formProblem is what is wrong with a new ticket as posted, or "". A board
 // project's card has no kind: only its title and description count.
-func formProblem(v *NewView, maintainer bool) string {
+func formProblem(v *NewView) string {
 	if v.isBoard(v.Project) {
 		return textProblem(v)
 	}
@@ -153,8 +143,6 @@ func formProblem(v *NewView, maintainer bool) string {
 		return "Pick a kind."
 	case v.Project == model.NoticeProject && v.Kind != string(model.KindTask) && v.Kind != string(model.KindManage):
 		return "The factory project has no repository: it only takes questions and requests for the manager."
-	case v.Kind == string(model.KindManage) && !maintainer:
-		return "Only the maintainer talks to the manager."
 	case v.Kind == string(model.KindManage) && v.Project != model.NoticeProject:
 		return "Requests for the manager go on the factory project."
 	}
@@ -174,15 +162,14 @@ func textProblem(v *NewView) string {
 
 func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
-	u := s.viewer(r)
-	v := &NewView{Projects: s.projectChoices(ts, u), Boards: s.boardChoices(u), Project: r.PostFormValue("project"), Kind: r.PostFormValue("kind"),
+	v := &NewView{Projects: s.projectChoices(ts), Boards: s.boardChoices(), Project: r.PostFormValue("project"), Kind: r.PostFormValue("kind"),
 		Title: strings.TrimSpace(r.PostFormValue("title")), Body: strings.TrimSpace(r.PostFormValue("body"))}
 	again := func(msg string) {
 		v.Error = msg
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		s.render(w, r, "new", &Page{Title: "New ticket", Tab: "new", New: v}, ts)
 	}
-	if msg := formProblem(v, s.isMaintainer(r)); msg != "" {
+	if msg := formProblem(v); msg != "" {
 		again(msg)
 		return
 	}
