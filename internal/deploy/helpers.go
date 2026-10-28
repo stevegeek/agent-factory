@@ -157,5 +157,5 @@ func (s Service) rootSteps(ctx context.Context, core gitx.Mirror, from, to strin
 		return
 	}
 	s.notice(ctx, title, "Deploying "+c+" over "+from+" changed files that only a root step installs:\n\n- "+
-		strings.Join(changed, "\n- ")+"\n\nRun the matching host/ script or systemd/install-units.sh as root.")
+		strings.Join(changed, "\n- ")+"\n\nRun the matching host/ script as root. For systemd/, re-run host/setup.sh from a checkout of "+c+", then its install-units command.")
 }
