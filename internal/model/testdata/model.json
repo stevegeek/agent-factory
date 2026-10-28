@@ -94,7 +94,9 @@
       "fields"
     ],
     "errored": [
-      "text"
+      "text",
+      "host?",
+      "missing?"
     ],
     "filed": [
       "ticket"

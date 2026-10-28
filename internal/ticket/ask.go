@@ -178,10 +178,49 @@ func AskFor(t *Ticket, old, detail, since string, reason model.Reason) *Ask {
 			why += " " + textx.Sentence(jsonx.PyStr(summary), 3)
 		}
 	}
+	question := "This needs you: what should happen next?"
 	if isStep {
-		return a(model.AskUnstick, "This stopped at the "+step+" step; retry it, or close it?", why, retry)
+		question = "This stopped at the " + step + " step; retry it, or close it?"
 	}
-	return a(model.AskUnstick, "This needs you: what should happen next?", why, retry)
+	ask := a(model.AskUnstick, question, why, retry)
+	if said("gate:", model.ReasonGateFailed) {
+		ask.Why += gateOutput(t)
+	}
+	return ask
+}
+
+// gateOutput is what a failed gate's why adds after the move's words: where
+// the checks ran, their exit and their last lines, each as inline code
+// (the lines come from another machine); "" when none were kept.
+func gateOutput(t *Ticket) string {
+	g, ok := t.Gate.Get()
+	if !ok || g.ChecksPass || g.Output == "" {
+		return ""
+	}
+	out := " " + g.FailHeading() + ":"
+	for _, l := range g.OutputLines() {
+		out += " " + codeSpan(l)
+	}
+	return out
+}
+
+// codeSpan is s as Markdown inline code, with enough backticks.
+func codeSpan(s string) string {
+	longest, run := 0, 0
+	for _, r := range s {
+		if r == '`' {
+			run++
+			longest = max(longest, run)
+		} else {
+			run = 0
+		}
+	}
+	ticks := strings.Repeat("`", longest+1)
+	pad := ""
+	if strings.HasPrefix(s, "`") || strings.HasSuffix(s, "`") {
+		pad = " "
+	}
+	return ticks + pad + s + pad + ticks
 }
 
 func orString(s, fallback string) string {

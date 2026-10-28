@@ -119,6 +119,7 @@ people = ["alice"]           # who tickets are assigned to and questions put to;
 # stages = ["triage", "review"]    # overflow when this host is full
 # prefer = ["task"]                # taken here first: light single-run tasks
 # notes = "what this host is good for"
+# not_kinds = ["go-module"]        # project kinds never sent here (kinds = [...] takes only those)
 # model = "claude-sonnet-5-5"
 # key = "~/.ssh/factory-remote"
 

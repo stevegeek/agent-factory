@@ -66,6 +66,8 @@ type PlanHost struct {
 	// paused until 15:40", "may be away: its last report is from 14:02");
 	// "" while it does.
 	Down string
+	// Refuses are the projects its kinds or not_kinds keep away from it.
+	Refuses []string
 }
 
 // InFlight is the In flight section.
@@ -311,7 +313,8 @@ func (p Plan) gate(t *ticket.Ticket, proj PlanProject, busy map[string]int, held
 				} else if !proj.HeavyGate && !full {
 					list = nil
 				}
-				if h.Pull && slices.Contains(list, string(model.ColGate)) && h.Down == "" && busy[h.Name] < h.Slots {
+				if h.Pull && slices.Contains(list, string(model.ColGate)) && h.Down == "" && busy[h.Name] < h.Slots &&
+					!slices.Contains(h.Refuses, t.Project) {
 					busy[h.Name]++
 					return "starts at the next tick, as a gate job on " + h.Name, false, false
 				}
@@ -387,6 +390,8 @@ func (p Plan) pick(t *ticket.Ticket, stage string, localOK bool, busy map[string
 		switch {
 		case !known || pinned == model.LocalHost && !localOK:
 			return "pinned to " + pinned + ", which cannot run it", true
+		case p.refuses(pinned, t.Project):
+			return "pinned to " + pinned + ", which does not take this project's kind", true
 		case down(pinned) != "":
 			return "pinned to " + pinned + ", which " + down(pinned), true
 		case busy[pinned] >= n:
@@ -400,7 +405,7 @@ func (p Plan) pick(t *ticket.Ticket, stage string, localOK bool, busy map[string
 	// the hosts that may run the stage, in Pick's order
 	var cands []string
 	for _, h := range p.Hosts {
-		if slices.Contains(h.Prefer, stage) {
+		if slices.Contains(h.Prefer, stage) && !slices.Contains(h.Refuses, t.Project) {
 			cands = append(cands, h.Name)
 		}
 	}
@@ -408,7 +413,7 @@ func (p Plan) pick(t *ticket.Ticket, stage string, localOK bool, busy map[string
 		cands = append(cands, model.LocalHost)
 	}
 	for _, h := range p.Hosts {
-		if slices.Contains(h.Stages, stage) && !slices.Contains(cands, h.Name) {
+		if slices.Contains(h.Stages, stage) && !slices.Contains(cands, h.Name) && !slices.Contains(h.Refuses, t.Project) {
 			cands = append(cands, h.Name)
 		}
 	}
@@ -461,4 +466,14 @@ func (p Plan) localSlots(busy map[string]int, heldFor ticket.ID) string {
 // cannot tell.)
 func publicFirst(t *ticket.Ticket, p Plan) bool {
 	return t.Column == string(model.ColGate) && p.Projects[t.Project].Hygiene && t.PublicHead.Or("") == ""
+}
+
+// refuses reports a host whose kinds rule keeps the project away.
+func (p Plan) refuses(host, project string) bool {
+	for _, h := range p.Hosts {
+		if h.Name == host {
+			return slices.Contains(h.Refuses, project)
+		}
+	}
+	return false
 }

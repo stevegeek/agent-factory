@@ -87,6 +87,12 @@ func runKinds(_ context.Context, e *Env, a Args) error {
 			fmt.Fprintln(e.Stdout, strings.TrimRight("    "+ljust(kv[0], 12)+" "+kv[1], " "))
 		}
 	}
+	if notes := cfg.KindNotes(); len(notes) > 0 {
+		fmt.Fprintln(e.Stdout, "hosts:")
+		for _, n := range notes {
+			fmt.Fprintln(e.Stdout, "  "+n)
+		}
+	}
 	return nil
 }
 

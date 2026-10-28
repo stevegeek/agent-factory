@@ -144,6 +144,10 @@ type (
 	// itself; the detail says it in a sentence, with where it came from.
 	Errored struct {
 		Text string `json:"text"`
+		// Host and Missing: the host could not run the gate's checks, for
+		// want of Missing ("go: not found"), so the gate goes elsewhere.
+		Host    string `json:"host,omitempty"`
+		Missing string `json:"missing,omitempty"`
 	}
 	// PRNote: something happened to the PR (event "pr"): Action is one of
 	// the PR* actions, Why what GitHub or the factory said.

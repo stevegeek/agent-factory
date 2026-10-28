@@ -32,6 +32,7 @@
 <a class="qitem k-{{.Kind}}{{if .Responded}} responded{{end}}" href="{{.Href}}" {{if .Current}}aria-current="true"{{end}}>
   <span class="qtop"><span class="proj">{{.Project}}</span>{{if .Walls}}<span class="badge small walls" title="Touches the walls: {{join .Walls ", "}}">walls</span>{{end}}{{with .Age}}<span class="age">{{.}}</span>{{end}}</span>
   <span class="t">{{mdt .Title}}</span>
+  {{with .Line}}<span class="qline">{{.}}</span>{{end}}
   <span class="qact"><span class="qdo">{{.Action}}</span><span class="mono">{{.ID}}</span></span>
   {{with .Responded}}<span class="resp">{{.}}</span>{{end}}
   {{if .Answered}}<span class="resp new">New answer to your question</span>{{end}}

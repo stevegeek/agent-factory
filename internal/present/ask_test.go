@@ -450,3 +450,28 @@ func TestActionFlagsWalls(t *testing.T) {
 		t.Errorf("a notice flags the walls: %q", got)
 	}
 }
+
+// A gate whose checks failed shows where they ran, their exit and their
+// last lines on the ticket page, and its first failing line on the desk.
+func TestAFailedGateShowsItsOutput(t *testing.T) {
+	tk := &ticket.Ticket{ID: "T0001", Project: "p", Title: "t", Column: string(model.ColNeedsHuman),
+		Gate: ticket.Some(ticket.Gate{Host: "hostx", Exit: ticket.Some(1), Output: "ok  p/a\n--- FAIL: TestThing\nFAIL p/b"})}
+	a := &ticket.Ask{Kind: string(model.AskUnstick), Since: "2026-10-18T10:00:00+00:00"}
+	f := GateFailed(tk, a)
+	if f == nil || f.Heading != "Gate on hostx: exit 1" || len(f.Lines) != 3 || f.First != "--- FAIL: TestThing" {
+		t.Fatalf("%+v", f)
+	}
+	v := DeskPage([]DeskItem{{T: tk, Ask: a}}, "", "", time.Now())
+	if len(v.Items) != 1 || v.Items[0].Line != "--- FAIL: TestThing" {
+		t.Fatalf("%+v", v.Items)
+	}
+
+	tk.Gate.V.Exit, tk.Gate.V.Host = ticket.Opt[int]{}, ""
+	if f := GateFailed(tk, a); f == nil || f.Heading != "Gate on the master: failed" {
+		t.Fatalf("%+v", f)
+	}
+	tk.Gate.V.ChecksPass = true
+	if f := GateFailed(tk, a); f != nil {
+		t.Fatalf("passed checks: %+v", f)
+	}
+}

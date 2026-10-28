@@ -43,14 +43,18 @@ const maxGateJobs = 2
 // to run (or wait for) it here as before. A pull host with "gate" in
 // prefer takes every gate; one with "gate" in stages takes a gate that
 // would have to wait here: a heavy one (gate memory above [gate]
-// heavy_memory), or one with every slot here taken. The host must not be
-// away, paused or down, and must have a free slot. Pins are for agents and
-// do not route gates.
+// heavy_memory), one with every slot here taken, or one this host could
+// not run. The host must take the project's kind, must not have failed to
+// run the ticket's checks already (cannotRun), must not be away, paused or
+// down, and must have a free slot. Pins are for agents and do not route
+// gates.
 func gateHost(cfg *config.Config, p config.Project, t *ticket.Ticket, busy map[string]int, down map[string]bool) (string, bool) {
 	if gateJobs(t) >= maxGateJobs {
 		return "", false
 	}
-	waitsHere := cfg.HeavyGate(p) || busy[hosts.Local] >= cfg.MaxAgents
+	cannot := cannotRun(t)
+	_, notHere := cannot[hosts.Local]
+	waitsHere := cfg.HeavyGate(p) || busy[hosts.Local] >= cfg.MaxAgents || notHere
 	for _, list := range []func(h config.HostCfg) []string{
 		func(h config.HostCfg) []string { return h.Prefer },
 		func(h config.HostCfg) []string {
@@ -60,13 +64,96 @@ func gateHost(cfg *config.Config, p config.Project, t *ticket.Ticket, busy map[s
 			return nil
 		},
 	} {
-		for _, h := range cfg.Hosts {
-			if h.Pull() && slices.Contains(list(h), gateStage) && !down[h.Name] && busy[h.Name] < h.Slots {
+		for _, h := range gateHosts(cfg, p, cannot) {
+			if slices.Contains(list(h), gateStage) && !down[h.Name] && busy[h.Name] < h.Slots {
 				return h.Name, true
 			}
 		}
 	}
 	return "", false
+}
+
+// gateHosts are the pull hosts that take the project's gates: "gate" in
+// stages or prefer, the project's kind taken, and not among the hosts that
+// could not run its checks.
+func gateHosts(cfg *config.Config, p config.Project, cannot map[string]string) []config.HostCfg {
+	var out []config.HostCfg
+	kind := cfg.KindName(p)
+	for _, h := range cfg.Hosts {
+		_, failed := cannot[h.Name]
+		if h.Pull() && (slices.Contains(h.Prefer, gateStage) || slices.Contains(h.Stages, gateStage)) && h.TakesKind(kind) && !failed {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// cannotRun are the hosts that could not run the ticket's checks since it
+// last came into the gate column, each with what it lacks.
+func cannotRun(t *ticket.Ticket) map[string]string {
+	out := map[string]string{}
+	for _, x := range cannotRunEvents(t) {
+		out[x.Host] = x.Missing
+	}
+	return out
+}
+
+// cannotRunEvents are the error events of hosts that could not run the
+// ticket's checks since it last came into the gate column, oldest first.
+func cannotRunEvents(t *ticket.Ticket) []ticket.Errored {
+	var out []ticket.Errored
+	for i := len(t.History) - 1; i >= 0; i-- {
+		e := t.History[i]
+		if m, ok := e.Data.(ticket.Moved); ok && m.To == string(model.ColGate) {
+			break
+		}
+		if x, ok := e.Data.(ticket.Errored); ok && x.Host != "" && x.Missing != "" {
+			out = append(out, x)
+		}
+	}
+	slices.Reverse(out)
+	return out
+}
+
+// hostCannotRun records that host could not run t's checks for want of
+// missing: an error event, not a gate result, so nothing counts against
+// the change. The ticket stays in the gate column and the gate goes to
+// another host (gateHost), or to this one; with none left it waits for
+// the maintainer (noGateHost).
+func (d Deps) hostCannotRun(t *ticket.Ticket, host, missing string) {
+	text := hostLabel(host) + " cannot run the checks: " + missing
+	ticket.Event(t, "error", text, "", ticket.Errored{Text: text, Host: host, Missing: missing}, d.now())
+}
+
+// noGateHost moves a ticket whose checks no host could run to the
+// maintainer, naming each host and what it lacks. The ticket has no gate
+// result then: the change was never tested.
+func (d Deps) noGateHost(p config.Project, t *ticket.Ticket) {
+	var parts []string
+	seen := map[string]bool{}
+	for _, x := range cannotRunEvents(t) {
+		if !seen[x.Host] {
+			seen[x.Host] = true
+			parts = append(parts, hostLabel(x.Host)+": "+x.Missing)
+		}
+	}
+	t.Gate = ticket.Opt[ticket.Gate]{}
+	ticket.Move(t, string(model.ColNeedsHuman), model.ReasonGateFailed,
+		"gate: no host could run "+p.Key+"'s checks: "+strings.Join(parts, "; "), "gate: no host could run the checks", "", d.now())
+}
+
+// gateHostLeft reports a pull host that may still run the project's
+// checks once it is free or back.
+func gateHostLeft(cfg *config.Config, p config.Project, t *ticket.Ticket) bool {
+	return gateJobs(t) < maxGateJobs && len(gateHosts(cfg, p, cannotRun(t))) > 0
+}
+
+// hostLabel is how a host is named in the gate's words.
+func hostLabel(host string) string {
+	if host == hosts.Local {
+		return "the master"
+	}
+	return host
 }
 
 // gatesPreferPull reports a pull host with "gate" in prefer, which takes
@@ -81,7 +168,7 @@ func gatesPreferPull(cfg *config.Config) bool {
 }
 
 // gateJobs counts the gate jobs started since the ticket last came into the
-// gate column.
+// gate column, less those whose host could not run the checks.
 func gateJobs(t *ticket.Ticket) int {
 	n := 0
 	for i := len(t.History) - 1; i >= 0; i-- {
@@ -91,6 +178,9 @@ func gateJobs(t *ticket.Ticket) int {
 		}
 		if s, ok := e.Data.(ticket.Started); ok && s.Stage == gateStage {
 			n++
+		}
+		if x, ok := e.Data.(ticket.Errored); ok && x.Missing != "" && x.Host != hosts.Local {
+			n-- // a host that could not run the checks did not lose the job
 		}
 	}
 	return n
@@ -218,7 +308,14 @@ func (d Deps) gateAgent(ctx context.Context, cfg *config.Config, proj *config.Pr
 		return nil
 	}
 	output := podman.LastRunes(jobproto.DecodeText(res.Files[jobproto.MemberLog]), podman.GateTail)
-	g, err := d.Gate.Decide(ctx, cfg, *proj, t, gate.Remote{Head: job.Head, Base: job.Base, ChecksPass: exit == 0, Output: output, Host: a.Host})
+	if missing, ok := gate.CannotRun(*proj, ticket.Some(exit), output); ok && exit != 0 {
+		t.Agent = ticket.Nil[ticket.Agent]()
+		ticket.RecordFinish(t, model.Stage(gateStage), a.Name, d.now())
+		d.hostCannotRun(t, a.Host, missing)
+		return nil
+	}
+	g, err := d.Gate.Decide(ctx, cfg, *proj, t, gate.Remote{Head: job.Head, Base: job.Base, ChecksPass: exit == 0, Output: output, Host: a.Host,
+		Exit: ticket.Some(exit)})
 	if err != nil {
 		return err // the job is gone: the next pass finds it lost and gates again
 	}

@@ -282,6 +282,9 @@ func (r Runner) Run(ctx context.Context, cfg *config.Config, p config.Project, t
 	if err != nil {
 		return ticket.Gate{}, err
 	}
+	if !ok {
+		g.Output = FailTail(output)
+	}
 	r.dropEarly(t.ID)
 	return g, r.writeOutput(t, hygieneOutput(hits, output))
 }
@@ -344,6 +347,7 @@ type Remote struct {
 	ChecksPass bool
 	Output     string
 	Host       string
+	Exit       ticket.Opt[int] // the checks' exit code, when the host reported it
 }
 
 // Decide is the rest of Run for checks that ran elsewhere: what changed
@@ -377,6 +381,9 @@ func (r Runner) Decide(ctx context.Context, cfg *config.Config, p config.Project
 		return ticket.Gate{}, err
 	}
 	g.Host = in.Host
+	if !in.ChecksPass {
+		g.Exit, g.Output = in.Exit, FailTail(in.Output)
+	}
 	r.dropEarly(t.ID)
 	return g, r.writeOutput(t, hygieneOutput(hits, in.Output))
 }

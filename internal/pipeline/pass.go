@@ -254,7 +254,14 @@ func (d Deps) startStep(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 		s = model.StagePublic
 	}
 	localOK := proj != nil
-	host, ok := hosts.Pick(cfg, string(s), busy, down, t.Host.Or(""), localOK)
+	kind := ""
+	if proj != nil {
+		kind = cfg.KindName(*proj)
+		if why, refused := cfg.HostRefuses(t.Host.Or(""), *proj); refused {
+			return false, fmt.Errorf("pinned to %s", why)
+		}
+	}
+	host, ok := hosts.Pick(cfg, string(s), busy, down, t.Host.Or(""), localOK, kind)
 	for ok {
 		err := d.start(ctx, cfg, proj, t, s, host)
 		if err == nil {
@@ -267,7 +274,7 @@ func (d Deps) startStep(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 		down[host] = true
 		text := textx.Prefix(err.Error(), 250)
 		ticket.Event(t, "error", host+": "+text, "", ticket.Errored{Text: text}, d.now())
-		host, ok = hosts.Pick(cfg, string(s), busy, down, t.Host.Or(""), localOK)
+		host, ok = hosts.Pick(cfg, string(s), busy, down, t.Host.Or(""), localOK, kind)
 	}
 	return false, nil
 }
@@ -313,6 +320,9 @@ func (d Deps) runGate(ctx context.Context, cfg *config.Config, proj *config.Proj
 			if err != nil {
 				return false, err
 			}
+			if d.cannotRunHere(cfg, *proj, t, g) {
+				return false, nil
+			}
 			gate.Record(t, cfg, g, d.now())
 			return false, d.afterGate(ctx, cfg, proj, t)
 		}
@@ -322,7 +332,14 @@ func (d Deps) runGate(ctx context.Context, cfg *config.Config, proj *config.Proj
 	}
 	host, ok := gateHost(cfg, *proj, t, busy, down)
 	if !ok {
-		return d.runGateHere(ctx, cfg, proj, t, busy)
+		if _, notHere := cannotRun(t)[hosts.Local]; !notHere {
+			return d.runGateHere(ctx, cfg, proj, t, busy)
+		}
+		if gateHostLeft(cfg, *proj, t) {
+			return true, nil
+		}
+		d.noGateHost(*proj, t)
+		return false, nil
 	}
 	err := d.startGateJob(ctx, cfg, proj, t, host)
 	if err == nil {
@@ -391,8 +408,29 @@ func (d Deps) runGateHere(ctx context.Context, cfg *config.Config, proj *config.
 	if err != nil {
 		return false, err
 	}
+	if d.cannotRunHere(cfg, *proj, t, g) {
+		return false, nil
+	}
 	gate.Record(t, cfg, g, d.now())
 	return false, d.afterGate(ctx, cfg, proj, t)
+}
+
+// cannotRunHere reports checks run here that failed because this host
+// lacks a command (gate.CannotRun): no gate result is recorded, and the
+// gate goes to a pull host that takes it, or with none to the maintainer.
+func (d Deps) cannotRunHere(cfg *config.Config, p config.Project, t *ticket.Ticket, g ticket.Gate) bool {
+	if g.ChecksPass {
+		return false
+	}
+	missing, ok := gate.CannotRun(p, g.Exit, g.Output)
+	if !ok {
+		return false
+	}
+	d.hostCannotRun(t, hosts.Local, missing)
+	if !gateHostLeft(cfg, p, t) {
+		d.noGateHost(p, t)
+	}
+	return true
 }
 
 // afterGate follows Gate 1's recorded result, wherever its checks ran: a

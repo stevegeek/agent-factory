@@ -136,6 +136,9 @@ func (s *Service) Add(ctx context.Context, in AddIn) (ticket.ID, error) {
 		if err := knownHost(cfg, in.Host); err != nil {
 			return "", err
 		}
+		if err := kindRefused(cfg, in.Host, in.Project); err != nil {
+			return "", err
+		}
 	}
 	single := in.Task || in.Intent || in.Manage
 	column := model.ColReady
@@ -227,6 +230,19 @@ func knownHost(cfg *config.Config, host string) error {
 		names = append(names, h.Name)
 	}
 	return refuse(BadRequest, "unknown host %s; known: %s", host, strings.Join(names, ", "))
+}
+
+// kindRefused refuses a pin to a host whose kinds or not_kinds leave out
+// the project's kind: none of its stages would ever run there.
+func kindRefused(cfg *config.Config, host, project string) error {
+	p, ok := cfg.Project(project)
+	if !ok {
+		return nil
+	}
+	if why, refused := cfg.HostRefuses(host, *p); refused {
+		return refuse(BadRequest, "cannot pin to %s", why)
+	}
+	return nil
 }
 
 // pinHost is pin_host for a host knownHost accepted: auto removes the pin;

@@ -87,6 +87,11 @@ func (s *Server) flightPlan(now time.Time) (p present.Plan, stalled string) {
 	}
 	for _, h := range cfg.Hosts {
 		ph := present.PlanHost{Name: h.Name, Slots: h.Slots, Stages: h.Stages, Prefer: h.Prefer, Pull: h.Pull(), Down: paused[h.Name]}
+		for _, pr := range cfg.Projects {
+			if !h.TakesKind(cfg.KindName(pr)) {
+				ph.Refuses = append(ph.Refuses, pr.Key)
+			}
+		}
 		if ph.Down == "" && h.Pull() {
 			ph.Down = pullAway(snap, h.Name, time.Duration(h.BeatMinutes)*time.Minute, now)
 		}

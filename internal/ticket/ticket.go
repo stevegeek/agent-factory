@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
@@ -307,11 +309,55 @@ type Gate struct {
 	Base             string      `json:"base"`
 	AutoEligible     bool        `json:"auto_eligible"`
 	Blockers         []string    `json:"blockers"`
-	Host             string      `json:"host,omitempty"`  // where the checks ran, when not here (a gate job)
-	Walls            []string    `json:"walls,omitempty"` // the files that touch the project's walls
+	Host             string      `json:"host,omitempty"`   // where the checks ran, when not here (a gate job)
+	Walls            []string    `json:"walls,omitempty"`  // the files that touch the project's walls
+	Exit             Opt[int]    `json:"exit"`             // the checks' exit code, when a gate job reported it
+	Output           string      `json:"output,omitempty"` // the last lines of the checks' output, when they failed
 	// HygieneFindings counts the public-repo hygiene hits, for Record;
 	// not stored (the hits live in gate-output.txt).
 	HygieneFindings int `json:"-"`
+}
+
+// OutputLines are the lines of the gate's kept output, as stored.
+func (g Gate) OutputLines() []string {
+	if g.Output == "" {
+		return nil
+	}
+	return strings.Split(g.Output, "\n")
+}
+
+// FailHeading is "Gate on <host>: exit <n>" for checks that failed: the
+// host they ran on ("the master" for this one) and their exit code, or
+// "failed" when no exit was reported.
+func (g Gate) FailHeading() string {
+	host := g.Host
+	if host == "" {
+		host = "the master"
+	}
+	exit := "failed"
+	if n, ok := g.Exit.Get(); ok {
+		exit = "exit " + strconv.Itoa(n)
+	}
+	return "Gate on " + host + ": " + exit
+}
+
+// FailingLine is the first kept output line that reads as a failure (an
+// error, a failed test, a missing command), else the last line; "" when no
+// output was kept.
+func (g Gate) FailingLine() string {
+	lines := g.OutputLines()
+	for _, l := range lines {
+		low := strings.ToLower(l)
+		for _, w := range []string{"fail", "error", "not found", "panic", "offense", "no such"} {
+			if strings.Contains(low, w) {
+				return l
+			}
+		}
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return lines[len(lines)-1]
 }
 
 // Proposed is a ticket a design proposes.

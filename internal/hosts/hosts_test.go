@@ -37,7 +37,7 @@ func pick(c *config.Config, stage string, busy map[string]int, down []string, pi
 	for _, h := range down {
 		d[h] = true
 	}
-	h, ok := Pick(c, stage, busy, d, pinned, localOK)
+	h, ok := Pick(c, stage, busy, d, pinned, localOK, "")
 	if ok != (h != "") {
 		panic(fmt.Sprintf("Pick(%s) = %q, %v", stage, h, ok))
 	}
@@ -369,5 +369,39 @@ func TestTimeout(t *testing.T) {
 	}
 	if got := Timeout(cfgOf(t, ""), ticketOf(t, `{"id": "T0001"}`)); got != 45*time.Minute {
 		t.Errorf("default: %v", got)
+	}
+}
+
+// A helper whose kinds rule leaves out the project's kind is never
+// picked, pinned or not; "" (no project) is taken anywhere.
+func TestPickFollowsTheHostsKinds(t *testing.T) {
+	c := cfgOf(t, `max_agents = 1
+[hosts.hostx]
+ssh = "factory@10.9.8.7"
+prefer = ["review"]
+not_kinds = ["go-module"]
+
+[hosts.hosty]
+ssh = "factory@10.9.8.8"
+stages = ["review"]
+kinds = ["crystal-shard"]
+`)
+	full := map[string]int{local: 1}
+	pick := func(kind, pinned string) string {
+		h, _ := Pick(c, "review", full, map[string]bool{}, pinned, true, kind)
+		return h
+	}
+	for _, tc := range []struct{ kind, pinned, want string }{
+		{"ruby-gem", "", "hostx"},
+		{"go-module", "", ""},
+		{"crystal-shard", "", "hostx"},
+		{"", "", "hostx"},
+		{"go-module", "hostx", ""},
+		{"ruby-gem", "hosty", ""},
+		{"crystal-shard", "hosty", "hosty"},
+	} {
+		if got := pick(tc.kind, tc.pinned); got != tc.want {
+			t.Errorf("kind %q pinned %q: %q, want %q", tc.kind, tc.pinned, got, tc.want)
+		}
 	}
 }
