@@ -2,6 +2,7 @@ package prflow
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -99,6 +100,24 @@ func TestMergedBranchesDryRunDeletesNothing(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Repo != "o/gem" || got[0].Branch != "bot/x" || got[0].Deleted {
 		t.Fatalf("branches = %+v", got)
+	}
+	if h.gh.any("DELETE") {
+		t.Fatalf("requests %v", h.gh.calls())
+	}
+}
+
+func TestPruneBranchesDryRunPrintsAndDeletesNothing(t *testing.T) {
+	cfg := parseConfig(t, testConfig)
+	h := newHarness(t)
+	h.routes(headAt("bot/x"))
+	tk := mergedTicket(t, "bot/x")
+	var out strings.Builder
+	n, err := h.flow.PruneBranches(context.Background(), cfg, []*ticket.Ticket{tk}, false, &out)
+	if err != nil || n != 0 {
+		t.Fatal(n, err)
+	}
+	if want := "o/gem bot/x (" + string(tk.ID) + ")\ndry run: --apply deletes these\n"; out.String() != want {
+		t.Fatalf("out = %q, want %q", out.String(), want)
 	}
 	if h.gh.any("DELETE") {
 		t.Fatalf("requests %v", h.gh.calls())

@@ -3,6 +3,8 @@ package prflow
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -64,6 +66,28 @@ func (f *Flow) MergedBranches(ctx context.Context, cfg *config.Config, ts []*tic
 		out[i].Deleted = true
 	}
 	return out, nil
+}
+
+// PruneBranches is MergedBranches written to w, one line per branch, then
+// a note on a dry run. It returns how many deletes GitHub refused.
+func (f *Flow) PruneBranches(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket, apply bool, w io.Writer) (int, error) {
+	found, err := f.MergedBranches(ctx, cfg, ts, apply)
+	refused := 0
+	for _, b := range found {
+		switch {
+		case b.Err != nil:
+			refused++
+			fmt.Fprintf(w, "could not delete %s %s (%s): %v\n", b.Repo, b.Branch, b.Ticket, b.Err)
+		case b.Deleted:
+			fmt.Fprintf(w, "deleted %s %s (%s)\n", b.Repo, b.Branch, b.Ticket)
+		default:
+			fmt.Fprintf(w, "%s %s (%s)\n", b.Repo, b.Branch, b.Ticket)
+		}
+	}
+	if err == nil && !apply && len(found) > 0 {
+		fmt.Fprintln(w, "dry run: --apply deletes these")
+	}
+	return refused, err
 }
 
 func mergedDone(t *ticket.Ticket) bool {
