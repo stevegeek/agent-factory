@@ -586,6 +586,8 @@ type Page struct {
 	Next       string
 	Error      string
 	Version    string
+	GitHub     string // the tick's view of GitHub (sysinfo.GitHubStatus)
+	GitHubDown bool
 	Settings   *SettingsView
 	System     *SystemView
 	New        *NewView
@@ -604,6 +606,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 		p.DeskCount = present.Waiting(present.Desk(ts, v)) + len(desk.Nudges(ts, v))
 		p.Running = running(ts)
 		p.Version = version(ts)
+		p.GitHub, p.GitHubDown = sysinfo.GitHubStatus(s.paths)
 	}
 	// a poll must not use up the message meant for the next page the person opens
 	if p.Flash == nil && r.Header.Get(liveHeader) == "" {

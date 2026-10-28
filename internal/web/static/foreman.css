@@ -479,6 +479,8 @@ meter.gauge:-moz-meter-sub-sub-optimum::-moz-meter-bar { background: var(--stop)
 .fl-m { color: var(--muted); font-size: 12.5px; }
 .fl-why { font-size: 12.5px; }
 .fl-row.held .fl-why { color: var(--signal); }
+.github { margin: 6px 18px 0; color: var(--muted); font-size: 12.5px; }
+.github.down { padding: 6px 10px; border-radius: 6px; background: var(--stop-soft); color: var(--stop); font-size: 13.5px; }
 .fl-stalled { margin: 0; padding: 6px 10px; border-radius: 6px; background: var(--stop-soft); color: var(--stop); font-size: 13.5px; }
 @media (max-width: 640px) { .screen { font-size: 11px; max-height: 45vh; } }
 .logs { color: var(--muted); font-size: 13px; }

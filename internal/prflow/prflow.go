@@ -84,6 +84,13 @@ type Deployer interface {
 	Merged(ctx context.Context, p config.Project, t *ticket.Ticket, m MergedPR) error
 }
 
+// Reach keeps whether the GitHub pass reaches GitHub at all
+// (sysinfo.GitHubRecord). Note gets one pass's outcome and returns a line
+// to log when that flips.
+type Reach interface {
+	Note(now time.Time, ok bool, lastErr string) (string, error)
+}
+
 // Logger is the factory log (logx.Log).
 type Logger interface {
 	Printf(format string, args ...any)
@@ -109,6 +116,9 @@ type Flow struct {
 	// Deploys is told of each merge on a project with self_deploy; nil
 	// asks for no deploys.
 	Deploys Deployer
+	// Reach is told after each Pass whether GitHub answered; nil keeps
+	// nothing.
+	Reach Reach
 }
 
 func (f *Flow) now() time.Time {
