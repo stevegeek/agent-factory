@@ -35,7 +35,7 @@ RUN apt-get update \
 # Crystal, for Crystal projects: the official tarball (its bin/crystal wrapper
 # finds the embedded libgc) and ameba built from source. Pinned to the factory's
 # [images] crystal / ameba; build.sh passes overrides.
-ARG CRYSTAL_VERSION=1.20.1
+ARG CRYSTAL_VERSION=1.22.1
 ARG AMEBA_VERSION=1.7.0
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \

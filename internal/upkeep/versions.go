@@ -24,7 +24,7 @@ type Tool struct {
 // Tools is the TOOLS table, in Python's order: a fresh copy.
 func Tools() []Tool {
 	return []Tool{
-		{Key: "crystal", Name: "Crystal", Repo: "crystal-lang/crystal", Default: "1.20.1", Toolchain: "crystal",
+		{Key: "crystal", Name: "Crystal", Repo: "crystal-lang/crystal", Default: "1.22.1", Toolchain: "crystal",
 			Changelog: "https://github.com/crystal-lang/crystal/releases"},
 		{Key: "ameba", Name: "ameba", Repo: "crystal-ameba/ameba", Default: "1.7.0", Toolchain: "crystal",
 			Changelog: "https://github.com/crystal-ameba/ameba/releases"},
