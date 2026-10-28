@@ -18,8 +18,9 @@ import (
 // errorEvery is how often a kept intent's failure is written to the ticket.
 const errorEvery = time.Hour
 
-// Pass is the GitHub half of the tick's pass (tick_pass), run only
-// when [github] installation_id is set: DrainIntents first, then each ticket
+// Pass is the GitHub half of the tick's pass (tick_pass). It first deletes
+// the branches closed tickets ask to have deleted (drainPrunes); the rest
+// runs only when [github] installation_id is set: DrainIntents, then each ticket
 // in pr_open is followed on GitHub (CheckPR) and each in ready_for_pr has its
 // PR opened when [github] open_prs = "auto" or it is a rework of a PR it
 // already has. A ticket of a project without a GitHub repository is passed
@@ -30,6 +31,9 @@ const errorEvery = time.Hour
 // error only when it could not save, or when ctx ended (nothing is saved
 // after that).
 func (f *Flow) Pass(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket) error {
+	if err := f.drainPrunes(ctx, cfg, ts); err != nil {
+		return err
+	}
 	if !cfg.HasGitHub() {
 		return nil
 	}

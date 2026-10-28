@@ -27,7 +27,7 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		// show only the queue
 		dv.Items[0].Current = true
 		if t := findTicket(ts, dv.Items[0].ID); t != nil {
-			p.Ticket = s.ticketView(t, ts, dv.Kind)
+			p.Ticket = s.ticketView(t, ts, dv.Kind, s.isMaintainer(r))
 		}
 	}
 	s.render(w, r, "desk", p, ts)
@@ -46,7 +46,7 @@ func (s *Server) ticket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	kind := r.URL.Query().Get("kind")
-	tv := s.ticketView(t, ts, kind)
+	tv := s.ticketView(t, ts, kind, s.isMaintainer(r))
 	if tv.Ask != nil {
 		dv := present.DeskPage(present.Desk(ts, s.deskViewer(r)), kind, id, s.now())
 		dv.Open = true
@@ -256,7 +256,7 @@ func (s *Server) answerLabel(t *ticket.Ticket, a *ticket.Ask, answer string) str
 		}
 		return "Sent; an agent answers here in a few minutes"
 	}
-	for _, x := range s.answersFor(t, a) {
+	for _, x := range s.answersFor(t, a, true) {
 		if x.Value == answer {
 			return x.Label
 		}

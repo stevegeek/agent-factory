@@ -583,6 +583,11 @@ func (p prActions) Open(ctx context.Context, cfg *config.Config, t *ticket.Ticke
 	return pr.URL, nil
 }
 
+// Prune deletes the closed ticket's bot/* branch now, here and on GitHub.
+func (p prActions) Prune(ctx context.Context, cfg *config.Config, t *ticket.Ticket) error {
+	return p.flow.PruneBranch(ctx, cfg, t)
+}
+
 // jobTailTimeout is remote(h, "tail", …, timeout=20).
 const jobTailTimeout = 20 * time.Second
 

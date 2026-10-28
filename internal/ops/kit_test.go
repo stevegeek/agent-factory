@@ -66,10 +66,12 @@ func (w *wakes) count() int {
 	return w.n
 }
 
-// fakePR stands in for prflow.Sync: Hold and Open record that they ran and
-// change the ticket as the test says.
+// fakePR stands in for prflow.Sync: Hold, Open and Prune record that they
+// ran and change the ticket as the test says.
 type fakePR struct {
 	holds, opens []ticket.ID
+	prunes       []string
+	pruneErr     error
 	holdErr      error
 	openURL      string
 	openErr      error
@@ -95,6 +97,11 @@ func (f *fakePR) Open(_ context.Context, _ *config.Config, t *ticket.Ticket) (st
 		return "", f.openErr
 	}
 	return f.openURL, nil
+}
+
+func (f *fakePR) Prune(_ context.Context, _ *config.Config, t *ticket.Ticket) error {
+	f.prunes = append(f.prunes, t.Branch.Or(""))
+	return f.pruneErr
 }
 
 // world is one test's factory: a root, its board and a service on it.

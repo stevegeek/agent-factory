@@ -506,7 +506,7 @@ func TestLabelsAndAnswersOnThePage(t *testing.T) {
 func TestAnswerLinksAreSafe(t *testing.T) {
 	h := newHarness(t, false)
 	h.srv.svc.Answers = &linkOps{}
-	v := h.srv.ticketView(find(h.fixtures(), "T0001"), h.fixtures(), "")
+	v := h.srv.ticketView(find(h.fixtures(), "T0001"), h.fixtures(), "", true)
 	if len(v.Answers) != 1 || v.Answers[0].Href != "" {
 		t.Errorf("an unsafe link survived: %+v", v.Answers)
 	}
@@ -580,7 +580,7 @@ func TestTheLatestAnswerLeadsThePage(t *testing.T) {
 	p.History = append(p.History, ticket.Entry{At: at(time.Hour), Event: "asked", Detail: "T0999: why the nil check?"},
 		ticket.Entry{At: at(2 * time.Hour), Event: "answered", Detail: "T0999: Because lint says so."})
 	all := []*ticket.Ticket{p, child}
-	v := h.srv.ticketView(p, all, "")
+	v := h.srv.ticketView(p, all, "", true)
 	if v.Answer == nil || v.Answer.ID != "T0999" || v.Answer.Question != "why the nil check?" || !strings.Contains(v.Answer.Lead, "lint") ||
 		v.Answer.Full != "Because **lint** says so.\n\nMore detail here." {
 		t.Errorf("answer: %+v", v.Answer)

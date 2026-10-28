@@ -61,6 +61,7 @@ type Answer struct {
 	NeedsNote         bool
 	NoteFor           string // "to send it back": names the answer the note is needed for
 	Danger            bool   // closes the ticket or the PR: shown last, in red
+	MaintainerOnly    bool   // offered to the maintainer only
 }
 
 // AnswerRequest is what a person posted on a ticket's form, and who: the

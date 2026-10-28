@@ -238,6 +238,7 @@ Each answer does what these CLI commands do, in one lock and one save on the tic
 | notice | Done | `move T done` |
 | | Verify these findings | `findings T --verify`: a finished task on a project goes to the verifier, which reads its findings (or splits its prose result into findings), re-runs them and brings them back as a findings ask |
 | question | Send the answer | `note T "…"` |
+| question, design, open (no PR yet) | Close it / Drop | `answer T close --note "…"` / `answer T drop --note "…"`: the maintainer's only, and hidden from anyone else. `move T done` (the note is the result) / `move T rejected` (the note says why); no agent runs. An open agent question is closed, a bot/* branch with no PR is deleted here and on GitHub (by the tick, from Foreman), and the open "Question on T" tasks close, each naming T |
 | question (board ticket) | an option / Send the answer | `factory ticket answer T N "…"`: the ticket API's `answer` verb, as the person answering |
 | (ready_for_pr) | Open the PR | `pr T` |
 

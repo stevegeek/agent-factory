@@ -168,28 +168,34 @@ func (s *Server) boardAnswers(a *ticket.Ask) []Answer {
 	return out
 }
 
-func (s *Server) answersFor(t *ticket.Ticket, a *ticket.Ask) []Answer {
+// answersFor are the answers offered on t; maintainer false leaves out
+// the maintainer's own.
+func (s *Server) answersFor(t *ticket.Ticket, a *ticket.Ask, maintainer bool) []Answer {
 	if t.Board() {
 		return s.boardAnswers(a)
 	}
 	if s.svc.Answers == nil {
 		return nil
 	}
-	out := s.svc.Answers.Answers(t, a)
-	for i := range out {
-		// a link built from ticket data is only ever http(s)
-		if out[i].Href != "" {
-			out[i].Href = present.SafeURL(out[i].Href)
+	var out []Answer
+	for _, x := range s.svc.Answers.Answers(t, a) {
+		if x.MaintainerOnly && !maintainer {
+			continue
 		}
+		// a link built from ticket data is only ever http(s)
+		if x.Href != "" {
+			x.Href = present.SafeURL(x.Href)
+		}
+		out = append(out, x)
 	}
 	return out
 }
 
-func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string) *TicketView {
+func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string, maintainer bool) *TicketView {
 	all := present.ByID(ts)
 	a := present.AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: present.BuildStory(t, all), Facts: present.Facts(t, a, all),
-		Answers: s.answersFor(t, a), Callout: present.PRCallout(t), Pending: present.Pending(t), Children: t.Children, ChildrenLabel: "Filed",
+		Answers: s.answersFor(t, a, maintainer), Callout: present.PRCallout(t), Pending: present.Pending(t), Children: t.Children, ChildrenLabel: "Filed",
 		ParentID: t.Parent.Or(""), CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t)}
 	if pr, ok := t.PanelResult.Get(); ok {
 		// a prospect's proposals, kept and dropped, each a ticket of its own
