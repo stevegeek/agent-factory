@@ -215,6 +215,7 @@ type DeskItem struct {
 	Responded, RespondedAt string
 	Answered               bool   // the last thing on it is the answer to your question
 	Wait                   string // WaitLine
+	Parent                 string // the ticket it was filed from, when the viewer may see it
 }
 
 // Viewer is the person reading the desk: the name their answers record as
@@ -313,7 +314,7 @@ func (r *reader) desk(ts []*ticket.Ticket, v Viewer) []DeskItem {
 		if a := AskFor(t); a != nil && v.Mine(t, a) {
 			resp, at := Responded(t, a, v, all)
 			answered := len(t.History) > 0 && t.History[len(t.History)-1].Event == "answered"
-			out = append(out, DeskItem{t, a, resp, at, answered, WaitLine(t, all)})
+			out = append(out, DeskItem{t, a, resp, at, answered, WaitLine(t, all), ParentOf(t, all)})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -351,6 +352,7 @@ type QueueItem struct {
 	Walls                                                       []string // the files the change touches in its project's walls
 	Line                                                        string   // a failed gate's first failing output line
 	Wait                                                        string   // WaitLine
+	Parent                                                      string   // the ticket it was filed from
 }
 
 // DeskView is the desk's queue: the filter chips, what still waits for you,
@@ -389,7 +391,7 @@ func DeskPage(items []DeskItem, kind, current string, now time.Time) *DeskView {
 		q := QueueItem{ID: id, Kind: it.Ask.Kind, Label: KindLabel(it.Ask.Kind), Glyph: KindGlyph(it.Ask.Kind),
 			Question: Headline(it.T, it.Ask), Title: it.T.Title, Action: Action(it.T, it.Ask), Project: it.T.Project,
 			Age: AgeSince(it.Ask.Since, now), Href: TicketHref(id, kind), Current: id == current, Answered: it.Answered, Wait: it.Wait,
-			Walls: slices.Concat(Walls(it.T), DraftWalls(it.T))}
+			Walls: slices.Concat(Walls(it.T), DraftWalls(it.T)), Parent: it.Parent}
 		if f := GateFailed(it.T, it.Ask); f != nil {
 			q.Line = f.First
 		}

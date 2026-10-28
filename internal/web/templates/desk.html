@@ -34,7 +34,7 @@
   <span class="t">{{mdt .Title}}</span>
   {{with .Line}}<span class="qline">{{.}}</span>{{end}}
   {{with .Wait}}<span class="qline">{{.}}</span>{{end}}
-  <span class="qact"><span class="qdo">{{.Action}}</span><span class="mono">{{.ID}}</span></span>
+  <span class="qact"><span class="qdo">{{.Action}}</span><span class="mono">{{.ID}}</span>{{with .Parent}}<span class="parent-tag mono">↳ {{.}}</span>{{end}}</span>
   {{with .Responded}}<span class="resp">{{.}}</span>{{end}}
   {{if .Answered}}<span class="resp new">New answer to your question</span>{{end}}
 </a>

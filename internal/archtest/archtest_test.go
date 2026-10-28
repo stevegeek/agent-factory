@@ -151,7 +151,7 @@ func TestTableMatchesThePlan(t *testing.T) {
 		"internal/memstore", "internal/model", "internal/onboard", "internal/operator", "internal/ops", "internal/panel", "internal/paths", "internal/pipeline",
 		"internal/podman", "internal/present", "internal/prflow", "internal/pull", "internal/push", "internal/render",
 		"internal/scion", "internal/scionread", "internal/screens", "internal/security", "internal/sshjobs", "internal/stage",
-		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/ticket", "internal/ticketapi", "internal/tiers",
+		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/thread", "internal/ticket", "internal/ticketapi", "internal/tiers",
 		"internal/tokens", "internal/toml", "internal/upkeep", "internal/usage", "internal/vitals", "internal/wake", "internal/web", "internal/webpush",
 	}
 	if !slices.Equal(names, want) {

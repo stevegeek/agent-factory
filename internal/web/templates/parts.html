@@ -8,7 +8,7 @@
     <span class="mono">{{.T.ID}}</span>
     <a href="/b/{{.T.Project}}">{{.T.Project}}</a>
     {{with .Age}}<span>{{.}}</span>{{end}}
-    {{with .ParentID}}<span>from <a class="mono" href="/t/{{.}}">{{.}}</a></span>{{end}}
+    {{with .Rel}}{{if .ParentID}}<span>{{.Lead}} <a class="mono" href="/t/{{.ParentID}}">{{.ParentID}}</a>: {{mdt .ParentTitle}}</span>{{end}}{{end}}
     {{if .Walls}}<span class="badge small walls">Touches the walls</span>{{end}}
   </div>
   <h2>{{mdi .Headline}}</h2>
@@ -47,6 +47,12 @@
     {{- else if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Value}}</a>
     {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
 </dl>{{end}}
+{{with .Rel}}{{if or .Thread .Groups}}<section class="related" aria-label="Related tickets">
+  <h3 class="panel-h">Related</h3>
+  {{with .Thread}}<ol class="thread">{{range .}}<li{{if .Current}} aria-current="true"{{end}}>{{template "relrow" .}}</li>{{end}}</ol>{{end}}
+  {{range .Groups}}<h4>{{.Label}} <span class="rel-meta">{{.Open}} open · {{.Done}} done</span></h4>
+  <ul class="rel-list">{{range .Tickets}}<li>{{template "relrow" .}}</li>{{end}}</ul>{{end}}
+</section>{{end}}{{end}}
 {{with .Walls}}<section class="walls" aria-label="Touches the walls">
   <h3 class="panel-h">Touches the walls</h3>
   <p class="quiet">These files hold the factory's own safety: the change never merges without you.</p>
@@ -82,7 +88,6 @@
     <button class="btn" type="submit" data-busy="Passing…"><span>Pass it</span></button>
   </form>
 </details>{{end}}
-{{if .Children}}<p class="sub">{{.ChildrenLabel}}: {{range $i, $c := .Children}}{{if $i}}, {{end}}<a class="mono" href="/t/{{$c}}">{{$c}}</a>{{end}}</p>{{end}}
 {{with .Questions}}<section class="picks findings" aria-label="Questions">
   <h3 class="panel-h">Questions</h3>
   {{range .}}<div class="pick finding{{if not .Open}} off{{end}}"><div>
@@ -141,6 +146,11 @@
       {{- with .Evidence}}<p class="finding-meta">The verifier's evidence</p><div class="text md">{{md .}}</div>{{end}}</details>
   </div>
 </div>
+{{- end}}
+
+{{define "relrow" -}}
+{{with .How}}<span class="how">{{.}}</span> {{end}}{{if .Current}}<b class="mono">{{.ID}}</b>{{else}}<a class="mono" href="/t/{{.ID}}">{{.ID}}</a>{{end}} {{mdt .Title}}
+<span class="rel-meta">{{.Kind}} · {{.Column}}{{if .Waits}} · <b>waits for you</b>{{end}}{{if .Current}} · this ticket{{end}}</span>
 {{- end}}
 
 {{define "note" -}}

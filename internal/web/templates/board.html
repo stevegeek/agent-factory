@@ -9,7 +9,7 @@
     {{$name := .Name}}{{range .Lanes}}
     <section class="lane">
       <h3>{{.Label}} <span>{{len .Tickets}}{{if .More}}+{{.More}}{{end}}</span></h3>
-      {{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{mdt .Title}}
+      {{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span>{{with .Parent}} <span class="parent-tag mono">↳ {{.}}</span>{{end}} {{mdt .Title}}
         {{- if .Ask}} <span class="badge small k-{{.Ask}}">{{.AskLabel}}</span>{{end}}
         {{- with .Agent}} <span class="running-tag">{{.}}</span>{{end}}
         {{- with .Wait}}<span class="card-meta">{{.}}</span>{{end}}
@@ -21,7 +21,7 @@
   {{range .Closed}}
   <details class="more closed" data-key="closed-{{.Label}}">
     <summary>{{.Label}} · {{len .Tickets}}</summary>
-    <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span> {{mdt .Title}}</a>{{end}}</div>
+    <div class="closed-list">{{range .Tickets}}<a class="tk" href="/t/{{.ID}}"><span class="mono">{{.ID}}</span>{{with .Parent}} <span class="parent-tag mono">↳ {{.}}</span>{{end}} {{mdt .Title}}</a>{{end}}</div>
   </details>
   {{end}}
 </main>
