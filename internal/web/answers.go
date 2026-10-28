@@ -58,7 +58,7 @@ func (Ops) Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 // ErrStale.
 func (o Ops) Answer(ctx context.Context, req AnswerRequest) (string, error) {
 	out, err := o.Verbs.Answer(ctx, ops.AnswerIn{ID: string(req.ID), Value: req.Value, Note: req.Note, Picks: req.Picks,
-		As: req.As, Kind: req.Kind, Since: req.Since, By: req.By})
+		As: req.As, Kind: req.Kind, Since: req.Since, By: req.By, Options: req.Options})
 	if err != nil && errors.Is(err, ops.ErrStale) && !errors.Is(err, ErrStale) {
 		err = fmt.Errorf("%w: %w", ErrStale, err)
 	}

@@ -21,6 +21,7 @@ const (
 	EventQuestionAsked    EventType = "question_asked"
 	EventQuestionAnswered EventType = "question_answered"
 	EventSentToFactory    EventType = "sent_to_factory"
+	EventOptionChosen     EventType = "option_chosen"
 	// The events Python wrote untyped (error, pr, gate, filed, vote, panel,
 	// host, review requested), typed since it retired. Old
 	// history still has them untyped.
@@ -61,6 +62,7 @@ func EventTypes() []EventTypeInfo {
 		{EventQuestionAsked, f("by", "recipient", "n")},
 		{EventQuestionAnswered, f("by", "n")},
 		{EventSentToFactory, f("by", "ticket")},
+		{EventOptionChosen, f("by", "keys", "effect", "filed?")},
 		{EventErrored, f("text", "host?", "missing?")},
 		{EventPR, f("action", "number?", "why?")},
 		{EventGated, f("base", "commit")},

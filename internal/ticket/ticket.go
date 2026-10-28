@@ -238,6 +238,28 @@ type Question struct {
 	Agent    string `json:"agent"`
 	At       string `json:"at"`
 	Answered string `json:"answered,omitempty"`
+	// Options are the answers the agent offered (CheckOptions holds them to
+	// its limits), Select is SelectMany when several may be chosen, and
+	// Chosen, Effect and Filed record the maintainer's choice and what it
+	// did: the effect carried out and the ticket a file effect filed.
+	Options []QuestionOption `json:"options,omitempty"`
+	Select  string           `json:"select,omitempty"`
+	Chosen  []string         `json:"chosen,omitempty"`
+	Effect  string           `json:"effect,omitempty"`
+	Filed   string           `json:"filed,omitempty"`
+}
+
+// QuestionOption is one answer an agent offers to its question. Effect is
+// what choosing it does (EffectContinue when empty); a file effect files
+// the option as a ticket of Kind (change when empty), then does Then.
+type QuestionOption struct {
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Detail      string `json:"detail,omitempty"`
+	Recommended bool   `json:"recommended,omitempty"`
+	Effect      string `json:"effect,omitempty"`
+	Kind        string `json:"kind,omitempty"`
+	Then        string `json:"then,omitempty"`
 }
 
 // BoardQuestion is a question on a board ticket, to a person or an agent.

@@ -20,6 +20,7 @@ import (
 //	cmd_usage.go:                   usage
 func commands() []Command {
 	ticketArg := Positional{Name: "ticket"}
+	optionFlag := Flag{Name: "option", Metavar: "KEY[,KEY...]", Help: "the keys of the question's options chosen"}
 	return []Command{
 		// the maintainer's verbs
 		{Name: "add", Help: "file a ticket and print its id", Config: true,
@@ -93,11 +94,11 @@ func commands() []Command {
 			Positionals: []Positional{ticketArg}, Run: runMerge},
 		{Name: "ask", Help: "ask a question about a ticket; prints the child's id", Config: true,
 			Positionals: []Positional{ticketArg}, Rest: "question", RestMin: 1, Run: runAsk},
-		{Name: "reply", Help: "answer an agent's question", Config: true,
-			Positionals: []Positional{ticketArg}, Rest: "text", RestMin: 1, Run: runReply},
+		{Name: "reply", Help: "answer an agent's question", Config: true, Flags: []Flag{optionFlag},
+			Positionals: []Positional{ticketArg}, Rest: "text", Run: runReply},
 		{Name: "answer", Help: "answer what a ticket asks", Config: true,
 			Positionals: []Positional{ticketArg, {Name: "value"}},
-			Flags:       []Flag{{Name: "note"}, {Name: "only"}, {Name: "kind"}, {Name: "since"}},
+			Flags:       []Flag{{Name: "note"}, {Name: "only"}, {Name: "kind"}, {Name: "since"}, optionFlag},
 			Run:         runAnswer},
 		{Name: "wake", Help: "start a tick now", Config: true, Run: runWake},
 		{Name: "project", Help: "switch a factory project on or off over config's enabled, or follow config again", Config: true,

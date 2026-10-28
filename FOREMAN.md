@@ -244,7 +244,7 @@ Each answer does what these CLI commands do, in one lock and one save on the tic
 | | Drop | `move T rejected`: anything already applied stays. While an item is requested only the maintainer may |
 | notice | Done | `move T done` |
 | | Verify these findings | `findings T --verify`: a finished task on a project goes to the verifier, which reads its findings (or splits its prose result into findings), re-runs them and brings them back as a findings ask |
-| question | Send the answer | `note T "…"` |
+| question | Send the answer | `reply T "…"`; with the agent's options shown as radio buttons (checkboxes for `select: "many"`, the recommended one preselected), `reply T --option KEY [text]`: the option's effect (a new run, close, drop, or file a ticket) is carried out and recorded in the story |
 | question (board ticket) | an option / Send the answer | `factory ticket answer T N "…"`: the ticket API's `answer` verb, as the person answering |
 | (ready_for_pr) | Open the PR | `pr T` |
 

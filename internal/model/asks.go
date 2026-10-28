@@ -135,6 +135,11 @@ const (
 	ReasonDeployHeld      Reason = "deploy_held"
 	ReasonDeployRequested Reason = "deploy_requested"
 	ReasonDeployStarted   Reason = "deploy_started"
+	// the maintainer chose an option of an agent's question that closes the
+	// ticket (question_closed, to done) or drops it (question_dropped, to
+	// rejected), with no further run
+	ReasonQuestionClosed  Reason = "question_closed"
+	ReasonQuestionDropped Reason = "question_dropped"
 	// ReasonOperatorSettled: the tick settled the manager's drafts and
 	// actions, or the maintainer asked it to apply them; the move refreshes
 	// the ask
@@ -171,6 +176,7 @@ func Reasons() []ReasonInfo {
 		plain(ReasonFindingsReported), plain(ReasonVerifyRequested), plain(ReasonFindingsVerified), flagged(ReasonVerifierBlocked),
 		plain(ReasonFindingsFiled), plain(ReasonFindingsDismissed), plain(ReasonImported),
 		plain(ReasonDeployHeld), plain(ReasonDeployRequested), plain(ReasonDeployStarted),
+		plain(ReasonQuestionClosed), plain(ReasonQuestionDropped),
 		plain(ReasonOperatorSettled),
 	}
 }

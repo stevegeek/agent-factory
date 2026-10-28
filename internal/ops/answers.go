@@ -137,7 +137,8 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		return []Answer{{Value: "file", Label: "File selected", Sub: "each ticked finding becomes a ticket: a change goes to triage, an intent to its designer; the hunt closes", Primary: true},
 			{Value: "file_none", Label: "File none", Sub: "the hunt closes; nothing is filed", Danger: true}}
 	case model.AskQuestion:
-		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: true}}
+		choices, _ := Choices(t)
+		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: len(choices) == 0}}
 	case model.AskDeploy:
 		return []Answer{{Value: "deploy", Label: "Deploy it", Sub: "the master builds main, installs it and checks Foreman; a failed check puts the running build back", Primary: true},
 			{Value: "drop", Label: "Not now", Sub: "the ticket closes; the next merge asks again", Danger: true}}
@@ -237,6 +238,8 @@ type AnswerIn struct {
 	Value string // an Answer's Value, or AnswerNote, AnswerAsk or AnswerTalk
 	Note  string // as typed
 	Picks []int  // the design's proposed tickets, or the findings, ticked, 1-based
+	// Options are the keys of an agent's question's options, chosen.
+	Options []string
 	// As is how a ticked finding is filed: change or intent; one it does not
 	// name is filed by its default (an intent when it changes behaviour).
 	As map[int]string
@@ -264,13 +267,14 @@ func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	in.Options = optionKeys(in.Options)
 	switch in.Value {
 	case AnswerAsk:
 		if note == "" {
 			return "", refuse(BadRequest, "write the question first")
 		}
 	case AnswerTalk:
-		if note == "" {
+		if note == "" && len(in.Options) == 0 {
 			return "", refuse(BadRequest, "write your reply first")
 		}
 	}
@@ -339,7 +343,7 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 		c.print(string(child))
 		return err
 	case AnswerTalk:
-		line, err := c.reply(ctx, t, note)
+		line, err := c.reply(ctx, t, note, in.Options)
 		c.print(line)
 		return err
 	}
@@ -395,10 +399,10 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 		case "decide:reply":
 			need, act = true, move(string(model.ColTriage))
 		case "question:answer":
-			if note == "" {
+			if note == "" && len(in.Options) == 0 {
 				return ErrNoteNeeded
 			}
-			line, err := c.reply(ctx, t, note)
+			line, err := c.reply(ctx, t, note, in.Options)
 			c.print(line)
 			return err
 		case "design:approve":

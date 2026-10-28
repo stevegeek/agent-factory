@@ -68,11 +68,13 @@ func (c *call) ask(ctx context.Context, parent *ticket.Ticket, question string) 
 // Reply is the maintainer's reply in a conversation (cmd_reply). To a
 // manager waiting with no open question it is a note, and the manager
 // carries on; to an agent's open question it is the answer, and a new run of
-// that stage carries on; otherwise it becomes an Ask. It wakes the tick and
-// returns the line to print (the Ask's id when it became one).
-func (s *Service) Reply(ctx context.Context, id, text string) (string, error) {
-	text = textx.Strip(text)
-	if text == "" {
+// that stage carries on, unless the options chosen close, drop or file the
+// ticket; otherwise it becomes an Ask. It wakes the tick and returns the
+// line to print (the Ask's id when it became one). Options are the keys of
+// the question's options chosen; text may then be empty.
+func (s *Service) Reply(ctx context.Context, id, text string, options ...string) (string, error) {
+	text, options = textx.Strip(text), optionKeys(options)
+	if text == "" && len(options) == 0 {
 		return "", refuse(BadRequest, "reply what?")
 	}
 	var out string
@@ -81,18 +83,22 @@ func (s *Service) Reply(ctx context.Context, id, text string) (string, error) {
 			return err
 		}
 		var err error
-		out, err = c.reply(ctx, t, text)
+		out, err = c.reply(ctx, t, text, options)
 		return err
 	})
 	return out, err
 }
 
-func (c *call) reply(ctx context.Context, t *ticket.Ticket, text string) (string, error) {
+func (c *call) reply(ctx context.Context, t *ticket.Ticket, text string, options []string) (string, error) {
 	c.wake = true
 	q, hasQ := t.Question.Get()
 	open := hasQ && q.Answered == ""
 	waiting := t.Column == string(model.ColNeedsHuman)
 	switch {
+	case len(options) > 0 && !(open && waiting):
+		return "", refuse(Conflict, "%s has no open question to choose an option of", t.ID)
+	case len(options) > 0:
+		return c.choose(ctx, t, q, text, options)
 	case t.KindName() == string(model.KindManage) && waiting && !open:
 		ticket.AddNote(t, text, c.by(), nil, c.now)
 		ticket.Move(t, string(model.ColReady), model.ReasonReplied, "the maintainer replied to the manager", "", c.by(), c.now)
@@ -118,8 +124,13 @@ func resumeColumn(stage string) string {
 	return string(model.ColReady)
 }
 
+// AskFileNote ends an Ask's body: the task may hand back work it finds
+// as an option that files it.
+const AskFileNote = "\nIf the answer shows work to do, you may end with a question whose options `file` it " +
+	"as a change or an intent (`then: close`), so the maintainer files it with one choice.\n"
+
 // AskBody is ask_body: the question, and what the factory already knows
-// about the ticket, so the answer starts from the facts.
+// about the ticket, so the answer starts from the facts, then AskFileNote.
 func AskBody(parent *ticket.Ticket, question string) string {
 	work, review := parent.Reports.Get("work"), parent.Reports.Get("review")
 	lines := []string{"The maintainer asks about the ticket \"" + parent.Title + "\":", "", question, "",
@@ -157,5 +168,5 @@ func AskBody(parent *ticket.Ticket, question string) string {
 		}
 		lines = append(lines, "## Pull request", "", url, "")
 	}
-	return textx.Strip(strings.Join(lines, "\n")) + "\n"
+	return textx.Strip(strings.Join(lines, "\n")) + "\n" + AskFileNote
 }

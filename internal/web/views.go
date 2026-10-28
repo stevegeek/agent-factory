@@ -14,6 +14,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/ops"
 	"github.com/stevegeek/agent-factory/internal/present"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
@@ -77,7 +78,9 @@ type TicketView struct {
 	Answers                 []Answer
 	Picks                   []Pick
 	Findings                []FindingView
-	FindingsAsk             bool // the findings are ticked and filed from the answer form
+	FindingsAsk             bool         // the findings are ticked and filed from the answer form
+	Choices                 []ops.Choice // an agent's question's options, chosen in the answer form
+	ManyChoices             bool
 	NoteLabel, NoteSub      string
 	Callout                 *present.Callout
 	Pending                 *present.Callout // an intent the tick has still to carry out
@@ -264,6 +267,7 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 		}
 	case a != nil && a.Kind == string(model.AskQuestion):
 		v.NoteLabel = "Your answer"
+		v.Choices, v.ManyChoices = ops.Choices(t)
 	case a != nil && a.Kind == string(model.AskFindings):
 		v.NoteLabel = "A note or a question"
 		v.FindingsAsk = true

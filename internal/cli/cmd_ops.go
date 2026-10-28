@@ -127,7 +127,7 @@ func (o opsCLI) reply(ctx context.Context, e *Env, a Args) error {
 	if err != nil {
 		return err
 	}
-	line, err := s.Reply(ctx, a.Pos("ticket"), a.Text())
+	line, err := s.Reply(ctx, a.Pos("ticket"), a.Text(), strings.Split(a.Str("option"), ",")...)
 	if err != nil {
 		return refusal(err)
 	}
@@ -271,7 +271,7 @@ func (o opsCLI) answer(ctx context.Context, e *Env, a Args) error {
 		}
 	}
 	out, err := s.Answer(ctx, ops.AnswerIn{ID: id, Value: value, Note: a.Str("note"), Picks: picks,
-		Kind: a.Str("kind"), Since: a.Str("since")})
+		Kind: a.Str("kind"), Since: a.Str("since"), Options: strings.Split(a.Str("option"), ",")})
 	if err != nil {
 		return refusal(err)
 	}

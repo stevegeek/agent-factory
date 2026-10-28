@@ -133,6 +133,12 @@
       "note",
       "question?"
     ],
+    "option_chosen": [
+      "by",
+      "keys",
+      "effect",
+      "filed?"
+    ],
     "panel": [
       "kept"
     ],
@@ -260,6 +266,8 @@
     "deploy_held",
     "deploy_requested",
     "deploy_started",
+    "question_closed",
+    "question_dropped",
     "operator_settled"
   ],
   "running_column": {

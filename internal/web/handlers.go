@@ -126,7 +126,8 @@ func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 		s.flashRedirect(w, r, back, "error", id+": answers are off on this server.")
 		return
 	}
-	req := AnswerRequest{ID: t.ID, Value: answer, Note: r.PostFormValue("note"), Picks: picks, As: as, By: s.actor(r)}
+	req := AnswerRequest{ID: t.ID, Value: answer, Note: r.PostFormValue("note"), Picks: picks, As: as, By: s.actor(r),
+		Options: r.PostForm["option"]}
 	if a != nil {
 		req.Kind, req.Since = a.Kind, a.Since
 	}

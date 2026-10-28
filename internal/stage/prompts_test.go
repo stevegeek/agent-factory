@@ -94,6 +94,8 @@ func TestPromptsMatchPython(t *testing.T) {
 			got := For(s).Prompt(PromptIn{Ticket: tk, Project: proj, ReviewMD: pc.ReviewMD, Memory: mem, Local: pc.Host == model.LocalHost})
 			// the one paragraph Go adds to Python's memory section (what kept conflicts look like)
 			got = strings.Replace(got, memory.ConflictNote, "", 1)
+			// and the options of a question, which are Go's own
+			got = strings.Replace(got, QuestionOptionsNote, "", 1)
 			// and the note Go adds on running the suite (security's, here)
 			got = strings.Replace(got, TestNote(s, "", ""), "", 1)
 			if got != string(want) {

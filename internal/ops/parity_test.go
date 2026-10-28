@@ -168,8 +168,10 @@ func TestParityWithPython(t *testing.T) {
 			if !reflect.DeepEqual(sortedKeys(got), sortedKeys(sc.After)) {
 				t.Errorf("files %v, want %v", sortedKeys(got), sortedKeys(sc.After))
 			}
+			// an Ask's body ends with Go's own AskFileNote
+			note, _ := json.Marshal(ops.AskFileNote)
 			for f, want := range sc.After {
-				if g := pyticket.History(got[f]); g != want {
+				if g := strings.Replace(pyticket.History(got[f]), string(note[1:len(note)-1]), "", 1); g != want {
 					t.Errorf("%s differs (-python +go):\n%s", f, testkit.Diff(want, g))
 				}
 			}

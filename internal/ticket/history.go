@@ -134,6 +134,14 @@ type (
 		By     string `json:"by"`
 		Ticket string `json:"ticket"`
 	}
+	// OptionChosen: By chose the options Keys of an agent's question, which
+	// had Effect; a file effect filed the ticket Filed.
+	OptionChosen struct {
+		By     string   `json:"by"`
+		Keys   []string `json:"keys"`
+		Effect string   `json:"effect"`
+		Filed  string   `json:"filed,omitempty"`
+	}
 )
 
 // The payloads of the events Python wrote untyped (error, pr, gate, filed,
@@ -213,6 +221,7 @@ func (Linked) EventType() model.EventType           { return model.EventLinked }
 func (QuestionAsked) EventType() model.EventType    { return model.EventQuestionAsked }
 func (QuestionAnswered) EventType() model.EventType { return model.EventQuestionAnswered }
 func (SentToFactory) EventType() model.EventType    { return model.EventSentToFactory }
+func (OptionChosen) EventType() model.EventType     { return model.EventOptionChosen }
 func (Errored) EventType() model.EventType          { return model.EventErrored }
 func (PRNote) EventType() model.EventType           { return model.EventPR }
 func (Gated) EventType() model.EventType            { return model.EventGated }
@@ -258,6 +267,8 @@ func payloadFor(et model.EventType) any {
 		return &QuestionAnswered{}
 	case model.EventSentToFactory:
 		return &SentToFactory{}
+	case model.EventOptionChosen:
+		return &OptionChosen{}
 	case model.EventErrored:
 		return &Errored{}
 	case model.EventPR:
