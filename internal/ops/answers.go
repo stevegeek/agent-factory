@@ -137,7 +137,8 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		return []Answer{{Value: "file", Label: "File selected", Sub: "each ticked finding becomes a ticket: a change goes to triage, an intent to its designer; the hunt closes", Primary: true},
 			{Value: "file_none", Label: "File none", Sub: "the hunt closes; nothing is filed", Danger: true}}
 	case model.AskQuestion:
-		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: true}}
+		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: true},
+			{Value: "drop", Label: "Drop", Sub: orSub(issueStays, "the ticket closes"), Danger: true}}
 	case model.AskDeploy:
 		return []Answer{{Value: "deploy", Label: "Deploy it", Sub: "the master builds main, installs it and checks Foreman; a failed check puts the running build back", Primary: true},
 			{Value: "drop", Label: "Not now", Sub: "the ticket closes; the next merge asks again", Danger: true}}
@@ -395,7 +396,7 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 			act = move(string(model.ColReady))
 		case "deploy:deploy":
 			act = func() error { return c.requestDeploy(t) }
-		case "start:not_now", "decide:drop", "proposal:drop", "unstick:drop", "draft:drop", "deploy:drop":
+		case "start:not_now", "decide:drop", "proposal:drop", "unstick:drop", "draft:drop", "deploy:drop", "question:drop":
 			act = move(string(model.ColRejected))
 		case "decide:reply":
 			need, act = true, move(string(model.ColTriage))

@@ -238,6 +238,7 @@ Each answer does what these CLI commands do, in one lock and one save on the tic
 | notice | Done | `move T done` |
 | | Verify these findings | `findings T --verify`: a finished task on a project goes to the verifier, which reads its findings (or splits its prose result into findings), re-runs them and brings them back as a findings ask |
 | question | Send the answer | `note T "…"` |
+| | Drop | `move T rejected` |
 | question (board ticket) | an option / Send the answer | `factory ticket answer T N "…"`: the ticket API's `answer` verb, as the person answering |
 | (ready_for_pr) | Open the PR | `pr T` |
 

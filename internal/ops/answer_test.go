@@ -235,6 +235,14 @@ func TestAnswersCarryTheirMeaning(t *testing.T) {
 	if tail := strings.Join(events[len(events)-3:], ","); tail != "note,move,pr" {
 		t.Errorf("history ends %s", tail)
 	}
+
+	// an agent's question needs no answer to close
+	w = newWorld(t, deskConfig)
+	desk(w)
+	answer(w, "T0009", "drop", "")
+	if got := w.load("T0009"); got.Column != "rejected" || got.Ask.Present() {
+		t.Errorf("drop a question: column %s, ask %+v", got.Column, got.Ask)
+	}
 }
 
 // An answer to an ask that has moved on is refused under the lock, and
