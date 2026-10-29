@@ -45,6 +45,7 @@
         </nav>
       </details>
     </header>
+    {{with .GitHub}}<p class="github{{if $.GitHubDown}} down{{end}}" role="status">{{.}}</p>{{end}}
     {{- end}}
     {{template "content" .}}
   </div>

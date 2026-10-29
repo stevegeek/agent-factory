@@ -21,6 +21,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/scion"
 	"github.com/stevegeek/agent-factory/internal/scionread"
 	"github.com/stevegeek/agent-factory/internal/sshjobs"
+	"github.com/stevegeek/agent-factory/internal/sysinfo"
 )
 
 // The tick: `factory tick`, run by factory-tick.timer
@@ -98,6 +99,7 @@ func tickDeps(e *Env, cfg *config.Config) pipeline.Deps {
 			Clock:   e.Clock,
 			Log:     log,
 			Deploys: selfDeploys{Config: cfg, Deploy: deploys, Asks: deployAsks{e.doors()}, Notices: deployNotices{e.doors()}},
+			Reach:   sysinfo.GitHubRecord{Paths: p},
 		},
 		Doors:   doors.Service{Board: board, Exec: e.Exec, Log: log},
 		Issues:  doorsGitHub(e),

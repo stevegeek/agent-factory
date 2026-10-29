@@ -489,10 +489,10 @@ func TestOpenPRsAutoAndReworksOpenByThemselves(t *testing.T) {
 func TestAGitHubErrorInThePassIsAnEvent(t *testing.T) {
 	h := intentHarness(t)
 	tk := h.intentTicket(1, "pr_open", "gem", 7, "")
-	h.routes(at("GET", "/repos/o/gem/pulls/7", refuse(500, "Server Error")))
+	h.routes(at("GET", "/repos/o/gem/pulls/7", refuse(404, "Not Found")))
 	h.pass(context.Background(), intentConfig)
 	got := h.board.load(t, tk.ID)
-	if e := lastEntry(got); e.Event != "error" || e.Detail != "github: HTTP Error 500: Internal Server Error" {
+	if e := lastEntry(got); e.Event != "error" || e.Detail != "github: HTTP Error 404: Not Found" {
 		t.Errorf("last = %+v", e)
 	}
 	if got.Updated != "2026-03-01T12:00:00+00:00" {

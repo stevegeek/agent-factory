@@ -9,6 +9,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/gate"
+	"github.com/stevegeek/agent-factory/internal/github"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/textx"
@@ -23,7 +24,11 @@ const errorEvery = time.Hour
 // in pr_open is followed on GitHub (CheckPR) and each in ready_for_pr has its
 // PR opened when [github] open_prs = "auto" or it is a rework of a PR it
 // already has. A ticket of a project without a GitHub repository is passed
-// over. An error on a ticket becomes an error event on it, which is saved.
+// over. An error on a ticket becomes an error event on it, which is saved,
+// except a failure to reach GitHub (no answer, or a 5xx): that is not the
+// ticket's, so the ticket is left for the next pass and the failure goes to
+// Reach, which says once when GitHub stays unreachable and once when it is
+// back. A pass is a failure only when no call got an answer.
 //
 // ts is the tick's list of tickets; each ticket the pass visits is re-read
 // under its lock and replaced in ts by what was saved. Pass returns an
@@ -37,7 +42,9 @@ func (f *Flow) Pass(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket
 	if err != nil {
 		return err
 	}
-	return f.Board.EachLocked(ctx, ts, func(t *ticket.Ticket) bool {
+	var answered, failed bool
+	var lastErr string
+	err = f.Board.EachLocked(ctx, ts, func(t *ticket.Ticket) bool {
 		return t.Column == string(model.ColPROpen) || t.Column == string(model.ColReadyForPR)
 	}, func(t *ticket.Ticket) error {
 		p, ok := cfg.Project(t.Project)
@@ -60,11 +67,42 @@ func (f *Flow) Pass(ctx context.Context, cfg *config.Config, ts []*ticket.Ticket
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		if err != nil && !errors.Is(err, ErrUnread) { // an unread commit's move says why
+		switch {
+		case unreachable(err):
+			failed, lastErr = true, textx.Prefix(pyErr(err), 200)
+		case err != nil && !errors.Is(err, ErrUnread): // an unread commit's move says why
+			answered = true
 			githubError(t, err, f.now())
+		default:
+			answered = true
 		}
 		return f.Board.Save(t)
 	})
+	if err == nil && (answered || failed) {
+		f.noteReach(answered, lastErr)
+	}
+	return err
+}
+
+func (f *Flow) noteReach(ok bool, lastErr string) {
+	if f.Reach == nil {
+		return
+	}
+	line, err := f.Reach.Note(f.now(), ok, lastErr)
+	if err != nil {
+		f.logf("github: keeping reachability: %v", err)
+	}
+	if line != "" {
+		f.logf("%s", line)
+	}
+}
+
+// unreachable reports whether err is GitHub not answering (no answer, or
+// a 5xx) rather than an answer about the ticket.
+func unreachable(err error) bool {
+	var ne *github.NetError
+	var he *github.HTTPError
+	return errors.As(err, &ne) || errors.As(err, &he) && he.Code >= 500
 }
 
 // DrainIntents carries out the intents Foreman records on a ticket's pr,
