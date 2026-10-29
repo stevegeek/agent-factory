@@ -116,7 +116,7 @@ func TestFileFromForeman(t *testing.T) {
 		{"factory", "change", "x", "", "", "unknown project factory"},
 		{"gem", "prospect", "x", "", "", "a new ticket is"},
 	} {
-		id, err := w.svc.File(ctx, c.project, c.kind, c.title, c.body, "")
+		id, err := w.svc.File(ctx, c.project, c.kind, c.title, c.body, "", "")
 		if c.err != "" {
 			if err == nil || !strings.HasPrefix(err.Error(), c.err) {
 				t.Errorf("%+v: %v", c, err)

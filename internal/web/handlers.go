@@ -69,7 +69,9 @@ func knownAskKind(k string) bool {
 
 // freeAnswer: answers that do not answer the ask, so they need no check that
 // the ask is still the one the page showed.
-func freeAnswer(answer string) bool { return answer == "note" || answer == "ask" || answer == "talk" }
+func freeAnswer(answer string) bool {
+	return answer == "note" || answer == "ask" || answer == "talk" || answer == "after"
+}
 
 func (s *Server) act(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

@@ -260,6 +260,7 @@
     "deploy_held",
     "deploy_requested",
     "deploy_started",
+    "after_dropped",
     "operator_settled"
   ],
   "running_column": {

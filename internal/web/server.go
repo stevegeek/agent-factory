@@ -95,11 +95,8 @@ type Answerer interface {
 
 // NewTicket is a ticket filed from Foreman's ＋ page.
 type NewTicket struct {
-	Project string
-	Kind    string // change, intent, task or manage
-	Title   string
-	Body    string
-	By      string // the user filing it; "" is the maintainer
+	// Kind is change, intent, task or manage; By "" is the maintainer; After holds the ids it waits for.
+	Project, Kind, Title, Body, By, After string
 }
 
 // Filer files a new ticket (ops.Add).

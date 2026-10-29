@@ -12,22 +12,24 @@ import (
 // Fact is one line of evidence beside an ask.
 type Fact struct {
 	Label, Value string
-	Tone         string // good, warn, bad
-	URL          string // only ever an http(s) link (SafeURL)
+	Tone         string    // good, warn, bad
+	URL          string    // only ever an http(s) link (SafeURL)
+	Ticket       ticket.ID // a link to that ticket's page
 	Votes        []int
 }
 
 // Facts are what a person reads before answering the ask a (nil for a
 // ticket that asks nothing): the panel's scores, the design's size, the
 // issue, triage's verdict, the PR, the gate, the review and the security
-// check. all holds every ticket, for a proposal's prospect.
+// check. all holds every ticket, for a proposal's prospect and the
+// tickets t waits for or blocks.
 func Facts(t *ticket.Ticket, a *ticket.Ask, all map[ticket.ID]*ticket.Ticket) []Fact {
 	return new(reader).facts(t, a, all)
 }
 
 func (r *reader) facts(t *ticket.Ticket, a *ticket.Ask, all map[ticket.ID]*ticket.Ticket) []Fact {
 	if t.Board() {
-		return boardFacts(t)
+		return boardFacts(t, all)
 	}
 	var f []Fact
 	kind := ""
@@ -131,12 +133,12 @@ func (r *reader) facts(t *ticket.Ticket, a *ticket.Ask, all map[ticket.ID]*ticke
 	if kind == "" && len(f) == 0 {
 		f = append(f, Fact{Label: "Column", Value: TicketColumnLabel(t)})
 	}
-	return f
+	return append(f, afterFacts(t, all)...)
 }
 
 // boardFacts are a board ticket's column, why it waits, who has it, its
 // labels and who filed it.
-func boardFacts(t *ticket.Ticket) []Fact {
+func boardFacts(t *ticket.Ticket, all map[ticket.ID]*ticket.Ticket) []Fact {
 	f := []Fact{{Label: "Column", Value: ColumnLabel(t.Column)}}
 	if w, ok := t.Waiting.Get(); ok && w.Reason != "question" && w.Text != "" {
 		f = append(f, Fact{Label: "Waiting on", Value: Clip(w.Text, 160)})
@@ -150,7 +152,7 @@ func boardFacts(t *ticket.Ticket) []Fact {
 	if t.By != "" {
 		f = append(f, Fact{Label: "Filed by", Value: t.By})
 	}
-	return f
+	return append(f, afterFacts(t, all)...)
 }
 
 // Callout is what a person must know before answering, set apart from the

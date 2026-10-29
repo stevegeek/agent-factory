@@ -46,6 +46,7 @@ type Ticket struct {
 	Parent    Opt[string]     `json:"parent"`
 	Children  []string        `json:"children"`
 	Links     []Link          `json:"links"`
+	After     []ID            `json:"after,omitempty"` // tickets that must be done before this one starts
 	Waiting   Opt[Waiting]    `json:"waiting"`
 	Questions []BoardQuestion `json:"questions"`
 	Comments  []Comment       `json:"comments"`

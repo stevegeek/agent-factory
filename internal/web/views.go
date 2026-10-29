@@ -386,9 +386,9 @@ type Lane struct {
 
 // LaneTicket is one ticket in a lane.
 type LaneTicket struct {
-	ID, Title, Ask, AskLabel, Agent string
-	Assignee                        string   // board tickets
-	Labels                          []string // board tickets
+	ID, Title, Ask, AskLabel, Agent, Wait string
+	Assignee                              string   // board tickets
+	Labels                                []string // board tickets
 }
 
 // BoardView is a project's board: open lanes, then the closed ones folded.
@@ -495,7 +495,7 @@ func summaries(ts []*ticket.Ticket, projects map[string]ProjectState) []BoardSum
 // maxDoneCards, and Dropped is folded. ok is false when the project has no
 // board ticket the viewer may see.
 func boardLanes(name string, ts []*ticket.Ticket) (*BoardView, bool) {
-	bv := &BoardView{Name: name, Board: true}
+	bv, all := &BoardView{Name: name, Board: true}, present.ByID(ts)
 	found := false
 	for _, col := range model.BoardColumns() {
 		c := string(col.Name)
@@ -510,7 +510,7 @@ func boardLanes(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 				lane.More++
 				continue
 			}
-			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Assignee: t.Assignee.Or(""), Labels: t.Labels}
+			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Assignee: t.Assignee.Or(""), Labels: t.Labels, Wait: present.WaitLine(t, all)}
 			if a := present.AskFor(t); a != nil {
 				lt.Ask, lt.AskLabel = a.Kind, present.KindLabel(a.Kind)
 			}
@@ -530,7 +530,7 @@ func boardLanes(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 // boardView is one project's lanes in model column order, newest id first;
 // ok is false when the project has no factory ticket the viewer may see.
 func boardView(name string, ts []*ticket.Ticket) (*BoardView, bool) {
-	bv := &BoardView{Name: name}
+	bv, all := &BoardView{Name: name}, present.ByID(ts)
 	found := false
 	for _, col := range model.Columns() {
 		c := string(col.Name)
@@ -544,7 +544,7 @@ func boardView(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 				continue
 			}
 			found = true
-			lt := LaneTicket{ID: string(t.ID), Title: t.Title}
+			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Wait: present.WaitLine(t, all)}
 			if a := present.AskFor(t); a != nil {
 				lt.Ask, lt.AskLabel = a.Kind, present.KindLabel(a.Kind)
 			}

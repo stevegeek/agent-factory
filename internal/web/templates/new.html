@@ -41,6 +41,10 @@
       <label for="nt-body">Description <small>(Markdown; what done looks like helps)</small></label>
       <textarea id="nt-body" name="body" rows="7" maxlength="8000" placeholder="What you want, and anything the agent should know">{{.Body}}</textarea>
     </div>
+    <div class="field" data-for="factory" {{if $board}}hidden{{end}}>
+      <label for="nt-after">Wait for <small>(ticket ids that must be done before this one starts)</small></label>
+      <input id="nt-after" name="after" maxlength="500" value="{{.After}}" placeholder="e.g. T0012, T0015">
+    </div>
     <div class="answers"><button class="btn primary" type="submit"><span>File it</span><small data-for="factory" {{if $board}}hidden{{end}}>a factory ticket: it goes straight to the factory; no triage</small><small data-for="board" {{if not $board}}hidden{{end}}>a board card, in its Inbox</small></button></div>
   </form>
 </main>

@@ -60,8 +60,8 @@ func TestTheTableTakesPythonsArgv(t *testing.T) {
 			want = append(want, "--board", "--asks")
 		case "rebuild": // automatic updates; --latest: the latest-toolchain trial
 			want = append(want, "--rollback", "--unhold", "--latest")
-		case "add": // the findings flow
-			want = append(want, "--findings")
+		case "add": // the findings flow; --after: tickets it waits for
+			want = append(want, "--findings", "--after")
 		}
 		sort.Strings(got)
 		sort.Strings(want)

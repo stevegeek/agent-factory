@@ -16,7 +16,7 @@ import (
 // reached it and answers as the test says.
 type fakeVerbs struct {
 	answered []ops.AnswerIn
-	filed    [][4]string
+	filed    [][5]string
 	looked   []string
 	out      string
 	err      error
@@ -32,8 +32,8 @@ func (f *fakeVerbs) Answer(_ context.Context, in ops.AnswerIn) (string, error) {
 	return f.out, f.err
 }
 
-func (f *fakeVerbs) File(_ context.Context, project, kind, title, body, _ string) (ticket.ID, error) {
-	f.filed = append(f.filed, [4]string{project, kind, title, body})
+func (f *fakeVerbs) File(_ context.Context, project, kind, title, body, _, after string) (ticket.ID, error) {
+	f.filed = append(f.filed, [5]string{project, kind, title, body, after})
 	if f.err != nil {
 		return "", f.err
 	}
@@ -143,7 +143,7 @@ func TestFileIsOpsFile(t *testing.T) {
 	if err != nil || id != "T0042" {
 		t.Fatalf("file: %q %v", id, err)
 	}
-	if len(f.filed) != 1 || f.filed[0] != [4]string{"widgets", "intent", "-weird", "b"} {
+	if len(f.filed) != 1 || f.filed[0] != [5]string{"widgets", "intent", "-weird", "b", ""} {
 		t.Errorf("filed: %v", f.filed)
 	}
 	f.err = &ops.Refused{Code: ops.BadRequest, Message: "unknown project gadgets"}

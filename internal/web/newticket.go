@@ -15,11 +15,11 @@ import (
 
 // NewView is the ＋ page.
 type NewView struct {
-	Projects                   []string
-	Boards                     []string // board projects: a card in Inbox, through the ticket API
-	Project, Kind, Title, Body string
-	Error                      string
-	Recipes                    []config.Recipe
+	Projects                          []string
+	Boards                            []string // board projects: a card in Inbox, through the ticket API
+	Project, Kind, Title, Body, After string
+	Error                             string
+	Recipes                           []config.Recipe
 }
 
 // isBoard reports a board project the page offers.
@@ -163,7 +163,7 @@ func textProblem(v *NewView) string {
 func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 	ts := s.visible(r)
 	v := &NewView{Projects: s.projectChoices(ts), Boards: s.boardChoices(), Project: r.PostFormValue("project"), Kind: r.PostFormValue("kind"),
-		Title: strings.TrimSpace(r.PostFormValue("title")), Body: strings.TrimSpace(r.PostFormValue("body"))}
+		Title: strings.TrimSpace(r.PostFormValue("title")), Body: strings.TrimSpace(r.PostFormValue("body")), After: r.PostFormValue("after")}
 	again := func(msg string) {
 		v.Error = msg
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -183,7 +183,7 @@ func (s *Server) fileTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	var id ticket.ID
 	err := s.call(r, fileTimeout, func(ctx context.Context) (err error) {
-		id, err = s.svc.Filer.File(ctx, NewTicket{Project: v.Project, Kind: v.Kind, Title: v.Title, Body: v.Body, By: s.actor(r)})
+		id, err = s.svc.Filer.File(ctx, NewTicket{Project: v.Project, Kind: v.Kind, Title: v.Title, Body: v.Body, By: s.actor(r), After: v.After})
 		return err
 	})
 	if err != nil {

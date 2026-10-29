@@ -132,6 +132,9 @@ func AskFor(t *Ticket, old, detail, since string, reason model.Reason) *Ask {
 		return a(model.AskUnstick, "Public review found text this public project must not publish: send it back to work, "+
 			"say it is safe to publish, or drop it?", why, none)
 	}
+	if reason == model.ReasonAfterDropped {
+		return a(model.AskStart, detail+": start "+string(t.ID)+" anyway, or drop it?", detail, none)
+	}
 	triage := or(t.report("triage", "reason"), detail)
 	if said("triage accepted", model.ReasonTriageAccepted) {
 		return a(model.AskStart, "Start work on "+subject+"?", triage, none)

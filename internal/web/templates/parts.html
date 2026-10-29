@@ -43,6 +43,7 @@
 {{if .Facts}}<dl class="facts">
   {{range .Facts}}<div class="fact"><dt>{{.Label}}</dt><dd class="{{.Tone}}">
     {{- if .Votes}}<span class="votes">{{range .Votes}}<span class="vote {{if low .}}low{{end}}">{{.}}</span>{{end}}</span>
+    {{- else if .Ticket}}<a href="/t/{{.Ticket}}">{{.Value}}</a>
     {{- else if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" hx-boost="false">{{.Value}}</a>
     {{- else}}{{.Value}}{{end}}</dd></div>{{end}}
 </dl>{{end}}
@@ -157,6 +158,7 @@
 <div class="composer-actions">
   <button class="btn quiet" type="submit" name="answer" value="ask" data-needs-note data-busy="Asking…"><span>Ask the agent</span></button>
   <button class="btn quiet" type="submit" name="answer" value="note" data-needs-note data-busy="Saving…"><span>Save note</span></button>
+  <button class="btn quiet" type="submit" name="answer" value="after" data-busy="Saving…" title="The note holds the ids of the tickets that must be done first; leave it empty to wait for none"><span>Wait for these tickets</span></button>
 </div>
 {{- end}}
 

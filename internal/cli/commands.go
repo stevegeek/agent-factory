@@ -36,6 +36,7 @@ func commands() []Command {
 				{Name: "intent", Kind: BoolFlag, Help: "an idea to design first: a designer proposes, you `factory approve` or `redirect`"},
 				{Name: "manage", Kind: BoolFlag, Help: "a request for the manager: it answers and drafts config changes for you"},
 				{Name: "findings", Kind: BoolFlag, Help: "with --task: it reports structured findings, which a verifier checks before you file them"},
+				{Name: "after", Kind: RepeatFlag, Help: "a ticket that must be done before this one starts (repeat, or separate with commas)"},
 			},
 			Run: runAdd},
 		{Name: "findings", Help: "list a check's verified findings, or file them as tickets", Config: true,

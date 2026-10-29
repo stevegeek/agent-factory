@@ -318,7 +318,7 @@ func TestAnAnswerRecordsWhoGaveIt(t *testing.T) {
 	if _, err := w.svc.Answer(ctx, ops.AnswerIn{ID: "T0003", Value: "note", Note: "x", By: "sam"}); err != nil {
 		t.Errorf("sam's note: %v", err)
 	}
-	id, err := w.svc.File(ctx, "widgets", "change", "From robin", "", "robin")
+	id, err := w.svc.File(ctx, "widgets", "change", "From robin", "", "robin", "")
 	if err != nil {
 		t.Fatal(err)
 	}

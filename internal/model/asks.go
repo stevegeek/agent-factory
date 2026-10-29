@@ -135,6 +135,9 @@ const (
 	ReasonDeployHeld      Reason = "deploy_held"
 	ReasonDeployRequested Reason = "deploy_requested"
 	ReasonDeployStarted   Reason = "deploy_started"
+	// ReasonAfterDropped: a ticket this one waited for was rejected or is
+	// gone, so the maintainer decides whether it starts anyway
+	ReasonAfterDropped Reason = "after_dropped"
 	// ReasonOperatorSettled: the tick settled the manager's drafts and
 	// actions, or the maintainer asked it to apply them; the move refreshes
 	// the ask
@@ -171,6 +174,7 @@ func Reasons() []ReasonInfo {
 		plain(ReasonFindingsReported), plain(ReasonVerifyRequested), plain(ReasonFindingsVerified), flagged(ReasonVerifierBlocked),
 		plain(ReasonFindingsFiled), plain(ReasonFindingsDismissed), plain(ReasonImported),
 		plain(ReasonDeployHeld), plain(ReasonDeployRequested), plain(ReasonDeployStarted),
+		plain(ReasonAfterDropped),
 		plain(ReasonOperatorSettled),
 	}
 }
