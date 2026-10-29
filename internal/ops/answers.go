@@ -283,7 +283,7 @@ func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
 			return err
 		}
 		a := s.askOf(t)
-		free := in.Value == AnswerNote || in.Value == AnswerAsk || in.Value == AnswerTalk
+		free := in.Value == AnswerNote || in.Value == AnswerAsk || in.Value == AnswerTalk || in.Value == AnswerAfter
 		if !free && (in.Kind != "" || in.Since != "") && (a == nil || a.Kind != in.Kind || a.Since != in.Since) {
 			return fmt.Errorf("%s: %w", t.ID, ErrStale)
 		}
@@ -342,6 +342,8 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 		line, err := c.reply(ctx, t, note)
 		c.print(line)
 		return err
+	case AnswerAfter:
+		return c.setAfter(t, note)
 	}
 	// then: a note first, if one was typed (or needed), and the answer's action
 	var act func() error

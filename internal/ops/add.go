@@ -20,16 +20,17 @@ type AddIn struct {
 	Title    string // "" with a recipe takes the recipe's
 	Recipe   string
 	Body     string
-	BodyFile string // read when set; it wins over Body
-	Door     string // human (the default), clock, github or peer
-	Triage   bool   // file it into triage
-	Host     string // auto, local or a [hosts] name: every stage runs there
-	Task     bool   // one agent run whose result comes back to you
-	Intent   bool   // an idea to design first
-	Manage   bool   // a request for the manager
-	Findings bool   // with Task: its agent reports structured findings, which a verifier checks
-	Timeout  int    // minutes its agents may run; 0 is the default
-	By       string // the Foreman user filing it; "" is the maintainer
+	BodyFile string   // read when set; it wins over Body
+	Door     string   // human (the default), clock, github or peer
+	Triage   bool     // file it into triage
+	Host     string   // auto, local or a [hosts] name: every stage runs there
+	Task     bool     // one agent run whose result comes back to you
+	Intent   bool     // an idea to design first
+	Manage   bool     // a request for the manager
+	Findings bool     // with Task: its agent reports structured findings, which a verifier checks
+	Timeout  int      // minutes its agents may run; 0 is the default
+	By       string   // the Foreman user filing it; "" is the maintainer
+	After    []string // tickets that must be done before it starts
 }
 
 // MaxBodyFile caps what --body-file reads: far above any ticket's body, far
@@ -140,6 +141,10 @@ func (s *Service) Add(ctx context.Context, in AddIn) (ticket.ID, error) {
 			return "", err
 		}
 	}
+	after, err := s.after("", in.After)
+	if err != nil {
+		return "", err
+	}
 	single := in.Task || in.Intent || in.Manage
 	column := model.ColReady
 	if !single && (in.Triage || in.Door == string(model.DoorGitHub) || in.Door == string(model.DoorClock)) {
@@ -171,6 +176,7 @@ func (s *Service) Add(ctx context.Context, in AddIn) (ticket.ID, error) {
 	if in.Host != "" {
 		c.pinHost(t, in.Host)
 	}
+	t.After = after
 	if err := s.Board.Save(t); err != nil {
 		return "", err
 	}

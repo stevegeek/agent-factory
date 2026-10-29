@@ -91,7 +91,14 @@ func (d Deps) pass(ctx context.Context, cfg *config.Config) error {
 	for _, h := range d.Helpers.Away(cfg) {
 		down[h] = true
 	}
-	waiting := func(t *ticket.Ticket) bool { return isWaiting(cfg, t) }
+	byID := ticket.ByID(ts)
+	if err := d.dropAfter(ctx, ts, byID); err != nil {
+		return err
+	}
+	waiting := func(t *ticket.Ticket) bool {
+		open, gone := heldAfter(t, byID)
+		return len(open) == 0 && len(gone) == 0 && isWaiting(cfg, t)
+	}
 	var queue []*ticket.Ticket
 	for _, t := range ts {
 		if waiting(t) {

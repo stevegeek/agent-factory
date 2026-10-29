@@ -131,7 +131,7 @@ func (r *reader) facts(t *ticket.Ticket, a *ticket.Ask, all map[ticket.ID]*ticke
 	if kind == "" && len(f) == 0 {
 		f = append(f, Fact{Label: "Column", Value: TicketColumnLabel(t)})
 	}
-	return f
+	return append(f, afterFacts(t, all)...)
 }
 
 // boardFacts are a board ticket's column, why it waits, who has it, its

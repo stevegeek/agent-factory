@@ -129,8 +129,8 @@ func TestTablesAreComplete(t *testing.T) {
 			t.Errorf("IsReason(%q) is false", r.Reason)
 		}
 	}
-	if len(reasons) != 66 {
-		t.Errorf("%d reasons, want 66", len(reasons))
+	if len(reasons) != 67 {
+		t.Errorf("%d reasons, want 67", len(reasons))
 	}
 	if IsReason("") || IsReason("nonsense") {
 		t.Error("IsReason accepts a reason that is not one")

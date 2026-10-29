@@ -88,7 +88,7 @@ func (o opsCLI) add(ctx context.Context, e *Env, a Args) error {
 		Project: a.Pos("project"), Title: a.Pos("title"), Recipe: a.Str("recipe"), Body: a.Str("body"),
 		BodyFile: a.Str("body-file"), Door: a.Str("door"), Triage: a.Bool("triage"), Host: a.Str("host"),
 		Task: a.Bool("task"), Intent: a.Bool("intent"), Manage: a.Bool("manage"), Timeout: a.Int("timeout"),
-		Findings: a.Bool("findings"),
+		Findings: a.Bool("findings"), After: a.List("after"),
 	})
 	if err != nil {
 		return refusal(err)
