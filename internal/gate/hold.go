@@ -18,6 +18,9 @@ type HoldIn struct {
 	Config  *config.Config
 	Project config.Project
 	Ticket  *ticket.Ticket // changed on a pass: its gate's base, and a gate event
+	// Started, when set, is called once the checks have room and are
+	// about to run.
+	Started func()
 }
 
 // StillHoldsOnMain is still_holds_on_main, the merge queue's check: when the
@@ -51,6 +54,9 @@ func (r Runner) StillHoldsOnMain(ctx context.Context, in HoldIn) (ok bool, out s
 	}
 	if err := r.room(ctx, in.Config, p); err != nil {
 		return false, "", err
+	}
+	if in.Started != nil {
+		in.Started()
 	}
 	ok, out, err = r.Checks(ctx, CheckIn{Config: in.Config, Project: p, ID: string(t.ID), Branch: t.Branch.Or(""), Ref: g.Head, Merge: now})
 	if err != nil {

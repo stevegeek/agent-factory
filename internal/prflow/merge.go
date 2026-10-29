@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/gate"
 	"github.com/stevegeek/agent-factory/internal/github"
@@ -98,7 +99,7 @@ func refusedForApproval(code int, message string) bool {
 // read it, for its labels.
 func (f *Flow) land(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket, pr *github.PR, head, detail, rule string) error {
 	n := t.PR.V.Number
-	ok, out, err := f.Checks.StillHoldsOnMain(ctx, gate.HoldIn{Config: cfg, Project: p, Ticket: t})
+	ok, out, err := f.Checks.StillHoldsOnMain(ctx, gate.HoldIn{Config: cfg, Project: p, Ticket: t, Started: func() { f.merging(t) }})
 	if err != nil {
 		return err
 	}
@@ -203,4 +204,16 @@ func (f *Flow) mainMoved(ctx context.Context, cfg *config.Config, p config.Proje
 		"merge check: PR #"+itoa(n)+" passes alone but not on "+p.Base+" as it is now", "", now)
 	f.hold(ctx, cfg, t)
 	return &Refusal{Message: p.Base + " moved and the checks fail with it merged in; sent back for a rework", err: ErrMainMoved}
+}
+
+// merging records that t's merge check runs now, and saves it at once:
+// the check can take minutes, and the board shows the wait meanwhile.
+func (f *Flow) merging(t *ticket.Ticket) {
+	ticket.SetQueue(t, ticket.PRQueue{State: ticket.QueueMerging, Since: clock.Stamp(f.now())})
+	if f.Board == nil {
+		return
+	}
+	if err := f.Board.Save(t); err != nil {
+		f.logf("%s: could not save that its merge check runs: %v", t.ID, err)
+	}
 }

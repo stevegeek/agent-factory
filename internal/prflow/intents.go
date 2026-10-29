@@ -219,6 +219,7 @@ func (f *Flow) mergeIntent(ctx context.Context, cfg *config.Config, p config.Pro
 		// approval merges it by itself (followReviews): drop the intent
 		// rather than try it every tick, and say what it waits for
 		clearIntent(t, "merge")
+		ticket.ClearQueue(t)
 		v := t.PR.V
 		v.MergeBlocked = ticket.Some(ticket.MergeBlockedApproval)
 		t.PR = ticket.Some(v)
@@ -233,17 +234,23 @@ func (f *Flow) mergeIntent(ctx context.Context, cfg *config.Config, p config.Pro
 // settle records an open's or a merge's outcome and clears its intent,
 // unless retrying can help.
 func (f *Flow) settle(t *ticket.Ticket, which, since string, err error) {
+	var he *github.HTTPError
 	switch {
 	case err == nil:
 		clearIntent(t, which)
+		clearQueue(t, which)
 	case errors.Is(err, gate.ErrNoRoom):
 		f.logf("%s: the merge of PR #%d waits for a later tick: %v", t.ID, t.PR.V.Number, err)
 		noRoom(t, err, f.now())
 	case transient(err):
 		text := textx.Prefix(pyErr(err), 250)
+		if which == "merge" && !errors.As(err, &he) {
+			ticket.SetQueue(t, ticket.PRQueue{State: ticket.QueueMerging, Detail: text, Since: clock.Stamp(f.now())})
+		}
 		f.keptError(t, since, "github: "+text, text)
 	case runtimeLike(err):
 		clearIntent(t, which)
+		clearQueue(t, which)
 		not, action := "not merged", ticket.PRNotMerged
 		if which == "open" {
 			not, action = "not opened", ticket.PRNotOpened
@@ -253,7 +260,16 @@ func (f *Flow) settle(t *ticket.Ticket, which, since string, err error) {
 			ticket.PRNote{Action: action, Number: t.PR.V.Number, Why: why}, f.now())
 	default:
 		clearIntent(t, which)
+		clearQueue(t, which)
 		githubError(t, err, f.now())
+	}
+}
+
+// clearQueue drops a merge's wait once its intent is settled: a later
+// approval queues it again.
+func clearQueue(t *ticket.Ticket, which string) {
+	if which == "merge" {
+		ticket.ClearQueue(t)
 	}
 }
 

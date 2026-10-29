@@ -266,12 +266,15 @@ func MergeQueued(t *Ticket) bool {
 	if t.Column != string(model.ColPROpen) || !ok || pr.Number == 0 || NeedsApproval(t) {
 		return false
 	}
-	if pr.Queue.Present() || pr.MergeWait.Present() {
-		return true
-	}
-	r, read := pr.Review.Get()
+	return pr.Queue.Present() || pr.MergeWait.Present() || ApprovedAtHead(t)
+}
+
+// ApprovedAtHead says whether t's PR was approved on GitHub at the
+// gated commit.
+func ApprovedAtHead(t *Ticket) bool {
+	r, read := t.PR.V.Review.Get()
 	g, _ := t.Gate.Get()
-	return read && r.State == ReviewApproved && r.Commit != "" && r.Commit == g.Head
+	return t.PR.Present() && read && r.State == ReviewApproved && r.Commit != "" && r.Commit == g.Head
 }
 
 // Source is the GitHub issue a ticket was swept from.

@@ -213,6 +213,8 @@ func QueueLine(t *ticket.Ticket) string {
 		}
 	case q.State == ticket.QueueTime:
 		what = "merges on the next tick (too little time was left in one for the merge check)"
+	case q.State == ticket.QueueMerging && q.Detail == "":
+		what = "merging now (the merge check runs)"
 	case q.State == ticket.QueueMerging:
 		what = "merging; the last try failed and the next tick tries again"
 	default:
@@ -220,6 +222,9 @@ func QueueLine(t *ticket.Ticket) string {
 	}
 	if at, err := clock.Parse(q.Since); err == nil {
 		what += ", since " + at.Local().Format("15:04")
+	}
+	if !ticket.ApprovedAtHead(t) {
+		return "Merge requested; " + what
 	}
 	return "Approved; " + what
 }

@@ -332,6 +332,32 @@ func TestAnApprovedPRWaitingForRoomSaysSoAndSince(t *testing.T) {
 	}
 }
 
+func TestAMergeRequestWaitingForItsCheckSaysWhoAsked(t *testing.T) {
+	x := ticket.Clone(find(fixtures(t), "T0001"))
+	pr := x.PR.V
+	pr.Review = ticket.Opt[ticket.PRReview]{}
+	pr.Queue = ticket.Some(ticket.PRQueue{State: ticket.QueueRoom, Since: "2026-01-02T03:04:05+00:00"})
+	x.PR = ticket.Some(pr)
+	since := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Local().Format("15:04")
+	if l := QueueLine(x); l != "Merge requested; merges when there is room for the merge check, since "+since {
+		t.Errorf("line %q", l)
+	}
+	if w := WaitingWhat(x, AskFor(x)); strings.Contains(w, "approved") || !strings.Contains(w, "You asked for the merge") {
+		t.Errorf("waiting %q", w)
+	}
+
+	pr.Queue = ticket.Some(ticket.PRQueue{State: ticket.QueueMerging, Since: "2026-01-02T03:04:05+00:00"})
+	x.PR = ticket.Some(pr)
+	if l := QueueLine(x); l != "Merge requested; merging now (the merge check runs), since "+since {
+		t.Errorf("merging: line %q", l)
+	}
+	pr.Queue = ticket.Some(ticket.PRQueue{State: ticket.QueueMerging, Detail: "timed out", Since: "2026-01-02T03:04:05+00:00"})
+	x.PR = ticket.Some(pr)
+	if l := QueueLine(x); !strings.Contains(l, "the last try failed") {
+		t.Errorf("a failed try: line %q", l)
+	}
+}
+
 func TestReadyForPRIsOnTheDesk(t *testing.T) {
 	x := ticket.Clone(find(fixtures(t), "T0001"))
 	x.Column = "ready_for_pr"

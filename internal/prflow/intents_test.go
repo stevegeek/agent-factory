@@ -520,3 +520,46 @@ func TestTheTickMergesWhatWasAsked(t *testing.T) {
 		t.Errorf("file:\n%s", h.board.files[tk.ID])
 	}
 }
+
+// A merge that waited for room and is then refused drops its wait with
+// its intent: the ticket no longer reads as queued to merge.
+func TestARefusedMergeDropsItsWait(t *testing.T) {
+	h := intentHarness(t)
+	h.checks.ok, h.checks.err = false, &gate.RoomError{Running: 2, Max: 2, Memory: "1g"}
+	tk := h.intentTicket(1, "pr_open", "gem", 7, `"merge_requested": "`+asked+`"`)
+	h.routes(
+		at("PUT", "/repos/o/gem/pulls/7/merge", refuse(405, "Pull Request is not mergeable")),
+		prRoute(7, map[string]any{"state": "open", "draft": false, "head": map[string]any{"sha": sha('a')}}),
+	)
+	h.pass(context.Background(), intentConfig)
+	if got := h.board.load(t, tk.ID); got.PR.V.Queue.V.State != ticket.QueueRoom || !ticket.MergeQueued(got) {
+		t.Fatalf("no room: pr %+v", got.PR.V)
+	}
+	h.checks.ok, h.checks.err = true, nil
+	h.pass(context.Background(), intentConfig)
+	got := h.board.load(t, tk.ID)
+	if got.PR.V.MergeRequested.Set || got.PR.V.Queue.Present() || ticket.MergeQueued(got) || !h.gh.any("PUT") {
+		t.Errorf("refused: pr %+v, requests %v", got.PR.V, h.gh.calls())
+	}
+}
+
+// While its merge check runs, a merge reads as merging on the board, and
+// the wait goes once it lands.
+func TestAMergeCheckThatRunsIsSavedAsMerging(t *testing.T) {
+	h := intentHarness(t)
+	tk := h.intentTicket(1, "pr_open", "gem", 7, `"merge_requested": "`+asked+`"`)
+	h.routes(
+		at("PUT", "/repos/o/gem/pulls/7/merge", ok(map[string]any{"merged": true})),
+		prRoute(7, map[string]any{"state": "open", "draft": false, "head": map[string]any{"sha": sha('a')}}),
+	)
+	var during ticket.PRQueue
+	h.checks.run = func() { during = h.board.load(t, tk.ID).PR.V.Queue.V }
+	h.pass(context.Background(), intentConfig)
+	if during.State != ticket.QueueMerging || during.Detail != "" || during.Since == "" {
+		t.Errorf("during the check: queue %+v", during)
+	}
+	got := h.board.load(t, tk.ID)
+	if got.Column != "done" || got.PR.V.Queue.Present() {
+		t.Errorf("column %s, pr %+v", got.Column, got.PR.V)
+	}
+}
