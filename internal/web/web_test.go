@@ -504,7 +504,7 @@ func TestLabelsAndAnswersOnThePage(t *testing.T) {
 	h := newHarness(t, false)
 	c := h.login()
 	body := h.do("GET", "/t/T0005", nil, c).Body.String()
-	if !strings.Contains(body, `Proposals: <a class="mono" href="/t/T0006">T0006</a>`) {
+	if !strings.Contains(body, `<h4>Proposals and designs`) || !strings.Contains(body, `<a class="mono" href="/t/T0006">T0006</a> Proposal 1`) {
 		t.Errorf("a prospect links its proposals")
 	}
 	body = h.do("GET", "/t/T0001", nil, c).Body.String()

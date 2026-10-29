@@ -15,6 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/present"
+	"github.com/stevegeek/agent-factory/internal/thread"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
@@ -85,9 +86,7 @@ type TicketView struct {
 	CanNote                 bool
 	Story                   present.Story
 	More                    []More
-	Children                []string
-	ChildrenLabel           string
-	ParentID                string
+	Rel                     thread.Relations
 	NoteFirst               bool
 	Since                   string
 	Answer                  *AnswerView
@@ -219,18 +218,9 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 	all := present.ByID(ts)
 	a := present.AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: present.BuildStory(t, all), Facts: present.Facts(t, a, all),
-		Answers: s.answersFor(t, a), Callout: present.PRCallout(t), Pending: present.Pending(t), Children: t.Children, ChildrenLabel: "Filed",
-		ParentID: t.Parent.Or(""), CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t),
+		Answers: s.answersFor(t, a), Callout: present.PRCallout(t), Pending: present.Pending(t), Rel: thread.Relate(t, all),
+		CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t),
 		GateFail: present.GateFailed(t, a)}
-	if pr, ok := t.PanelResult.Get(); ok {
-		// a prospect's proposals, kept and dropped, each a ticket of its own
-		v.ChildrenLabel, v.Children = "Proposals", nil
-		for _, id := range append(append([]string{}, pr.Kept...), pr.DroppedTickets...) {
-			if validID(id) {
-				v.Children = append(v.Children, id)
-			}
-		}
-	}
 	result := t.Result.Or("")
 	if a != nil {
 		v.Kind, v.KindLabel, v.Glyph = a.Kind, present.KindLabel(a.Kind), present.KindGlyph(a.Kind)
@@ -387,6 +377,7 @@ type Lane struct {
 // LaneTicket is one ticket in a lane.
 type LaneTicket struct {
 	ID, Title, Ask, AskLabel, Agent, Wait string
+	Parent                                string   // the ticket it was filed from
 	Assignee                              string   // board tickets
 	Labels                                []string // board tickets
 }
@@ -510,7 +501,7 @@ func boardLanes(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 				lane.More++
 				continue
 			}
-			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Assignee: t.Assignee.Or(""), Labels: t.Labels, Wait: present.WaitLine(t, all)}
+			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Parent: present.ParentOf(t, all), Assignee: t.Assignee.Or(""), Labels: t.Labels, Wait: present.WaitLine(t, all)}
 			if a := present.AskFor(t); a != nil {
 				lt.Ask, lt.AskLabel = a.Kind, present.KindLabel(a.Kind)
 			}
@@ -544,7 +535,7 @@ func boardView(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 				continue
 			}
 			found = true
-			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Wait: present.WaitLine(t, all)}
+			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Wait: present.WaitLine(t, all), Parent: present.ParentOf(t, all)}
 			if a := present.AskFor(t); a != nil {
 				lt.Ask, lt.AskLabel = a.Kind, present.KindLabel(a.Kind)
 			}
