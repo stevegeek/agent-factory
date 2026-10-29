@@ -8,13 +8,13 @@ import (
 )
 
 // Blockers sorts the tickets t waits after: open ones still hold it, and
-// gone ones were rejected or no longer exist, so they cannot release it.
-// A done ticket releases it.
+// gone ones were closed without being done or no longer exist, so they
+// cannot release it. A done ticket releases it.
 func Blockers(t *Ticket, byID map[ID]*Ticket) (open, gone []ID) {
 	for _, id := range t.After {
 		d, ok := byID[id]
 		switch {
-		case !ok || d.Column == string(model.ColRejected):
+		case !ok || (model.Closed(d.Column) && d.Column != string(model.ColDone)):
 			gone = append(gone, id)
 		case d.Column != string(model.ColDone):
 			open = append(open, id)

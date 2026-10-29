@@ -200,7 +200,7 @@ func (cx *call) view(t *ticket.Ticket) jsonx.Value {
 	if board {
 		facts = firstFactory
 	}
-	return jsonx.ObjectOf(
+	v := jsonx.ObjectOf(
 		member("id", tr.Get("id")), member("project", tr.Get("project")), member("mode", getOr(tr, "mode", jstr("factory"))),
 		member("kind", or(tr.Get("kind"), kind)), member("title", tr.Get("title")), member("body", or(tr.Get("body"), jstr(""))),
 		member("column", tr.Get("column")), member("column_label", columnLabel(tr.Get("column"))),
@@ -211,6 +211,11 @@ func (cx *call) view(t *ticket.Ticket) jsonx.Value {
 		member("conversation", cx.conversation(tr)), member("result", tr.Get("result")),
 		member("history", jsonx.ArrayOf(history...)), member("factory", facts),
 	)
+	if len(t.After) > 0 {
+		o, _ := v.Object()
+		v = append(o, member("after", afterStrs(t.After))).Value()
+	}
+	return v
 }
 
 // written is written_markdown(): a write's answer for an agent (MCP), the

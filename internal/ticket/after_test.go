@@ -14,13 +14,14 @@ func afterBoard() map[ID]*Ticket {
 		{ID: "T0002", Column: string(model.ColRejected)},
 		{ID: "T0003", Column: string(model.ColReady), After: []ID{"T0004"}},
 		{ID: "T0004", Column: string(model.ColReview)},
+		{ID: "T0005", Column: string(model.BoardDropped)},
 	})
 }
 
 func TestBlockersSortsOpenAndGoneTickets(t *testing.T) {
-	tk := &Ticket{ID: "T0009", After: []ID{"T0001", "T0002", "T0004", "T0099"}}
+	tk := &Ticket{ID: "T0009", After: []ID{"T0001", "T0002", "T0004", "T0005", "T0099"}}
 	open, gone := Blockers(tk, afterBoard())
-	if !slices.Equal(open, []ID{"T0004"}) || !slices.Equal(gone, []ID{"T0002", "T0099"}) {
+	if !slices.Equal(open, []ID{"T0004"}) || !slices.Equal(gone, []ID{"T0002", "T0005", "T0099"}) {
 		t.Fatalf("open %v, gone %v", open, gone)
 	}
 }

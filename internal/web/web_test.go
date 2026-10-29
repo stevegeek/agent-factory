@@ -614,7 +614,7 @@ func TestFileANewTicketFromForeman(t *testing.T) {
 	csrf := h.csrf(c)
 	page := h.do("GET", "/new", nil, c).Body.String()
 	for _, want := range []string{`<option value="widgets" selected>`, `<option value="gadgets"`, `value="factory"`, `name="kind" value="intent"`,
-		`data-title="Cut a release"`, `value="manage"`} {
+		`data-title="Cut a release"`, `value="manage"`, `name="after"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("form lacks %q", want)
 		}
@@ -622,16 +622,20 @@ func TestFileANewTicketFromForeman(t *testing.T) {
 	if strings.Contains(page, "prospect") {
 		t.Errorf("a prospecting recipe is offered on ＋")
 	}
+	postAfter := func(project, kind, title, body, after string) *httptest.ResponseRecorder {
+		return h.do("POST", "/new", url.Values{"csrf": {csrf}, "project": {project}, "kind": {kind}, "title": {title}, "body": {body}, "after": {after}}, c)
+	}
 	post := func(project, kind, title, body string) *httptest.ResponseRecorder {
-		return h.do("POST", "/new", url.Values{"csrf": {csrf}, "project": {project}, "kind": {kind}, "title": {title}, "body": {body}}, c)
+		return postAfter(project, kind, title, body, "")
 	}
 	for _, k := range []NewTicket{
-		{"widgets", "change", "Release 1.2.0", "Bump **version**", ""},
-		{"gadgets", "intent", "-weird title", "", ""},
-		{"factory", "task", "What is new?", "-dash", ""},
-		{"factory", "manage", "A morning check", "", ""},
+		{"widgets", "change", "Release 1.2.0", "Bump **version**", "", ""},
+		{"gadgets", "intent", "-weird title", "", "", ""},
+		{"factory", "task", "What is new?", "-dash", "", ""},
+		{"factory", "manage", "A morning check", "", "", ""},
+		{"widgets", "change", "After the release", "", "", "T0001, T0002"},
 	} {
-		w := post(k.Project, k.Kind, "  "+k.Title+" ", k.Body+"\n")
+		w := postAfter(k.Project, k.Kind, "  "+k.Title+" ", k.Body+"\n", k.After)
 		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/t/T0099" {
 			t.Errorf("%s: %d %s", k.Title, w.Code, w.Header().Get("Location"))
 		}

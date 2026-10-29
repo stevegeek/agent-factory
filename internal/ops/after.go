@@ -15,7 +15,7 @@ const AnswerAfter = "after"
 func parseAfter(list []string) ([]ticket.ID, error) {
 	var out []ticket.ID
 	for _, v := range list {
-		for _, f := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' }) {
+		for _, f := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\r' || r == '\t' }) {
 			id, ok := ticket.ParseID(f)
 			if !ok {
 				return nil, refuse(BadRequest, "%q is not a ticket id", f)

@@ -186,8 +186,8 @@ func (s *Service) Add(ctx context.Context, in AddIn) (ticket.ID, error) {
 // File is Foreman's ＋ page: a ticket from the maintainer (by "") or another
 // Foreman user through the human door, of kind change, intent, task or
 // manage (add --body=… [--intent|--task|--manage] -- PROJECT TITLE).
-func (s *Service) File(ctx context.Context, project, kind, title, body, by string) (ticket.ID, error) {
-	in := AddIn{Project: project, Title: title, Body: body, By: by}
+func (s *Service) File(ctx context.Context, project, kind, title, body, by, after string) (ticket.ID, error) {
+	in := AddIn{Project: project, Title: title, Body: body, By: by, After: []string{after}}
 	switch kind {
 	case "", string(model.KindChange):
 	case string(model.KindIntent):

@@ -15,7 +15,7 @@ import (
 // needs GitHub records an intent and wakes the tick.
 type OpsVerbs interface {
 	Answer(ctx context.Context, in ops.AnswerIn) (string, error)
-	File(ctx context.Context, project, kind, title, body, by string) (ticket.ID, error)
+	File(ctx context.Context, project, kind, title, body, by, after string) (ticket.ID, error)
 	Look(ctx context.Context, id string, lines int) (ops.Screen, error)
 	Pass(ctx context.Context, id, to, by, note string) (string, error)
 }
@@ -67,7 +67,7 @@ func (o Ops) Answer(ctx context.Context, req AnswerRequest) (string, error) {
 
 // File is ops.Service.File: the person's ticket through the human door.
 func (o Ops) File(ctx context.Context, n NewTicket) (ticket.ID, error) {
-	return o.Verbs.File(ctx, n.Project, n.Kind, n.Title, n.Body, n.By)
+	return o.Verbs.File(ctx, n.Project, n.Kind, n.Title, n.Body, n.By, n.After)
 }
 
 // Look is ops.Service.Look, read-only, as `factory look T --lines N`

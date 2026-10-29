@@ -1,6 +1,7 @@
 package ticketapi
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -290,6 +291,13 @@ func (cx *call) fileTicket(project string, fields jsonx.Object, key, dig string)
 		return nil, err
 	}
 	extra := jsonx.Object{member("labels", getOr(f.Value(), "labels", emptyList())), member("links", getOr(f.Value(), "links", emptyList()))}
+	after, err := cx.cleanAfter("", fields.Get("after"))
+	if err != nil {
+		return nil, err
+	}
+	if len(after) > 0 {
+		extra = append(extra, member("after", afterStrs(after)))
+	}
 	if key != "" {
 		extra = append(extra, member("idempotency", jsonx.ObjectOf(member("by", jstr(cx.c.name)), member("key", jstr(key)),
 			member("digest", jstr(dig)))))
@@ -577,7 +585,7 @@ func (cx *call) claim(req jsonx.Value) (jsonx.Object, error) {
 
 func (cx *call) update(req jsonx.Value) (jsonx.Object, error) {
 	o, err := take(req, []spec{{"id", "str"}, {"title", "str"}, {"body", "str"}, {"labels", "strs"}, {"add_labels", "strs"},
-		{"remove_labels", "strs"}, {"parent", "str?"}, {"assignee", "str?"}, {"links", "list"}}, "id")
+		{"remove_labels", "strs"}, {"parent", "str?"}, {"assignee", "str?"}, {"links", "list"}, {"after", "strs"}}, "id")
 	if err != nil {
 		return nil, err
 	}
@@ -585,7 +593,7 @@ func (cx *call) update(req jsonx.Value) (jsonx.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := boardOnly(first, FactoryTicket); err != nil {
+	if err := boardOnly(first, FactoryTicket); err != nil && !cx.afterOnly(o) {
 		return nil, err
 	}
 	if err := cx.c.need("plan"); err != nil {
@@ -735,6 +743,16 @@ func (cx *call) update(req jsonx.Value) (jsonx.Object, error) {
 			t.Parent = ticket.Nil[string]()
 		}
 		changed = append(changed, "parent")
+	}
+	if v, ok := o.Lookup("after"); ok {
+		after, err := cx.cleanAfter(string(t.ID), v)
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Equal(after, t.After) {
+			t.After = after
+			changed = append(changed, "after")
+		}
 	}
 	if len(changed) > 0 {
 		ticket.Event(t, "edit", me+" changed "+strings.Join(changed, ", "), "", ticket.Edited{By: me, Fields: changed}, cx.now())
@@ -934,7 +952,7 @@ func (cx *call) answer(req jsonx.Value) (jsonx.Object, error) {
 
 func (cx *call) create(req jsonx.Value) (jsonx.Object, error) {
 	o, err := take(req, []spec{{"project", "str"}, {"title", "str"}, {"body", "str"}, {"kind", "str"}, {"labels", "strs"},
-		{"parent", "str?"}, {"links", "list"}, {"idempotency_key", "str"}}, "project", "title")
+		{"parent", "str?"}, {"links", "list"}, {"after", "strs"}, {"idempotency_key", "str"}}, "project", "title")
 	if err != nil {
 		return nil, err
 	}
