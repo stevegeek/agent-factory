@@ -2,6 +2,7 @@ package stage
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -73,7 +74,7 @@ func TestDesignCaps(t *testing.T) {
 		t.Errorf("title of %d", n)
 	}
 	out = finish(t, FinishIn{Ticket: designing(t), Report: report(`{"status": "done", "design": "d", "tickets": [{"title": 5, "body": 6}]}`)})
-	if p := out.Ticket.Proposed; len(p) != 1 || p[0] != (ticket.Proposed{Title: "5", Body: "6"}) {
+	if p := out.Ticket.Proposed; len(p) != 1 || !reflect.DeepEqual(p[0], ticket.Proposed{Title: "5", Body: "6"}) {
 		t.Errorf("str()'d: %+v", p)
 	}
 	out = finish(t, FinishIn{Ticket: designing(t), Report: report(`{"status": "done", "design": "d", "tickets": "abc"}`)})
@@ -92,5 +93,23 @@ func TestRedirectedDesignPromptCarriesTheFeedback(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("prompt lacks %q:\n%s", want, got)
 		}
+	}
+}
+
+// A proposed ticket's after list keeps earlier tickets by number and other
+// tickets by id; itself, later numbers, junk and repeats are left out.
+func TestDesignReadsAfter(t *testing.T) {
+	out := finish(t, FinishIn{Ticket: designing(t), Report: report(`{"status": "done", "design": "d", "tickets": [
+		{"title": "A", "body": "a", "after": [2, "T0391"]},
+		{"title": "B", "body": "b", "after": [1, "T0391", 3, "x", 2, {"n": 1}]},
+		{"title": "C", "body": "c", "after": ["#1", 2, "2", " t0012 "]},
+		{"title": "D", "body": "d", "after": "1"}]}`)})
+	var got [][]string
+	for _, p := range out.Ticket.Proposed {
+		got = append(got, p.After)
+	}
+	want := [][]string{{"T0391"}, {"1", "T0391"}, {"1", "2", "T0012"}, nil}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("after\n got %q\nwant %q", got, want)
 	}
 }

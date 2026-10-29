@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -519,6 +521,38 @@ func keptItems(t *ticket.Ticket, room int) ([]ticket.Draft, []ticket.Action) {
 	return ds, as
 }
 
+// proposedAfter is the after list of proposed ticket n (1-based): the
+// numbers of earlier proposed tickets and ticket ids, without repeats;
+// anything else, a later number or itself, is left out, so the proposed
+// tickets cannot wait in a cycle.
+func proposedAfter(pr Report, n int) []string {
+	var out []string
+	for _, v := range pr.List("after") {
+		s, isStr := v.Str()
+		if i, ok := v.Int64(); ok {
+			s, isStr = strconv.FormatInt(i, 10), true
+		}
+		if !isStr {
+			continue
+		}
+		s = strings.TrimPrefix(strings.TrimSpace(s), "#")
+		if i, err := strconv.Atoi(s); err == nil {
+			if i < 1 || i >= n {
+				continue
+			}
+			s = strconv.Itoa(i)
+		} else if id, ok := ticket.ParseID(s); ok {
+			s = string(id)
+		} else {
+			continue
+		}
+		if !slices.Contains(out, s) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // design is finish_design.
 func (f *finisher) design(r Report) {
 	t := f.Ticket
@@ -532,7 +566,8 @@ func (f *finisher) design(r Report) {
 		if textx.Strip(pr.Str("title")) == "" || textx.Strip(pr.Str("body")) == "" {
 			continue
 		}
-		proposed = append(proposed, ticket.Proposed{Title: textx.Prefix(pr.Str("title"), 120), Body: pr.Str("body")})
+		proposed = append(proposed, ticket.Proposed{Title: textx.Prefix(pr.Str("title"), 120), Body: pr.Str("body"),
+			After: proposedAfter(pr, len(proposed)+1)})
 	}
 	t.Design = ticket.Some(r.Or("design", ""))
 	f.pin()

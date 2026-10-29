@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -175,16 +176,40 @@ func (c *call) approve(ctx context.Context, t *ticket.Ticket, only []int) ([]tic
 			return nil, refuse(BadRequest, "pick numbers 1..%d", len(proposed))
 		}
 	}
+	// a ticket that waits for a sibling is filed after it, in the numbers'
+	// order; the after list goes in with the ticket's first save, so no
+	// tick can start it before it waits
+	if slices.ContainsFunc(picks, func(i int) bool { return slices.ContainsFunc(proposed[i-1].After, isNumber) }) {
+		slices.Sort(picks)
+	}
+	all, _ := board.Reader.List()
+	byID := ticket.ByID(all)
+	filed := map[int]ticket.ID{}
 	var ids []ticket.ID
 	var names []string
 	for _, i := range picks {
 		p := proposed[i-1]
+		after, unmet := proposedAfter(p, filed, byID)
+		body := p.Body + "\n\nPart of: " + t.Title
+		if len(unmet) > 0 {
+			body += "\n\nThe design had this ticket wait for " + strings.Join(unmet, ", ") +
+				", which was not filed with it: check whether it still needs that change."
+		}
+		var fields jsonx.Object
+		if len(after) > 0 {
+			list := make([]jsonx.Value, len(after))
+			for k, id := range after {
+				list[k] = jsonx.String(string(id))
+			}
+			fields = jsonx.Object{{Key: "after", Value: jsonx.ArrayOf(list...)}}
+		}
 		child, err := board.FileTicket(ctx, ticket.NewIn{Project: t.Project, Title: p.Title,
-			Body: p.Body + "\n\nPart of: " + t.Title, Door: string(model.DoorHuman), Column: string(model.ColReady),
-			By: c.by()})
+			Body: body, Door: string(model.DoorHuman), Column: string(model.ColReady),
+			By: c.by(), Fields: fields})
 		if err != nil {
 			return nil, err
 		}
+		filed[i] = child.ID
 		child.Parent = ticket.Some(string(t.ID))
 		if h, ok := t.Host.Get(); ok && h != "" {
 			child.Host = ticket.Some(h)
@@ -199,6 +224,42 @@ func (c *call) approve(ctx context.Context, t *ticket.Ticket, only []int) ([]tic
 	ticket.Move(t, string(model.ColDone), model.ReasonDesignApproved, "design approved; filed "+strings.Join(names, ", "),
 		"", c.by(), c.now)
 	return ids, nil
+}
+
+// isNumber is a proposed ticket's after entry that names a sibling.
+func isNumber(a string) bool {
+	_, err := strconv.Atoi(a)
+	return err == nil
+}
+
+// proposedAfter turns a proposed ticket's after list into the ids its filed
+// ticket waits for: an earlier sibling by the id it was filed as, an open
+// ticket by its id. A sibling not filed with it, or a ticket closed without
+// being done or gone, is returned as unmet; a done ticket needs no wait.
+func proposedAfter(p ticket.Proposed, filed map[int]ticket.ID, byID map[ticket.ID]*ticket.Ticket) (after []ticket.ID, unmet []string) {
+	for _, a := range p.After {
+		if n, err := strconv.Atoi(a); err == nil {
+			if id, ok := filed[n]; ok {
+				after = append(after, id)
+			} else {
+				unmet = append(unmet, "proposed ticket "+a)
+			}
+			continue
+		}
+		id, ok := ticket.ParseID(a)
+		if !ok {
+			continue
+		}
+		d, known := byID[id]
+		switch {
+		case known && d.Column == string(model.ColDone):
+		case known && !model.Closed(d.Column):
+			after = append(after, id)
+		default:
+			unmet = append(unmet, string(id))
+		}
+	}
+	return after, unmet
 }
 
 // dedupe is list(dict.fromkeys(xs)).
@@ -323,7 +384,11 @@ func (s *Service) Result(ctx context.Context, id string) (string, error) {
 		var b strings.Builder
 		b.WriteString(textx.RStrip(d) + "\n\n## Proposed tickets\n\n")
 		for i, p := range t.Proposed {
-			fmt.Fprintf(&b, "%d. %s\n\n   %s\n\n", i+1, p.Title, strings.ReplaceAll(p.Body, "\n", "\n   "))
+			title := p.Title
+			if len(p.After) > 0 {
+				title += " (after " + p.AfterLabel() + ")"
+			}
+			fmt.Fprintf(&b, "%d. %s\n\n   %s\n\n", i+1, title, strings.ReplaceAll(p.Body, "\n", "\n   "))
 		}
 		fmt.Fprintf(&b, "factory approve %s [--only 1,2]  |  factory redirect %s --note \"...\"", t.ID, t.ID)
 		return b.String(), nil

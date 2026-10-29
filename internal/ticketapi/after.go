@@ -1,6 +1,8 @@
 package ticketapi
 
 import (
+	"strings"
+
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
@@ -34,6 +36,21 @@ func (cx *call) cleanAfter(id string, v jsonx.Value) ([]ticket.ID, error) {
 func (cx *call) afterOnly(o jsonx.Object) bool {
 	_, ok := o.Lookup("after")
 	return ok && cx.c.person && len(o) == 2
+}
+
+// openAfter is what t still waits for: the tickets in its after list that
+// are not done yet, as "T0001, T0002", or "" when nothing holds it.
+func (cx *call) openAfter(t *ticket.Ticket) string {
+	if len(t.After) == 0 {
+		return ""
+	}
+	ts, _ := cx.s.Board.Reader.List()
+	open, _ := ticket.Blockers(t, ticket.ByID(ts))
+	names := make([]string, len(open))
+	for i, id := range open {
+		names[i] = string(id)
+	}
+	return strings.Join(names, ", ")
 }
 
 func afterStrs(ids []ticket.ID) jsonx.Value {

@@ -20,8 +20,8 @@ import (
 
 // Pick is one proposal of a design, ticked by default.
 type Pick struct {
-	N           int
-	Title, Body string
+	N                  int
+	Title, Body, After string
 }
 
 // FindingView is one finding of a hunt: ticked by default and filed as its
@@ -260,7 +260,7 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 	case a != nil && a.Kind == string(model.AskDesign):
 		v.NoteLabel = "Note for the designer"
 		for i, p := range t.Proposed {
-			v.Picks = append(v.Picks, Pick{N: i + 1, Title: p.Title, Body: p.Body})
+			v.Picks = append(v.Picks, Pick{N: i + 1, Title: p.Title, Body: p.Body, After: p.AfterLabel()})
 		}
 	case a != nil && a.Kind == string(model.AskQuestion):
 		v.NoteLabel = "Your answer"

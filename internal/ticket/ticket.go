@@ -365,6 +365,9 @@ func (g Gate) FailingLine() string {
 type Proposed struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
+	// After names what it must wait for: earlier proposed tickets by their
+	// number ("1") and open tickets by id ("T0391").
+	After []string `json:"after,omitempty"`
 }
 
 // Feedback is a design sent back, with the maintainer's note.

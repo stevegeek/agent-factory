@@ -102,7 +102,7 @@
   {{if or .Answers .Reply}}<h3 class="panel-h">Your answer</h3>{{end}}
   {{if .Picks}}<div class="picks">
     {{range .Picks}}<div class="pick"><input type="checkbox" name="pick" value="{{.N}}" id="pick-{{.N}}" checked>
-      <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{mdi .Title}}</label>
+      <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{mdi .Title}}</label>{{with .After}} <span class="sub">after {{.}}</span>{{end}}
       <details class="more" data-key="pick-{{.N}}"><summary>Read it</summary><div class="text md">{{md .Body}}</div></details></div></div>{{end}}
   </div>{{end}}
   {{if .FindingsAsk}}<div class="picks findings">

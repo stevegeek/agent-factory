@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -374,5 +375,56 @@ func TestAPinToAHostThatExcludesTheKindIsRefused(t *testing.T) {
 	}
 	if _, err := w.svc.Add(ctx, ops.AddIn{Project: "gem", Title: "y", Host: "hostx"}); err != nil {
 		t.Fatalf("a gem: %v", err)
+	}
+}
+
+// Approving a design files its tickets in their numbers' order, each
+// waiting for the earlier ones it names and for open tickets; a done ticket
+// needs no wait, and a proposed ticket left out is said in the body.
+func TestApprovingADesignFilesItsTicketsWithTheirOrder(t *testing.T) {
+	for _, tc := range []struct {
+		only  []int
+		want  map[string][]string // title -> titles or ids it waits for
+		unmet string
+	}{
+		{nil, map[string][]string{"A": nil, "B": {"A", "T0001"}, "C": {"B"}}, ""},
+		{[]int{3, 2}, map[string][]string{"B": {"T0001"}, "C": {"B"}}, "proposed ticket 1"},
+	} {
+		w := newWorld(t, twoProjects)
+		w.new(ticket.NewIn{Project: "widgets", Title: "Open", Body: "b", Door: "human", Column: "ready"}, nil)
+		w.new(ticket.NewIn{Project: "widgets", Title: "Shipped", Body: "b", Door: "human", Column: "done"}, nil)
+		intent := w.new(ticket.NewIn{Project: "widgets", Title: "Idea", Body: "b", Door: "human", Column: "needs_human",
+			Fields: jsonx.Object{{Key: "kind", Value: jsonx.String("intent")}}}, func(t *ticket.Ticket) {
+			t.Design = ticket.Some("## Approach")
+			t.Proposed = []ticket.Proposed{{Title: "A", Body: "a"}, {Title: "B", Body: "b", After: []string{"1", "T0001", "T0002"}},
+				{Title: "C", Body: "c", After: []string{"2"}}}
+			ticket.Move(t, "needs_human", model.ReasonDesignReady, "design ready (3 tickets proposed): x", "", "", now)
+		})
+		ids, err := w.svc.Approve(context.Background(), string(intent.ID), tc.only)
+		if err != nil || len(ids) != len(tc.want) {
+			t.Fatalf("approve %v: %v %v", tc.only, ids, err)
+		}
+		byTitle := map[string]ticket.ID{}
+		for _, id := range ids {
+			byTitle[w.load(id).Title] = id
+		}
+		for _, id := range ids {
+			got := w.load(id)
+			var want []ticket.ID
+			for _, x := range tc.want[got.Title] {
+				if strings.HasPrefix(x, "T") {
+					want = append(want, ticket.ID(x))
+				} else {
+					want = append(want, byTitle[x])
+				}
+			}
+			if !slices.Equal(got.After, want) {
+				t.Errorf("only %v: %s waits for %v, want %v", tc.only, got.Title, got.After, want)
+			}
+			if mentions := strings.Contains(got.Body, "which was not filed with it"); mentions != (tc.unmet != "" && got.Title == "B") ||
+				(mentions && !strings.Contains(got.Body, tc.unmet)) {
+				t.Errorf("only %v: %s body %q", tc.only, got.Title, got.Body)
+			}
+		}
 	}
 }

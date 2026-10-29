@@ -570,6 +570,8 @@ func (cx *call) claim(req jsonx.Value) (jsonx.Object, error) {
 			return refuse(Conflict, "", "%s waits on a question; it comes back to Doing when that is answered", t.ID)
 		case t.Column != "inbox" && t.Column != "next":
 			return refuse(Conflict, "", "%s is in %s, not Inbox, Next or Waiting", t.ID, model.ColumnLabel(t.Column))
+		case cx.openAfter(t) != "":
+			return refuse(Conflict, "", "%s waits for %s to be done first: pick another ticket", t.ID, cx.openAfter(t))
 		default:
 			t.Assignee = ticket.Some(me)
 			ticket.Event(t, "claim", "claimed by "+me, "", ticket.Claimed{By: me}, cx.now())

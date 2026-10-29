@@ -38,3 +38,17 @@ func TestOnlyAPersonSetsWhatAFactoryTicketWaitsFor(t *testing.T) {
 		t.Errorf("after %s", got)
 	}
 }
+
+// A board ticket that waits for an open one cannot be started; once that
+// one is done, it can.
+func TestClaimWaitsForWhatATicketWaitsFor(t *testing.T) {
+	f := verbFx(t)
+	first := str(f.boardTicket(""), "id")
+	second := str(f.boardTicket(`"after": ["`+first+`"]`), "id")
+	if c := f.refused("claim", `{"id": "`+second+`"}`, "example-agent"); c != "conflict" {
+		t.Errorf("claimed while it waits: %s", c)
+	}
+	f.ok("claim", `{"id": "`+first+`"}`, "example-agent")
+	f.ok("move", `{"id": "`+first+`", "to": "done", "result": "Shipped."}`, "example-agent")
+	f.ok("claim", `{"id": "`+second+`"}`, "example-agent")
+}

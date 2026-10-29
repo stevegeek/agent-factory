@@ -3,6 +3,8 @@ package ticket
 import (
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/stevegeek/agent-factory/internal/model"
 )
@@ -61,6 +63,18 @@ func waitsOn(from, to ID, byID map[ID]*Ticket, seen map[ID]bool) bool {
 		}
 	}
 	return false
+}
+
+// AfterLabel is a proposed ticket's after list as read: "#1, T0391".
+func (p Proposed) AfterLabel() string {
+	out := make([]string, len(p.After))
+	for i, a := range p.After {
+		if _, err := strconv.Atoi(a); err == nil {
+			a = "#" + a
+		}
+		out[i] = a
+	}
+	return strings.Join(out, ", ")
 }
 
 // ByID indexes ts by id.
