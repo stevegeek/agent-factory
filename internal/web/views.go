@@ -91,7 +91,6 @@ type TicketView struct {
 	Children                []string
 	ChildrenLabel           string
 	ParentID                string
-	NoteFirst               bool
 	Since                   string
 	Answer                  *AnswerView
 	AgentName               string        // the agent running now, if any
@@ -296,10 +295,6 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 			v.NoteSub = "“" + x.Label + "” sends this note. " + v.NoteSub
 			break
 		}
-	}
-	for _, x := range v.Answers {
-		// on a phone the field must come before the button that needs it
-		v.NoteFirst = v.NoteFirst || x.NeedsNote
 	}
 	v.Logs = s.agentLogs(string(t.ID))
 	v.Tokens = s.ticketTokens(string(t.ID), v.Logs)
