@@ -54,7 +54,8 @@ type Ticket struct {
 
 	Branch  Opt[string]  `json:"branch"`
 	Agent   Opt[Agent]   `json:"agent"`
-	Reports jsonx.Object `json:"reports"` // stage -> the agent's report, verbatim and in insertion order
+	Reports jsonx.Object `json:"reports"`           // stage -> the agent's report, verbatim and in insertion order
+	Updates []Update     `json:"updates,omitempty"` // what each rework of an open PR did, oldest first
 	Created string       `json:"created"`
 	History []Entry      `json:"history"`
 	Ask     Opt[Ask]     `json:"ask"`
@@ -230,6 +231,15 @@ type Note struct {
 	Text     string      `json:"text"`
 	Question Opt[string] `json:"question"`
 	Answer   Opt[string] `json:"answer"`
+}
+
+// Update is one rework of a change whose PR is open: when its worker
+// finished, why the change was sent back ("" when no reason is known) and
+// what the worker says the round changed.
+type Update struct {
+	At   string `json:"at"`
+	Why  string `json:"why"`
+	Text string `json:"text"`
 }
 
 // Question is an agent's question to the maintainer.

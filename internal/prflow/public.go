@@ -20,6 +20,7 @@ const (
 	TextSummary = "summary"  // the work summary (the PR body and a rework's comment)
 	TextTests   = "tests"    // how the worker tested it
 	TextLint    = "lint"     // the worker's lint
+	TextUpdates = "updates"  // what each rework of the open PR did
 	TextReview  = "review"   // the review's verdict and runtime-behaviour answer
 	TextFooter  = "footer"   // [identity] pr_footer
 )
@@ -34,7 +35,7 @@ type PublicText struct {
 
 // PublicTexts are the free texts OpenPR would send to GitHub for t, as it
 // sends them (PRTitle, the texts PRBody prints, the footer; a rework's
-// comment is the summary and the footer), in the order public review is
+// comment is its update or the summary, and the footer), in the order public review is
 // shown them; an empty one is left out. The rest of the PR body is fixed
 // text and the diff's file names, which the commits carry.
 func PublicTexts(cfg *config.Config, p config.Project, t *ticket.Ticket) []PublicText {
@@ -60,6 +61,7 @@ func PublicTexts(cfg *config.Config, p config.Project, t *ticket.Ticket) []Publi
 		{TextSummary, texts["the work summary"], false},
 		{TextTests, texts["the work tests"], false},
 		{TextLint, texts["the work lint"], false},
+		{TextUpdates, texts["the updates"], false},
 		{TextReview, review, false},
 		{TextFooter, cfg.Identity.PRFooter, true},
 	} {

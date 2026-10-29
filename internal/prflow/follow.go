@@ -172,7 +172,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 		t.PR = ticket.Some(v)
 		ticket.AddNote(t, "PR #"+itoa(n)+" was approved but conflicts with "+p.Base+": other changes were merged since. "+
 			"Rebase this branch onto "+p.Base+", resolve the conflicts keeping both the reviewed change "+
-			"and what was merged, run the tests, and say in your summary what conflicted and how you resolved it.", "", nil, now)
+			"and what was merged, run the tests, and say in your rework what conflicted and how you resolved it.", "", nil, now)
 		ticket.Move(t, string(model.ColReady), model.ReasonConflicts, "approved, but conflicts with "+p.Base,
 			"you approved PR #"+itoa(n)+", but it no longer merges cleanly; a worker rebases it, then it comes back to you", "", now)
 		f.hold(ctx, cfg, t)

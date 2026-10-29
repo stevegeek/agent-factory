@@ -114,8 +114,8 @@ func snippet(text []rune, i, n int) string {
 }
 
 // PublicTexts are the report fields prflow.PRBody prints, keyed by where
-// they go, as the body prints them (Python's str()); a missing one is left
-// out.
+// they go, as the body prints them (Python's str()), and its Updates; a
+// missing one is left out.
 func PublicTexts(t *ticket.Ticket) map[string]string {
 	out := map[string]string{}
 	tree, err := pyTicket(t)
@@ -130,6 +130,9 @@ func PublicTexts(t *ticket.Ticket) map[string]string {
 		if v, ok := r.get(f.key); ok {
 			out["the "+f.report+" "+f.key] = v.str()
 		}
+	}
+	if u := ticket.UpdatesText(t); u != "" {
+		out["the updates"] = u
 	}
 	return out
 }

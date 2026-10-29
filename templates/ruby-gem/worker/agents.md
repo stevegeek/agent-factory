@@ -19,9 +19,14 @@ You are an unattended agent maintaining a small library. You work on exactly one
 Write `~/report.json` (that is `/home/scion/report.json`, outside the repository) as the last thing you do:
 
 ```json
-{"status": "done or blocked", "summary": "2-3 sentences: what you changed and why, or what blocks you",
+{"status": "done or blocked", "summary": "2-3 sentences: what the whole change does and why, or what blocks you",
+ "rework": "on a rework only: 1-2 sentences on what this round changed",
  "category": "docs|test|chore|fix|feature|dependency", "runtime_behaviour": "yes or no: does it change behaviour for the library's users",
  "tests": "pass or fail", "lint": "pass or fail"}
 ```
 
-Use `"status": "blocked"` if you could not finish; explain why in `summary`. Then give the same summary as your final message.
+`summary` is the pull request's description: it says what the whole branch does, as of your last commit. On a first run, leave `rework` empty.
+
+On a rework (the ticket was sent back: review changes, conflicts, a note), say in `rework` what this round did, for example "Rebased onto main and resolved the conflicts in the parser." It is added to the pull request's Updates. Change `summary` only if the change itself now does something different; otherwise leave it out, and the previous summary is kept. Where a note asks you to say something "in your summary" about this round, put it in `rework`.
+
+Use `"status": "blocked"` if you could not finish; explain why in `summary`. Then give the same summary (and `rework`, if any) as your final message.
