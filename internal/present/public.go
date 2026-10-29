@@ -65,6 +65,16 @@ func publicRun(r *report, head string) string {
 	return "Its report could not be read."
 }
 
+// publicRunFound is publicRun with a block's findings named, where and
+// why, for the story and the thread: the facts list them on their own rows.
+func publicRunFound(r *report, head string) string {
+	line := publicRun(r, head)
+	for _, f := range findingsOf(r) {
+		line += " " + f.Where + ": " + sentence(f.Why)
+	}
+	return line
+}
+
 // passedBy is the person whose word is public review's pass of the head
 // the ticket holds, "" when that pass is the stage's own (or there is
 // none): the last public_passed move, made by a person.

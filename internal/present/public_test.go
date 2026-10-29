@@ -123,7 +123,7 @@ func TestThreadTellsEachPublicRunFromItsOwnReport(t *testing.T) {
 		return nil
 	}
 	got := msgs(Conversation(x, nil, archive, noon))
-	want := "You|me|**T**|\nPublic review|agent|Blocked: 1 finding in what it would publish. first read|\n" +
+	want := "You|me|**T**|\nPublic review|agent|Blocked: 1 finding in what it would publish. summary: Names a host. first read|\n" +
 		"Public review|agent|Pass: nothing private in what it would publish at 0123456789ab. second read|"
 	if got != want {
 		t.Errorf("thread:\n%s", got)
@@ -143,7 +143,7 @@ func TestStoryTellsWhoSentAPublicBlockBack(t *testing.T) {
 			whos = append(whos, st.Who+": "+st.What)
 		}
 	}
-	want := []string{"Public review: Found text this public project must not publish; back to the worker to rewrite its commits.",
+	want := []string{"Public review: Found text this public project must not publish; back to the worker to rewrite it.",
 		"You: Moved it to Public review.", "You: Sent it back to the worker with public review's findings."}
 	if strings.Join(whos, "\n") != strings.Join(want, "\n") {
 		t.Errorf("story:\n%s", strings.Join(whos, "\n"))
@@ -164,4 +164,23 @@ func TestPublicLine(t *testing.T) {
 	if got := PublicLine(x); got != "Its report could not be read." {
 		t.Errorf("unread: %q", got)
 	}
+}
+
+// The story names what a blocked public review found, where and why, on
+// the review's own step.
+func TestStoryNamesPublicFindings(t *testing.T) {
+	x := tk(t, `{"id": "T0048", "project": "p", "title": "T", "door": "human", "column": "ready",
+		"reports": {"public": {"verdict": "block", "findings": [{"where": "summary", "why": "it points to an unpublished plan"}], "summary": "s"}},
+		"history": [
+			{"at": "2026-10-16T10:00:00Z", "event": "start", "detail": "public t0048-o1", "type": "started", "stage": "public", "agent": "t0048-o1"},
+			{"at": "2026-10-16T10:05:00Z", "event": "finished", "detail": "public t0048-o1", "type": "finished", "stage": "public", "agent": "t0048-o1"}]}`)
+	for _, st := range BuildStory(x, nil).Steps {
+		if st.Who == RoleLabel("public") {
+			if want := "Blocked: 1 finding in what it would publish. summary: It points to an unpublished plan."; st.What != want {
+				t.Errorf("public step %q, want %q", st.What, want)
+			}
+			return
+		}
+	}
+	t.Error("no public review step")
 }

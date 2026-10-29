@@ -305,7 +305,7 @@ func stageWhat(t *ticket.Ticket, stage string) string {
 		return SecurityLine(t)
 	case model.StagePublic:
 		// the last run's own report, and the head that run read
-		return publicRun(r, t.HeadBeforePublic.Or(""))
+		return publicRunFound(r, t.HeadBeforePublic.Or(""))
 	case model.StageTask:
 		if r.str("status") != "done" {
 			return strings.TrimSpace("Blocked. " + Clip(r.str("summary"), 300))
@@ -384,7 +384,7 @@ func (r *reader) moveStep(t *ticket.Ticket, e ticket.Entry) *Step {
 	case m.Is(model.ReasonReviewChanges, detail == "review asked for changes"):
 		st.Who, st.What = "Reviewer", "Asked for changes; back to the worker."
 	case m.Is(model.ReasonPublicChanges, false):
-		st.Who, st.What = "Public review", "Found text this public project must not publish; back to the worker to rewrite its commits."
+		st.Who, st.What = "Public review", "Found text this public project must not publish; back to the worker to rewrite it."
 		if by := byOf(e); by != "factory" {
 			st.Who, st.What = "You", "Sent it back to the worker with public review's findings."
 		}

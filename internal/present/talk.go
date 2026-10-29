@@ -249,7 +249,7 @@ func reportText(t *ticket.Ticket, stage string, r *report, latest bool) (text, m
 		if a, running := agentOf(t); latest && (!running || a.Stage != string(model.StagePublic)) {
 			head = t.HeadBeforePublic.Or("")
 		}
-		text = strings.TrimSpace(publicRun(r, head) + " " + text)
+		text = strings.TrimSpace(publicRunFound(r, head) + " " + text)
 	case model.StageTask:
 		res := r.str("result")
 		if res == "" && latest {
