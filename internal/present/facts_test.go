@@ -87,8 +87,14 @@ func TestNoteButtonAndDraftReasons(t *testing.T) {
 	pr := y.PR.V
 	pr.Draft = ticket.Some(false)
 	y.PR = ticket.Some(pr)
+	if c := PRCallout(y); c == nil || c.Tone != "warn" || c.Title != "Why this PR needs your review" || !reflect.DeepEqual(c.Lines, want) {
+		t.Errorf("a PR out of draft keeps its blockers: %+v", c)
+	}
+	g := y.Gate.V
+	g.Blockers = nil
+	y.Gate = ticket.Some(g)
 	if c := PRCallout(y); c == nil || c.Tone != "good" || c.Title != "Passed every check for automatic approval" {
-		t.Errorf("a PR that is not a draft passed: %+v", c)
+		t.Errorf("no blockers passed: %+v", c)
 	}
 	y.Column = "ready_for_pr"
 	if PRCallout(y) != nil {

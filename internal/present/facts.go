@@ -174,10 +174,16 @@ func PRCallout(t *ticket.Ticket) *Callout {
 			fmt.Sprintf("GitHub refused the merge: PR #%d needs your approval of its latest commit.", pr.Number),
 			"Approve it on GitHub; the factory merges it by itself on the next tick after that."}}
 	}
-	if !prDraft(pr) || len(g.Blockers) == 0 {
+	if g.AutoEligible || len(g.Blockers) == 0 {
 		return &Callout{Tone: "good", Title: "Passed every check for automatic approval"}
 	}
-	return &Callout{Tone: "warn", Title: "Why this PR is a draft", Lines: DraftReasons(g.Blockers)}
+	// a PR out of draft (by hand, or on a review request) still has the
+	// gate's blockers: it needs the maintainer, so say why
+	title := "Why this PR is a draft"
+	if !prDraft(pr) {
+		title = "Why this PR needs your review"
+	}
+	return &Callout{Tone: "warn", Title: title, Lines: DraftReasons(g.Blockers)}
 }
 
 // Pending says what the tick is doing for an intent Foreman recorded:
