@@ -2,12 +2,12 @@ package prflow
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/gate"
 	"github.com/stevegeek/agent-factory/internal/jsonx"
 	"github.com/stevegeek/agent-factory/internal/model"
@@ -368,12 +368,13 @@ func TestAnApprovalIsDeferredNearTheDeadline(t *testing.T) {
 }
 
 // An approval whose merge check finds no room on this host is not landed
-// and not spent: nothing is recorded, and it is read again on a later
-// tick.
+// and not spent: it is read again on a later tick. What the merge waits on
+// is kept on pr.queue, with no event, and a later tick that finds the same
+// wait keeps its start.
 func TestAnApprovalWaitsForRoomForTheMergeCheck(t *testing.T) {
 	head := sha('a')
 	h := newHarness(t)
-	h.checks.ok, h.checks.err = false, fmt.Errorf("%w: 2 agents run here", gate.ErrNoRoom)
+	h.checks.ok, h.checks.err = false, &gate.RoomError{Running: 3, Max: 3, Memory: "1g"}
 	cfg := parseConfig(t, testConfig)
 	tk := prTicket(t, false)
 	h.routes(
@@ -388,6 +389,17 @@ func TestAnApprovalWaitsForRoomForTheMergeCheck(t *testing.T) {
 	}
 	if len(h.log.lines) != 1 || !strings.Contains(h.log.lines[0], "T0042") || !strings.Contains(h.log.lines[0], "no room") {
 		t.Errorf("log = %q", h.log.lines)
+	}
+	want := ticket.PRQueue{State: ticket.QueueRoom, Running: 3, Max: 3, Since: clock.Stamp(h.clock.Now())}
+	if q, _ := tk.PR.V.Queue.Get(); q != want {
+		t.Fatalf("queue = %+v, want %+v", q, want)
+	}
+	h.clock.Advance(time.Minute)
+	if err := h.flow.CheckPR(context.Background(), cfg, project(t, cfg, "gem"), tk); err != nil {
+		t.Fatal(err)
+	}
+	if q, _ := tk.PR.V.Queue.Get(); q != want || len(tk.History) != 0 {
+		t.Errorf("a second tick: queue %+v, history %v", q, tk.History)
 	}
 }
 

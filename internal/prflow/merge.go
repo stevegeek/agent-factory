@@ -128,6 +128,7 @@ func (f *Flow) land(ctx context.Context, cfg *config.Config, p config.Project, t
 	v.MergeWait = ticket.Opt[string]{}
 	v.MergeBlocked = ticket.Opt[string]{}
 	t.PR = ticket.Some(v)
+	ticket.ClearQueue(t)
 	sha, _ := res.Raw.Get("sha").Str()
 	f.merged(ctx, p, t, pr, sha)
 	if branch := t.Branch.Or(""); strings.HasPrefix(branch, "bot/") {
@@ -194,6 +195,7 @@ func (f *Flow) mainMoved(ctx context.Context, cfg *config.Config, p config.Proje
 		return fmt.Errorf("merge check %s: %w", t.ID, err)
 	}
 	now := f.now()
+	ticket.ClearQueue(t)
 	ticket.AddNote(t, "Before merging PR #"+itoa(n)+", "+p.Base+" had moved, and with it merged in the tests or lint fail "+
 		"(output: logs/"+string(t.ID)+"/merge-check-output.txt, the end of it: "+textx.Clip(lastRunes(out, 600), 600)+"). Rebase onto "+
 		p.Base+", fix what broke, run the tests, and say what it was in your summary.", "", nil, now)

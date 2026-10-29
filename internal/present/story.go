@@ -709,6 +709,9 @@ func boardQuestionOf(t *ticket.Ticket, e ticket.Entry) *ticket.BoardQuestion {
 func WaitingWhat(t *ticket.Ticket, a *ticket.Ask) string {
 	switch model.AskKind(a.Kind) {
 	case model.AskReview:
+		if ticket.MergeQueued(t) {
+			return "You approved it; the factory merges it by itself (or request changes on GitHub, or send it back with a note here)."
+		}
 		if Mergeable(t) {
 			return "It passed every check for automatic approval. Merge it, or read it on GitHub first."
 		}

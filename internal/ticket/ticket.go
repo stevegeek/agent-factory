@@ -171,6 +171,53 @@ type PR struct {
 	// MergeCommit is the commit GitHub made when it merged the PR, once
 	// the factory has seen the merge.
 	MergeCommit string `json:"merge_commit,omitempty"`
+	// Queue is what the factory's merge of an approved PR waits on, as the
+	// tick last found it; absent when nothing holds it back.
+	Queue Opt[PRQueue] `json:"queue"`
+}
+
+// PRQueue is a wait on an approved PR's merge: State is QueueRoom,
+// QueueTime or QueueMerging; Running and Max are the agents counted for
+// QueueRoom (both 0 when they could not be counted); Detail is the error for
+// QueueMerging; Since is the stamp the wait began. A wait on GitHub is
+// pr.merge_wait.
+type PRQueue struct {
+	State   string `json:"state"`
+	Running int    `json:"running,omitempty"`
+	Max     int    `json:"max,omitempty"`
+	Detail  string `json:"detail,omitempty"`
+	Since   string `json:"since"`
+}
+
+// The waits on pr.queue.
+const (
+	QueueRoom    = "room"    // no room on this host for the merge check
+	QueueTime    = "time"    // too little time left in the tick for a merge check
+	QueueMerging = "merging" // the merge was tried and is tried again
+)
+
+// SetQueue records q as what t's merge waits on. A wait of the same State
+// keeps its Since, and one that did not change is not written again.
+func SetQueue(t *Ticket, q PRQueue) {
+	v := t.PR.V
+	if old, ok := v.Queue.Get(); ok && old.State == q.State {
+		q.Since = old.Since
+		if old == q {
+			return
+		}
+	}
+	v.Queue = Some(q)
+	t.PR = Some(v)
+}
+
+// ClearQueue drops what t's merge waited on.
+func ClearQueue(t *Ticket) {
+	if !t.PR.V.Queue.Set {
+		return
+	}
+	v := t.PR.V
+	v.Queue = Opt[PRQueue]{}
+	t.PR = Some(v)
 }
 
 // PRReview is a reviewer's decision on a PR: State is ReviewApproved,
@@ -208,6 +255,23 @@ func NeedsApproval(t *Ticket) bool {
 		return r.State != ReviewApproved || r.Commit == "" || r.Commit != g.Head
 	}
 	return pr.MergeBlocked.Or("") == MergeBlockedApproval
+}
+
+// MergeQueued reports an open PR the factory merges by itself, with nothing
+// more asked of the maintainer: it does not NeedsApproval, and a wait is
+// recorded (pr.queue or pr.merge_wait) or the latest review approves the
+// commit the gate checked.
+func MergeQueued(t *Ticket) bool {
+	pr, ok := t.PR.Get()
+	if t.Column != string(model.ColPROpen) || !ok || pr.Number == 0 || NeedsApproval(t) {
+		return false
+	}
+	if pr.Queue.Present() || pr.MergeWait.Present() {
+		return true
+	}
+	r, read := pr.Review.Get()
+	g, _ := t.Gate.Get()
+	return read && r.State == ReviewApproved && r.Commit != "" && r.Commit == g.Head
 }
 
 // Source is the GitHub issue a ticket was swept from.

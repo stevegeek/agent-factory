@@ -64,6 +64,14 @@ func TestReviewAnswersFollowTheApproval(t *testing.T) {
 			t.Errorf("%s: %+v", name, as)
 		}
 	}
+	// not eligible, approved, and waiting for room for the merge check
+	tk := eligible(ticket.PR{Review: ticket.Some(ticket.PRReview{State: ticket.ReviewApproved, Commit: head}),
+		Queue: ticket.Some(ticket.PRQueue{State: ticket.QueueRoom, Running: 3, Max: 3, Since: "2026-01-02T03:04:05+00:00"})})
+	tk.Gate = ticket.Some(ticket.Gate{Head: head})
+	as := ops.Answers(tk, review)
+	if values(as) != "link,send_back,link" || as[0].Label != "Open PR #23 on GitHub" || strings.Contains(as[0].Sub, "approve it") {
+		t.Errorf("queued: %+v", as)
+	}
 }
 
 // Every ask kind has its answers, each a value the service carries out or

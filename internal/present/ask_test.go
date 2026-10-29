@@ -296,6 +296,42 @@ func TestAnUnapprovedPRAsksForTheApprovalOnGitHub(t *testing.T) {
 	}
 }
 
+func TestAnApprovedPRWaitingForRoomSaysSoAndSince(t *testing.T) {
+	x := ticket.Clone(find(fixtures(t), "T0001"))
+	g, pr := x.Gate.V, x.PR.V
+	pr.Review = ticket.Some(ticket.PRReview{State: ticket.ReviewApproved, Commit: g.Head})
+	pr.Queue = ticket.Some(ticket.PRQueue{State: ticket.QueueRoom, Running: 3, Max: 3, Since: "2026-01-02T03:04:05+00:00"})
+	x.PR = ticket.Some(pr)
+	since := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Local().Format("15:04")
+	want := "Approved; merges when there is room for the merge check (3/3 agents running), since " + since
+	if l := QueueLine(x); l != want {
+		t.Errorf("line %q, want %q", l, want)
+	}
+	if c := PRCallout(x); c == nil || c.Title != want {
+		t.Errorf("callout %+v", c)
+	}
+	a := AskFor(x)
+	if got := Action(x, a); !strings.HasPrefix(got, want) {
+		t.Errorf("action %q", got)
+	}
+	if w := WaitingWhat(x, a); strings.Contains(w, "pprove it") || !strings.Contains(w, "merges it by itself") {
+		t.Errorf("waiting %q", w)
+	}
+
+	pr.Queue = ticket.Opt[ticket.PRQueue]{}
+	pr.MergeWait = ticket.Some("required checks pending")
+	x.PR = ticket.Some(pr)
+	if l := QueueLine(x); !strings.HasPrefix(l, "Approved; merges when GitHub allows it (required checks pending)") {
+		t.Errorf("github wait: line %q", l)
+	}
+
+	pr.Review = ticket.Some(ticket.PRReview{State: ticket.ReviewApproved, Commit: "0000000"})
+	x.PR = ticket.Some(pr)
+	if l := QueueLine(x); l != "" {
+		t.Errorf("approval of an older commit: line %q", l)
+	}
+}
+
 func TestReadyForPRIsOnTheDesk(t *testing.T) {
 	x := ticket.Clone(find(fixtures(t), "T0001"))
 	x.Column = "ready_for_pr"

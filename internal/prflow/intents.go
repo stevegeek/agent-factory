@@ -238,6 +238,7 @@ func (f *Flow) settle(t *ticket.Ticket, which, since string, err error) {
 		clearIntent(t, which)
 	case errors.Is(err, gate.ErrNoRoom):
 		f.logf("%s: the merge of PR #%d waits for a later tick: %v", t.ID, t.PR.V.Number, err)
+		noRoom(t, err, f.now())
 	case transient(err):
 		text := textx.Prefix(pyErr(err), 250)
 		f.keptError(t, since, "github: "+text, text)
