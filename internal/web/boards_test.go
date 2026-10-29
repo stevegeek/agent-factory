@@ -543,3 +543,36 @@ func TestABoardsHeadingIsItsTitle(t *testing.T) {
 		t.Errorf("/b/plain:\n%s", body)
 	}
 }
+
+const markupConfig = `
+[projects.widgets]
+path = "/w"
+title = '<script>alert(1)</script>'
+description = '"><img src=x onerror=alert(2)>'
+group = '</h3><script>alert(3)</script>'
+`
+
+func TestProjectLabelsAreEscaped(t *testing.T) {
+	h := newHarness(t, false)
+	cfg, err := config.Parse([]byte(markupConfig))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.srv.svc.Config = fakeConfig{cfg}
+	c := h.login()
+	for _, path := range []string{"/boards", "/b/widgets"} {
+		body := h.do("GET", path, nil, c).Body.String()
+		for _, raw := range []string{"<script>alert", "<img src=x", `"><img`} {
+			if strings.Contains(body, raw) {
+				t.Errorf("%s holds the raw label %q:\n%s", path, raw, body)
+			}
+		}
+		if !strings.Contains(body, "&lt;script&gt;alert(1)&lt;/script&gt;") {
+			t.Errorf("%s lacks the escaped title:\n%s", path, body)
+		}
+	}
+	body := h.do("GET", "/boards", nil, c).Body.String()
+	if !strings.Contains(body, `<h3 class="boards-h">&lt;/h3&gt;&lt;script&gt;alert(3)&lt;/script&gt;</h3>`) {
+		t.Errorf("the group heading is not escaped:\n%s", body)
+	}
+}
