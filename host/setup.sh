@@ -17,6 +17,11 @@
 #      (allow-dispatcher.sh) and <user>.pullers (allow-puller.sh).
 #   4. one memory/CPU/task budget for everything the factory user runs,
 #      so sshd and the host always keep headroom
+#   5. a root-owned copy of systemd/install-units.sh and the units it installs,
+#      taken from this checkout, in /usr/local/lib/<name>/units, linked as
+#      /usr/local/sbin/<name>-install-units: root installs the units from that
+#      copy, never from the factory user's own (which it can edit). Re-run after
+#      a change to systemd/, then run that command.
 #
 # --undo leaves the factory user, its home and the packages in place
 # (it prints the commands to remove them).
@@ -40,6 +45,8 @@ SSH_SERVICE_DROPIN=/etc/systemd/system/ssh.service.d/90-$NAME.conf
 SSHD_DROPIN=/etc/ssh/sshd_config.d/70-$NAME.conf
 FACTORY_KEYS_DIR=/etc/ssh/authorized_keys
 SLICE_DROPIN_NAME=50-$NAME.conf
+UNITS_DIR=/usr/local/lib/$NAME/units
+UNITS_CMD=/usr/local/sbin/$NAME-install-units
 
 # Budget for the whole factory user (all agent containers together).
 # Defaults suit a ~3.3 GiB host (zram is not charged to the slice), so the caps
@@ -94,7 +101,9 @@ undo() {
     "$FACTORY_KEYS_DIR/$FACTORY_USER.pullers"
   rmdir "$FACTORY_KEYS_DIR" 2>/dev/null || true
   { sshd -t && systemctl try-reload-or-restart ssh; } || true
-  rm -f "$SYSCTL_CONF" "$OOMD_DROPIN" "$SSH_SERVICE_DROPIN"
+  rm -f "$SYSCTL_CONF" "$OOMD_DROPIN" "$SSH_SERVICE_DROPIN" "$UNITS_CMD"
+  rm -rf "$UNITS_DIR"
+  rmdir "/usr/local/lib/$NAME" 2>/dev/null || true
   if [[ -f $ZRAM_CONF ]] && grep -q "$NAME" "$ZRAM_CONF"; then
     swapoff /dev/zram0 2>/dev/null || true
     rm -f "$ZRAM_CONF"
@@ -230,6 +239,21 @@ ManagedOOMMemoryPressureLimit=80%" || true
 systemctl daemon-reload
 systemctl start "user@$uid.service"
 
+log "Unit installer: $UNITS_CMD"
+units_src=$(cd "$(dirname "$0")/../systemd" 2>/dev/null && pwd -P) \
+  || die "no systemd/ beside host/: run setup.sh from a checkout of the repository"
+factory_home=$(getent passwd "$FACTORY_USER" | cut -d: -f6)
+[[ -n ${factory_home%/} && $units_src/ == "${factory_home%/}"/* ]] \
+  && die "$units_src is in $FACTORY_USER's home: run setup.sh from your own checkout"
+for f in "$units_src" "$units_src"/install-units.sh "$units_src"/*.service "$units_src"/*.timer; do
+  [[ -e $f && ! -L $f && $(stat -c %u "$f") != "$uid" ]] || die "$f: missing, a symlink or $FACTORY_USER's"
+done
+rm -rf "$UNITS_DIR"
+install -d -m 755 -o root -g root "/usr/local/lib/$NAME" "$UNITS_DIR"
+install -m 644 -o root -g root "$units_src"/*.service "$units_src"/*.timer "$UNITS_DIR/"
+install -m 755 -o root -g root "$units_src/install-units.sh" "$UNITS_DIR/"
+ln -sfn "$UNITS_DIR/install-units.sh" "$UNITS_CMD"
+
 log "Verification"
 set +e
 echo "-- swap";   swapon --show
@@ -250,5 +274,6 @@ set -e
 cat <<EOF
 
 All set. Next: ssh $FACTORY_USER@$(hostname -I | awk '{print $1}')
+After a deploy, install the timers with: sudo $UNITS_CMD --enable
 'controllers' above must include 'memory' for per-container limits.
 EOF

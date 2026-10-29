@@ -3,7 +3,7 @@ package agentfactory
 // The root scripts (systemd/install-units.sh, host/allow-puller.sh) run
 // here as root in a user namespace of their own, with a tmpfs over the
 // directories they write (/etc/systemd/system, /etc/ssh) and fakes for
-// systemctl, sshd and getent on PATH. Nothing on this machine changes; the
+// systemctl, sshd, getent and id on PATH. Nothing on this machine changes; the
 // test skips where unprivileged user namespaces are not allowed.
 
 import (
@@ -84,8 +84,9 @@ func asRoot(t *testing.T, fakes map[string]string, dirs []string, body string, a
 	return out.String(), code
 }
 
-// unitsDir is systemd/ copied with install-units.sh rendered for a factory
-// user that is this namespace's root (uid 0).
+// unitsDir is systemd/ copied as host/setup.sh copies it: the templates
+// and the installer, owned by this namespace's root and writable by no one
+// else.
 func unitsDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -96,11 +97,36 @@ func unitsDir(t *testing.T) string {
 	for _, f := range files {
 		copyFile(t, f, filepath.Join(dir, filepath.Base(f)))
 	}
-	s := readFile(t, filepath.Join(dir, "install-units.sh"))
-	s = strings.NewReplacer("{{factory_user}}", "root", "{{factory_uid}}", "0").Replace(s)
-	mkexec(t, filepath.Join(dir, "install-units.sh"), []byte(s))
+	if err := os.Chmod(filepath.Join(dir, "install-units.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	return dir
 }
+
+// unitFakes are what install-units.sh meets besides systemctl: a factory
+// user with uid 1001 whose home is $FAKE/home, and a root user.
+var unitFakes = map[string]string{
+	"systemctl": fakeSystemctl,
+	"id": `#!/bin/bash
+[[ $1 == -u ]] || exit 1
+case $2 in factory) echo 1001 ;; root) echo 0 ;; *) exit 1 ;; esac
+`,
+	"getent": `#!/bin/bash
+[[ $1 == passwd ]] || exit 2
+case $2 in
+  factory) echo "factory:x:1001:1001::$FAKE/home:/bin/bash" ;;
+  root) echo "root:x:0:0::/root:/bin/bash" ;;
+  *) exit 2 ;;
+esac
+`,
+}
+
+// deployedUnits is the body's prelude: the factory user's own rendered
+// copy of the rebuild timer, as a deploy leaves it.
+const deployedUnits = `
+mkdir -p "$FAKE/home/factory/systemd"
+printf '[Timer]\nOnCalendar=Mon *-*-* 03:15:00\n' >"$FAKE/home/factory/systemd/factory-rebuild.timer"
+`
 
 // unitState lists the factory units in /etc/systemd/system, the wants
 // links and the active units, each line prefixed by where it is.
@@ -127,7 +153,7 @@ func stateLines(out string) []string {
 // wants links and the unit files. A second run changes nothing.
 func TestInstallUnitsHelperDisarmsAnOlderDispatcher(t *testing.T) {
 	src := unitsDir(t)
-	out, code := asRoot(t, map[string]string{"systemctl": fakeSystemctl}, []string{"/etc/systemd/system"}, `
+	out, code := asRoot(t, unitFakes, []string{"/etc/systemd/system"}, deployedUnits+`
 src=$1
 d=/etc/systemd/system w=$d/timers.target.wants
 mkdir -p "$w" "$FAKE/active"
@@ -155,7 +181,7 @@ bash "$src/install-units.sh" --helper --enable >/dev/null || { echo "second run 
 // Without --helper, --enable installs and arms every dispatcher timer.
 func TestInstallUnitsDispatcherArmsItsTimers(t *testing.T) {
 	src := unitsDir(t)
-	out, code := asRoot(t, map[string]string{"systemctl": fakeSystemctl}, []string{"/etc/systemd/system"}, `
+	out, code := asRoot(t, unitFakes, []string{"/etc/systemd/system"}, deployedUnits+`
 bash "$1/install-units.sh" --enable >/dev/null || { echo "run failed"; exit 1; }
 `+unitState, src)
 	if code != 0 {
@@ -183,7 +209,7 @@ bash "$1/install-units.sh" --enable >/dev/null || { echo "run failed"; exit 1; }
 // lacks a unit file stops before anything is installed.
 func TestInstallUnitsWatchdogEdges(t *testing.T) {
 	src := unitsDir(t)
-	out, code := asRoot(t, map[string]string{"systemctl": fakeSystemctl}, []string{"/etc/systemd/system"}, `
+	out, code := asRoot(t, unitFakes, []string{"/etc/systemd/system"}, deployedUnits+`
 src=$1
 bash "$src/install-units.sh" --helper --watchdog --enable >/dev/null || { echo "opt-in failed"; exit 1; }
 bash "$src/install-units.sh" --helper --watchdog --enable >/dev/null || { echo "re-arm failed"; exit 1; }
@@ -216,7 +242,7 @@ bash "$src/install-units.sh" --helper --watchdog --enable 2>&1 >/dev/null; echo 
 	if parts[2] != "1\n0\n" {
 		t.Errorf("removal notice (first run says it, second has nothing to remove): %q", parts[2])
 	}
-	if !strings.Contains(parts[3], "factory-watchdog.timer: missing or not a plain file here; deploy this host first") ||
+	if !strings.Contains(parts[3], "factory-watchdog.timer: missing here; re-run host/setup.sh") ||
 		!strings.Contains(parts[3], "missing 1\n") || strings.Contains(parts[3], "watchdog.service") {
 		t.Errorf("a bundle without the timer:\n%s", parts[3])
 	}
@@ -224,7 +250,7 @@ bash "$src/install-units.sh" --helper --watchdog --enable 2>&1 >/dev/null; echo 
 
 func TestInstallUnitsWatchdog(t *testing.T) {
 	src := unitsDir(t)
-	out, code := asRoot(t, map[string]string{"systemctl": fakeSystemctl}, []string{"/etc/systemd/system"}, `
+	out, code := asRoot(t, unitFakes, []string{"/etc/systemd/system"}, deployedUnits+`
 src=$1
 bash "$src/install-units.sh" --watchdog --enable >/dev/null 2>&1 && { echo "--watchdog without --helper ran"; exit 1; }
 `+unitState+`
@@ -372,5 +398,72 @@ true
 `)
 	if code != 0 || !strings.Contains(out, "sshd does not read /etc/ssh/authorized_keys/factory.pullers") {
 		t.Errorf("exit %d:\n%s", code, out)
+	}
+}
+
+// The units are filled in as root from the system's record of the factory
+// user, not taken from the factory user's own rendered copies: an edited
+// deployed unit changes nothing, and only the rebuild time comes from the
+// deployed timer.
+func TestInstallUnitsRendersTheUnitsAsRoot(t *testing.T) {
+	src := unitsDir(t)
+	out, code := asRoot(t, unitFakes, []string{"/etc/systemd/system"}, deployedUnits+`
+printf '[Service]\nUser=root\nExecStart=/bin/sh -c id\n' >"$FAKE/home/factory/systemd/factory@.service"
+bash "$1/install-units.sh" >/dev/null || { echo "run failed"; exit 1; }
+cat /etc/systemd/system/factory@.service /etc/systemd/system/factory-rebuild.timer
+echo "home $FAKE/home"
+`, src)
+	if code != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	home := strings.TrimSpace(out[strings.LastIndex(out, "home ")+len("home "):])
+	for _, l := range []string{"User=factory", "Group=factory", "After=network-online.target user@1001.service",
+		"ExecStart=" + home + "/factory/bin/factory %i", "WorkingDirectory=" + home, "OnCalendar=Mon *-*-* 03:15:00"} {
+		if !strings.Contains(out, l+"\n") {
+			t.Errorf("no %q in the installed units:\n%s", l, out)
+		}
+	}
+	if strings.Contains(out, "User=root") || strings.Contains(out, "/bin/sh -c id") || strings.Contains(out, "{{") {
+		t.Errorf("installed units:\n%s", out)
+	}
+}
+
+// A copy anyone but root can change, a linked unit, a factory user that is
+// root and a rebuild time that is not a plain calendar expression are each
+// refused before any unit is installed.
+func TestInstallUnitsRefusesWhatRootDoesNotOwnAlone(t *testing.T) {
+	src := unitsDir(t)
+	out, code := asRoot(t, unitFakes, []string{"/etc/systemd/system"}, deployedUnits+`
+src=$1 timer=$FAKE/home/factory/systemd/factory-rebuild.timer
+try() { "$@" >/dev/null 2>"$FAKE/err"; echo "exit $? $(tail -1 "$FAKE/err")"; }
+chmod g+w "$src/factory@.service"
+try bash "$src/install-units.sh"
+chmod g-w "$src/factory@.service"
+chmod o+w "$src"
+try bash "$src/install-units.sh"
+chmod o-w "$src"
+mv "$src/factory-tick.timer" "$src/tick" && ln -s tick "$src/factory-tick.timer"
+try bash "$src/install-units.sh"
+rm "$src/factory-tick.timer" && mv "$src/tick" "$src/factory-tick.timer"
+try env FACTORY_USER=root bash "$src/install-units.sh"
+printf 'OnCalendar=Mon %%u\n' >"$timer"
+try bash "$src/install-units.sh"
+`+unitState, src)
+	if code != 0 {
+		t.Fatalf("exit %d:\n%s", code, out)
+	}
+	for _, want := range []string{
+		"exit 1 install-units.sh: factory@.service: not root's alone here",
+		"exit 1 install-units.sh: " + src + " is not root's alone",
+		"exit 1 install-units.sh: factory-tick.timer: not root's alone here",
+		"exit 1 install-units.sh: refusing units that would run as root",
+		"factory-rebuild.timer: no plain OnCalendar= line",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("no %q in:\n%s", want, out)
+		}
+	}
+	if got := stateLines(out); len(got) != 0 {
+		t.Errorf("a refused run installed units:\n%s", strings.Join(got, "\n"))
 	}
 }
