@@ -479,6 +479,26 @@ func TestNoteButtonAndDraftReasons(t *testing.T) {
 	}
 }
 
+func TestQuestionAnswerSitsUnderItsField(t *testing.T) {
+	h := newHarness(t, false)
+	c := h.login()
+	body := h.do("GET", "/t/T0009", nil, c).Body.String()
+	field := strings.Index(body, `<textarea id="note-T0009"`)
+	send := strings.Index(body, `<span>Send the answer</span>`)
+	more := strings.Index(body, `<summary>Not an answer? Ask an agent, or save a note</summary>`)
+	ask := strings.Index(body, `<span>Ask the agent</span>`)
+	note := strings.Index(body, `<span>Save note</span>`)
+	if field < 0 || send < 0 || more < 0 || ask < 0 || note < 0 {
+		t.Fatalf("T0009 page lacks the answer form: field %d, send %d, more %d, ask %d, note %d", field, send, more, ask, note)
+	}
+	if !(field < send && send < more && more < ask && more < note) {
+		t.Errorf("want the field, then Send the answer, then the other actions folded away: %d %d %d %d %d", field, send, more, ask, note)
+	}
+	if strings.Count(body, "Send the answer") != 1 || strings.Contains(body, `<div class="answers">`) {
+		t.Errorf("the answer is offered outside its field")
+	}
+}
+
 // Foreman's TestLabelsAndAnswers, the page half.
 func TestLabelsAndAnswersOnThePage(t *testing.T) {
 	h := newHarness(t, false)

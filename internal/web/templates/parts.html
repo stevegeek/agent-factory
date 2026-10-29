@@ -107,12 +107,13 @@
   {{if .FindingsAsk}}<div class="picks findings">
     {{range .Findings}}{{template "finding" .}}{{end}}
   </div>{{end}}
-  {{if .Answers}}<div class="answers">
+  {{$typed := and .CanNote (eq (len .Answers) 1) (index .Answers 0).NeedsNote}}
+  {{if and .Answers (not $typed)}}<div class="answers">
     {{range .Answers}}{{if .Href}}<a class="btn{{if .Primary}} primary{{end}}{{if .Danger}} danger{{end}} ext" href="{{.Href}}" target="_blank" rel="noopener noreferrer" hx-boost="false"><span>{{.Label}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</a>
     {{- else}}<button class="btn{{if .Primary}} primary{{end}}{{if .Danger}} danger{{end}}" type="submit" name="answer" value="{{.Value}}" {{if .NeedsNote}}data-needs-note{{end}}><span>{{.Label}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</button>{{end}}
     {{end}}
   </div>{{end}}
-  {{if .CanNote}}{{template "note" .}}{{end}}
+  {{if $typed}}{{template "typed" .}}{{else if .CanNote}}{{template "note" .}}{{end}}
   {{if .Reply}}{{template "reply" .}}{{end}}
 </form>
 {{end}}
@@ -147,11 +148,34 @@
   <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" rows="3" placeholder="A question for the agent, or a note for the next one" data-draft="{{.T.ID}}"></textarea>
   <div class="composer-foot">
     <p class="hint">{{.NoteSub}}</p>
+    {{template "note-actions"}}
+  </div>
+</div>
+{{- end}}
+
+{{define "note-actions" -}}
+<div class="composer-actions">
+  <button class="btn quiet" type="submit" name="answer" value="ask" data-needs-note data-busy="Asking…"><span>Ask the agent</span></button>
+  <button class="btn quiet" type="submit" name="answer" value="note" data-needs-note data-busy="Saving…"><span>Save note</span></button>
+</div>
+{{- end}}
+
+{{define "typed" -}}
+{{$a := index .Answers 0}}<div class="composer">
+  <label for="note-{{.T.ID}}">{{.NoteLabel}}</label>
+  <textarea id="note-{{.T.ID}}" name="note" maxlength="4000" rows="3" placeholder="Your answer to the agent's question" data-draft="{{.T.ID}}"></textarea>
+  <div class="composer-foot">
+    <p class="hint">The agent carries on with your answer, usually within a few minutes.</p>
     <div class="composer-actions">
-      <button class="btn quiet" type="submit" name="answer" value="ask" data-needs-note data-busy="Asking…"><span>Ask the agent</span></button>
-      <button class="btn quiet" type="submit" name="answer" value="note" data-needs-note data-busy="Saving…"><span>Save note</span></button>
+      <button class="btn primary" type="submit" name="answer" value="{{$a.Value}}" data-needs-note data-busy="Sending…"><span>{{$a.Label}}</span></button>
     </div>
   </div>
+  <details class="more"><summary>Not an answer? Ask an agent, or save a note</summary>
+    <div class="composer-foot">
+      <p class="hint">Both use the text above. {{.NoteSub}}</p>
+      {{template "note-actions"}}
+    </div>
+  </details>
 </div>
 {{- end}}
 
