@@ -62,7 +62,7 @@ log() { printf '\n== %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "run with sudo"
-. /etc/os-release
+ID=$(. /etc/os-release && printf %s "${ID:-}")  # a subshell: os-release also sets NAME, which would replace ours
 [[ ${ID:-} == ubuntu ]] || die "expected Ubuntu, found ${ID:-unknown}"
 id "$ADMIN_USER" >/dev/null 2>&1 || die "admin user $ADMIN_USER not found"
 admin_uid=$(id -u "$ADMIN_USER")

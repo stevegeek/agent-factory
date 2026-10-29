@@ -40,7 +40,9 @@ if [[ ${1:-} == --undo ]]; then
 fi
 [[ -z ${1:-} ]] || die "usage: tailscale.sh [--undo]"
 
-. /etc/os-release
+# a subshell: os-release also sets NAME, which would replace ours
+ID=$(. /etc/os-release && printf %s "${ID:-}")
+VERSION_CODENAME=$(. /etc/os-release && printf %s "${VERSION_CODENAME:-}")
 [[ ${ID:-} == ubuntu && -n ${VERSION_CODENAME:-} ]] || die "expected Ubuntu, found ${ID:-unknown}"
 command -v curl >/dev/null || die "curl is not installed"
 command -v gpg >/dev/null || die "gpg is not installed"

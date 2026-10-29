@@ -467,3 +467,29 @@ try bash "$src/install-units.sh"
 		t.Errorf("a refused run installed units:\n%s", strings.Join(got, "\n"))
 	}
 }
+
+// A host script that names its files after NAME must not source
+// /etc/os-release in its own shell: os-release sets NAME too ("Ubuntu"),
+// which then named every file and comment written after it.
+func TestHostScriptsKeepTheirNameFromOSRelease(t *testing.T) {
+	paths, err := filepath.Glob("host/*.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range paths {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := string(b)
+		if !strings.Contains(s, "NAME=${FACTORY_NAME") {
+			continue
+		}
+		for _, line := range strings.Split(s, "\n") {
+			l := strings.TrimSpace(line)
+			if strings.HasPrefix(l, ". /etc/os-release") || strings.HasPrefix(l, "source /etc/os-release") {
+				t.Errorf("%s sources /etc/os-release in its own shell, which replaces NAME: read what it needs in a subshell", p)
+			}
+		}
+	}
+}

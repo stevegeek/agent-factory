@@ -49,7 +49,7 @@ warn() { printf 'WARNING: %s\n' "$*" >&2; failed+=("$*"); }
 
 [[ $NAME =~ ^[a-z0-9-]+$ ]] || die "FACTORY_NAME must match ^[a-z0-9-]+\$ (got: $NAME)"
 [[ $EUID -eq 0 ]] || die "run with sudo"
-. /etc/os-release
+ID=$(. /etc/os-release && printf %s "${ID:-}")  # a subshell: os-release also sets NAME, which would replace ours
 [[ ${ID:-} == ubuntu ]] || die "expected Ubuntu, found ${ID:-unknown}"
 model=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
 case $model in
