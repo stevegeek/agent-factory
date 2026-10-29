@@ -197,13 +197,14 @@ func TestAnUnreadablePublicReportIsReadAgainThenStops(t *testing.T) {
 // The finish routes a finding by the texts the review was shown: one in
 // the worker's summary goes back to work, one in the branch to a person.
 func TestPublicFindingsAreRoutedByTheTextsShown(t *testing.T) {
-	for where, back := range map[string]bool{"summary": true, "branch": false} {
+	for where, back := range map[string]bool{"summary": true, "branch": false, "updates": false} {
 		h := newHarness(t)
 		h.config(publicConfig + "\n[memory]\nenabled = false\n")
 		h.repo.BranchWith("bot/x", map[string]string{"README.md": "hello again\n"})
 		id := h.file("p", "Fix", "public", func(t *ticket.Ticket) {
 			t.Branch = ticket.Some("bot/x")
 			t.Reports.Set("work", jsonx.ObjectOf(jsonx.Member{Key: "summary", Value: jsonx.String("Fixed the thing.")}))
+			t.Updates = []ticket.Update{{At: "2026-01-02T03:04:05Z", Why: "review", Text: "Added a test."}}
 		})
 		h.tick()
 		h.local.reports["t0001-o1"] = []byte(`{"verdict": "block", "findings": [{"where": "` + where + `", "why": "names a host"}]}`)

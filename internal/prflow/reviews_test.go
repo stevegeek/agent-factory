@@ -46,7 +46,7 @@ func TestChangesRequestedOnGitHubGoBackToTheWorkerOnce(t *testing.T) {
 	}
 	note := tk.Notes[len(tk.Notes)-1].Text
 	want := "Review on GitHub, changes requested:\n- `lib/x.rb` line 36: Why rescue then immediately raise again?\n" +
-		"- `lib/y.rb` line 4: moved\nAddress each point. Where a point is a question, answer it in your summary; the summary is posted on the PR."
+		"- `lib/y.rb` line 4: moved\nAddress each point. Where a point is a question, answer it in your rework; the rework is posted on the PR."
 	if note != want {
 		t.Errorf("note = %q", note)
 	}

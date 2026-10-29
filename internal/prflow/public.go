@@ -27,7 +27,8 @@ const (
 
 // PublicText is one free text a PR publishes, by its name. Fixed is a text
 // the worker cannot change: the branch, a title that is the ticket's own,
-// the issue line and the footer.
+// the issue line, the updates (the ticket keeps them, and a rework only
+// adds one) and the footer.
 type PublicText struct {
 	Name, Text string
 	Fixed      bool
@@ -61,7 +62,7 @@ func PublicTexts(cfg *config.Config, p config.Project, t *ticket.Ticket) []Publi
 		{TextSummary, texts["the work summary"], false},
 		{TextTests, texts["the work tests"], false},
 		{TextLint, texts["the work lint"], false},
-		{TextUpdates, texts["the updates"], false},
+		{TextUpdates, texts["the updates"], true},
 		{TextReview, review, false},
 		{TextFooter, cfg.Identity.PRFooter, true},
 	} {

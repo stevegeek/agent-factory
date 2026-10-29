@@ -521,6 +521,7 @@ func TestOpenPRRefusesAPassWhoseTextsChanged(t *testing.T) {
 // The texts public review reads are what OpenPR sends; the PR title is
 // fixed (a finding there goes to a person) only when it is the ticket's
 // own, not when it is made from the worker's summary.
+// The updates are fixed too: the ticket keeps them.
 func TestPublicTextsAndWhichTheWorkerCanChange(t *testing.T) {
 	cfg := parseConfig(t, hygieneConfig())
 	gem := project(t, cfg, "gem")
@@ -545,5 +546,15 @@ func TestPublicTextsAndWhichTheWorkerCanChange(t *testing.T) {
 		if x.Name == TextTitle && (x.Text != "Clarify the install steps." || x.Fixed) {
 			t.Errorf("a title from the summary: %+v", x)
 		}
+	}
+	tk.Updates = []ticket.Update{{At: "a while ago", Text: "Added a test."}}
+	var updates []PublicText
+	for _, x := range PublicTexts(cfg, gem, tk) {
+		if x.Name == TextUpdates {
+			updates = append(updates, x)
+		}
+	}
+	if len(updates) != 1 || updates[0].Text != "- a while ago: Added a test." || !updates[0].Fixed {
+		t.Errorf("the updates: %+v", updates)
 	}
 }

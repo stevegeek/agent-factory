@@ -89,11 +89,11 @@ func TestPublicBlockGoesBackToWorkOnceThenToAPerson(t *testing.T) {
 // summary and a title made from it, which the worker can change.
 func shown(titleFixed bool) *PublicIn {
 	return &PublicIn{Texts: []PublicText{{"branch", "bot/x", true}, {"pr-title", "T", titleFixed}, {"ticket", "Fixes #7", true},
-		{"summary", "Did it.", false}, {"footer", "By a bot.", true}}}
+		{"summary", "Did it.", false}, {"updates", "Added a test.", true}, {"footer", "By a bot.", true}}}
 }
 
 func TestPublicFindingInFixedTextGoesStraightToAPerson(t *testing.T) {
-	for _, where := range []string{"branch", "pr-title", "ticket", "footer", "PR-Title: the second word"} {
+	for _, where := range []string{"branch", "pr-title", "ticket", "updates", "footer", "PR-Title: the second word"} {
 		r := `{"verdict": "block", "findings": [{"where": "commit abc lib/x.rb:1", "why": "a"}, {"where": "` + where + `", "why": "b"}]}`
 		out := finish(t, FinishIn{Ticket: reading(t, ""), Report: report(r), Facts: Facts{Head: head}, Config: cfg(t, hygieneTOML), Public: shown(true)})
 		if out.Ticket.Column != "needs_human" || reason(out.Ticket) != model.ReasonPublicBlocked {

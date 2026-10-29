@@ -46,6 +46,8 @@ func (f *Flow) CheckPR(ctx context.Context, cfg *config.Config, p config.Project
 	return nil
 }
 
+const reviewAsk = "Address each point. Where a point is a question, answer it in your rework; the rework is posted on the PR."
+
 // followReviews is follow_reviews: a configured reviewer's review
 // on GitHub (nobody else's) is an instruction, and the latest new one
 // decides. Changes requested go back to the worker; an approval merges.
@@ -261,8 +263,7 @@ func (f *Flow) pickUpChanges(ctx context.Context, cfg *config.Config, p config.P
 	for i, pt := range points {
 		items[i] = "- " + pt
 	}
-	note := "Review on GitHub, changes requested:\n" + strings.Join(items, "\n") +
-		"\nAddress each point. Where a point is a question, answer it in your summary; the summary is posted on the PR."
+	note := "Review on GitHub, changes requested:\n" + strings.Join(items, "\n") + "\n" + reviewAsk
 	now := f.now()
 	ticket.AddNote(t, note, "", nil, now)
 	markSeen(t, reviews)
