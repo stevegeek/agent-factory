@@ -82,6 +82,8 @@ func commands() []Command {
 		{Name: "pr", Help: "open or update a ticket's PR and print its URL", Config: true,
 			Positionals: []Positional{ticketArg}, Run: runPR},
 		{Name: "github", Help: "show the App's repositories and permissions", Config: true, Run: runGitHub},
+		{Name: "prune-branches", Help: "list the bot/* branches on GitHub whose ticket is done with a merged PR", Config: true, Run: runPruneBranches,
+			Flags: []Flag{{Name: "apply", Kind: BoolFlag, Help: "delete them (default: a dry run that deletes nothing)"}}},
 		{Name: "gate-workflow", Help: "print a project's gate workflow", Config: true,
 			Positionals: []Positional{{Name: "project"}}, Run: runGateWorkflow},
 		{Name: "move", Help: "move a ticket to a column", Config: true,

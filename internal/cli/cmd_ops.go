@@ -67,6 +67,9 @@ func runWake(ctx context.Context, e *Env, a Args) error     { return opsCLI{}.wa
 func runAnswer(ctx context.Context, e *Env, a Args) error   { return opsCLI{}.answer(ctx, e, a) }
 func runFindings(ctx context.Context, e *Env, a Args) error { return opsCLI{}.findings(ctx, e, a) }
 func runProject(ctx context.Context, e *Env, a Args) error  { return opsCLI{}.project(ctx, e, a) }
+func runPruneBranches(ctx context.Context, e *Env, a Args) error {
+	return opsCLI{}.pruneBranches(ctx, e, a)
+}
 
 // runners is every verb of this file and cmd_inspect.go wired with o, by
 // command name.
@@ -75,8 +78,20 @@ func (o opsCLI) runners() map[string]func(context.Context, *Env, Args) error {
 		"add": o.add, "move": o.move, "note": o.note, "reply": o.reply, "ask": o.ask, "approve": o.approve,
 		"redirect": o.redirect, "merge": o.merge, "pr": o.pr, "host": o.host, "migrate": o.migrate, "wake": o.wake,
 		"answer": o.answer, "look": o.look, "audit": o.audit, "memory": o.memory, "github": o.github,
-		"gate-workflow": o.gateWorkflow, "findings": o.findings, "project": o.project,
+		"gate-workflow": o.gateWorkflow, "findings": o.findings, "project": o.project, "prune-branches": o.pruneBranches,
 	}
+}
+
+func (o opsCLI) pruneBranches(ctx context.Context, e *Env, a Args) error {
+	cfg, err := e.Config()
+	if err != nil {
+		return err
+	}
+	ts, _ := e.Board().Reader.List()
+	if n, err := (&prflow.Flow{GitHub: o.githubClient(e, cfg)}).PruneBranches(ctx, cfg, ts, a.Bool("apply"), e.Stdout); err != nil || n == 0 {
+		return err
+	}
+	return Refuse("some branches were not deleted")
 }
 
 func (o opsCLI) add(ctx context.Context, e *Env, a Args) error {

@@ -70,12 +70,12 @@ func TestTheTableTakesPythonsArgv(t *testing.T) {
 		}
 	}
 	// The commands Go adds.
-	for _, name := range []string{"answer", "render", "patch-scion", "version", "backup", "findings", "screens", "fizzy", "project", "build", "kinds", "onboard", "deploy", "usage", "early-checks"} { // backup: the R2 backup; project: the maintainer's switch; build, kinds, onboard, deploy: self-hosting; usage: tokens spent; early-checks: the gate's checks begun early
+	for _, name := range []string{"answer", "render", "patch-scion", "version", "backup", "findings", "screens", "fizzy", "project", "build", "kinds", "onboard", "deploy", "usage", "early-checks", "prune-branches"} { // backup: the R2 backup; project: the maintainer's switch; build, kinds, onboard, deploy: self-hosting; usage: tokens spent; early-checks: the gate's checks begun early; prune-branches: merged bot/* branches
 		if _, ok := ours[name]; !ok {
 			t.Errorf("no command %s", name)
 		}
 	}
-	if len(ours) != len(py)+15 {
+	if len(ours) != len(py)+16 {
 		var extra []string
 		for n := range ours {
 			if _, ok := py[n]; !ok {
