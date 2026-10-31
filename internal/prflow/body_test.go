@@ -128,7 +128,7 @@ func hasTicketID(s string) bool {
 // body that starts printing another field fails here.
 func TestPublicTextsMatchPRBody(t *testing.T) {
 	fields := map[string][]string{
-		"work":     {"status", "summary", "tests", "lint", "category", "notes", "files", "question"},
+		"work":     {"status", "summary", "rework", "tests", "lint", "category", "notes", "files", "question"},
 		"review":   {"verdict", "runtime_behaviour", "summary", "notes", "concerns"},
 		"security": {"summary", "verdict", "notes"},
 	}
@@ -173,5 +173,35 @@ func TestPRBodyListsWalls(t *testing.T) {
 	risk := body[strings.Index(body, "**Risk**"):strings.Index(body, "**How to revert**")]
 	if !strings.Contains(risk, "\n- Touches the walls: internal/gate/gate.go, deploy.sh.\n") {
 		t.Errorf("risk:\n%s", risk)
+	}
+}
+
+// A PR's reworks are listed under Updates after How to revert, oldest
+// first, and the description above them is the whole change's; a ticket
+// with no updates has no such section.
+func TestPRBodyListsUpdatesAfterTheDescription(t *testing.T) {
+	tk := readyTicket(t, false, sha('a'))
+	before := PRBody(&config.Config{}, tk)
+	if strings.Contains(before, "**Updates**") {
+		t.Errorf("a ticket with no updates:\n%s", before)
+	}
+	tk.Updates = []ticket.Update{
+		{At: "2026-10-17T09:05:00+00:00", Why: "to resolve conflicts with the base branch", Text: "Rebased on the base branch."},
+		{At: "2026-10-18T10:00:00+00:00", Why: "after changes were requested in review", Text: "Reworded the install steps."},
+	}
+	body := PRBody(&config.Config{}, tk)
+	want := "\n\n**Updates**\n\n" +
+		"- 2026-10-17 09:05 UTC, to resolve conflicts with the base branch: Rebased on the base branch.\n" +
+		"- 2026-10-18 10:00 UTC, after changes were requested in review: Reworded the install steps.\n"
+	if !strings.Contains(body, want) || !strings.HasPrefix(body, "Clarify the install steps.") {
+		t.Errorf("body:\n%s", body)
+	}
+	revert := strings.Index(body, "**How to revert**")
+	if revert < 0 || strings.Index(body, "**Updates**") < revert || body[:revert] != before[:revert] {
+		t.Errorf("the sections before Updates changed:\n%s", body)
+	}
+	texts := gate.PublicTexts(tk)
+	if !strings.Contains(texts["the updates"], "Reworded the install steps.") {
+		t.Errorf("public texts %q", texts)
 	}
 }

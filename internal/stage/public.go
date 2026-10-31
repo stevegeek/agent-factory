@@ -18,7 +18,7 @@ import (
 
 // PublicText is one text a PR publishes, by the name a finding's where
 // gives it. Fixed is a text the worker cannot change (the branch name, a
-// PR title that is the ticket's, the issue line, the footer): a finding
+// PR title that is the ticket's, the issue line, the updates, the footer): a finding
 // there goes to a person rather than back to work.
 type PublicText struct {
 	Name, Text string
@@ -218,7 +218,7 @@ func (f *finisher) public(r Report) {
 	case fixed > 0:
 		f.move(model.ColNeedsHuman, model.ReasonPublicBlocked,
 			fmt.Sprintf("public review blocked it: %d finding(s), %d in text the worker cannot change", n, fixed),
-			"a finding in the branch, the PR title, the ticket or the footer goes to a person")
+			"a finding in the branch, the PR title, the ticket, the updates or the footer goes to a person")
 	case ticket.PublicRounds(t) >= 1:
 		f.move(model.ColNeedsHuman, model.ReasonPublicBlocked,
 			fmt.Sprintf("public review blocked it again after a rework: %d finding(s)", n),

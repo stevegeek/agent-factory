@@ -199,6 +199,35 @@ func TestAReworkAfterAReviewSaysWhatChanged(t *testing.T) {
 	}
 }
 
+// A rework that recorded an update posts that update, not the summary of
+// the whole change; an update from before the PR last opened is not this
+// round's.
+func TestAReworkCommentIsItsUpdate(t *testing.T) {
+	for _, old := range []bool{false, true} {
+		h := newHarness(t)
+		cfg := parseConfig(t, testConfig)
+		tk := readyTicket(t, true, sha('a'))
+		tk.PR = ticket.Some(ticket.PR{Number: 5, URL: "u", Draft: ticket.Some(false), ReviewsSeen: []int64{3}})
+		tk.Updates = []ticket.Update{{At: "2026-10-17T09:00:00+00:00", Why: "after feedback", Text: "Reworded step two."}}
+		if old {
+			tk.History = append(tk.History, ticket.Entry{At: "2026-10-17T10:00:00+00:00", Event: "move",
+				Data: ticket.Moved{From: "ready_for_pr", To: "pr_open", Reason: model.ReasonPROpened}})
+		}
+		h.setHead("bot/x", sha('a'))
+		h.routes(fakeRepoPR(openPR5(false))...)
+		if _, err := h.flow.OpenPR(context.Background(), cfg, project(t, cfg, "gem"), tk); err != nil {
+			t.Fatal(err)
+		}
+		want := "Reworded step two."
+		if old {
+			want = "Clarify the install steps."
+		}
+		if got, _ := h.gh.body(t, "POST", "/repos/o/gem/issues/5/comments").Get("body").Str(); got != "Updated after your review.\n\n"+want+"\n\nOpened by a bot." {
+			t.Errorf("old=%v: comment = %q", old, got)
+		}
+	}
+}
+
 // A 422 on create means the branch already has an open PR (opened by hand,
 // or by a run that crashed before saving): it is adopted and updated.
 // A 422 with no such PR is the error.
@@ -492,6 +521,7 @@ func TestOpenPRRefusesAPassWhoseTextsChanged(t *testing.T) {
 // The texts public review reads are what OpenPR sends; the PR title is
 // fixed (a finding there goes to a person) only when it is the ticket's
 // own, not when it is made from the worker's summary.
+// The updates are fixed too: the ticket keeps them.
 func TestPublicTextsAndWhichTheWorkerCanChange(t *testing.T) {
 	cfg := parseConfig(t, hygieneConfig())
 	gem := project(t, cfg, "gem")
@@ -516,5 +546,15 @@ func TestPublicTextsAndWhichTheWorkerCanChange(t *testing.T) {
 		if x.Name == TextTitle && (x.Text != "Clarify the install steps." || x.Fixed) {
 			t.Errorf("a title from the summary: %+v", x)
 		}
+	}
+	tk.Updates = []ticket.Update{{At: "a while ago", Text: "Added a test."}}
+	var updates []PublicText
+	for _, x := range PublicTexts(cfg, gem, tk) {
+		if x.Name == TextUpdates {
+			updates = append(updates, x)
+		}
+	}
+	if len(updates) != 1 || updates[0].Text != "- a while ago: Added a test." || !updates[0].Fixed {
+		t.Errorf("the updates: %+v", updates)
 	}
 }

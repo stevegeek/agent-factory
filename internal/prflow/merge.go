@@ -196,7 +196,7 @@ func (f *Flow) mainMoved(ctx context.Context, cfg *config.Config, p config.Proje
 	now := f.now()
 	ticket.AddNote(t, "Before merging PR #"+itoa(n)+", "+p.Base+" had moved, and with it merged in the tests or lint fail "+
 		"(output: logs/"+string(t.ID)+"/merge-check-output.txt, the end of it: "+textx.Clip(lastRunes(out, 600), 600)+"). Rebase onto "+
-		p.Base+", fix what broke, run the tests, and say what it was in your summary.", "", nil, now)
+		p.Base+", fix what broke, run the tests, and say what it was in your rework.", "", nil, now)
 	ticket.Move(t, string(model.ColReady), model.ReasonMainMoved, "not merged: "+p.Base+" moved and the checks fail with it",
 		"merge check: PR #"+itoa(n)+" passes alone but not on "+p.Base+" as it is now", "", now)
 	f.hold(ctx, cfg, t)

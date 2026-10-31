@@ -17,8 +17,10 @@ const AutoApprovalPhrase = "- Small, docs/tests/config-only change: eligible for
 // PRBody is pr_body: the PR's public text, with no internal ids or
 // board references. It is the worker's summary, "Fixes #<issue>" for a
 // ticket from a GitHub issue, how the change was tested, its risk (with the
-// files that touch the project's walls, when any do), how to revert it, and
-// [identity] pr_footer.
+// files that touch the project's walls, when any do), how to revert it, what
+// each rework of the open PR did (Updates, when there was one), and
+// [identity] pr_footer. The summary is the whole change as of its head: a
+// rework's own account goes under Updates.
 //
 // It reads the ticket as Python did, from the ticket as it would be saved:
 // values of unexpected types appear as Python's str() of them.
@@ -66,8 +68,12 @@ func PRBody(cfg *config.Config, t *ticket.Ticket) string {
 	lines = append(lines, risk...)
 	lines = append(lines,
 		"", "**How to revert**", "",
-		"- Revert the merge commit (`git revert -m 1 <merge commit>`); this change carries no data migration.",
-		"", cfg.Identity.PRFooter)
+		"- Revert the merge commit (`git revert -m 1 <merge commit>`); this change carries no data migration.")
+	if len(t.Updates) > 0 {
+		lines = append(lines, "", "**Updates**", "")
+		lines = append(lines, ticket.UpdateLines(t.Updates)...)
+	}
+	lines = append(lines, "", cfg.Identity.PRFooter)
 	return textx.Strip(strings.Join(lines, "\n")) + "\n"
 }
 

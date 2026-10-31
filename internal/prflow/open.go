@@ -131,10 +131,9 @@ func (f *Flow) OpenPR(ctx context.Context, cfg *config.Config, p config.Project,
 	}
 	ticket.Move(t, string(model.ColPROpen), model.ReasonPROpened, detail, "", "", now)
 	if updated && len(cur.ReviewsSeen) > 0 {
-		// the worker's summary answers the review's points and questions;
+		// what the rework did answers the review's points and questions;
 		// public text, no internal ids
-		summary := textx.Strip(jsonx.PyStr(dictGet(dictOr(t.Tree().Get("reports"), "work"), "summary", jsonx.String(""))))
-		text := textx.Strip("Updated after your review.\n\n" + summary + "\n\n" + cfg.Identity.PRFooter)
+		text := textx.Strip("Updated after your review.\n\n" + reworkText(t) + "\n\n" + cfg.Identity.PRFooter)
 		if err := f.GitHub.Comment(ctx, repo, pr.Number, text); err != nil {
 			ticket.Event(t, "error", "github: could not comment on PR #"+itoa(int(pr.Number))+" ("+errCode(err)+")", "",
 				ticket.Errored{Text: textx.Prefix(pyErr(err), 250)}, now)
@@ -142,6 +141,21 @@ func (f *Flow) OpenPR(ctx context.Context, cfg *config.Config, p config.Project,
 	}
 	f.requestReview(ctx, cfg, p, t)
 	return t.PR.V, nil
+}
+
+// reworkText is what the rework that last updated the PR did: its entry
+// under Updates, or the work summary when that rework recorded none.
+func reworkText(t *ticket.Ticket) string {
+	opened := ""
+	for _, e := range t.History[:max(0, len(t.History)-1)] {
+		if m, ok := e.Data.(ticket.Moved); ok && m.Reason == model.ReasonPROpened {
+			opened = e.At
+		}
+	}
+	if n := len(t.Updates); n > 0 && t.Updates[n-1].At >= opened {
+		return t.Updates[n-1].Text
+	}
+	return textx.Strip(jsonx.PyStr(dictGet(dictOr(t.Tree().Get("reports"), "work"), "summary", jsonx.String(""))))
 }
 
 // prTitleMax is the longest PR title made from a summary, in code points.

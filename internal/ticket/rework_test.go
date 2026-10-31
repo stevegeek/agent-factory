@@ -1,0 +1,59 @@
+package ticket
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stevegeek/agent-factory/internal/jsonx"
+	"github.com/stevegeek/agent-factory/internal/model"
+)
+
+func TestReworkWhyIsTheLastSendBackSinceTheWorkWasDone(t *testing.T) {
+	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	tk := &Ticket{}
+	if got := ReworkWhy(tk); got != "" {
+		t.Errorf("first run: %q", got)
+	}
+	Move(tk, string(model.ColReady), model.ReasonConflicts, "", "", "", at)
+	Move(tk, string(model.ColReview), model.ReasonWorkDone, "", "", "", at)
+	if got := ReworkWhy(tk); got != "" {
+		t.Errorf("after work done: %q", got)
+	}
+	Move(tk, string(model.ColReady), model.ReasonMainMoved, "", "", "", at)
+	if got := ReworkWhy(tk); got != "because the checks failed on the latest base branch" {
+		t.Errorf("main moved: %q", got)
+	}
+}
+
+func TestUpdateLines(t *testing.T) {
+	got := UpdateLines([]Update{
+		{At: "2026-10-17T09:05:00+00:00", Why: "after feedback", Text: "Renamed\nthe flag."},
+		{At: "not a time", Text: "Fixed a typo."},
+	})
+	want := []string{"- 2026-10-17 09:05 UTC, after feedback: Renamed the flag.", "- not a time: Fixed a typo."}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("%q", got)
+	}
+}
+
+func TestKeepSummaryOnlyFillsAMissingOrBlankSummary(t *testing.T) {
+	tk := &Ticket{}
+	parse := func(s string) jsonx.Value {
+		v, err := jsonx.Parse([]byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if got := KeepSummary(tk, parse(`{"status": "done"}`)); func() bool { o, _ := got.Object(); _, has := o.Lookup("summary"); return has }() {
+		t.Error("no stored report, a summary appeared")
+	}
+	tk.Reports.Set("work", parse(`{"summary": "Old."}`))
+	for _, c := range []struct{ in, want string }{
+		{`{"status": "done"}`, "Old."}, {`{"summary": "  "}`, "Old."}, {`{"summary": "New."}`, "New."},
+	} {
+		if s, _ := KeepSummary(tk, parse(c.in)).Get("summary").Str(); s != c.want {
+			t.Errorf("%s: %q", c.in, s)
+		}
+	}
+}

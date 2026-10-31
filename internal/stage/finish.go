@@ -176,7 +176,11 @@ func (f *finisher) run(s model.Stage) (Outcome, error) {
 	info, _ := model.StageInfoOf(s)
 	f.out = Outcome{Ticket: t, DeleteBranch: !info.Branch}
 
-	t.Reports.Set(string(s), f.Report)
+	stored := f.Report
+	if s == model.StageWork {
+		stored = ticket.KeepSummary(t, stored)
+	}
+	t.Reports.Set(string(s), stored)
 	t.AgentLastHost = ticket.Some(host)
 	f.pin()
 	t.Agent = ticket.Nil[ticket.Agent]()
@@ -679,6 +683,11 @@ func (f *finisher) work(r Report) {
 	if !f.Facts.BranchExists || f.Facts.CommitsAhead == 0 {
 		f.move(model.ColNeedsHuman, model.ReasonNoCommits, "worker reported done but the branch has no commits", "")
 		return
+	}
+	v, _ := r.Value("rework")
+	if text, ok := v.Str(); ok && textx.Strip(text) != "" && f.Ticket.PR.V.Number != 0 {
+		ticket.AddUpdate(f.Ticket, ticket.ReworkWhy(f.Ticket), text, f.Now)
+		f.pin()
 	}
 	f.move(model.ColReview, model.ReasonWorkDone, "", "")
 }

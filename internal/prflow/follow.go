@@ -46,6 +46,8 @@ func (f *Flow) CheckPR(ctx context.Context, cfg *config.Config, p config.Project
 	return nil
 }
 
+const reviewAsk = "Address each point. Where a point is a question, answer it in your rework; the rework is posted on the PR."
+
 // followReviews is follow_reviews: a configured reviewer's review
 // on GitHub (nobody else's) is an instruction, and the latest new one
 // decides. Changes requested go back to the worker; an approval merges.
@@ -172,7 +174,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 		t.PR = ticket.Some(v)
 		ticket.AddNote(t, "PR #"+itoa(n)+" was approved but conflicts with "+p.Base+": other changes were merged since. "+
 			"Rebase this branch onto "+p.Base+", resolve the conflicts keeping both the reviewed change "+
-			"and what was merged, run the tests, and say in your summary what conflicted and how you resolved it.", "", nil, now)
+			"and what was merged, run the tests, and say in your rework what conflicted and how you resolved it.", "", nil, now)
 		ticket.Move(t, string(model.ColReady), model.ReasonConflicts, "approved, but conflicts with "+p.Base,
 			"you approved PR #"+itoa(n)+", but it no longer merges cleanly; a worker rebases it, then it comes back to you", "", now)
 		f.hold(ctx, cfg, t)
@@ -261,8 +263,7 @@ func (f *Flow) pickUpChanges(ctx context.Context, cfg *config.Config, p config.P
 	for i, pt := range points {
 		items[i] = "- " + pt
 	}
-	note := "Review on GitHub, changes requested:\n" + strings.Join(items, "\n") +
-		"\nAddress each point. Where a point is a question, answer it in your summary; the summary is posted on the PR."
+	note := "Review on GitHub, changes requested:\n" + strings.Join(items, "\n") + "\n" + reviewAsk
 	now := f.now()
 	ticket.AddNote(t, note, "", nil, now)
 	markSeen(t, reviews)
