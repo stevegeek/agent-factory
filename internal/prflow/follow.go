@@ -223,7 +223,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 	if isHTTP {
 		why = he.Message
 	}
-	if t.PR.V.MergeWait.Or("") != why || !t.PR.V.MergeWait.Present() {
+	if t.Column == string(model.ColPROpen) && (t.PR.V.MergeWait.Or("") != why || !t.PR.V.MergeWait.Present()) {
 		v := t.PR.V
 		v.MergeWait = ticket.Some(why)
 		t.PR = ticket.Some(v)

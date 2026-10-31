@@ -74,3 +74,19 @@ func TestPublicReworkRecordsNoUpdateAndUpdatesAreClipped(t *testing.T) {
 		t.Errorf("an update of %d bytes", n)
 	}
 }
+
+// A ticket that leaves "PR open" leaves what its merge waited on behind,
+// so a rework back to the same PR does not show the old wait.
+func TestLeavingPROpenClearsTheMergeWait(t *testing.T) {
+	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	tk := &Ticket{Column: string(model.ColPROpen)}
+	tk.PR = Some(PR{Number: 5, MergeWait: Some("main moved"), Queue: Some(PRQueue{State: "room"})})
+	Move(tk, string(model.ColPROpen), model.ReasonPROpened, "", "", "", at)
+	if !tk.PR.V.MergeWait.Present() {
+		t.Error("a move within PR open cleared the wait")
+	}
+	Move(tk, string(model.ColReady), model.ReasonConflicts, "", "", "", at)
+	if tk.PR.V.MergeWait.Present() || tk.PR.V.Queue.Present() {
+		t.Errorf("after leaving PR open: %+v", tk.PR.V)
+	}
+}

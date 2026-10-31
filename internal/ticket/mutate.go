@@ -33,6 +33,12 @@ func Move(t *Ticket, to string, reason model.Reason, detail, rule, by string, no
 	}
 	old := t.Column
 	t.Column = to
+	if pr, ok := t.PR.Get(); ok && old == string(model.ColPROpen) && to != old {
+		// what its merge waited on was for the PR as it was: a rework or a
+		// close leaves none of it to show when it comes back
+		pr.Queue, pr.MergeWait = Opt[PRQueue]{}, Opt[string]{}
+		t.PR = Some(pr)
+	}
 	d := old + " -> " + to
 	if detail != "" {
 		d += ": " + detail
