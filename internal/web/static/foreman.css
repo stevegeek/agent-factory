@@ -281,6 +281,11 @@ details.ev summary time { font-family: var(--mono); font-size: 12px; color: var(
 .tk:hover { background: var(--sunk); }
 .tk .mono { color: var(--muted); }
 .running-tag { font-size: 11.5px; color: var(--signal); font-weight: 600; }
+.pin-tag { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.pin-tag.waiting { color: var(--signal); }
+.run-on { margin: 12px 0 0; max-width: 74ch; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.run-on p { margin: 0; }
+.run-on-form { display: flex; align-items: center; gap: 8px; }
 .closed-list { display: grid; gap: 6px; margin-top: 10px; }
 .tk .card-meta { display: block; margin-top: 3px; font-size: 12px; color: var(--muted); }
 .lane .more-cards { margin: 0; font-size: 12.5px; color: var(--muted); }

@@ -775,3 +775,47 @@ func TestALooseTokenStoreIsLoggedAtStart(t *testing.T) {
 		t.Errorf("journal: %v", log.lines)
 	}
 }
+
+// The page's "Run on" pins a ticket through the real verb, as `factory
+// host` does: the pin and its history event are on the ticket, "auto"
+// clears it, and a host config.toml does not name is refused.
+func TestRunOnPinsThroughTheHostVerb(t *testing.T) {
+	w := newWorld(t)
+	id := w.file(ticket.NewIn{Title: "Fix the parser", Body: "b", Column: "triage"}, nil)
+	c := w.loginWith(secret)
+	target := "/t/" + string(id) + "/host"
+	if page := w.do("GET", "/t/"+string(id), nil, c).Body.String(); !strings.Contains(page, `action="`+target+`"`) || !strings.Contains(page, `<option value="helper">helper</option>`) {
+		t.Fatalf("the page offers no Run on with the configured hosts:\n%s", page)
+	}
+
+	if rec := w.do("POST", target, url.Values{"csrf": {w.csrf(c)}, "host": {"helper"}}, c); rec.Code != http.StatusSeeOther {
+		t.Fatalf("pin: %d %s", rec.Code, rec.Body.String())
+	}
+	got := w.load(id)
+	if got.Host.Or("") != "helper" || got.History[len(got.History)-1].Event != "host" {
+		t.Errorf("pin: host %q, last event %q", got.Host.Or(""), got.History[len(got.History)-1].Event)
+	}
+	if page := w.do("GET", "/t/"+string(id), nil, c).Body.String(); !strings.Contains(page, "Pinned to <b>helper</b>") {
+		t.Errorf("the page does not show the pin:\n%s", page)
+	}
+
+	if rec := w.do("POST", target, url.Values{"csrf": {w.csrf(c)}, "host": {"auto"}}, c); rec.Code != http.StatusSeeOther {
+		t.Fatalf("unpin: %d", rec.Code)
+	}
+	if got := w.load(id); got.Host.Present() {
+		t.Errorf("unpin left host %q", got.Host.Or(""))
+	}
+
+	before, _ := os.ReadFile(w.paths.TicketFile(string(id)))
+	rec := w.do("POST", target, url.Values{"csrf": {w.csrf(c)}, "host": {"nowhere"}}, c)
+	after, _ := os.ReadFile(w.paths.TicketFile(string(id)))
+	if rec.Code != http.StatusSeeOther || !strings.Contains(flash(rec), "host nowhere; known: auto, local, helper") || string(before) != string(after) {
+		t.Errorf("an unknown host: %d %q, changed %v", rec.Code, flash(rec), string(before) != string(after))
+	}
+	data, _ := os.ReadFile(w.paths.ForemanLog())
+	for _, want := range []string{string(id) + " host helper", string(id) + " host auto"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("foreman.log lacks %q:\n%s", want, data)
+		}
+	}
+}

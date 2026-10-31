@@ -104,6 +104,7 @@ type TicketView struct {
 	// Operator is a manager ticket's drafts and actions, each with the
 	// tier the tick found and where it stands
 	Operator []operatorview.OperatorItem
+	RunOn    *RunOn
 	// Pass: the ticket may be given to one of People; Assignee is whose it
 	// is now ("" nobody's)
 	Pass     bool
@@ -380,6 +381,7 @@ type Lane struct {
 type LaneTicket struct {
 	ID, Title, Ask, AskLabel, Agent, Wait string
 	Parent                                string   // the ticket it was filed from
+	Host, HostWaiting                     string   // factory tickets: the pinned host
 	Assignee                              string   // board tickets
 	Labels                                []string // board tickets
 }
@@ -537,7 +539,7 @@ func boardView(name string, ts []*ticket.Ticket) (*BoardView, bool) {
 				continue
 			}
 			found = true
-			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Wait: present.WaitLine(t, all), Parent: present.ParentOf(t, all)}
+			lt := LaneTicket{ID: string(t.ID), Title: t.Title, Wait: present.WaitLine(t, all), Parent: present.ParentOf(t, all), Host: t.Host.Or("")}
 			if a := present.AskFor(t); a != nil {
 				lt.Ask, lt.AskLabel = a.Kind, present.KindLabel(a.Kind)
 			}

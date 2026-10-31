@@ -13,6 +13,8 @@
         {{- if .Ask}} <span class="badge small k-{{.Ask}}">{{.AskLabel}}</span>{{end}}
         {{- with .Agent}} <span class="running-tag">{{.}}</span>{{end}}
         {{- with .Wait}}<span class="card-meta">{{.}}</span>{{end}}
+        {{- if .HostWaiting}} <span class="pin-tag waiting" title="{{.Host}} {{.HostWaiting}}">on {{.Host}}, waiting</span>
+        {{- else if .Host}} <span class="pin-tag">on {{.Host}}</span>{{end}}
         {{- if or .Assignee .Labels}}<span class="card-meta">{{with .Assignee}}{{.}}{{end}}{{if and .Assignee .Labels}} · {{end}}{{range $i, $l := .Labels}}{{if $i}}, {{end}}{{$l}}{{end}}</span>{{end}}</a>{{end}}
       {{if .More}}<p class="more-cards"><a href="/search?project={{$name}}&amp;column={{.Column}}">{{.More}} more</a></p>{{end}}
     </section>

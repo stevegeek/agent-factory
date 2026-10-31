@@ -140,6 +140,8 @@ func (d deps) wire(_ context.Context, w web.Wiring) (web.Services, error) {
 	// the maintainer's deploy hold on System status:
 	// foreman-state/deploy-hold.json, then a wake
 	svc.Deploys = verbs
+	// the maintainer's "Run on" on a ticket's page: `factory host`
+	svc.Pins = verbs
 	// a person's answer to a board agent's question goes through the
 	// ticket API's own answer verb, with or without the token APIs
 	svc.Tickets = tickets

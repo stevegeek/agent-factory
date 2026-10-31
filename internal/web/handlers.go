@@ -31,6 +31,7 @@ func (s *Server) desk(w http.ResponseWriter, r *http.Request) {
 		if t := findTicket(ts, dv.Items[0].ID); t != nil {
 			p.Ticket = s.ticketView(t, ts, dv.Kind)
 			s.forPerson(r, p.Ticket)
+			p.Ticket.RunOn = s.runOn(r, t)
 		}
 	}
 	s.render(w, r, "desk", p, ts)
@@ -51,6 +52,7 @@ func (s *Server) ticket(w http.ResponseWriter, r *http.Request) {
 	kind := r.URL.Query().Get("kind")
 	tv := s.ticketView(t, ts, kind)
 	s.forPerson(r, tv)
+	tv.RunOn = s.runOn(r, t)
 	if tv.Ask != nil {
 		v := s.deskViewer(r)
 		dv := present.DeskPage(present.Desk(ts, v), kind, id, s.now())
@@ -448,6 +450,7 @@ func (s *Server) boardPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	bv.Paused = st.Paused
+	s.pinWaits(bv)
 	s.render(w, r, "board", &Page{Title: name, Tab: "boards", Board: bv}, ts)
 }
 
