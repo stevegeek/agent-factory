@@ -39,6 +39,6 @@ Write `~/report.json` (`/home/scion/report.json`, outside the repository):
  "summary": "1-2 sentences, without quoting any finding"}
 ```
 
-`where` is exact. A line in a patch is `commit <sha> path:line`: the commit that adds it, and the line in that commit's version of the file. A commit message is `commit <sha> message`. Any other text is named exactly as the heading your task gives it, one of `branch`, `pr-title`, `ticket` (the `Fixes #N` line your task quotes), `summary`, `tests`, `lint`, `review` and `footer`, as the first word of `where`. A `where` that starts with anything else cannot be placed, and the change is read again.
+`where` is exact. A line in a patch is `commit <sha> path:line`: the commit that adds it, and the line in that commit's version of the file. A commit message is `commit <sha> message`. Any other text is named exactly as the heading your task gives it, one of `branch`, `pr-title`, `ticket` (the `Fixes #N` line your task quotes), `summary`, `updates`, `tests`, `lint`, `review` and `footer`, as the first word of `where`. A `where` that starts with anything else cannot be placed, and the change is read again.
 
 `"pass"` only when there are no findings; one finding makes it `"block"`. When unsure, it is a finding. Then give the same summary as your final message.

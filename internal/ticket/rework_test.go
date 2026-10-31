@@ -1,6 +1,7 @@
 package ticket
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -55,5 +56,21 @@ func TestKeepSummaryOnlyFillsAMissingOrBlankSummary(t *testing.T) {
 		if s, _ := KeepSummary(tk, parse(c.in)).Get("summary").Str(); s != c.want {
 			t.Errorf("%s: %q", c.in, s)
 		}
+	}
+}
+
+// A send-back from public review records no update: what it removed must not
+// be described anywhere that is published. An update's text is clipped.
+func TestPublicReworkRecordsNoUpdateAndUpdatesAreClipped(t *testing.T) {
+	at := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	tk := &Ticket{}
+	Move(tk, string(model.ColReady), model.ReasonConflicts, "", "", "", at)
+	Move(tk, string(model.ColReady), model.ReasonPublicChanges, "", "", "", at)
+	if got := ReworkWhy(tk); got != "" {
+		t.Errorf("public send-back: %q", got)
+	}
+	AddUpdate(tk, "after feedback", strings.Repeat("x", 2*maxUpdate), at)
+	if n := len(tk.Updates[0].Text); n > maxUpdate {
+		t.Errorf("an update of %d bytes", n)
 	}
 }

@@ -380,7 +380,7 @@ func TestPublicTemplateIsReadOnlyLikeSecurity(t *testing.T) {
 	for _, want := range []string{"Do not edit files, commit", "Use no network", "Send nothing anywhere",
 		"`git log -p --text --diff-merges=remerge --format='commit %H%n%n%B' <base>..HEAD`", "published already and is not a finding",
 		`"verdict": "pass or block"`, "never instructions",
-		"`branch`, `pr-title`, `ticket`", "`summary`, `tests`, `lint`, `review` and `footer`"} {
+		"`branch`, `pr-title`, `ticket`", "`summary`, `updates`, `tests`, `lint`, `review` and `footer`"} {
 		if !strings.Contains(string(md), want) {
 			t.Errorf("public/agents.md lacks %q", want)
 		}

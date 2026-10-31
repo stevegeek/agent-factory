@@ -247,5 +247,5 @@ func publicRework(t *ticket.Ticket) string {
 	return "\n\nThis project is public, and a public review of the previous attempt on this branch found text that must " +
 		"not be published. Each finding says where it is and why:\n" + bullets(lines) +
 		"\n\nEvery commit on the branch is published, so rewrite this branch's own commits (amend or squash them) until " +
-		"no commit carries that text, then commit. Do not describe the removal in a commit message or in your summary."
+		"no commit carries that text, then commit. Do not describe the removal in a commit message, your summary or your rework note."
 }

@@ -42,6 +42,9 @@ func ReworkWhy(t *Ticket) string {
 		if m.Reason == model.ReasonWorkDone {
 			return ""
 		}
+		if m.Reason == model.ReasonPublicChanges && m.To == string(model.ColReady) {
+			return "" // what it removed must not be described: no update
+		}
 		if why := reworkWhy(m.Reason); why != "" && m.To == string(model.ColReady) {
 			return why
 		}
@@ -49,9 +52,13 @@ func ReworkWhy(t *Ticket) string {
 	return ""
 }
 
+// maxUpdate caps one update's text, so the Updates section stays well under
+// GitHub's limit on a PR description.
+const maxUpdate = 500
+
 // AddUpdate records what a rework of the ticket's open PR did.
 func AddUpdate(t *Ticket, why, text string, now time.Time) {
-	t.Updates = append(t.Updates, Update{At: clock.Stamp(now), Why: why, Text: textx.Strip(text)})
+	t.Updates = append(t.Updates, Update{At: clock.Stamp(now), Why: why, Text: textx.Prefix(textx.Strip(text), maxUpdate)})
 }
 
 // KeepSummary is a work report to store: report itself, or, when it has no

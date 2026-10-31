@@ -685,7 +685,7 @@ func (f *finisher) work(r Report) {
 		return
 	}
 	v, _ := r.Value("rework")
-	if text, ok := v.Str(); ok && textx.Strip(text) != "" && f.Ticket.PR.V.Number != 0 {
+	if text, ok := v.Str(); ok && textx.Strip(text) != "" && f.Ticket.PR.V.Number != 0 && ticket.ReworkWhy(f.Ticket) != "" {
 		ticket.AddUpdate(f.Ticket, ticket.ReworkWhy(f.Ticket), text, f.Now)
 		f.pin()
 	}
