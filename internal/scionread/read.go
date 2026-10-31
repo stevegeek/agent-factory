@@ -95,7 +95,8 @@ func firstArg(args []string) string {
 
 // List is `scion list --format json` in a project: the names of the agents
 // Scion runs there. A failed or unreadable list is an error, never an empty
-// list (running_agents).
+// list (running_agents). Scion keeps an agent whose container ended in its
+// list until it is deleted; such an agent is not running and is left out.
 func (r Reader) List(ctx context.Context, dir string) ([]string, error) {
 	res, err := r.run(ctx, dir, ReadEnv(r.Env, r.Bin), "list", "--format", "json")
 	if err != nil {
@@ -132,12 +133,32 @@ func parseList(out []byte) ([]string, error) {
 		if !ok {
 			return nil, ErrList
 		}
+		if ended(it.Get("phase")) {
+			continue
+		}
 		if !seen[name] {
 			seen[name] = true
 			names = append(names, name)
 		}
 	}
 	return names, nil
+}
+
+// ended reports a phase that says the agent's container is no longer
+// running: Scion's stopped and error, and running-container-down (Scion
+// still holds the agent as running, but its container is gone). Every
+// other phase, a missing one included, counts as running: a list that
+// cannot be read for certain never ends a run.
+func ended(v jsonx.Value) bool {
+	s, ok := v.Str()
+	if !ok {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "stopped", "error", "running-container-down":
+		return true
+	}
+	return false
 }
 
 // Look is `scion look <name> --plain -n <lines>`: the agent's screen as

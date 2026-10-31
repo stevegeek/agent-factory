@@ -12,6 +12,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/boardread"
 	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
+	"github.com/stevegeek/agent-factory/internal/deployrec"
 	"github.com/stevegeek/agent-factory/internal/gitx"
 	"github.com/stevegeek/agent-factory/internal/hosts"
 	"github.com/stevegeek/agent-factory/internal/jobproto"
@@ -124,12 +125,23 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 	case has:
 		return d.finish(ctx, cfg, proj, t, raw, "")
 	case running != nil && !running[a.Name]:
+		if dir != "" {
+			if err := d.Local.Remove(ctx, dir, t.ID, a.Name, true); err != nil {
+				return err
+			}
+		}
+		d.recordUsage(t, a)
 		d.settle(ctx, cfg, t, nil)
 		if err := d.Screen.DropRunConfig(a.Name); err != nil {
 			return err
 		}
 		t.Agent = ticket.Nil[ticket.Agent]()
-		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonAgentLost, "agent "+a.Name+" disappeared without a report", "", "", d.now())
+		detail := "agent " + a.Name + " stopped: container ended without a report (seen " + clock.Stamp(d.now()) + ")"
+		if dep, ok := d.deployDuring(a); ok {
+			ticket.Move(t, hosts.RetryColumn(a.Stage), model.ReasonAgentLost, detail+", during the deploy of "+dep+"; it is retried", "", "", d.now())
+			return nil
+		}
+		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonAgentLost, detail, "", "", d.now())
 	default:
 		late, err := d.pastTimeout(cfg, t)
 		if err != nil || !late {
@@ -148,6 +160,37 @@ func (d Deps) localAgent(ctx context.Context, cfg *config.Config, proj *config.P
 		ticket.Move(t, string(model.ColNeedsHuman), model.ReasonTimedOut, "agent "+a.Name+" timed out", "", "", d.now())
 	}
 	return nil
+}
+
+// deployStopWindow is how long after a deploy ends a stopped agent still
+// counts as stopped by it. The stop is seen on the next tick (every five
+// minutes), and a deploy that a long agent only spanned must not hide the
+// agent's own failure later on.
+const deployStopWindow = 10 * time.Minute
+
+// deployDuring reports a deploy the agent's stop can be put on: one that
+// is still running, or that ended within deployStopWindow, after the agent
+// started. That is the factory restarting under the agent, not the agent's
+// own failure. A deploy state that does not read is no such deploy.
+func (d Deps) deployDuring(a ticket.Agent) (string, bool) {
+	st, err := deployrec.ReadState(d.Paths.DeployState())
+	if err != nil || st.Started == "" {
+		return "", false
+	}
+	began, err := clock.Parse(a.Started)
+	if err != nil {
+		return "", false
+	}
+	if st.Finished != "" {
+		ended, err := clock.Parse(st.Finished)
+		if err != nil || ended.Before(began) || d.now().Sub(ended) > deployStopWindow {
+			return "", false
+		}
+	}
+	if st.Commit == "" {
+		return "the factory", true
+	}
+	return st.Commit, true
 }
 
 // remoteAgent is the helper half of the agent pass: poll_remote,

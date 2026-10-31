@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stevegeek/agent-factory/internal/deployrec"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
@@ -103,11 +104,95 @@ func TestALocalAgentThatDisappearedIsLost(t *testing.T) {
 	if got.Agent.Present() || got.Column != "needs_human" || moveReason(lastMove(got)) != model.ReasonAgentLost {
 		t.Fatalf("agent %+v column %s move %+v", got.Agent, got.Column, lastMove(got))
 	}
-	if lastMove(got).Detail != "triage -> needs_human: agent t0001-t1 disappeared without a report" {
-		t.Fatalf("detail %q", lastMove(got).Detail)
+	want := "triage -> needs_human: agent t0001-t1 stopped: container ended without a report (seen " + stamp(h.clock.Now()) + ")"
+	if lastMove(got).Detail != want {
+		t.Fatalf("detail %q, want %q", lastMove(got).Detail, want)
 	}
-	if len(h.local.dropped) != 1 || len(h.local.removed) != 0 {
-		t.Fatalf("dropped %v removed %v", h.local.dropped, h.local.removed)
+	if len(h.local.dropped) != 1 || len(h.local.removed) != 1 || !h.local.removed[0].KeepBranch {
+		t.Fatalf("dropped %v removed %+v", h.local.dropped, h.local.removed)
+	}
+}
+
+func TestAnAgentStoppedByADeployIsRetried(t *testing.T) {
+	for name, finished := range map[string]time.Duration{"deploy still running": -1, "deploy ended after the start": 2 * time.Minute} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			id := localAgent(h, "work", "working", func(t *ticket.Ticket) { t.Branch = ticket.Some("bot/x") })
+			st := deployrec.State{Phase: "done", Commit: "0123456789ab", Started: stamp(h.clock.Now().Add(-30 * time.Second))}
+			if finished >= 0 {
+				st.Finished = stamp(h.clock.Now().Add(finished))
+			}
+			if err := deployrec.WriteState(h.paths.DeployState(), st); err != nil {
+				t.Fatal(err)
+			}
+			h.clock.Add(3 * time.Minute)
+			h.tick()
+			got := h.load(id)
+			if len(h.local.removed) != 1 {
+				t.Fatalf("removed %+v", h.local.removed)
+			}
+			m, ok := moveFrom(got, "working")
+			if !ok || m.To != "ready" || m.Reason != model.ReasonAgentLost {
+				t.Fatalf("column %s moves %+v", got.Column, got.History)
+			}
+			if d := m.Text; !strings.Contains(d, "during the deploy of 0123456789ab; it is retried") {
+				t.Fatalf("detail %q", d)
+			}
+		})
+	}
+}
+
+// moveFrom is the ticket's first move out of column, with its detail.
+func moveFrom(t *ticket.Ticket, column string) (ticket.Moved, bool) {
+	for _, e := range t.History {
+		var m ticket.Moved
+		switch v := e.Data.(type) {
+		case ticket.Moved:
+			m = v
+		case *ticket.Moved:
+			m = *v
+		default:
+			continue
+		}
+		if m.From == column {
+			m.Text = e.Detail
+			return m, true
+		}
+	}
+	return ticket.Moved{}, false
+}
+
+func TestAnAgentStoppedLongAfterADeployNeedsAPerson(t *testing.T) {
+	h := newHarness(t)
+	id := localAgent(h, "triage", "triage", nil)
+	st := deployrec.State{Phase: "done", Commit: "0123456789ab",
+		Started: stamp(h.clock.Now().Add(-10 * time.Minute)), Finished: stamp(h.clock.Now().Add(-9 * time.Minute))}
+	if err := deployrec.WriteState(h.paths.DeployState(), st); err != nil {
+		t.Fatal(err)
+	}
+	h.tick()
+	if got := h.load(id); got.Column != "needs_human" {
+		t.Fatalf("column %s", got.Column)
+	}
+}
+
+func TestAnAgentThatOutlivedADeployAndStoppedLaterNeedsAPerson(t *testing.T) {
+	h := newHarness(t)
+	id := localAgent(h, "triage", "triage", nil)
+	st := deployrec.State{Phase: "done", Commit: "0123456789ab",
+		Started: stamp(h.clock.Now().Add(10 * time.Minute)), Finished: stamp(h.clock.Now().Add(11 * time.Minute))}
+	if err := deployrec.WriteState(h.paths.DeployState(), st); err != nil {
+		t.Fatal(err)
+	}
+	h.clock.Add(40 * time.Minute)
+	h.tick()
+	got := h.load(id)
+	m, ok := moveFrom(got, "triage")
+	if !ok || m.To != "needs_human" || m.Reason != model.ReasonAgentLost {
+		t.Fatalf("column %s moves %+v", got.Column, got.History)
+	}
+	if strings.Contains(m.Text, "deploy") {
+		t.Fatalf("detail %q", m.Text)
 	}
 }
 

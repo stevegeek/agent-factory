@@ -57,6 +57,19 @@ func TestListArgvAndNames(t *testing.T) {
 	}
 }
 
+func TestListLeavesOutAgentsWhoseContainerEnded(t *testing.T) {
+	out := `[{"name":"a1","phase":"running","activity":"working"},{"name":"a2","phase":"stopped"},` +
+		`{"name":"a3","phase":"running-container-down","activity":"offline"},{"name":"a4"},{"name":"a5","phase":"error"},` +
+		`{"name":"a6","phase":7},{"name":"a7","phase":"running","activity":"completed"},{"name":"a8","phase":"suspended"}]`
+	names, err := reader(&fake{res: execx.Result{Stdout: []byte(out)}}).List(context.Background(), "/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"a1", "a4", "a6", "a7", "a8"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("names %q, want %q", names, want)
+	}
+}
+
 // running_agents: a failed list is not an empty one.
 func TestListFailureIsUnknownNotEmpty(t *testing.T) {
 	for name, f := range map[string]*fake{
