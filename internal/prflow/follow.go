@@ -5,7 +5,9 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/gate"
 	"github.com/stevegeek/agent-factory/internal/github"
@@ -157,6 +159,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 	now := f.now()
 	if !jsonx.Equal(commit, head) || !jsonx.Equal(head, gated) {
 		markSeen(t, unseen)
+		ticket.ClearQueue(t)
 		what := "PR #" + itoa(n) + " moved since the gate checked it"
 		if !jsonx.Equal(commit, head) {
 			what = "your approval is for " + textx.Prefix(jsonx.PyStr(commit), 7) + ", but PR #" + itoa(n) + " is now at " + textx.Prefix(jsonx.PyStr(head), 7)
@@ -172,6 +175,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 		v := t.PR.V
 		v.MergeWait = ticket.Opt[string]{}
 		t.PR = ticket.Some(v)
+		ticket.ClearQueue(t)
 		ticket.AddNote(t, "PR #"+itoa(n)+" was approved but conflicts with "+p.Base+": other changes were merged since. "+
 			"Rebase this branch onto "+p.Base+", resolve the conflicts keeping both the reviewed change "+
 			"and what was merged, run the tests, and say in your rework what conflicted and how you resolved it.", "", nil, now)
@@ -182,6 +186,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 	}
 	if !f.timeForMerge(ctx) {
 		f.logf("%s: approved PR #%d merges on the next tick: too little time left in this one for a merge check", t.ID, n)
+		ticket.SetQueue(t, ticket.PRQueue{State: ticket.QueueTime, Since: clock.Stamp(now)})
 		return nil
 	}
 	sha, _ := head.Str()
@@ -203,11 +208,13 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 	}
 	if errors.Is(err, gate.ErrNoRoom) {
 		f.logf("%s: approved PR #%d merges on a later tick: %v", t.ID, n, err)
+		noRoom(t, err, now)
 		return nil
 	}
 	var he *github.HTTPError
 	isHTTP := errors.As(err, &he)
 	if transient(err) && !isHTTP {
+		ticket.SetQueue(t, ticket.PRQueue{State: ticket.QueueMerging, Detail: textx.Prefix(pyErr(err), 250), Since: clock.Stamp(now)})
 		return err // no answer at all: the tick records it, and tries again
 	}
 	// usually the required checks are still running; say why once, then
@@ -223,6 +230,7 @@ func (f *Flow) approveToMerge(ctx context.Context, cfg *config.Config, p config.
 		ticket.Event(t, "pr", "approved; not merged yet: "+why, "",
 			ticket.PRNote{Action: ticket.PRMergeWaiting, Number: n, Why: why}, f.now())
 	}
+	ticket.ClearQueue(t)
 	return nil
 }
 
@@ -271,4 +279,14 @@ func (f *Flow) pickUpChanges(ctx context.Context, cfg *config.Config, p config.P
 		itoa(len(points))+" point(s) from your review of PR #"+itoa(n)+" went to the worker as a note", "", now)
 	f.hold(ctx, cfg, t)
 	return nil
+}
+
+// noRoom records on t that its merge waits for room for the merge check
+// (err wraps gate.ErrNoRoom), with the agents counted when there is a count.
+func noRoom(t *ticket.Ticket, err error, now time.Time) {
+	q := ticket.PRQueue{State: ticket.QueueRoom, Since: clock.Stamp(now)}
+	if re := (*gate.RoomError)(nil); errors.As(err, &re) {
+		q.Running, q.Max = re.Running, re.Max
+	}
+	ticket.SetQueue(t, q)
 }

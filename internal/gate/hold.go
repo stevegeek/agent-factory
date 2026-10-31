@@ -18,6 +18,9 @@ type HoldIn struct {
 	Config  *config.Config
 	Project config.Project
 	Ticket  *ticket.Ticket // changed on a pass: its gate's base, and a gate event
+	// Started, when set, is called once the checks have room and are
+	// about to run.
+	Started func()
 }
 
 // StillHoldsOnMain is still_holds_on_main, the merge queue's check: when the
@@ -52,6 +55,9 @@ func (r Runner) StillHoldsOnMain(ctx context.Context, in HoldIn) (ok bool, out s
 	if err := r.room(ctx, in.Config, p); err != nil {
 		return false, "", err
 	}
+	if in.Started != nil {
+		in.Started()
+	}
 	ok, out, err = r.Checks(ctx, CheckIn{Config: in.Config, Project: p, ID: string(t.ID), Branch: t.Branch.Or(""), Ref: g.Head, Merge: now})
 	if err != nil {
 		return false, "", err
@@ -69,6 +75,20 @@ func (r Runner) StillHoldsOnMain(ctx context.Context, in HoldIn) (ok bool, out s
 // room for it now (Fits); the merge waits for a later tick.
 var ErrNoRoom = errors.New("no room on this host for the merge check")
 
+// RoomError is an ErrNoRoom with the agents it counted: Running of Max
+// (max_agents), and the project's gate memory. A heavy gate finds no room
+// below Max.
+type RoomError struct {
+	Running, Max int
+	Memory       string
+}
+
+func (e *RoomError) Error() string {
+	return fmt.Sprintf("%v: %d agents run here (max_agents %d, gate memory %s)", ErrNoRoom, e.Running, e.Max, e.Memory)
+}
+
+func (e *RoomError) Unwrap() error { return ErrNoRoom }
+
 // Fits reports whether a gate of project p may run on this host beside
 // agents running agents: it takes one of max_agents' slots, and
 // a heavy one (config.HeavyGate) needs the host to itself.
@@ -80,7 +100,8 @@ func Fits(cfg *config.Config, p config.Project, agents int) bool {
 }
 
 // room is nil when the merge check fits beside the agents running here
-// (Agents), and ErrNoRoom otherwise, or when they cannot be counted.
+// (Agents), a *RoomError otherwise, and ErrNoRoom when they cannot be
+// counted.
 func (r Runner) room(ctx context.Context, cfg *config.Config, p config.Project) error {
 	if r.Agents == nil {
 		return nil
@@ -93,7 +114,7 @@ func (r Runner) room(ctx context.Context, cfg *config.Config, p config.Project) 
 		return fmt.Errorf("%w: the agents running here cannot be counted: %v", ErrNoRoom, err)
 	}
 	if !Fits(cfg, p, n) {
-		return fmt.Errorf("%w: %d agents run here (max_agents %d, gate memory %s)", ErrNoRoom, n, cfg.MaxAgents, cfg.GateMemory(p))
+		return &RoomError{Running: n, Max: cfg.MaxAgents, Memory: cfg.GateMemory(p)}
 	}
 	return nil
 }

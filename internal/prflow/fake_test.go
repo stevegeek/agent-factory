@@ -316,15 +316,23 @@ func (g *fakeGit) Push(_ context.Context, p config.Project, branch, token string
 }
 
 // fakeChecks is the merge queue's check (gate.Runner.StillHoldsOnMain).
+// With run set, it starts the checks (in.Started) and then calls run.
 type fakeChecks struct {
 	ok    bool
 	out   string
 	err   error
 	calls int
+	run   func()
 }
 
 func (c *fakeChecks) StillHoldsOnMain(_ context.Context, in gate.HoldIn) (bool, string, error) {
 	c.calls++
+	if c.run != nil {
+		if in.Started != nil {
+			in.Started()
+		}
+		c.run()
+	}
 	return c.ok, c.out, c.err
 }
 

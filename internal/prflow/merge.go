@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/gate"
 	"github.com/stevegeek/agent-factory/internal/github"
@@ -98,7 +99,7 @@ func refusedForApproval(code int, message string) bool {
 // read it, for its labels.
 func (f *Flow) land(ctx context.Context, cfg *config.Config, p config.Project, t *ticket.Ticket, pr *github.PR, head, detail, rule string) error {
 	n := t.PR.V.Number
-	ok, out, err := f.Checks.StillHoldsOnMain(ctx, gate.HoldIn{Config: cfg, Project: p, Ticket: t})
+	ok, out, err := f.Checks.StillHoldsOnMain(ctx, gate.HoldIn{Config: cfg, Project: p, Ticket: t, Started: func() { f.merging(t) }})
 	if err != nil {
 		return err
 	}
@@ -128,6 +129,7 @@ func (f *Flow) land(ctx context.Context, cfg *config.Config, p config.Project, t
 	v.MergeWait = ticket.Opt[string]{}
 	v.MergeBlocked = ticket.Opt[string]{}
 	t.PR = ticket.Some(v)
+	ticket.ClearQueue(t)
 	sha, _ := res.Raw.Get("sha").Str()
 	f.merged(ctx, p, t, pr, sha)
 	if branch := t.Branch.Or(""); strings.HasPrefix(branch, "bot/") {
@@ -194,6 +196,7 @@ func (f *Flow) mainMoved(ctx context.Context, cfg *config.Config, p config.Proje
 		return fmt.Errorf("merge check %s: %w", t.ID, err)
 	}
 	now := f.now()
+	ticket.ClearQueue(t)
 	ticket.AddNote(t, "Before merging PR #"+itoa(n)+", "+p.Base+" had moved, and with it merged in the tests or lint fail "+
 		"(output: logs/"+string(t.ID)+"/merge-check-output.txt, the end of it: "+textx.Clip(lastRunes(out, 600), 600)+"). Rebase onto "+
 		p.Base+", fix what broke, run the tests, and say what it was in your rework.", "", nil, now)
@@ -201,4 +204,16 @@ func (f *Flow) mainMoved(ctx context.Context, cfg *config.Config, p config.Proje
 		"merge check: PR #"+itoa(n)+" passes alone but not on "+p.Base+" as it is now", "", now)
 	f.hold(ctx, cfg, t)
 	return &Refusal{Message: p.Base + " moved and the checks fail with it merged in; sent back for a rework", err: ErrMainMoved}
+}
+
+// merging records that t's merge check runs now, and saves it at once:
+// the check can take minutes, and the board shows the wait meanwhile.
+func (f *Flow) merging(t *ticket.Ticket) {
+	ticket.SetQueue(t, ticket.PRQueue{State: ticket.QueueMerging, Since: clock.Stamp(f.now())})
+	if f.Board == nil {
+		return
+	}
+	if err := f.Board.Save(t); err != nil {
+		f.logf("%s: could not save that its merge check runs: %v", t.ID, err)
+	}
 }

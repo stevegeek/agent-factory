@@ -142,6 +142,9 @@ func Action(t *ticket.Ticket, a *ticket.Ask) string {
 	}
 	switch model.AskKind(a.Kind) {
 	case model.AskReview:
+		if l := QueueLine(t); l != "" {
+			return l + walls
+		}
 		if Mergeable(t) {
 			return fmt.Sprintf("Merge PR #%d?", pr) + walls
 		}

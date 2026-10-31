@@ -154,8 +154,9 @@ func TestStillHoldsUsesTheLocalBaseWhenItCannotRefresh(t *testing.T) {
 
 // The merge check is a gate on this host, so it needs room there: one of
 // max_agents' slots, and the host to itself when the project's gate memory
-// is heavy. Without room it does not run, and says so with ErrNoRoom; an
-// agent count that cannot be read is no room.
+// is heavy. Without room it does not run, and says so with ErrNoRoom (a
+// RoomError with the count); an agent count that cannot be read is no room.
+// Started is called only with room, before the checks run.
 func TestTheMergeCheckNeedsRoomOnThisHost(t *testing.T) {
 	for _, c := range []struct {
 		name    string
@@ -179,15 +180,21 @@ func TestTheMergeCheckNeedsRoomOnThisHost(t *testing.T) {
 			r.runner.Agents = func(context.Context, *config.Config) (int, error) { return c.agents, c.err }
 			gated, _ := tk.Gate.Get()
 			before := len(tk.History)
-			ok, _, err := r.runner.StillHoldsOnMain(context.Background(), HoldIn{Config: cfg, Project: p, Ticket: tk})
+			started := -1
+			in := HoldIn{Config: cfg, Project: p, Ticket: tk, Started: func() { started = len(r.podman.runs) }}
+			ok, _, err := r.runner.StillHoldsOnMain(context.Background(), in)
 			if c.room {
-				if !ok || err != nil || len(r.podman.runs) != 1 {
-					t.Fatalf("= %v %v, %d runs", ok, err, len(r.podman.runs))
+				if !ok || err != nil || len(r.podman.runs) != 1 || started != 0 {
+					t.Fatalf("= %v %v, %d runs, started after %d", ok, err, len(r.podman.runs), started)
 				}
 				return
 			}
-			if ok || !errors.Is(err, ErrNoRoom) || len(r.podman.runs) != 0 {
+			if ok || !errors.Is(err, ErrNoRoom) || len(r.podman.runs) != 0 || started != -1 {
 				t.Fatalf("= %v %v, %d runs", ok, err, len(r.podman.runs))
+			}
+			var re *RoomError
+			if counted := errors.As(err, &re); counted != (c.err == nil) || counted && (re.Running != c.agents || re.Max != 2) {
+				t.Errorf("room error = %#v", err)
 			}
 			if g, _ := tk.Gate.Get(); g.Base != gated.Base || len(tk.History) != before {
 				t.Error("a merge check with no room changed the ticket")

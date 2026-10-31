@@ -82,6 +82,13 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 			case mergeable(t):
 				out = append(out, Answer{Value: "merge", Label: "Merge it", Sub: fmt.Sprintf("the factory merges PR #%d and closes the ticket", pr.Number), Primary: true},
 					Answer{Label: "Read it on GitHub", Sub: "the diff and the checks, before you decide", Href: u})
+			case ticket.MergeQueued(t):
+				who := "you approved it"
+				if !ticket.ApprovedAtHead(t) {
+					who = "you asked for the merge"
+				}
+				out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", pr.Number),
+					Sub: who + " and the factory merges it by itself; request changes there for a rework", Primary: true, Href: u})
 			default:
 				out = append(out, Answer{Label: fmt.Sprintf("Open PR #%d on GitHub", pr.Number),
 					Sub: "approve it there and the factory merges it; or request changes for a rework", Primary: true, Href: u})

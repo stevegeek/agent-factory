@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/stevegeek/agent-factory/internal/clock"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
@@ -171,6 +172,9 @@ func PRCallout(t *ticket.Ticket) *Callout {
 	if t.Column != string(model.ColPROpen) || !okPR || !okG {
 		return nil
 	}
+	if l := QueueLine(t); l != "" {
+		return &Callout{Tone: "info", Title: l, Lines: []string{"The factory tries again on each tick and merges it by itself; nothing more is needed from you."}}
+	}
 	if pr.MergeBlocked.Or("") == ticket.MergeBlockedApproval && WaitsForApproval(t) {
 		return &Callout{Tone: "warn", Title: "Waiting for your approval on GitHub", Lines: []string{
 			fmt.Sprintf("GitHub refused the merge: PR #%d needs your approval of its latest commit.", pr.Number),
@@ -186,6 +190,55 @@ func PRCallout(t *ticket.Ticket) *Callout {
 		title = "Why this PR needs your review"
 	}
 	return &Callout{Tone: "warn", Title: title, Lines: DraftReasons(g.Blockers)}
+}
+
+// QueueLine is what the merge of an approved open PR waits on, with the
+// time the wait began (pr.queue, or pr.merge_wait and its event), or ""
+// when nothing is recorded.
+func QueueLine(t *ticket.Ticket) string {
+	pr, ok := t.PR.Get()
+	if !ok || !ticket.MergeQueued(t) {
+		return ""
+	}
+	q, queued := pr.Queue.Get()
+	var what string
+	switch {
+	case !queued && pr.MergeWait.Present():
+		what = "merges when GitHub allows it (" + Clip(pr.MergeWait.Or(""), 120) + ")"
+		q.Since = mergeWaitSince(t)
+	case !queued:
+		return ""
+	case q.State == ticket.QueueRoom:
+		what = "merges when there is room for the merge check"
+		if q.Max > 0 {
+			what += fmt.Sprintf(" (%d/%d agents running)", q.Running, q.Max)
+		}
+	case q.State == ticket.QueueTime:
+		what = "merges on the next tick (too little time was left in one for the merge check)"
+	case q.State == ticket.QueueMerging && q.Detail == "":
+		what = "merging now (the merge check runs)"
+	case q.State == ticket.QueueMerging:
+		what = "merging; the last try failed and the next tick tries again"
+	default:
+		what = "the merge waits"
+	}
+	if at, err := clock.Parse(q.Since); err == nil {
+		what += ", since " + at.Local().Format("15:04")
+	}
+	if !ticket.ApprovedAtHead(t) {
+		return "Merge requested; " + what
+	}
+	return "Approved; " + what
+}
+
+// mergeWaitSince is the stamp of the latest "not merged yet" event, or "".
+func mergeWaitSince(t *ticket.Ticket) string {
+	for i := len(t.History) - 1; i >= 0; i-- {
+		if n, ok := t.History[i].Data.(ticket.PRNote); ok && n.Action == ticket.PRMergeWaiting {
+			return t.History[i].At
+		}
+	}
+	return ""
 }
 
 // Pending says what the tick is doing for an intent Foreman recorded:
