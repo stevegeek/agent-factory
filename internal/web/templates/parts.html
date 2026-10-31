@@ -110,6 +110,15 @@
       <div><label for="pick-{{.N}}"><b>{{.N}}.</b> {{mdi .Title}}</label>{{with .After}} <span class="sub">after {{.}}</span>{{end}}
       <details class="more" data-key="pick-{{.N}}"><summary>Read it</summary><div class="text md">{{md .Body}}</div></details></div></div>{{end}}
   </div>{{end}}
+  {{if .Choices}}<div class="picks options">
+    {{$type := "radio"}}{{if .ManyChoices}}{{$type = "checkbox"}}{{end}}{{$any := false}}{{range .Choices}}{{if .Recommended}}{{$any = true}}{{end}}{{end}}
+    {{range $o := .Choices}}<div class="pick"><input type="{{$type}}" name="option" value="{{$o.Key}}" id="option-{{$o.Key}}"{{if $o.Recommended}} checked{{end}}>
+      <div><label for="option-{{$o.Key}}">{{mdi $o.Label}}{{if $o.Recommended}} <span class="badge small">Recommended</span>{{end}}</label>
+      <p class="finding-meta">{{$o.Effect}}</p>
+      {{with $o.Detail}}<details class="more" data-key="option-{{$o.Key}}"><summary>Read it</summary><div class="text md">{{md .}}</div></details>{{end}}</div></div>{{end}}
+    {{if not .ManyChoices}}<div class="pick"><input type="radio" name="option" value="" id="option-none"{{if not $any}} checked{{end}}>
+      <div><label for="option-none">None: my note answers</label></div></div>{{end}}
+  </div>{{end}}
   {{if .FindingsAsk}}<div class="picks findings">
     {{range .Findings}}{{template "finding" .}}{{end}}
   </div>{{end}}

@@ -1,6 +1,7 @@
 package stage
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestAnAgentAsksAndTheQuestionWaitsForTheMaintainer(t *testing.T) {
 		t.Errorf("%s %+v", got.Column, a)
 	}
 	q, _ := got.Question.Get()
-	if q != (ticket.Question{Text: "Should the minimum be 8 or 16?", Stage: "task", Agent: "t0001-k1", At: "2026-10-17T09:30:00+00:00"}) {
+	if !reflect.DeepEqual(q, ticket.Question{Text: "Should the minimum be 8 or 16?", Stage: "task", Agent: "t0001-k1", At: "2026-10-17T09:30:00+00:00"}) {
 		t.Errorf("question %+v", q)
 	}
 	if last(got).Detail != "working -> needs_human: task asks: Should the minimum be 8 or 16?" {
@@ -70,5 +71,62 @@ func TestQuestionIsCut(t *testing.T) {
 	out = finish(t, FinishIn{Ticket: running(t, "T0001", "work", "working", ""), Report: report(`{"status": "question", "question": 42}`)})
 	if q, _ := out.Ticket.Question.Get(); q.Text != "42" {
 		t.Errorf("a question is str()'d: %q", q.Text)
+	}
+}
+
+const optionsReport = `{"status": "question", "question": "Which name?", "summary": "Stopped before the rename.", "options": [
+	{"key": "keep", "label": "Keep the  old\nname", "detail": " The API stays. ", "recommended": true},
+	{"key": "rename", "label": "Rename it", "effect": "close"},
+	{"key": "later", "label": "Rename it in a follow-up", "effect": "file", "kind": "intent", "then": "continue"},
+	{"key": "no", "label": "Neither", "effect": "drop"}]}`
+
+func TestAQuestionKeepsGoodOptions(t *testing.T) {
+	out := finish(t, FinishIn{Ticket: running(t, "T0001", "work", "working", ""), Report: report(optionsReport)})
+	q, _ := out.Ticket.Question.Get()
+	want := []ticket.QuestionOption{
+		{Key: "keep", Label: "Keep the old name", Detail: "The API stays.", Recommended: true},
+		{Key: "rename", Label: "Rename it", Effect: "close"},
+		{Key: "later", Label: "Rename it in a follow-up", Effect: "file", Kind: "intent", Then: "continue"},
+		{Key: "no", Label: "Neither", Effect: "drop"},
+	}
+	if out.Ticket.Column != "needs_human" || q.Text != "Which name?" || q.Select != "" || !reflect.DeepEqual(q.Options, want) {
+		t.Errorf("%s %+v", out.Ticket.Column, q)
+	}
+	if d := last(out.Ticket).Detail; d != "working -> needs_human: work asks: Which name?" {
+		t.Errorf("%q", d)
+	}
+	many := `{"status": "question", "question": "Which?", "select": "many", "options": [{"key": "a", "label": "A"}, {"key": "b", "label": "B", "effect": "continue"}]}`
+	out = finish(t, FinishIn{Ticket: running(t, "T0001", "work", "working", ""), Report: report(many)})
+	if q, _ := out.Ticket.Question.Get(); q.Select != "many" || len(q.Options) != 2 {
+		t.Errorf("many: %+v", q)
+	}
+}
+
+func TestBadOptionsAreDroppedAndTheQuestionStays(t *testing.T) {
+	opt := func(key, extra string) string { return `{"key": "` + key + `", "label": "` + key + `"` + extra + `}` }
+	two := opt("a", "") + ", " + opt("b", "")
+	for name, tc := range map[string]struct{ sel, opts string }{
+		"duplicate keys":    {"", opt("a", "") + ", " + opt("a", "")},
+		"unknown effect":    {"", opt("a", "") + ", " + opt("b", `, "effect": "merge"`)},
+		"six options":       {"", two + ", " + opt("c", "") + ", " + opt("d", "") + ", " + opt("e", "") + ", " + opt("f", "")},
+		"one option":        {"", opt("a", "")},
+		"two recommended":   {"", opt("a", `, "recommended": true`) + ", " + opt("b", `, "recommended": true`)},
+		"file with no then": {"", opt("a", "") + ", " + opt("b", `, "effect": "file"`)},
+		"many and a close":  {`"select": "many", `, opt("a", "") + ", " + opt("b", `, "effect": "close"`)},
+		"not a list":        {"", `"a"`},
+		"wrong type":        {"", opt("a", "") + ", " + opt("b", `, "recommended": "yes"`)},
+	} {
+		rep := `{"status": "question", "question": "Which?", ` + tc.sel + `"options": [` + tc.opts + `]}`
+		if name == "not a list" {
+			rep = `{"status": "question", "question": "Which?", "options": "a"}`
+		}
+		out := finish(t, FinishIn{Ticket: running(t, "T0001", "work", "working", ""), Report: report(rep)})
+		q, ok := out.Ticket.Question.Get()
+		if !ok || q.Text != "Which?" || q.Options != nil || q.Select != "" || out.Ticket.Column != "needs_human" {
+			t.Errorf("%s: %s %+v", name, out.Ticket.Column, q)
+		}
+		if d := last(out.Ticket).Detail; !strings.HasPrefix(d, "working -> needs_human: work asks: Which?; its options were dropped: ") {
+			t.Errorf("%s: %q", name, d)
+		}
 	}
 }

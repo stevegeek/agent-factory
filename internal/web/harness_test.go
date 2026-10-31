@@ -18,6 +18,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/boardread"
 	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/ops"
 	"github.com/stevegeek/agent-factory/internal/paths"
 	"github.com/stevegeek/agent-factory/internal/present"
 	"github.com/stevegeek/agent-factory/internal/testkit"
@@ -194,7 +195,8 @@ func (f *fakeOps) Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 	case "notice":
 		return []Answer{{Value: "done", Label: "Done", Sub: "close it; nothing else happens", Primary: true}}
 	case "question":
-		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: true}}
+		choices, _ := ops.Choices(t)
+		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: len(choices) == 0}}
 	case "draft":
 		return []Answer{{Value: "applied", Label: "I've applied it", Sub: "you deployed it from your machine; the ticket closes", Primary: true},
 			{Value: "send_back", Label: "Send back with a note", Sub: "the manager redrafts it", NeedsNote: true, NoteFor: "to send it back"},

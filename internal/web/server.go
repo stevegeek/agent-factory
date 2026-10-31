@@ -72,7 +72,8 @@ type AnswerRequest struct {
 	Note  string // as typed
 	Picks []int  // the design proposals, or the findings, ticked, 1-based
 	// As is how each ticked finding is filed (change or intent), as chosen.
-	As map[int]string
+	As      map[int]string
+	Options []string // the keys of the agent's question's options, chosen
 	// Kind and Since are the ask the page showed ("" when none): the
 	// service refuses, under the ticket's lock, an answer to an ask that has
 	// moved on.

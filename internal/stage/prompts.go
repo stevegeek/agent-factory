@@ -58,6 +58,31 @@ and write ` + "`~/report.json`" + ` with ` + "`\"status\": \"question\"`, `\"que
 you see, and ` + "`\"summary\"`" + `: where you stopped. Write your handover first if you have a memory. The
 maintainer's answer comes back as a note, and a new run carries on from there.`
 
+// QuestionOptionsNote follows QuestionNote: how an asking stage offers its
+// question as a choice, with what each answer does (ticket.CheckOptions).
+const QuestionOptionsNote = `
+
+When the question is a choice, give it as ` + "`\"options\"`" + ` (2 to 5), and the maintainer picks one:
+
+` + "```json" + `
+"options": [
+  {"key": "keep", "label": "Keep the old name", "detail": "Why, and what follows.", "recommended": true},
+  {"key": "split", "label": "Rename it in its own change", "effect": "file", "kind": "change", "then": "continue"}
+]
+` + "```" + `
+
+- ` + "`key`" + `: 1 to 20 of a-z, 0-9, ` + "`_` and `-`" + `, each one different. ` + "`label`" + `: one line of at most 120
+  characters. ` + "`detail`" + `: at most 1000 characters. At most one option is ` + "`recommended`" + `.
+- ` + "`effect`" + `: ` + "`continue`" + ` (the default: a new run carries on with the choice), ` + "`close`" + ` (the ticket is done,
+  with the label as its result), ` + "`drop`" + ` (the ticket is dropped), or ` + "`file`" + ` (the label and detail become a
+  new ticket of ` + "`kind` `change`" + ` (the default) or ` + "`intent`" + `, then ` + "`then`" + `: ` + "`continue` or `close`" + ` this one).
+- ` + "`close` and `drop`" + ` end the ticket with no further run, and so does ` + "`file`" + ` with ` + "`then: close`" + `;
+  ` + "`file`" + ` with ` + "`then: continue`" + ` splits the work off and carries on. Offer an effect that ends the ticket
+  only when nothing is left for you to do after that answer.
+- ` + "`\"select\": \"many\"`" + ` lets the maintainer pick several; every effect must then be ` + "`continue`" + `.
+
+Options outside these limits are dropped, and the question stays as plain text.`
+
 // compose is start_stage's assembly: the stage's text, the project facts
 // (not for the manager), the question note for a stage that may ask, the
 // memory prompt, and last the stage's note on the suite (TestNote).
@@ -66,7 +91,7 @@ func compose(s model.Stage, in PromptIn, p string) string {
 		p += ProjectFacts(in.Project)
 	}
 	if info, _ := model.StageInfoOf(s); info.MayAsk {
-		p += QuestionNote
+		p += QuestionNote + QuestionOptionsNote
 	}
 	if in.Memory != nil {
 		where := memory.JobMount

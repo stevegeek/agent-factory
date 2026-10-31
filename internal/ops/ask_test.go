@@ -39,7 +39,8 @@ func TestAskBodyMatchesPython(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := ops.AskBody(parent, r.Question); got != r.Body {
+		// AskFileNote is Go's own
+		if got := strings.TrimSuffix(ops.AskBody(parent, r.Question), ops.AskFileNote); got != r.Body {
 			t.Errorf("%s %q:\n%s", r.Name, r.Question, testkit.Diff(r.Body, got))
 		}
 	}

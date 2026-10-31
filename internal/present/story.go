@@ -127,6 +127,8 @@ func (r *reader) story(t *ticket.Ticket, all map[ticket.ID]*ticket.Ticket) Story
 			}
 		case "note":
 			st = &Step{At: ParseTime(e.At), Who: "You", What: "Note: " + Clip(e.Detail, 400)}
+		case "chose":
+			st = &Step{At: ParseTime(e.At), Who: "You", What: sentence(Clip(e.Detail, 400))}
 		case "comment":
 			st = &Step{At: ParseTime(e.At), Who: firstNonEmpty(byOf(e), "Agent"), What: "Comment: " + Clip(commentText(t, e), 400)}
 		case "question":
@@ -407,6 +409,8 @@ func (r *reader) moveStep(t *ticket.Ticket, e ticket.Entry) *Step {
 			st.Who = "You"
 		}
 		st.What = "Filed the findings as " + strings.TrimPrefix(detail, "findings filed: ") + "."
+	case m.Is(model.ReasonQuestionClosed, false), m.Is(model.ReasonQuestionDropped, false):
+		return nil // the choice's own step says it
 	case m.Is(model.ReasonFindingsDismissed, false):
 		st.Who, st.What = "You", "Closed it; no findings filed."
 	case m.Is(model.ReasonDeployHeld, false):

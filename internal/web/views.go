@@ -15,6 +15,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/operatorview"
+	"github.com/stevegeek/agent-factory/internal/ops"
 	"github.com/stevegeek/agent-factory/internal/present"
 	"github.com/stevegeek/agent-factory/internal/thread"
 	"github.com/stevegeek/agent-factory/internal/ticket"
@@ -79,7 +80,9 @@ type TicketView struct {
 	Answers                 []Answer
 	Picks                   []Pick
 	Findings                []FindingView
-	FindingsAsk             bool // the findings are ticked and filed from the answer form
+	FindingsAsk             bool         // the findings are ticked and filed from the answer form
+	Choices                 []ops.Choice // an agent's question's options, chosen in the answer form
+	ManyChoices             bool
 	NoteLabel, NoteSub      string
 	Callout                 *present.Callout
 	Pending                 *present.Callout // an intent the tick has still to carry out
@@ -88,7 +91,6 @@ type TicketView struct {
 	Story                   present.Story
 	More                    []More
 	Rel                     thread.Relations
-	NoteFirst               bool
 	Since                   string
 	Answer                  *AnswerView
 	AgentName               string        // the agent running now, if any
@@ -255,6 +257,7 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 		}
 	case a != nil && a.Kind == string(model.AskQuestion):
 		v.NoteLabel = "Your answer"
+		v.Choices, v.ManyChoices = ops.Choices(t)
 	case a != nil && a.Kind == string(model.AskFindings):
 		v.NoteLabel = "A note or a question"
 		v.FindingsAsk = true
@@ -283,10 +286,6 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 			v.NoteSub = "“" + x.Label + "” sends this note. " + v.NoteSub
 			break
 		}
-	}
-	for _, x := range v.Answers {
-		// on a phone the field must come before the button that needs it
-		v.NoteFirst = v.NoteFirst || x.NeedsNote
 	}
 	v.Logs = s.agentLogs(string(t.ID))
 	v.Tokens = s.ticketTokens(string(t.ID), v.Logs)

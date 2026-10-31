@@ -16,9 +16,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stevegeek/agent-factory/internal/execx"
 	"github.com/stevegeek/agent-factory/internal/fsx"
+	"github.com/stevegeek/agent-factory/internal/model"
 	"github.com/stevegeek/agent-factory/internal/ticket"
 )
 
@@ -446,6 +448,7 @@ func TestRefusalsAreTheMessageAndExitOne(t *testing.T) {
 		{[]string{"host", "T0001", "elsewhere"}, "unknown host elsewhere; known: auto, local, helper"},
 		{[]string{"merge", "T0001"}, "T0001 has no open PR"},
 		{[]string{"reply", "T0001", " "}, "reply what?"},
+		{[]string{"reply", "T0001"}, "reply what?"},
 		{[]string{"ask", "T0001", " "}, "ask what?"},
 		{[]string{"look", "T0001"}, "T0001 has no agent running"},
 		{[]string{"audit", "T9999"}, "no ticket T9999"},
@@ -553,6 +556,37 @@ func TestReplyAndAskPrintTheirLineAndWake(t *testing.T) {
 	}
 	if n := wakes(t, log); n != 2 {
 		t.Fatalf("%d wakes", n)
+	}
+}
+
+func TestReplyAndAnswerChooseAnOption(t *testing.T) {
+	f := goldenRoot(t)
+	asking := func() *ticket.Ticket {
+		return file(t, f, "gem", "needs_human", func(tk *ticket.Ticket) {
+			tk.Question = ticket.Some(ticket.Question{Text: "Which API?", Stage: "work", At: "2026-10-18T09:00:00+00:00",
+				Options: []ticket.QuestionOption{{Key: "old", Label: "The old one"}, {Key: "none", Label: "Neither", Effect: ticket.EffectDrop}}})
+			ticket.Move(tk, "needs_human", model.ReasonAgentQuestion, "work asks: Which API?", "", "", time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC))
+		})
+	}
+	tk := asking()
+	code, out, errs := f.run("", "reply", string(tk.ID), "--option", "old")
+	if code != 0 || out != string(tk.ID)+": answered; a new work run carries on\n" {
+		t.Fatalf("reply: exit %d, stdout %q, stderr %q", code, out, errs)
+	}
+	if got := load(t, f, tk.ID); got.Column != "ready" || got.Question.V.Effect != "continue" {
+		t.Fatalf("%s %+v", got.Column, got.Question)
+	}
+	tk = asking()
+	code, out, errs = f.run("", "answer", string(tk.ID), "answer", "--option", "none", "--note", "not now")
+	if code != 0 || out != string(tk.ID)+": dropped\n" {
+		t.Fatalf("answer: exit %d, stdout %q, stderr %q", code, out, errs)
+	}
+	if got := load(t, f, tk.ID); got.Column != "rejected" {
+		t.Fatalf("%s", got.Column)
+	}
+	tk = asking()
+	if code, _, errs := f.run("", "reply", string(tk.ID), "--option", "both,none"); code != 1 || !strings.Contains(errs, "not an option") {
+		t.Fatalf("an unknown key: exit %d, stderr %q", code, errs)
 	}
 }
 

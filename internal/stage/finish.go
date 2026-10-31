@@ -189,9 +189,15 @@ func (f *finisher) run(s model.Stage) (Outcome, error) {
 	r := ReadReport(f.Report)
 	if q := textx.Strip(r.Or("question", "")); info.MayAsk && r.Is("status", "question") && q != "" {
 		q = textx.Clip(q, MaxQuestion)
-		t.Question = ticket.Some(ticket.Question{Text: q, Stage: string(s), Agent: a.Name, At: clock.Stamp(f.Now)})
+		detail := string(s) + " asks: " + textx.Clip(q, 200)
+		sel, opts, err := readOptions(r)
+		if err != nil {
+			detail += "; its options were dropped: " + textx.Clip(err.Error(), 200)
+		}
+		t.Question = ticket.Some(ticket.Question{Text: q, Stage: string(s), Agent: a.Name, At: clock.Stamp(f.Now),
+			Options: opts, Select: sel})
 		f.pin()
-		f.move(model.ColNeedsHuman, model.ReasonAgentQuestion, string(s)+" asks: "+textx.Clip(q, 200), "")
+		f.move(model.ColNeedsHuman, model.ReasonAgentQuestion, detail, "")
 		return f.out, nil
 	}
 	var err error
