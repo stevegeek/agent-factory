@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/stevegeek/agent-factory/internal/fsx"
@@ -19,22 +18,9 @@ import (
 // subscription.
 type TokensView struct {
 	Windows []string
-	Groups  []TokenGroup
+	Groups  []usage.TableGroup
 	Quiet   bool // nothing recorded in the longest window
 	Partial int  // runs of the longest window read only in part
-}
-
-// TokenGroup is a block of the table: everything, by stage, by project.
-type TokenGroup struct {
-	Title string
-	Rows  []TokenRow
-}
-
-// TokenRow is one line of the table, a cell per window.
-type TokenRow struct {
-	Label string
-	Sub   bool
-	Cells []string
 }
 
 // tokensView reads usage.jsonl once, keeping only the longest window's
@@ -67,11 +53,11 @@ func (s *Server) tokensView(r *http.Request) *TokensView {
 	cells := func(f func(usage.Tokens) int64) []string {
 		out := make([]string, len(totals))
 		for i, t := range totals {
-			out[i] = tokenCell(f(t))
+			out[i] = usage.Cell(f(t))
 		}
 		return out
 	}
-	all := TokenGroup{Title: "All projects", Rows: []TokenRow{
+	all := usage.TableGroup{Title: "All projects", Rows: []usage.TableRow{
 		{Label: "Tokens", Cells: cells(usage.Tokens.Total)},
 		{Label: "Input", Sub: true, Cells: cells(func(t usage.Tokens) int64 { return t.Input })},
 		{Label: "Output", Sub: true, Cells: cells(func(t usage.Tokens) int64 { return t.Output })},
@@ -79,39 +65,8 @@ func (s *Server) tokensView(r *http.Request) *TokensView {
 		{Label: "Cache read", Sub: true, Cells: cells(func(t usage.Tokens) int64 { return t.CacheRead })},
 		{Label: "Runs", Cells: []string{strconv.Itoa(runs[0]), strconv.Itoa(runs[1]), strconv.Itoa(runs[2])}},
 	}}
-	v.Groups = []TokenGroup{all, byWindow("By stage", recs, starts, usage.ByStage), byWindow("By project", recs, starts, usage.ByProject)}
+	v.Groups = []usage.TableGroup{all, usage.ByWindow("By stage", recs, starts, usage.ByStage), usage.ByWindow("By project", recs, starts, usage.ByProject)}
 	return v
-}
-
-// byWindow is a group with a row per key, in the order of the longest
-// window (largest first), each cell that window's total for the key.
-func byWindow(title string, recs []usage.Record, starts []time.Time, by string) TokenGroup {
-	g := TokenGroup{Title: title}
-	per := make([]map[string]int64, len(starts))
-	for i, since := range starts {
-		rows, _ := usage.Sum(recs, since, by)
-		per[i] = map[string]int64{}
-		for _, row := range rows {
-			per[i][row.Key] = row.Tokens.Total()
-		}
-	}
-	longest, _ := usage.Sum(recs, starts[len(starts)-1], by)
-	for _, row := range longest {
-		tr := TokenRow{Label: row.Key}
-		for i := range starts {
-			tr.Cells = append(tr.Cells, tokenCell(per[i][row.Key]))
-		}
-		g.Rows = append(g.Rows, tr)
-	}
-	return g
-}
-
-// tokenCell is a count in thousands' groups, "–" for none.
-func tokenCell(n int64) string {
-	if n == 0 {
-		return "–"
-	}
-	return usage.Commas(n)
 }
 
 // RunTokens is one archived run's tokens on the ticket page.
@@ -147,19 +102,12 @@ func (s *Server) ticketTokens(id string, runs []string) *TicketTokens {
 		}
 		t := u.Sum()
 		sum = sum.Add(t)
-		tt.Runs = append(tt.Runs, RunTokens{Name: name, Total: usage.Commas(t.Total()), Split: tokenSplit(t), Partial: u.Partial})
+		tt.Runs = append(tt.Runs, RunTokens{Name: name, Total: usage.Commas(t.Total()), Split: usage.Split(t), Partial: u.Partial})
 		tt.Partial = tt.Partial || u.Partial
 	}
 	if len(tt.Runs) == 0 {
 		return nil
 	}
-	tt.Total, tt.Split = usage.Commas(sum.Total()), tokenSplit(sum)
+	tt.Total, tt.Split = usage.Commas(sum.Total()), usage.Split(sum)
 	return &tt
-}
-
-// tokenSplit is "input 1,010 · output 2,020 · cache write 3,000 · cache
-// read 400,000".
-func tokenSplit(t usage.Tokens) string {
-	return strings.Join([]string{"input " + usage.Commas(t.Input), "output " + usage.Commas(t.Output),
-		"cache write " + usage.Commas(t.CacheWrite), "cache read " + usage.Commas(t.CacheRead)}, " · ")
 }

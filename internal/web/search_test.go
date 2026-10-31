@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stevegeek/agent-factory/internal/ticket"
+	"github.com/stevegeek/agent-factory/internal/ticketsearch"
 )
 
 // the search box on the desk and the boards, a GET form whose
@@ -92,23 +93,8 @@ func TestSearchByTicketID(t *testing.T) {
 		t.Errorf("id with a word: %d", w.Code)
 	}
 	for _, q := range []string{"", "tt25", "T-1", "0", "T1234567", "abc"} {
-		if id, ok := idQuery(q); ok {
-			t.Errorf("idQuery(%q) = %s", q, id)
+		if id, ok := ticketsearch.IDQuery(q); ok {
+			t.Errorf("IDQuery(%q) = %s", q, id)
 		}
-	}
-}
-
-func TestSearchMatchesConversations(t *testing.T) {
-	tk := &ticket.Ticket{ID: "T0007", Title: "Plan", Body: "b", Project: "home", Column: "doing", Mode: ticket.Some("board"),
-		Comments:  []ticket.Comment{{N: 1, Text: "We agreed on the blue paint"}},
-		Questions: []ticket.BoardQuestion{{N: 1, Text: "Which wall?"}}}
-	for q, want := range map[string]bool{"blue PAINT": true, "wall": true, "green": false, "": true} {
-		hits, _ := searchTickets([]*ticket.Ticket{tk}, SearchQuery{Q: q})
-		if (len(hits) == 1) != want {
-			t.Errorf("%q: %v", q, hits)
-		}
-	}
-	if hits, _ := searchTickets([]*ticket.Ticket{tk}, SearchQuery{Kind: "change"}); len(hits) != 0 {
-		t.Errorf("a board ticket is not a change: %v", hits)
 	}
 }
