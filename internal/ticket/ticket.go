@@ -109,6 +109,10 @@ type Ticket struct {
 	// deploy and why, and the maintainer's go-ahead
 	Deploy Opt[Deploy] `json:"deploy"`
 
+	// a closed ticket whose bot/* branch the tick should delete, here and
+	// on GitHub: when it was asked for
+	PruneRequested Opt[string] `json:"prune_requested"`
+
 	tree jsonx.Value // the ordered object as read, built by New, or as last encoded
 	raw  []byte      // its bytes
 	logs []string    // queued log lines, written by the store after the save

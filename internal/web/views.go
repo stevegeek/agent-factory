@@ -200,6 +200,7 @@ func (s *Server) boardAnswers(a *ticket.Ask) []Answer {
 	return out
 }
 
+// answersFor are the answers offered on t.
 func (s *Server) answersFor(t *ticket.Ticket, a *ticket.Ask) []Answer {
 	if t.Board() {
 		return s.boardAnswers(a)
@@ -207,12 +208,13 @@ func (s *Server) answersFor(t *ticket.Ticket, a *ticket.Ask) []Answer {
 	if s.svc.Answers == nil {
 		return nil
 	}
-	out := s.svc.Answers.Answers(t, a)
-	for i := range out {
+	var out []Answer
+	for _, x := range s.svc.Answers.Answers(t, a) {
 		// a link built from ticket data is only ever http(s)
-		if out[i].Href != "" {
-			out[i].Href = present.SafeURL(out[i].Href)
+		if x.Href != "" {
+			x.Href = present.SafeURL(x.Href)
 		}
+		out = append(out, x)
 	}
 	return out
 }

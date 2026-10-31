@@ -236,7 +236,7 @@ func TestDeskAnswersWithOptions(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t, deskConfig)
 	tk := asking(w, "human", nil)
-	if a := ops.Answers(tk, &ticket.Ask{Kind: string(model.AskQuestion)}); len(a) != 1 || a[0].NeedsNote {
+	if a := ops.Answers(tk, &ticket.Ask{Kind: string(model.AskQuestion)}); len(a) == 0 || a[0].Value != "answer" || a[0].NeedsNote {
 		t.Errorf("a question with options needs no note: %+v", a)
 	}
 	kind, since := askOf(tk)

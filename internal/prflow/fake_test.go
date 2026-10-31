@@ -290,6 +290,7 @@ type fakeGit struct {
 	pushes  []push
 	pushErr error
 	headErr error
+	deleted []string
 }
 
 type push struct{ Repo, Branch, Token string }
@@ -313,6 +314,12 @@ func (g *fakeGit) BranchExists(_ context.Context, _ config.Project, branch strin
 func (g *fakeGit) Push(_ context.Context, p config.Project, branch, token string) error {
 	g.pushes = append(g.pushes, push{Repo: p.GitHub, Branch: branch, Token: token})
 	return g.pushErr
+}
+
+func (g *fakeGit) DeleteBranch(_ context.Context, _ config.Project, branch string) error {
+	g.deleted = append(g.deleted, branch)
+	delete(g.heads, "refs/heads/"+branch)
+	return nil
 }
 
 // fakeChecks is the merge queue's check (gate.Runner.StillHoldsOnMain).

@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/stevegeek/agent-factory/internal/clock"
@@ -62,4 +63,13 @@ func (in Intents) Open(_ context.Context, cfg *config.Config, t *ticket.Ticket) 
 	pr.OpenRequested = ticket.Some(in.stamp())
 	t.PR = ticket.Some(pr)
 	return "", nil
+}
+
+// Prune records that the tick should delete the closed ticket's bot/*
+// branch, here and on GitHub.
+func (in Intents) Prune(_ context.Context, _ *config.Config, t *ticket.Ticket) error {
+	if strings.HasPrefix(t.Branch.Or(""), "bot/") {
+		t.PruneRequested = ticket.Some(in.stamp())
+	}
+	return nil
 }

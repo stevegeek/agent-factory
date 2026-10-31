@@ -40,12 +40,14 @@ import (
 // runs for at most 42 minutes, under the unit's 45.
 const DefaultReserve = 32 * time.Minute
 
-// Git is what the flow needs of a project's clone: its branch heads and the
-// push. Repos is the real one; every call is guarded.
+// Git is what the flow needs of a project's clone: its branch heads, the
+// push and the deletion of a bot/* branch. Repos is the real one; every
+// call is guarded.
 type Git interface {
 	BranchChecker
 	Head(ctx context.Context, p config.Project, branch string) (string, error)
 	Push(ctx context.Context, p config.Project, branch, token string) error
+	DeleteBranch(ctx context.Context, p config.Project, branch string) error
 }
 
 // BranchChecker says whether a local branch exists (pick_branch).

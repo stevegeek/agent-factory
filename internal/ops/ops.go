@@ -54,6 +54,10 @@ type PRActions interface {
 	// records that the tick should. It returns the PR's URL, "" when it only
 	// recorded the request. An error leaves the ticket unsaved.
 	Open(ctx context.Context, cfg *config.Config, t *ticket.Ticket) (string, error)
+	// Prune deletes the bot/* branch of t, closed with no PR, here and on
+	// GitHub, or records that the tick should. It records its own events;
+	// an error leaves the branch, which the person is warned of.
+	Prune(ctx context.Context, cfg *config.Config, t *ticket.Ticket) error
 }
 
 // Branches says whether a project's clone has a branch
@@ -240,6 +244,9 @@ type call struct {
 	as   string // the person acting, "" for the maintainer
 	wake bool
 	out  []string
+	// closed is a ticket the call closed by hand, whose open questions
+	// close once it is saved
+	closed ticket.ID
 }
 
 // by is who the call records as acting: the maintainer (the first of

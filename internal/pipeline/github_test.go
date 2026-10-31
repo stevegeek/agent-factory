@@ -107,6 +107,7 @@ type prGit struct{ head string }
 func (g prGit) BranchExists(context.Context, config.Project, string) (bool, error) { return true, nil }
 func (g prGit) Head(context.Context, config.Project, string) (string, error)       { return g.head, nil }
 func (g prGit) Push(context.Context, config.Project, string, string) error         { return nil }
+func (g prGit) DeleteBranch(context.Context, config.Project, string) error         { return nil }
 
 type holds struct{}
 

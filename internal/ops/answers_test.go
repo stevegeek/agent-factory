@@ -164,8 +164,8 @@ func TestAnswersOffered(t *testing.T) {
 	if got := values(ops.Answers(t3, &ticket.Ask{Kind: "unstick", RetryColumn: ticket.Nil[string]()})); got != "drop" {
 		t.Errorf("unstick with nowhere to retry: %s", got)
 	}
-	for kind, want := range map[string]string{"design": "approve,redirect", "proposal": "file,drop", "notice": "done",
-		"question": "answer", "draft": "applied,send_back,drop"} {
+	for kind, want := range map[string]string{"design": "approve,redirect,close,drop", "proposal": "file,drop", "notice": "done",
+		"question": "answer,close,drop", "draft": "applied,send_back,drop"} {
 		if got := values(ops.Answers(t3, &ticket.Ask{Kind: kind})); got != want {
 			t.Errorf("%s: %s, want %s", kind, got, want)
 		}

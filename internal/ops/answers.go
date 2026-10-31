@@ -104,7 +104,11 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		if hasPR && pr.Number > 0 {
 			open.Label, open.Sub = fmt.Sprintf("Update PR #%d", pr.Number), "push the reworked branch; the same PR updates"
 		}
-		return []Answer{open, {Value: "send_back", Label: "Send back with a note", Sub: "a worker changes it first", NeedsNote: true, NoteFor: "to send it back"}}
+		out := []Answer{open, {Value: "send_back", Label: "Send back with a note", Sub: "a worker changes it first", NeedsNote: true, NoteFor: "to send it back"}}
+		if closable(t, a) {
+			out = append(out, closeAnswers(issueStays)...)
+		}
+		return out
 	case model.AskStart:
 		return []Answer{{Value: "start", Label: "Start", Sub: "a worker picks it up on the next tick", Primary: true},
 			{Value: "not_now", Label: "Not now", Sub: orSub(issueStays, "the ticket closes"), Danger: true}}
@@ -113,8 +117,9 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 			{Value: "reply", Label: "Ask triage again", Sub: "triage reruns with your note", NeedsNote: true, NoteFor: "to ask triage again"},
 			{Value: "drop", Label: "Drop", Sub: orSub(issueStays, "the ticket closes"), Danger: true}}
 	case model.AskDesign:
-		return []Answer{{Value: "approve", Label: "Approve the ticked ones", Sub: "each goes to Ready on its own", Primary: true},
-			{Value: "redirect", Label: "Redirect with a note", Sub: "the designer tries again", NeedsNote: true, NoteFor: "to redirect"}}
+		return append([]Answer{{Value: "approve", Label: "Approve the ticked ones", Sub: "each goes to Ready on its own", Primary: true},
+			{Value: "redirect", Label: "Redirect with a note", Sub: "the designer tries again", NeedsNote: true, NoteFor: "to redirect"}},
+			closeAnswers(issueStays)...)
 	case model.AskProposal:
 		return []Answer{{Value: "file", Label: "File it", Sub: "becomes a change ticket in Ready", Primary: true},
 			{Value: "drop", Label: "Drop", Sub: "the proposal closes; nothing is filed", Danger: true}}
@@ -145,7 +150,7 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 			{Value: "file_none", Label: "File none", Sub: "the hunt closes; nothing is filed", Danger: true}}
 	case model.AskQuestion:
 		choices, _ := Choices(t)
-		return []Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: len(choices) == 0}}
+		return append([]Answer{{Value: "answer", Label: "Send the answer", Primary: true, NeedsNote: len(choices) == 0}}, closeAnswers(issueStays)...)
 	case model.AskDeploy:
 		return []Answer{{Value: "deploy", Label: "Deploy it", Sub: "the master builds main, installs it and checks Foreman; a failed check puts the running build back", Primary: true},
 			{Value: "drop", Label: "Not now", Sub: "the ticket closes; the next merge asks again", Danger: true}}
@@ -153,6 +158,30 @@ func Answers(t *ticket.Ticket, a *ticket.Ask) []Answer {
 		return draftAnswers(t)
 	}
 	return nil
+}
+
+// closable reports an ask whose ticket the maintainer may close or drop
+// from the desk with no agent run: a question, a design, or a change
+// waiting to go out that has no PR yet (one with a PR is closed on GitHub).
+func closable(t *ticket.Ticket, a *ticket.Ask) bool {
+	switch model.AskKind(a.Kind) {
+	case model.AskQuestion, model.AskDesign:
+		return true
+	case model.AskOpen:
+		pr, ok := t.PR.Get()
+		return !ok || pr.Number == 0
+	}
+	return false
+}
+
+// closeAnswers are Close it and Drop, for an ask that is closable.
+func closeAnswers(issueStays string) []Answer {
+	drop := "no agent runs; your note says why"
+	if issueStays != "" {
+		drop += "; " + issueStays
+	}
+	return []Answer{{Value: "close", Label: "Close it", Sub: "no agent runs; your note is its result", NeedsNote: true},
+		{Value: "drop", Label: "Drop", Sub: drop, NeedsNote: true, Danger: true}}
 }
 
 // publicAnswers are the answers to a public review that blocked a change:
@@ -286,6 +315,7 @@ func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
 		}
 	}
 	var out string
+	var closed ticket.ID
 	err = s.change(ctx, in.ID, func(c *call, t *ticket.Ticket) error {
 		if err := factoryOnly(t); err != nil {
 			return err
@@ -302,8 +332,14 @@ func (s *Service) Answer(ctx context.Context, in AnswerIn) (string, error) {
 			return err
 		}
 		out = strings.Join(c.out, "\n")
+		closed = c.closed
 		return nil
 	})
+	if err == nil && closed != "" {
+		if lines := s.closeQuestions(ctx, closed); len(lines) > 0 {
+			out = strings.TrimPrefix(out+"\n"+strings.Join(lines, "\n"), "\n")
+		}
+	}
 	return out, err
 }
 
@@ -407,6 +443,15 @@ func (c *call) answer(ctx context.Context, t *ticket.Ticket, a *ticket.Ask, in A
 			act = move(string(model.ColRejected))
 		case "decide:reply":
 			need, act = true, move(string(model.ColTriage))
+		case "question:close", "design:close", "open:close", "question:drop", "design:drop", "open:drop":
+			if !closable(t, a) {
+				return refuse(BadRequest, "%q is not an answer to this ask", value)
+			}
+			col := string(model.ColDone)
+			if value == "drop" {
+				col = string(model.ColRejected)
+			}
+			need, act = true, func() error { return c.closeOut(ctx, t, col, note) }
 		case "question:answer":
 			if note == "" && len(in.Options) == 0 {
 				return ErrNoteNeeded

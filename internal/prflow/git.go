@@ -36,6 +36,11 @@ func (r Repos) Push(ctx context.Context, p config.Project, branch, token string)
 	return gitx.Writer{Repo: r.Repo(p)}.Push(ctx, branch, token)
 }
 
+// DeleteBranch deletes a local bot/* branch.
+func (r Repos) DeleteBranch(ctx context.Context, p config.Project, branch string) error {
+	return gitx.Writer{Repo: r.Repo(p)}.DeleteBranch(ctx, branch)
+}
+
 // maxBranchTries bounds pick_branch's search for a free name.
 const maxBranchTries = 10000
 
