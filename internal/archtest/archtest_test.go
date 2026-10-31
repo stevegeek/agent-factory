@@ -148,7 +148,7 @@ func TestTableMatchesThePlan(t *testing.T) {
 		"internal/gate", "internal/github", "internal/gitread", "internal/gitx", "internal/gocache", "internal/guard", "internal/helper",
 		"internal/hostrun", "internal/hosts", "internal/imagebuild", "internal/jobproto", "internal/jobtail",
 		"internal/jsonx", "internal/logx", "internal/mailbox", "internal/mcp", "internal/mdhtml", "internal/mdout", "internal/memory",
-		"internal/memstore", "internal/model", "internal/onboard", "internal/operator", "internal/ops", "internal/panel", "internal/paths", "internal/pipeline",
+		"internal/memstore", "internal/model", "internal/onboard", "internal/operator", "internal/operatorview", "internal/ops", "internal/panel", "internal/paths", "internal/pipeline",
 		"internal/podman", "internal/present", "internal/prflow", "internal/pull", "internal/push", "internal/render",
 		"internal/scion", "internal/scionread", "internal/screens", "internal/security", "internal/sshjobs", "internal/stage",
 		"internal/store", "internal/sysinfo", "internal/testkit", "internal/textx", "internal/thread", "internal/ticket", "internal/ticketapi", "internal/tiers",

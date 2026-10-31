@@ -14,6 +14,7 @@ import (
 	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/model"
+	"github.com/stevegeek/agent-factory/internal/operatorview"
 	"github.com/stevegeek/agent-factory/internal/present"
 	"github.com/stevegeek/agent-factory/internal/thread"
 	"github.com/stevegeek/agent-factory/internal/ticket"
@@ -100,7 +101,7 @@ type TicketView struct {
 	Walls     []string       // the files the change touches in its project's walls
 	// Operator is a manager ticket's drafts and actions, each with the
 	// tier the tick found and where it stands
-	Operator []present.OperatorItem
+	Operator []operatorview.OperatorItem
 	// Pass: the ticket may be given to one of People; Assignee is whose it
 	// is now ("" nobody's)
 	Pass     bool
@@ -219,7 +220,7 @@ func (s *Server) ticketView(t *ticket.Ticket, ts []*ticket.Ticket, filter string
 	a := present.AskFor(t)
 	v := &TicketView{T: t, Ask: a, Filter: filter, Story: present.BuildStory(t, all), Facts: present.Facts(t, a, all),
 		Answers: s.answersFor(t, a), Callout: present.PRCallout(t), Pending: present.Pending(t), Rel: thread.Relate(t, all),
-		CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: present.Operator(t),
+		CanNote: !model.Closed(t.Column) && !t.Board(), Walls: present.Walls(t), Operator: operatorview.Operator(t),
 		GateFail: present.GateFailed(t, a)}
 	result := t.Result.Or("")
 	if a != nil {
