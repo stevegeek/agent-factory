@@ -585,6 +585,8 @@ type Page struct {
 	Version    string
 	GitHub     string // the tick's view of GitHub (sysinfo.GitHubStatus)
 	GitHubDown bool
+	FactoryOff string // the whole factory is off: "by alice at 9 Oct 10:00"; "" while it runs
+	CanSwitch  bool   // this server can switch projects and the factory on and off
 	Settings   *SettingsView
 	System     *SystemView
 	New        *NewView
@@ -605,6 +607,10 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, p *
 		p.Version = version(ts)
 		p.GitHub, p.GitHubDown = sysinfo.GitHubStatus(s.paths)
 	}
+	if off, ok := config.FactoryOff(s.paths.ProjectSwitches()); ok { // the banner: "switched off by alice at 9 Oct 10:00"
+		p.FactoryOff = "switched off" + strings.TrimPrefix(switchNote(config.Project{Switch: &off}), "paused here")
+	}
+	p.CanSwitch = s.svc.Switch != nil
 	// a poll must not use up the message meant for the next page the person opens
 	if p.Flash == nil && r.Header.Get(liveHeader) == "" {
 		p.Flash = s.takeFlash(w, r)

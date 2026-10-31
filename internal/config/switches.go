@@ -29,6 +29,21 @@ type Switch struct {
 // does not name follows config.toml.
 type Switches map[string]Switch
 
+// FactorySwitch is the key in projects.json that switches the whole
+// factory off: every factory project is paused, and so is work that names
+// no configured project (the clock's and the manager's), until it is
+// removed. Only "off" is stored: switching the factory on removes it.
+const FactorySwitch = "*"
+
+// FactoryOff is the factory's switch in the projects.json at path, when it
+// switches the factory off. A file that does not read is no switch, as
+// Switched follows config.toml then.
+func FactoryOff(path string) (Switch, bool) {
+	sw, err := ReadSwitches(path)
+	off, ok := sw[FactorySwitch]
+	return off, err == nil && ok && !off.Enabled
+}
+
 // maxSwitchesBytes caps what ReadSwitches reads (a line per project).
 const maxSwitchesBytes = 256 << 10
 
@@ -102,7 +117,9 @@ func (c *Config) WithSwitches(sw Switches) *Config {
 	if c == nil {
 		return nil
 	}
-	hit := false
+	off, isOff := sw[FactorySwitch]
+	isOff = isOff && !off.Enabled
+	hit := isOff
 	for _, p := range c.Projects {
 		if _, ok := sw[p.Key]; ok && p.Mode == ModeFactory {
 			hit = true
@@ -113,9 +130,16 @@ func (c *Config) WithSwitches(sw Switches) *Config {
 	}
 	n := *c
 	n.Projects = slices.Clone(c.Projects)
+	if isOff {
+		n.Off = &off
+	}
 	for i := range n.Projects {
 		p := &n.Projects[i]
-		if s, ok := sw[p.Key]; ok && p.Mode == ModeFactory {
+		switch s, ok := sw[p.Key]; {
+		case p.Mode != ModeFactory:
+		case isOff:
+			p.Enabled, p.Switch = false, &off
+		case ok:
 			p.Enabled, p.Switch = s.Enabled, &s
 		}
 	}

@@ -133,3 +133,34 @@ func TestTheSwitchNeedsTheSessionsToken(t *testing.T) {
 		t.Fatalf("switched %q", got)
 	}
 }
+
+// While the factory is off every page says so with a way to switch it on,
+// System status has the switch, and the switch comes back to System.
+func TestTheFactorySwitch(t *testing.T) {
+	h, sw := switchHarness(t)
+	c := h.login()
+	if body := h.do("GET", "/system", nil, c).Body.String(); !strings.Contains(body, `value="off">Switch off`) || strings.Contains(body, "factory-off") {
+		t.Errorf("system while on:\n%s", body)
+	}
+	err := config.UpdateSwitches(context.Background(), h.srv.paths.ProjectSwitches(), func(s config.Switches) error {
+		s[config.FactorySwitch] = config.Switch{Enabled: false, By: "alice", At: "2026-10-09T10:00:00+00:00"}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, page := range []string{"/boards", "/system"} {
+		body := h.do("GET", page, nil, c).Body.String()
+		if !strings.Contains(body, `class="factory-off"`) || !strings.Contains(body, "switched off by alice at ") ||
+			!strings.Contains(body, `name="project" value="*"`) || !strings.Contains(body, `value="on">Switch on`) {
+			t.Errorf("%s while off:\n%s", page, body)
+		}
+	}
+	w := h.do("POST", "/boards/switch", url.Values{"csrf": {h.csrf(c)}, "project": {"*"}, "state": {"on"}}, c)
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/system" {
+		t.Fatalf("switch: %d %s", w.Code, w.Header().Get("Location"))
+	}
+	if got := sw.calls(); len(got) != 1 || got[0] != "* on " {
+		t.Errorf("switched %q", got)
+	}
+}

@@ -185,3 +185,31 @@ func TestSourceAppliesSwitches(t *testing.T) {
 		t.Fatal("a removed file still switches")
 	}
 }
+
+// The factory switched off pauses every factory project, over its own
+// switch, and every project config does not name; switched on, it is no
+// switch at all.
+func TestTheFactorySwitchPausesEverything(t *testing.T) {
+	c := mustParse(t, switchConfig)
+	n := c.WithSwitches(Switches{FactorySwitch: {Enabled: false, By: "alice", At: "s1"}, "b": {Enabled: true}})
+	if n.Off == nil || n.Off.By != "alice" {
+		t.Fatalf("off %+v", n.Off)
+	}
+	for _, k := range []string{"a", "b", "z"} {
+		if n.Enabled(k) {
+			t.Errorf("%s runs while the factory is off", k)
+		}
+	}
+	if a, _ := n.Project("a"); a.SwitchNote() != "paused here by alice at s1" {
+		t.Errorf("a: %q", a.SwitchNote())
+	}
+	if cp, _ := n.Project("c"); cp.Switch != nil {
+		t.Error("a board project was switched")
+	}
+	if c.Off != nil || !c.Enabled("a") {
+		t.Error("WithSwitches changed its receiver")
+	}
+	if got := c.WithSwitches(Switches{FactorySwitch: {Enabled: true}}); got != c {
+		t.Error("the factory switched on made a copy")
+	}
+}

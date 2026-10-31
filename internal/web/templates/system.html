@@ -9,6 +9,17 @@
     </ul>
   </section>
   {{end}}
+  <section class="set system" id="factory">
+    <h3>Factory</h3>
+    <p class="sys-age">{{with $.FactoryOff}}Off, {{.}}: nothing new starts on any project; running agents finish, and PRs you approve still merge.{{else}}On: each project follows its own switch on Boards.{{end}}</p>
+    {{- if $.CanSwitch}}
+    <form class="switch" method="post" action="/boards/switch">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="project" value="*">
+      {{if $.FactoryOff}}<button class="btn quiet" type="submit" name="state" value="on">Switch on</button>
+      {{else}}<button class="btn quiet" type="submit" name="state" value="off">Switch off</button>{{end}}
+    </form>
+    {{- end}}
+  </section>
   <section class="set system" id="system">
     {{if .Missing}}<p class="sys-age stale">No snapshot yet: the tick writes one at the end of every pass. If this stays, the tick is not running.</p>
     {{else if .Error}}<p class="sys-age stale">The tick's snapshot could not be read: {{.Error}}</p>

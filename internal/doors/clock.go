@@ -142,7 +142,7 @@ func scheduleProjects(cfg *config.Config, job config.Schedule) []string {
 	}
 	var out []string
 	for _, k := range keys {
-		if p, named := cfg.Project(k); !named || p.Enabled && p.Clock {
+		if p, named := cfg.Project(k); !named && cfg.Off == nil || p.Enabled && p.Clock {
 			out = append(out, k)
 		}
 	}

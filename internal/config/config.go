@@ -44,6 +44,8 @@ const maxConfigBytes = 4 << 20
 // Config is config.toml, typed. Fields hold the value in the file or the
 // Python default when the key is absent.
 type Config struct {
+	Off *Switch // the whole factory switched off (FactorySwitch in projects.json); nil when it runs
+
 	Image               string // gate and agent image tag; "" when unset
 	MaxAgents           int    // 2
 	AgentTimeoutMinutes int    // 45
@@ -573,8 +575,12 @@ func (c *Config) ProjectMode(key string) (string, bool) {
 }
 
 // Enabled is project_enabled: false only for a configured project with
-// `enabled = false`, or switched off (WithSwitches).
+// `enabled = false`, or switched off (WithSwitches); every project while
+// the whole factory is off.
 func (c *Config) Enabled(key string) bool {
+	if c.Off != nil {
+		return false
+	}
 	if p, ok := c.Project(key); ok {
 		return p.Enabled
 	}

@@ -46,6 +46,8 @@
       </details>
     </header>
     {{with .GitHub}}<p class="github{{if $.GitHubDown}} down{{end}}" role="status">{{.}}</p>{{end}}
+    {{with .FactoryOff}}<div class="factory-off" role="status"><span><b>The factory is off</b> ({{.}}): no new agents, gates, schedules or sweeps. Running agents finish, and a PR you approve still merges.</span>
+      {{- if $.CanSwitch}}<form method="post" action="/boards/switch"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="project" value="*"><button class="btn quiet" type="submit" name="state" value="on">Switch on</button></form>{{end}}</div>{{end}}
     {{- end}}
     {{template "content" .}}
   </div>

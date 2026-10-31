@@ -362,8 +362,9 @@ func (s *Server) boards(w http.ResponseWriter, r *http.Request) {
 // tick; the page comes back with what happened.
 func (s *Server) switchProject(w http.ResponseWriter, r *http.Request) {
 	project, state := r.PostFormValue("project"), r.PostFormValue("state")
+	back := map[bool]string{false: "/boards", true: "/system"}[project == config.FactorySwitch]
 	if s.svc.Switch == nil {
-		s.flashRedirect(w, r, "/boards", "error", "Switching projects is off on this server.")
+		s.flashRedirect(w, r, back, "error", "Switching projects is off on this server.")
 		return
 	}
 	var line string
@@ -373,10 +374,10 @@ func (s *Server) switchProject(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		s.logf("switch %q to %q by %s: %v", project, state, s.who(r), err)
-		s.flashRedirect(w, r, "/boards", "error", sentence(err.Error()))
+		s.flashRedirect(w, r, back, "error", sentence(err.Error()))
 		return
 	}
-	s.flashRedirect(w, r, "/boards", "ok", sentence(line))
+	s.flashRedirect(w, r, back, "ok", sentence(line))
 }
 
 // switchNote is how a project switched from Foreman reads on Boards:

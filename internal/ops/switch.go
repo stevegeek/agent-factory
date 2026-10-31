@@ -29,6 +29,9 @@ func (s *Service) SwitchProject(ctx context.Context, key, state, by string) (str
 	if err != nil {
 		return "", err
 	}
+	if key == config.FactorySwitch {
+		return s.switchFactory(ctx, cfg, state, by)
+	}
 	p, ok := cfg.Project(key)
 	switch {
 	case !ok:
@@ -76,4 +79,50 @@ func (s *Service) SwitchProject(ctx context.Context, key, state, by string) (str
 	s.logf("project %s %s by %s", key, what, by)
 	s.wake(ctx)
 	return line, nil
+}
+
+// switchFactory switches the whole factory off (config.FactorySwitch in
+// projects.json) or back on; "follow" is on. While it is off nothing new
+// starts anywhere: no agents, gates, schedules or sweeps, on any project.
+// Running agents finish, and open PRs are still followed, so a PR the
+// maintainer approves still merges.
+func (s *Service) switchFactory(ctx context.Context, cfg *config.Config, state, by string) (string, error) {
+	switch {
+	case state != SwitchOn && state != SwitchOff && state != SwitchFollow:
+		return "", refuse(BadRequest, "switch the factory on or off, not %q", state)
+	case s.Board == nil:
+		return "", errors.New("ops: no board")
+	}
+	if by == "" {
+		by = cfg.Maintainer()
+	}
+	off := state == SwitchOff
+	changed := false
+	err := config.UpdateSwitches(ctx, s.Board.Paths.ProjectSwitches(), func(sw config.Switches) error {
+		old, had := sw[config.FactorySwitch]
+		wasOff := had && !old.Enabled
+		if off {
+			sw[config.FactorySwitch] = config.Switch{Enabled: false, By: by, At: s.stamp()}
+		} else {
+			delete(sw, config.FactorySwitch)
+		}
+		changed = wasOff != off
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("switch the factory: %w", err)
+	}
+	if !changed {
+		if off {
+			return "The factory is already off", nil
+		}
+		return "The factory is already on", nil
+	}
+	if off {
+		s.logf("factory switched off by %s", by)
+		return "The factory is off: no new agents, gates, schedules or sweeps on any project. Running agents finish, and a PR you approve still merges", nil
+	}
+	s.logf("factory switched on by %s", by)
+	s.wake(ctx)
+	return "The factory is on: each project follows its own switch again", nil
 }
