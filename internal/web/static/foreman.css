@@ -295,6 +295,8 @@ details.closed { max-width: none; }
 .board { border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 6px; color: var(--ink); text-decoration: none; }
 .board:hover { border-color: var(--ink); }
 .board b { font-size: 16px; }
+.board .key { margin-top: -4px; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.board .desc { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13.5px; }
 .board .meta { color: var(--muted); font-size: 13px; }
 .board-cell { display: grid; gap: 6px; align-content: start; }
 .switch { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }

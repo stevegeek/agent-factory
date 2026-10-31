@@ -427,3 +427,148 @@ func TestSearchOpensABoardTicketByID(t *testing.T) {
 		t.Errorf("text search misses a board question")
 	}
 }
+
+func TestSummariesCarryTheProjectsLabels(t *testing.T) {
+	got := summaries(nil, map[string]ProjectState{"widgets": {Title: "Widget shop", Description: "Parts and orders", Group: "Tools"}, "plain": {}})
+	if len(got) != 2 || got[0].Name != "plain" || got[1].Name != "widgets" {
+		t.Fatalf("summaries %+v", got)
+	}
+	if w := got[1]; w.Title != "Widget shop" || w.Description != "Parts and orders" || w.Group != "Tools" {
+		t.Errorf("widgets: %+v", w)
+	}
+	if p := got[0]; p.Title != "" || p.Description != "" || p.Group != "" {
+		t.Errorf("plain: %+v", p)
+	}
+}
+
+func TestTheNoticeProjectHasDefaultLabels(t *testing.T) {
+	ts := []*ticket.Ticket{{ID: "T0001", Project: config.NoticeProject, Column: "ready"}}
+	got := summaries(ts, nil)
+	if len(got) != 1 || got[0].Title != config.NoticeTitle || got[0].Description != config.NoticeDescription || got[0].Group != "Factory" {
+		t.Fatalf("unconfigured: %+v", got)
+	}
+	got = summaries(ts, map[string]ProjectState{config.NoticeProject: {Title: "Notices"}})
+	if len(got) != 1 || got[0].Title != "Notices" || got[0].Description != "" || got[0].Group != "" {
+		t.Errorf("configured: %+v", got)
+	}
+}
+
+const groupConfig = `
+[projects.plain]
+path = "/x"
+
+[projects.widgets]
+path = "/y"
+title = "Widget shop"
+description = "Parts, orders and the stock count"
+group = "Tools"
+
+[projects.notes]
+mode = "board"
+title = "Shared notes"
+group = "Tools"
+
+[projects.loose]
+mode = "board"
+
+[projects.old]
+path = "/z"
+group = "Archive"
+`
+
+func TestBoardsListAGroupInItsOwnSection(t *testing.T) {
+	h := newHarness(t, false)
+	cfg, err := config.Parse([]byte(groupConfig))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.srv.svc.Config = fakeConfig{cfg}
+	h.srv.svc.Switch = &fakeSwitcher{}
+	c := h.login()
+	body := h.do("GET", "/boards", nil, c).Body.String()
+	last := -1
+	for _, want := range []string{`href="/b/plain"`, "Boards for agents", `href="/b/loose"`,
+		`<h3 class="boards-h">Archive</h3>`, `href="/b/old"`, `<h3 class="boards-h">Tools</h3>`, `href="/b/widgets"`} {
+		i := strings.Index(body, want)
+		if i < 0 || i < last {
+			t.Fatalf("%q missing or out of order:\n%s", want, body)
+		}
+		last = i
+	}
+	tools := body[strings.Index(body, `<h3 class="boards-h">Tools</h3>`):]
+	if !strings.Contains(tools, `href="/b/notes"`) {
+		t.Errorf("the board project is not in its group:\n%s", tools)
+	}
+	widgets := cardOf(t, body, "/b/widgets")
+	for _, want := range []string{"<b>Widget shop</b>", `<span class="key">widgets</span>`, `>Parts, orders and the stock count</span>`, `<span class="meta">`, " closed</span>"} {
+		if !strings.Contains(widgets, want) {
+			t.Errorf("the widgets card lacks %q: %s", want, widgets)
+		}
+	}
+	if cell := switchCard(body, "widgets"); !strings.Contains(cell, `action="/boards/switch"`) || !strings.Contains(cell, `name="csrf" value="`+h.csrf(c)+`"`) {
+		t.Errorf("a grouped factory project has no switch: %s", cell)
+	}
+	notes := cardOf(t, body, "/b/notes")
+	if !strings.Contains(notes, "<b>Shared notes <span") || !strings.Contains(notes, ">board<") || !strings.Contains(notes, `<span class="key">notes</span>`) ||
+		strings.Contains(notes, `class="desc"`) {
+		t.Errorf("the notes card: %s", notes)
+	}
+	if strings.Contains(switchCard(body, "notes"), `action="/boards/switch"`) {
+		t.Error("a grouped board project has a switch")
+	}
+	plain := cardOf(t, body, "/b/plain")
+	if !strings.Contains(plain, "<b>plain</b>") || strings.Contains(plain, `class="key"`) || strings.Contains(plain, `class="desc"`) {
+		t.Errorf("a project with no labels: %s", plain)
+	}
+}
+
+func TestABoardsHeadingIsItsTitle(t *testing.T) {
+	h := newHarness(t, false)
+	cfg, err := config.Parse([]byte(groupConfig))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.srv.svc.Config = fakeConfig{cfg}
+	c := h.login()
+	body := h.do("GET", "/b/widgets", nil, c).Body.String()
+	if !strings.Contains(body, "<h3>Widget shop</h3>") || !strings.Contains(body, `<p class="lede">Parts, orders and the stock count</p>`) {
+		t.Errorf("/b/widgets:\n%s", body)
+	}
+	body = h.do("GET", "/b/plain", nil, c).Body.String()
+	if !strings.Contains(body, "<h3>plain</h3>") || strings.Contains(body, `<p class="lede">`) {
+		t.Errorf("/b/plain:\n%s", body)
+	}
+}
+
+const markupConfig = `
+[projects.widgets]
+path = "/w"
+title = '<script>alert(1)</script>'
+description = '"><img src=x onerror=alert(2)>'
+group = '</h3><script>alert(3)</script>'
+`
+
+func TestProjectLabelsAreEscaped(t *testing.T) {
+	h := newHarness(t, false)
+	cfg, err := config.Parse([]byte(markupConfig))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.srv.svc.Config = fakeConfig{cfg}
+	c := h.login()
+	for _, path := range []string{"/boards", "/b/widgets"} {
+		body := h.do("GET", path, nil, c).Body.String()
+		for _, raw := range []string{"<script>alert", "<img src=x", `"><img`} {
+			if strings.Contains(body, raw) {
+				t.Errorf("%s holds the raw label %q:\n%s", path, raw, body)
+			}
+		}
+		if !strings.Contains(body, "&lt;script&gt;alert(1)&lt;/script&gt;") {
+			t.Errorf("%s lacks the escaped title:\n%s", path, body)
+		}
+	}
+	body := h.do("GET", "/boards", nil, c).Body.String()
+	if !strings.Contains(body, `<h3 class="boards-h">&lt;/h3&gt;&lt;script&gt;alert(3)&lt;/script&gt;</h3>`) {
+		t.Errorf("the group heading is not escaped:\n%s", body)
+	}
+}

@@ -582,6 +582,7 @@ type Page struct {
 	Tokens     *TokensView    // Floor metrics' Tokens section
 	Boards     []BoardSummary // factory projects
 	Agents     []BoardSummary // board projects, worked by agents
+	Groups     []BoardGroup   // projects config puts in a group, by group name
 	Board      *BoardView
 	Next       string
 	Error      string

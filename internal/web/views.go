@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stevegeek/agent-factory/internal/config"
 	"github.com/stevegeek/agent-factory/internal/desk"
 	"github.com/stevegeek/agent-factory/internal/mdhtml"
 	"github.com/stevegeek/agent-factory/internal/model"
@@ -368,6 +369,17 @@ type BoardSummary struct {
 	// the ticket API; Doing and Waiting count its open tickets in those columns
 	Board          bool
 	Doing, Waiting int
+	// Title, Description and Group are config's labels for the project;
+	// a project with a Group is listed in that group's section.
+	Title, Description, Group string
+	CSRF                      string // for the switch form, when Switchable
+}
+
+// BoardGroup is a section of the Boards tab: the projects whose config
+// names that group.
+type BoardGroup struct {
+	Name     string
+	Projects []BoardSummary
 }
 
 // Lane is one column of a project's board.
@@ -389,11 +401,12 @@ type LaneTicket struct {
 // BoardView is a project's board: open lanes, then the closed ones folded.
 // A board project's lanes are its columns, every one shown, Dropped folded.
 type BoardView struct {
-	Name   string
-	Paused bool
-	Board  bool
-	Lanes  []Lane
-	Closed []Lane
+	Name               string
+	Title, Description string
+	Paused             bool
+	Board              bool
+	Lanes              []Lane
+	Closed             []Lane
 }
 
 // ProjectState is how config has a project the viewer may see.
@@ -403,6 +416,17 @@ type ProjectState struct {
 	// Note says who switched it and when (config.Project.SwitchNote), ""
 	// when it follows config; Config is config's own "enabled" or "paused".
 	Note, Config string
+	// Title, Description and Group are the project's labels in config.
+	Title, Description, Group string
+}
+
+// labels are a project's title, description and group: config's, or the
+// defaults an unconfigured project has (the notice project's).
+func labels(name string, projects map[string]ProjectState) (title, description, group string) {
+	if st, configured := projects[name]; configured {
+		return st.Title, st.Description, st.Group
+	}
+	return config.DefaultLabels(name)
 }
 
 // maxDoneCards is how many of a board's Done tickets its lane shows, newest
@@ -422,6 +446,7 @@ func summaries(ts []*ticket.Ticket, projects map[string]ProjectState) []BoardSum
 			st := projects[name]
 			b = &BoardSummary{Name: name, Href: "/b/" + url.PathEscape(name), Paused: st.Paused && !st.Board, Board: st.Board,
 				SwitchNote: st.Note, ConfigState: st.Config}
+			b.Title, b.Description, b.Group = labels(name, projects)
 			m[name] = b
 		}
 		return b

@@ -1,9 +1,11 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -345,16 +347,30 @@ func (s *Server) boards(w http.ResponseWriter, r *http.Request) {
 	p := &Page{Title: "Boards", Tab: "boards"}
 	states := s.projectStates(r)
 	canSwitch := s.svc.Switch != nil
+	csrf := ""
+	if id := auth.IdentityOf(r); id != "" {
+		csrf = s.auth.CSRF(id)
+	}
+	groups := map[string]int{}
 	for _, b := range summaries(ts, states) {
 		if st, configured := states[b.Name]; canSwitch && configured && !st.Board {
-			b.Switchable = true
+			b.Switchable, b.CSRF = true, csrf
 		}
-		if b.Board {
+		if b.Group != "" {
+			i, ok := groups[b.Group]
+			if !ok {
+				i = len(p.Groups)
+				groups[b.Group] = i
+				p.Groups = append(p.Groups, BoardGroup{Name: b.Group})
+			}
+			p.Groups[i].Projects = append(p.Groups[i].Projects, b)
+		} else if b.Board {
 			p.Agents = append(p.Agents, b)
 		} else {
 			p.Boards = append(p.Boards, b)
 		}
 	}
+	sort.SliceStable(p.Groups, func(i, j int) bool { return p.Groups[i].Name < p.Groups[j].Name })
 	s.render(w, r, "boards", p, ts)
 }
 
@@ -419,7 +435,12 @@ func (s *Server) projectStates(r *http.Request) map[string]ProjectState {
 			out[p.Key] = ProjectState{Paused: !p.Enabled, Note: switchNote(p), Config: p.ConfigState()}
 		case string(model.ModeBoard):
 			out[p.Key] = ProjectState{Board: true}
+		default:
+			continue
 		}
+		st := out[p.Key]
+		st.Title, st.Description, st.Group = p.Title, p.Description, p.Group
+		out[p.Key] = st
 	}
 	return out
 }
@@ -451,7 +472,8 @@ func (s *Server) boardPage(w http.ResponseWriter, r *http.Request) {
 	}
 	bv.Paused = st.Paused
 	s.pinWaits(bv)
-	s.render(w, r, "board", &Page{Title: name, Tab: "boards", Board: bv}, ts)
+	bv.Title, bv.Description, _ = labels(name, projects)
+	s.render(w, r, "board", &Page{Title: cmp.Or(bv.Title, name), Tab: "boards", Board: bv}, ts)
 }
 
 func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {

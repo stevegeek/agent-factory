@@ -38,6 +38,22 @@ const (
 	DefaultPerson = "maintainer"
 )
 
+// The notice project's labels when its table does not set them.
+const (
+	NoticeTitle       = "Factory notices"
+	NoticeDescription = "Tool updates, deploy results and questions from the factory itself"
+	NoticeGroup       = "Factory"
+)
+
+// DefaultLabels is the title, description and group a project has when
+// its table sets none of them.
+func DefaultLabels(key string) (title, description, group string) {
+	if key == NoticeProject {
+		return NoticeTitle, NoticeDescription, NoticeGroup
+	}
+	return "", "", ""
+}
+
 // maxConfigBytes caps what Load and Source read (the live config is ~20 KB).
 const maxConfigBytes = 4 << 20
 
@@ -407,6 +423,9 @@ type Project struct {
 	// Kind is the project's `kind` as written; "" when absent (KindOf
 	// then infers one from the language, which fills no keys).
 	Kind string
+	// Title, Description and Group label the project in Foreman: a
+	// project with a Group gets a section of its own on the boards page.
+	Title, Description, Group string
 
 	Path, GitHub, Base          string
 	Install, Test, Lint         string
